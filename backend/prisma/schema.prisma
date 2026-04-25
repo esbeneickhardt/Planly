@@ -1,0 +1,121 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  realName     String?
+  phone        String?
+  avatarEmoji  String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  teams             TeamMember[]
+  ownedTasks        Task[]       @relation("TaskOwner")
+  completedTasks    Task[]       @relation("TaskCompleter")
+  createdTasks      Task[]       @relation("TaskCreator")
+  completedSubtasks Subtask[]    @relation("SubtaskCompleter")
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members  TeamMember[]
+  products Product[]
+}
+
+model TeamMember {
+  teamId String
+  userId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  emoji       String?
+  description String?
+  deadline    DateTime
+  teamId      String
+  createdAt   DateTime @default(now())
+
+  team          Team           @relation(fields: [teamId], references: [id])
+  tasks         Task[]
+  kanbanColumns KanbanColumn[]
+}
+
+model KanbanColumn {
+  id        String   @id @default(uuid())
+  productId String
+  label     String
+  color     String   @default("#64748b")
+  order     Int
+  isDone    Boolean  @default(false)
+  statusKey String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, statusKey])
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  productId   String
+  name        String
+  description String?
+  status      String    @default("backlog")
+  ownerId     String?
+  color       String?
+  deadline    DateTime?
+  canvasX     Float?
+  canvasY     Float?
+  completedBy String?
+  completedAt DateTime?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+
+  product    Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  owner      User?            @relation("TaskOwner", fields: [ownerId], references: [id])
+  completer  User?            @relation("TaskCompleter", fields: [completedBy], references: [id])
+  creator    User             @relation("TaskCreator", fields: [createdBy], references: [id])
+  subtasks   Subtask[]
+  dependsOn  TaskDependency[] @relation("dependent")
+  requiredBy TaskDependency[] @relation("prerequisite")
+}
+
+model TaskDependency {
+  dependentId    String
+  prerequisiteId String
+
+  dependent    Task @relation("dependent",    fields: [dependentId],    references: [id], onDelete: Cascade)
+  prerequisite Task @relation("prerequisite", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+
+  @@id([dependentId, prerequisiteId])
+}
+
+model Subtask {
+  id          String    @id @default(uuid())
+  taskId      String
+  name        String
+  completed   Boolean   @default(false)
+  completedBy String?
+  completedAt DateTime?
+  order       Int
+
+  task      Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completer User? @relation("SubtaskCompleter", fields: [completedBy], references: [id])
+}

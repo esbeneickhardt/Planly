@@ -1,0 +1,76 @@
+export type Status = string;
+
+export interface KanbanColumn {
+  id: string;
+  productId: string;
+  label: string;
+  color: string;
+  order: number;
+  isDone: boolean;
+  statusKey: string;
+  createdAt: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  realName?: string;
+  avatarEmoji?: string;
+  phone?: string;
+  createdAt: string;
+}
+
+export interface TeamMember {
+  userId: string;
+  user: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  createdAt: string;
+  members: TeamMember[];
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  emoji?: string;
+  description?: string;
+  deadline: string;
+  teamId: string;
+  createdAt: string;
+  team?: Team;
+}
+
+export interface Subtask {
+  id: string;
+  taskId: string;
+  name: string;
+  completed: boolean;
+  completedBy?: string;
+  completedAt?: string;
+  order: number;
+}
+
+export interface Task {
+  id: string;
+  productId: string;
+  name: string;
+  description?: string;
+  status: Status;
+  ownerId?: string;
+  owner?: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+  color?: string;
+  deadline?: string;
+  canvasX?: number;
+  canvasY?: number;
+  completedBy?: string;
+  completedAt?: string;
+  createdBy: string;
+  createdAt: string;
+  subtasks: Subtask[];
+  dependsOn: { prerequisiteId: string }[];
+  requiredBy: { dependentId: string }[];
+}
