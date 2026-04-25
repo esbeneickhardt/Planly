@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #f4f4f8;
+    --surface: #ffffff;
+    --surface-2: #f0f0f6;
+    --border: #e2e2ec;
+    --border-2: #d0d0de;
+    --text: #111128;
+    --text-2: #5a5a7a;
+    --text-3: #9090b0;
+    --brand: #7c3aed;
+    --brand-hover: #6d28d9;
+    --brand-subtle: #ede9fe;
+  }
+
+  .dark {
+    --bg: #0c0c18;
+    --surface: #131320;
+    --surface-2: #1a1a2e;
+    --border: #252538;
+    --border-2: #333350;
+    --text: #f0f0ff;
+    --text-2: #9090b8;
+    --text-3: #5a5a78;
+    --brand: #8b5cf6;
+    --brand-hover: #7c3aed;
+    --brand-subtle: #1e1040;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .surface {
+    background-color: var(--surface);
+    border-color: var(--border);
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 text-sm font-medium text-white rounded-lg transition-all;
+    background-color: var(--brand);
+  }
+  .btn-primary:hover {
+    background-color: var(--brand-hover);
+  }
+  .btn-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 text-sm font-medium rounded-lg transition-all;
+    background-color: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--border-2);
+  }
+
+  .input {
+    @apply w-full text-sm rounded-lg px-3 py-2 outline-none transition-all;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 15%, transparent);
+  }
+  .input::placeholder {
+    color: var(--text-3);
+  }
+
+  .card {
+    @apply rounded-xl;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .label {
+    @apply block text-xs font-semibold mb-1.5 uppercase tracking-wide;
+    color: var(--text-3);
+  }
+}
+
+/* React Flow customization */
+.react-flow__node {
+  cursor: pointer;
+}
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 2px solid var(--surface);
+}
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+.react-flow__background {
+  background-color: var(--bg) !important;
+}
+.dark .react-flow__minimap {
+  background-color: var(--surface);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
