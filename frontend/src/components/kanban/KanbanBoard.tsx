@@ -6,8 +6,10 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Task, KanbanColumn as KanbanColumnType, User } from '../../types';
+import type { Sprint } from '../../api/client';
 import { api } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
+import { usePermission } from '../../context/PermissionContext';
 import { useColorLegend } from '../../hooks/useColorLegend';
 import KanbanColumn from './KanbanColumn';
 import KanbanCard from './KanbanCard';
@@ -18,6 +20,8 @@ const FILTER_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec489
 
 export default function KanbanBoard() {
   const { activeProduct, tasks, refreshTasks, createTask } = useProduct();
+  const { canWrite } = usePermission();
+  const readOnly = !canWrite('kanban');
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -34,8 +38,10 @@ export default function KanbanBoard() {
   // Multi-select filters
   const [ownerFilters, setOwnerFilters] = useState<Set<string>>(new Set());
   const [colorFilters, setColorFilters] = useState<Set<string>>(new Set());
+  const [sprintFilter, setSprintFilter] = useState<string | null>(null);
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
 
   const { legend: colorLegend } = useColorLegend(activeProduct?.id ?? '');
 
@@ -50,6 +56,10 @@ export default function KanbanBoard() {
   );
 
   useEffect(() => { api.users.list().then(setUsers).catch(() => {}); }, []);
+
+  useEffect(() => {
+    if (activeProduct) api.sprints.list(activeProduct.id).then(setSprints).catch(() => {});
+  }, [activeProduct?.id]);
 
   const loadColumns = useCallback(async () => {
     if (!activeProduct) return;
@@ -71,17 +81,24 @@ export default function KanbanBoard() {
 
   const visibleStatusKeys = useMemo(() => new Set(columns.map((c) => c.statusKey)), [columns]);
 
-  const hasFilters = ownerFilters.size > 0 || colorFilters.size > 0;
+  const hasFilters = ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null;
 
-  const filteredTasks = useMemo(() =>
-    tasks.filter((t) => {
+  const filteredTasks = useMemo(() => {
+    const sprintTaskIds = sprintFilter && sprintFilter !== 'none'
+      ? new Set(sprints.find((s) => s.id === sprintFilter)?.taskIds ?? [])
+      : null;
+    const allSprintTaskIds = sprintFilter === 'none'
+      ? new Set(sprints.flatMap((s) => s.taskIds))
+      : null;
+    return tasks.filter((t) => {
       if (!visibleStatusKeys.has(t.status)) return false;
       if (ownerFilters.size > 0 && (!t.ownerId || !ownerFilters.has(t.ownerId))) return false;
       if (colorFilters.size > 0 && (!t.color || !colorFilters.has(t.color))) return false;
+      if (sprintFilter === 'none' && allSprintTaskIds?.has(t.id)) return false;
+      if (sprintFilter && sprintFilter !== 'none' && !sprintTaskIds?.has(t.id)) return false;
       return true;
-    }),
-    [tasks, visibleStatusKeys, ownerFilters, colorFilters]
-  );
+    });
+  }, [tasks, visibleStatusKeys, ownerFilters, colorFilters, sprintFilter, sprints]);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
@@ -138,7 +155,7 @@ export default function KanbanBoard() {
     const { active, over } = event;
     setActiveTask(null);
     setActiveColumn(null);
-    if (!over || !activeProduct) return;
+    if (!over || !activeProduct || readOnly) return;
 
     const activeType = active.data.current?.type;
 
@@ -160,26 +177,54 @@ export default function KanbanBoard() {
       return;
     }
 
-    // ── Task move ──
+    // ── Task drag ──
     const taskId = active.id as string;
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // over.id might be a column statusKey or another task id
-    const targetStatusKey = (() => {
-      const col = columns.find((c) => c.statusKey === (over.id as string));
-      if (col) return col.statusKey;
-      const otherTask = tasks.find((t) => t.id === (over.id as string));
-      return otherTask?.status ?? null;
-    })();
+    const overId = over.id as string;
+    const overColumn = columns.find((c) => c.statusKey === overId);
+    const overTask = tasks.find((t) => t.id === overId);
+    const targetStatusKey = overColumn?.statusKey ?? overTask?.status ?? null;
+    if (!targetStatusKey) return;
 
-    if (!targetStatusKey || task.status === targetStatusKey) return;
-    if (!task.ownerId && targetStatusKey === 'todo') {
+    const statusChanged = task.status !== targetStatusKey;
+    if (statusChanged && !task.ownerId && targetStatusKey === 'todo') {
       showToast('Assign an owner before moving to To Do.');
       return;
     }
+
+    // Build the new ordered list for the target column
+    const sorted = (s: string) =>
+      tasks.filter((t) => t.status === s && t.id !== taskId).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
+
+    let newColumnTasks: Task[];
+    if (overTask && overTask.id !== taskId) {
+      // Dropped on a specific task — insert at its position
+      const peers = sorted(targetStatusKey);
+      const insertAt = peers.findIndex((t) => t.id === overTask.id);
+      peers.splice(insertAt === -1 ? peers.length : insertAt, 0, task);
+      newColumnTasks = peers;
+    } else if (!statusChanged) {
+      // Same-column drop on the column droppable — move to end
+      const peers = sorted(targetStatusKey);
+      peers.push(task);
+      newColumnTasks = peers;
+    } else {
+      // Cross-column drop on the column droppable — append at end
+      const peers = sorted(targetStatusKey);
+      peers.push(task);
+      newColumnTasks = peers;
+    }
+
     try {
-      await api.tasks.update(activeProduct.id, taskId, { status: targetStatusKey });
+      if (statusChanged) {
+        await api.tasks.update(activeProduct.id, taskId, { status: targetStatusKey });
+      }
+      await api.tasks.reorder(
+        activeProduct.id,
+        newColumnTasks.map((t, i) => ({ taskId: t.id, order: i })),
+      );
       await refreshTasks();
     } catch (err) { showToast((err as Error).message); }
   }
@@ -236,134 +281,133 @@ export default function KanbanBoard() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* ── Header ── */}
-      <div className="flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+      {/* ── Filters ── */}
+      <div className="px-6 pt-4 pb-3 flex-shrink-0 flex items-center gap-3 flex-wrap">
+        {/* Task count */}
+        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+          {filteredTasks.length}{hasFilters ? ' filtered' : ''} tasks
+        </span>
 
-        {/* Title row */}
-        <div className="px-6 flex items-center gap-3 min-w-0" style={{ height: 56 }}>
-          {activeProduct.emoji && <span className="text-xl flex-shrink-0">{activeProduct.emoji}</span>}
-          <h1 className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{activeProduct.name}</h1>
-          <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
-            {filteredTasks.length}{hasFilters ? ' filtered' : ''}
-          </span>
-        </div>
+        <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
 
-        {/* Filter bar — New task sits at the far right, vertically aligned with filters */}
-        <div className="px-6 pb-2.5 flex items-center gap-3">
-          {/* filters take the left side */}
-          <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
-          {/* Reset */}
-          <button
-            onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); }}
-            className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
-            style={{
-              color: hasFilters ? 'var(--brand)' : 'var(--text-3)',
-              background: hasFilters ? 'var(--brand-subtle)' : 'transparent',
-              border: `1px solid ${hasFilters ? 'var(--brand)' : 'var(--border)'}`,
-              opacity: hasFilters ? 1 : 0.45,
-              cursor: hasFilters ? 'pointer' : 'default',
-            }}
-          >
-            ↺ Reset
-          </button>
+        {/* Reset */}
+        <button
+          onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); setSprintFilter(null); }}
+          className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+          style={{
+            color: hasFilters ? 'var(--brand)' : 'var(--text-3)',
+            background: hasFilters ? 'var(--brand-subtle)' : 'transparent',
+            border: `1px solid ${hasFilters ? 'var(--brand)' : 'var(--border)'}`,
+            opacity: hasFilters ? 1 : 0.45,
+            cursor: hasFilters ? 'pointer' : 'default',
+          }}
+        >
+          ↺ Reset
+        </button>
 
-          {/* Owner filter — compact dropdown */}
-          {taskOwners.length > 0 && (
-            <div className="relative flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs" style={{ color: 'var(--text-3)' }}>Owner</span>
-              <button
-                onClick={() => setShowOwnerDropdown((v) => !v)}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all"
-                style={{
-                  background: ownerFilters.size > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                  color: ownerFilters.size > 0 ? 'var(--brand)' : 'var(--text-2)',
-                  border: `1px solid ${ownerFilters.size > 0 ? 'var(--brand)' : 'var(--border)'}`,
-                }}
+        {/* Owner filter */}
+        {taskOwners.length > 0 && (
+          <div className="relative flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Owner</span>
+            <button
+              onClick={() => setShowOwnerDropdown((v) => !v)}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all"
+              style={{
+                background: ownerFilters.size > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                color: ownerFilters.size > 0 ? 'var(--brand)' : 'var(--text-2)',
+                border: `1px solid ${ownerFilters.size > 0 ? 'var(--brand)' : 'var(--border)'}`,
+              }}
+            >
+              {ownerFilters.size === 0 ? 'All' : `${ownerFilters.size} selected`}
+              <span className="text-[10px] ml-0.5">▾</span>
+            </button>
+            {showOwnerDropdown && (
+              <div
+                className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 py-1 overflow-hidden"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }}
+                onMouseLeave={() => setShowOwnerDropdown(false)}
               >
-                {ownerFilters.size === 0 ? 'All' : `${ownerFilters.size} selected`}
-                <span className="text-[10px] ml-0.5">▾</span>
-              </button>
-
-              {showOwnerDropdown && (
-                <div
-                  className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 py-1 overflow-hidden"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }}
-                  onMouseLeave={() => setShowOwnerDropdown(false)}
-                >
-                  {taskOwners.map((u) => {
-                    const active = ownerFilters.has(u.id);
-                    return (
-                      <button
-                        key={u.id}
-                        onClick={() => toggleOwner(u.id)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
-                        style={{ background: active ? 'var(--brand-subtle)' : 'transparent', color: active ? 'var(--brand)' : 'var(--text)' }}
-                        onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        <span>{u.avatarEmoji ?? '👤'}</span>
-                        <span className="flex-1 text-left truncate">{u.realName ?? u.username}</span>
-                        {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
-                      </button>
-                    );
-                  })}
-                  {ownerFilters.size > 0 && (
-                    <div style={{ borderTop: '1px solid var(--border)' }}>
-                      <button
-                        onClick={() => { setOwnerFilters(new Set()); setShowOwnerDropdown(false); }}
-                        className="w-full text-left px-3 py-1.5 text-xs transition-colors"
-                        style={{ color: 'var(--text-3)' }}
-                      >
-                        Clear owners
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Color dots — with legend tooltips */}
-          {taskColors.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs" style={{ color: 'var(--text-3)' }}>Color</span>
-              <div className="flex items-center gap-3">
-                {taskColors.map((c) => {
-                  const active = colorFilters.has(c);
-                  const legendName = colorLegend[c];
+                {taskOwners.map((u) => {
+                  const active = ownerFilters.has(u.id);
                   return (
                     <button
-                      key={c}
-                      onClick={() => toggleColor(c)}
-                      className="w-4 h-4 rounded-full flex-shrink-0 transition-all"
-                      style={{
-                        background: c,
-                        outline: active ? `2px solid ${c}` : 'none',
-                        outlineOffset: active ? '2px' : '0',
-                        boxShadow: active ? `0 0 0 1px var(--surface)` : 'none',
-                      }}
-                      title={legendName || c}
-                    />
+                      key={u.id}
+                      onClick={() => toggleOwner(u.id)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
+                      style={{ background: active ? 'var(--brand-subtle)' : 'transparent', color: active ? 'var(--brand)' : 'var(--text)' }}
+                      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span>{u.avatarEmoji ?? '👤'}</span>
+                      <span className="flex-1 text-left truncate">{u.realName ?? u.username}</span>
+                      {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
+                    </button>
                   );
                 })}
-              </div>
-            </div>
-          )}
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {toast && (
-              <div className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                {toast}
+                {ownerFilters.size > 0 && (
+                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                    <button onClick={() => { setOwnerFilters(new Set()); setShowOwnerDropdown(false); }} className="w-full text-left px-3 py-1.5 text-xs transition-colors" style={{ color: 'var(--text-3)' }}>
+                      Clear owners
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-            <button
-              onClick={() => setShowNewTask(true)}
-              className="btn-primary text-xs px-3 py-1 flex-shrink-0"
-            >
-              + New task
-            </button>
           </div>
-        </div>
+        )}
+
+        {/* Color dots */}
+        {taskColors.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Color</span>
+            <div className="flex items-center gap-2">
+              {taskColors.map((c) => {
+                const active = colorFilters.has(c);
+                return (
+                  <button
+                    key={c}
+                    onClick={() => toggleColor(c)}
+                    className="w-4 h-4 rounded-full flex-shrink-0 transition-all"
+                    style={{
+                      background: c,
+                      outline: active ? `2px solid ${c}` : 'none',
+                      outlineOffset: active ? '2px' : '0',
+                      boxShadow: active ? `0 0 0 1px var(--surface)` : 'none',
+                    }}
+                    title={colorLegend[c] || c}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Sprint filter */}
+        {sprints.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sprint</span>
+            <select
+              value={sprintFilter ?? ''}
+              onChange={(e) => setSprintFilter(e.target.value === '' ? null : e.target.value)}
+              className="text-xs px-2 py-0.5 rounded transition-all"
+              style={{
+                background: sprintFilter !== null ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                color: sprintFilter !== null ? 'var(--brand)' : 'var(--text-2)',
+                border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
+              }}
+            >
+              <option value="">All tasks</option>
+              <option value="none">No sprint</option>
+              {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {toast && (
+          <div className="text-xs px-2 py-1 rounded-lg ml-auto" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+            {toast}
+          </div>
+        )}
       </div>
 
       {/* ── Board ── */}
@@ -396,17 +440,19 @@ export default function KanbanBoard() {
                 </div>
               ))}
 
-              {/* Add column — same width as columns, header height only */}
-              <button
-                onClick={() => setShowNewColumn(true)}
-                className="w-72 flex-shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm"
-                style={{ height: 44, borderColor: 'var(--border)', color: 'var(--text-3)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)'; }}
-              >
-                <span className="text-base leading-none">+</span>
-                <span>Add column</span>
-              </button>
+              {/* Add column — hidden for read-only users */}
+              {!readOnly && (
+                <button
+                  onClick={() => setShowNewColumn(true)}
+                  className="w-72 flex-shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm"
+                  style={{ height: 44, borderColor: 'var(--border)', color: 'var(--text-3)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)'; }}
+                >
+                  <span className="text-base leading-none">+</span>
+                  <span>Add column</span>
+                </button>
+              )}
             </div>
           </div>
         </SortableContext>
@@ -436,8 +482,10 @@ export default function KanbanBoard() {
         <TaskDetailPanel
           task={selectedTask}
           columns={columns}
+          readOnly={readOnly}
           onClose={() => setSelectedTask(null)}
           onUpdated={async (updated) => { setSelectedTask(updated); await refreshTasks(); }}
+          onDeleted={async () => { setSelectedTask(null); await refreshTasks(); }}
         />
       )}
 

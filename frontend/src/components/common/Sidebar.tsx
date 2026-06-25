@@ -1,31 +1,33 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
+import { usePermission } from '../../context/PermissionContext';
 import { useTheme } from '../../context/ThemeContext';
-import { useColorLegend } from '../../hooks/useColorLegend';
 import { api } from '../../api/client';
 import Modal from './Modal';
+import DiscoverProjectsModal from './DiscoverProjectsModal';
 import type { Product } from '../../types';
 
 const NAV = [
-  { to: '/kanban', label: 'Kanban',  icon: '▦' },
-  { to: '/backlog', label: 'Backlog', icon: '☰' },
-  { to: '/canvas',  label: 'Canvas',  icon: '◈' },
-  { to: '/gantt',   label: 'Gantt',   icon: '📅' },
+  { to: '/kanban',   label: 'Kanban',   icon: '▦',  tab: 'kanban' },
+  { to: '/backlog',  label: 'Backlog',  icon: '☰',  tab: 'backlog' },
+  { to: '/canvas',   label: 'Plan',     icon: '◈',  tab: 'canvas' },
+  { to: '/gantt',    label: 'Gantt',    icon: '📅', tab: 'gantt' },
+  { to: '/settings', label: 'Settings', icon: '⚙',  tab: 'categories' },
 ];
 
 interface NewProductForm { name: string; emoji: string; description: string; deadline: string; }
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const { user, logout } = useAuth();
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
+  const { canRead, levelFor, canManage } = usePermission();
   const { theme, toggle } = useTheme();
-  const { legend, update: updateLegend, toggleEnabled, colors, enabledColors } = useColorLegend(activeProduct?.id ?? '');
-
+  const navigate = useNavigate();
   const [showNewProduct, setShowNewProduct] = useState(false);
-  const [showColorLegend, setShowColorLegend] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showDiscover, setShowDiscover] = useState(false);
   const [productsOpen, setProductsOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [productForm, setProductForm] = useState<NewProductForm>({ name: '', emoji: '', description: '', deadline: '' });
@@ -36,6 +38,7 @@ export default function Sidebar() {
   const [savingProfile, setSavingProfile] = useState(false);
 
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
+  const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < new Date()).length;
 
   function setField(f: keyof NewProductForm) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -89,29 +92,38 @@ export default function Sidebar() {
         <aside className="w-12 flex-shrink-0 flex flex-col items-center py-3 gap-1" style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
           {/* Brand / expand */}
           <button
-            onClick={() => setCollapsed(false)}
+            onClick={() => { setCollapsed(false); navigate('/kanban'); }}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold mb-2 flex-shrink-0 transition-opacity hover:opacity-80"
             style={{ background: 'var(--brand)' }}
-            title="Expand sidebar"
+            title="Go to Kanban"
           >P</button>
 
           {/* Nav icons */}
-          {NAV.map(({ to, label, icon }) => (
+          {NAV.filter(({ tab }) => tab === 'categories' ? canManage : canRead(tab)).map(({ to, label, icon, tab }) => (
             <NavLink
               key={to}
               to={to}
-              title={label}
+              title={levelFor(tab) === 'read' ? `${label} (read-only)` : label}
               className={({ isActive }) =>
-                `w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all ${
+                `w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all relative ${
                   isActive ? 'bg-[var(--surface-2)] text-[var(--text)]' : 'text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
                 }`
               }
             >
               {icon}
+              {levelFor(tab) === 'read' && <span style={{ position: 'absolute', top: 0, right: 0, fontSize: 8 }}>🔒</span>}
             </NavLink>
           ))}
-
           <div className="flex-1" />
+
+          {/* Find projects icon */}
+          <button
+            onClick={() => setShowDiscover(true)}
+            title="Find projects"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+          >
+            🔭
+          </button>
 
           {/* Avatar */}
           <button
@@ -123,6 +135,7 @@ export default function Sidebar() {
             {user?.avatarEmoji ?? '👤'}
           </button>
         </aside>
+        {showDiscover && <DiscoverProjectsModal onClose={() => setShowDiscover(false)} />}
       </>
     );
   }
@@ -132,8 +145,12 @@ export default function Sidebar() {
       <aside className="w-56 flex-shrink-0 flex flex-col" style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
         {/* Brand */}
         <div className="px-4 py-3.5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ background: 'var(--brand)' }}>P</div>
-          <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Planly</span>
+          <button onClick={() => navigate('/kanban')} className="flex items-center gap-2 flex-shrink-0 transition-opacity hover:opacity-80" title="Go to Kanban">
+            <div className="w-7 h-7 rounded-lg flex-shrink-0 overflow-hidden">
+              <img src="/icons/icon.jpg" alt="Planly" className="w-[125%] h-[125%] object-cover" style={{ margin: '-12.5%' }} />
+            </div>
+            <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Planly</span>
+          </button>
           <div className="ml-auto flex items-center gap-1">
             <button onClick={toggle} className="text-base opacity-50 hover:opacity-100 transition-opacity" title="Toggle theme">
               {theme === 'dark' ? '☀️' : '🌙'}
@@ -146,6 +163,7 @@ export default function Sidebar() {
             >‹</button>
           </div>
         </div>
+
 
         {/* Products */}
         <div className="px-3 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -183,6 +201,12 @@ export default function Sidebar() {
                 >
                   {seeding ? '⏳' : '✦'} Load example projects
                 </button>
+                <button onClick={() => setShowDiscover(true)} className="w-full text-left text-xs px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+                >
+                  🔭 Find projects
+                </button>
               </div>
             ) : (
               <div className="space-y-0.5">
@@ -202,14 +226,16 @@ export default function Sidebar() {
                       {p.emoji && <span className="flex-shrink-0">{p.emoji}</span>}
                       <span className="truncate">{p.name}</span>
                     </button>
-                    <button
-                      onClick={() => handleDeleteProduct(p)}
-                      className="absolute right-1.5 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-xs flex-shrink-0"
-                      style={{ color: 'var(--text-3)' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                      title={`Delete ${p.name}`}
-                    >✕</button>
+                    {p.ownerId === user?.id && (
+                      <button
+                        onClick={() => handleDeleteProduct(p)}
+                        className="absolute right-1.5 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-xs flex-shrink-0"
+                        style={{ color: 'var(--text-3)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+                        title={`Delete ${p.name}`}
+                      >✕</button>
+                    )}
                   </div>
                 ))}
                 <button onClick={handleLoadExamples} disabled={seeding} className="w-full text-left text-xs px-2 py-1 transition-colors" style={{ color: 'var(--text-3)' }}
@@ -218,6 +244,12 @@ export default function Sidebar() {
                 >
                   {seeding ? '⏳ Loading…' : '✦ Load examples'}
                 </button>
+                <button onClick={() => setShowDiscover(true)} className="w-full text-left text-xs px-2 py-1 transition-colors" style={{ color: 'var(--text-3)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+                >
+                  🔭 Find projects
+                </button>
               </div>
             )
           )}
@@ -225,7 +257,7 @@ export default function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-3 space-y-0.5">
-          {NAV.map(({ to, label, icon }) => (
+          {NAV.filter(({ tab }) => tab === 'categories' ? canManage : canRead(tab)).map(({ to, label, icon, tab }) => (
             <NavLink
               key={to}
               to={to}
@@ -240,27 +272,35 @@ export default function Sidebar() {
               <span className="flex items-center gap-2.5">
                 <span className="text-sm opacity-60">{icon}</span>
                 {label}
+                {levelFor(tab) === 'read' && <span className="text-[10px] opacity-50">🔒</span>}
               </span>
-              {label === 'Backlog' && unassignedCount > 0 && (
+              {tab === 'backlog' && unassignedCount > 0 && (
                 <span className="text-xs text-white rounded-full px-1.5 py-0.5 leading-none font-medium" style={{ background: '#ef4444' }}>
                   {unassignedCount}
+                </span>
+              )}
+              {tab === 'gantt' && overdueCount > 0 && (
+                <span className="text-xs text-white rounded-full px-1.5 py-0.5 leading-none font-medium" style={{ background: '#ef4444' }}>
+                  {overdueCount}
                 </span>
               )}
             </NavLink>
           ))}
 
-          {/* Color legend */}
-          {activeProduct && (
-            <button onClick={() => setShowColorLegend(true)}
-              className="w-full text-left px-2 py-1.5 rounded-lg text-sm flex items-center gap-2.5 mt-2 transition-colors"
-              style={{ color: 'var(--text-3)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--text)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}
-            >
-              <span className="text-sm opacity-60">🎨</span>
-              Color legend
-            </button>
-          )}
+          {/* Search */}
+          <button onClick={onOpenSearch}
+            className="w-full text-left px-2 py-1.5 rounded-lg text-sm flex items-center justify-between gap-2.5 mt-2 transition-colors"
+            style={{ color: 'var(--text-3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--text)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="text-sm opacity-60">🔍</span>
+              Search
+            </span>
+            <kbd className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>⌘K</kbd>
+          </button>
+
         </nav>
 
         {/* User section */}
@@ -324,43 +364,6 @@ export default function Sidebar() {
         </Modal>
       )}
 
-      {/* Color legend modal */}
-      {showColorLegend && (
-        <Modal title="Color legend" onClose={() => setShowColorLegend(false)}>
-          <div className="space-y-3">
-            <p className="text-sm" style={{ color: 'var(--text-2)' }}>
-              Toggle which colors are available in this project and give them a label.
-            </p>
-            {colors.map((color) => {
-              const on = enabledColors.includes(color);
-              return (
-                <div key={color} className="flex items-center gap-3">
-                  <button
-                    onClick={() => toggleEnabled(color)}
-                    title={on ? 'Disable color' : 'Enable color'}
-                    className="w-6 h-6 rounded-full flex-shrink-0 transition-all"
-                    style={{
-                      background: color,
-                      opacity: on ? 1 : 0.25,
-                      boxShadow: on ? `0 0 0 2px var(--surface), 0 0 0 3px ${color}` : 'none',
-                    }}
-                  />
-                  <input
-                    type="text"
-                    value={legend[color] ?? ''}
-                    onChange={(e) => updateLegend(color, e.target.value)}
-                    className="input flex-1"
-                    placeholder="e.g. Bug, Feature, Design…"
-                    style={{ opacity: on ? 1 : 0.4 }}
-                  />
-                </div>
-              );
-            })}
-            <p className="text-xs pt-2" style={{ color: 'var(--text-3)' }}>Click a dot to toggle it on/off. Saved automatically.</p>
-          </div>
-        </Modal>
-      )}
-
       {/* Profile modal */}
       {showProfile && (
         <Modal title="Edit profile" onClose={() => setShowProfile(false)} width="max-w-sm">
@@ -395,6 +398,9 @@ export default function Sidebar() {
           </form>
         </Modal>
       )}
+
+      {/* Discover projects modal */}
+      {showDiscover && <DiscoverProjectsModal onClose={() => setShowDiscover(false)} />}
     </>
   );
 }

@@ -12,6 +12,7 @@ interface ProductContextValue {
   refreshProducts: () => Promise<void>;
   createProduct: (data: { name: string; emoji?: string; description?: string; deadline: string }) => Promise<Product>;
   createTask: (data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string }) => Promise<Task>;
+  patchTaskPositions: (updates: { taskId: string; canvasX: number; canvasY: number }[]) => void;
 }
 
 const ProductContext = createContext<ProductContextValue | null>(null);
@@ -37,6 +38,16 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     setTasks(ts);
   }, [activeProduct]);
 
+  // Update canvas positions in the local task cache without a round-trip.
+  // Called after drag-stop and auto-layout so the next mount reads correct positions.
+  const patchTaskPositions = useCallback((updates: { taskId: string; canvasX: number; canvasY: number }[]) => {
+    const map = new Map(updates.map((u) => [u.taskId, u]));
+    setTasks((prev) => prev.map((t) => {
+      const u = map.get(t.id);
+      return u ? { ...t, canvasX: u.canvasX, canvasY: u.canvasY } : t;
+    }));
+  }, []);
+
   useEffect(() => {
     if (user) refreshProducts();
   }, [user, refreshProducts]);
@@ -53,7 +64,6 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }
 
   async function createProduct(data: { name: string; emoji?: string; description?: string; deadline: string }) {
-    // Auto-create a team for the product
     const team = await api.teams.create({ name: `${data.name} Team`, memberIds: user ? [user.id] : [] });
     const product = await api.products.create({ ...data, teamId: team.id });
     await refreshProducts();
@@ -69,7 +79,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ProductContext.Provider value={{ products, activeProduct, tasks, setActiveProduct, refreshTasks, refreshProducts, createProduct, createTask }}>
+    <ProductContext.Provider value={{ products, activeProduct, tasks, setActiveProduct, refreshTasks, refreshProducts, createProduct, createTask, patchTaskPositions }}>
       {children}
     </ProductContext.Provider>
   );

@@ -13,26 +13,56 @@ function progressColor(m: MilestoneResult): string {
   if (m.status === 'done') return '#10b981';
   const now = new Date();
   const deadline = new Date(m.deadline);
-  const overdue = deadline < now;
-  if (overdue) return m.progress >= 0.5 ? '#f59e0b' : '#ef4444';
+  if (deadline < now) return m.progress >= 0.5 ? '#f59e0b' : '#ef4444';
   return m.progress >= 0.75 ? '#10b981' : m.progress >= 0.4 ? '#f59e0b' : '#ef4444';
-}
-
-function monthsBetween(start: Date, end: Date): Date[] {
-  const months: Date[] = [];
-  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
-  const last = new Date(end.getFullYear(), end.getMonth(), 1);
-  while (cur <= last) {
-    months.push(new Date(cur));
-    cur.setMonth(cur.getMonth() + 1);
-  }
-  return months;
 }
 
 function pct(date: Date, start: Date, end: Date): number {
   const total = end.getTime() - start.getTime();
   if (total <= 0) return 0;
   return Math.max(0, Math.min(1, (date.getTime() - start.getTime()) / total));
+}
+
+// Adaptive time markers — max ~15 labels regardless of zoom level
+function getTimeMarkers(start: Date, end: Date): { date: Date; label: string }[] {
+  const spanDays = (end.getTime() - start.getTime()) / 86_400_000;
+  const MAX = 15;
+
+  // Monthly / quarterly / annual
+  if (spanDays > MAX * 14) {
+    let monthStep = 1;
+    if (spanDays > MAX * 360) monthStep = 12;
+    else if (spanDays > MAX * 90) monthStep = 6;
+    else if (spanDays > MAX * 30) monthStep = 3;
+    const out: { date: Date; label: string }[] = [];
+    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cur <= last) {
+      out.push({
+        date: new Date(cur),
+        label: monthStep >= 12
+          ? cur.getFullYear().toString()
+          : cur.toLocaleDateString('en', { month: 'short', ...(monthStep >= 3 ? { year: '2-digit' } : {}) }),
+      });
+      cur.setMonth(cur.getMonth() + monthStep);
+    }
+    return out;
+  }
+
+  // Daily / every-N-days / weekly / bi-weekly
+  let intervalDays = 1;
+  if (spanDays > MAX * 7) intervalDays = 14;
+  else if (spanDays > MAX * 3) intervalDays = 7;
+  else if (spanDays > MAX) intervalDays = Math.ceil(spanDays / MAX);
+
+  const out: { date: Date; label: string }[] = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  if (intervalDays >= 7) cur.setDate(cur.getDate() + ((1 - cur.getDay() + 7) % 7)); // snap to Monday
+  while (cur <= end) {
+    out.push({ date: new Date(cur), label: cur.toLocaleDateString('en', { month: 'short', day: 'numeric' }) });
+    cur.setDate(cur.getDate() + intervalDays);
+  }
+  return out;
 }
 
 export default function GanttPage() {
@@ -42,13 +72,25 @@ export default function GanttPage() {
   const [loading, setLoading] = useState(false);
   const [hoveredMilestone, setHoveredMilestone] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [viewStart, setViewStart] = useState<Date | null>(null);
+  const [viewEnd, setViewEnd] = useState<Date | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef({ vs: new Date(), ve: new Date(), fullStart: new Date(), fullEnd: new Date() });
+  const dragState = useRef<{ startX: number; vs: Date; ve: Date } | null>(null);
 
   useEffect(() => {
     if (!activeProduct) return;
     setLoading(true);
     api.milestones.list(activeProduct.id)
-      .then(({ milestones: ms, product: p }) => { setMilestones(ms); setProduct(p); })
+      .then(({ milestones: ms, product: p }) => {
+        setMilestones(ms);
+        setProduct(p);
+        const s = new Date(p?.createdAt ?? activeProduct.createdAt);
+        const e = new Date(p?.deadline ?? activeProduct.deadline);
+        setViewStart(s);
+        setViewEnd(e);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [activeProduct, tasks]);
@@ -63,7 +105,11 @@ export default function GanttPage() {
   }
 
   if (loading) {
-    return <div className="h-full flex items-center justify-center"><div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }} /></div>;
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
+      </div>
+    );
   }
 
   if (milestones.length === 0) {
@@ -76,189 +122,256 @@ export default function GanttPage() {
     );
   }
 
-  const start = new Date(product?.createdAt ?? activeProduct.createdAt);
-  const end = new Date(product?.deadline ?? activeProduct.deadline);
+  const fullStart = new Date(product?.createdAt ?? activeProduct.createdAt);
+  const fullEnd = new Date(product?.deadline ?? activeProduct.deadline);
   const today = new Date();
-  const todayPct = pct(today, start, end);
-  const months = monthsBetween(start, end);
+
+  const vs = viewStart ?? fullStart;
+  const ve = viewEnd ?? fullEnd;
+
+  viewRef.current = { vs, ve, fullStart, fullEnd };
+
+  const todayPct = pct(today, vs, ve);
+  const markers = getTimeMarkers(vs, ve);
+
+  function applyZoom(factor: number, anchorRatio = 0.5) {
+    const span = ve.getTime() - vs.getTime();
+    const newSpan = span * factor;
+    const minSpan = 3 * 86_400_000;
+    if (newSpan < minSpan) return;
+    const anchor = vs.getTime() + anchorRatio * span;
+    let newStart = anchor - anchorRatio * newSpan;
+    const newEnd = anchor + (1 - anchorRatio) * newSpan;
+    if (newStart < fullStart.getTime()) newStart = fullStart.getTime();
+    setViewStart(new Date(newStart));
+    setViewEnd(new Date(newEnd));
+  }
+
+  const attachWheel = (el: HTMLDivElement | null) => {
+    (timelineRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (!el) return;
+    if ((el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached) return;
+    (el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached = true;
+    el.addEventListener('wheel', (e: WheelEvent) => {
+      e.preventDefault();
+      const { vs, ve, fullStart } = viewRef.current;
+      const rect = el.getBoundingClientRect();
+      const span = ve.getTime() - vs.getTime();
+
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        // Horizontal scroll → pan
+        const deltaMs = (e.deltaX / rect.width) * span * 1.5;
+        let newStart = vs.getTime() + deltaMs;
+        const newEnd = ve.getTime() + deltaMs;
+        if (newStart < fullStart.getTime()) newStart = fullStart.getTime();
+        viewRef.current.vs = new Date(newStart);
+        viewRef.current.ve = new Date(newEnd);
+        setViewStart(new Date(newStart));
+        setViewEnd(new Date(newEnd));
+        return;
+      }
+
+      // Vertical scroll → zoom
+      const mouseRatio = (e.clientX - rect.left) / rect.width;
+      const factor = e.deltaY > 0 ? 1.25 : 0.8;
+      const newSpan = span * factor;
+      const minSpan = 3 * 86_400_000;
+      if (newSpan < minSpan) return;
+      const anchor = vs.getTime() + mouseRatio * span;
+      let newStart = anchor - mouseRatio * newSpan;
+      const newEnd = anchor + (1 - mouseRatio) * newSpan;
+      if (newStart < fullStart.getTime()) newStart = fullStart.getTime();
+      viewRef.current.vs = new Date(newStart);
+      viewRef.current.ve = new Date(newEnd);
+      setViewStart(new Date(newStart));
+      setViewEnd(new Date(newEnd));
+    }, { passive: false });
+  };
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    dragState.current = { startX: e.clientX, vs, ve };
+    setIsDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragState.current) return;
+    const dx = e.clientX - dragState.current.startX;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const span = dragState.current.ve.getTime() - dragState.current.vs.getTime();
+    const deltaMs = -(dx / rect.width) * span;
+    let newStart = dragState.current.vs.getTime() + deltaMs;
+    const newEnd = dragState.current.ve.getTime() + deltaMs;
+    if (newStart < fullStart.getTime()) newStart = fullStart.getTime();
+    setViewStart(new Date(newStart));
+    setViewEnd(new Date(newEnd));
+  }
+
+  function handlePointerUp() { dragState.current = null; setIsDragging(false); }
+
+  const isFullView = vs.getTime() <= fullStart.getTime() && ve.getTime() >= fullEnd.getTime();
+  const ROW_H = 44;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div className="flex items-center gap-3">
-          {activeProduct.emoji && <span className="text-xl">{activeProduct.emoji}</span>}
-          <div>
-            <h1 className="text-base font-semibold" style={{ color: 'var(--text)' }}>{activeProduct.name} — Gantt</h1>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-              {milestones.length} milestone{milestones.length !== 1 ? 's' : ''} · Deadline {new Date(activeProduct.deadline).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-      </div>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="flex min-h-full">
 
-      {/* Gantt body */}
-      <div className="flex-1 overflow-auto">
-        <div className="flex min-h-full" style={{ minWidth: 700 }}>
-          {/* Left: names */}
-          <div className="flex-shrink-0 w-56" style={{ borderRight: '1px solid var(--border)' }}>
-            {/* Header spacer */}
-            <div className="h-10 px-4 flex items-end pb-2" style={{ borderBottom: '1px solid var(--border)' }}>
+          {/* Left: names (sticky) */}
+          <div className="flex-shrink-0 w-52 sticky left-0 z-10" style={{ borderRight: '1px solid var(--border)', background: 'var(--surface)' }}>
+            {/* Header with zoom controls */}
+            <div className="h-10 px-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
               <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Milestone</span>
-            </div>
-            {/* Milestone name rows */}
-            {milestones.map((m) => (
-              <div
-                key={m.id}
-                className="h-16 px-4 flex items-center gap-2 cursor-pointer transition-colors"
-                style={{ borderBottom: '1px solid var(--border)', background: hoveredMilestone === m.id ? 'var(--surface-2)' : 'transparent' }}
-                onMouseEnter={() => setHoveredMilestone(m.id)}
-                onMouseLeave={() => setHoveredMilestone(null)}
-                onClick={() => {
-                  const task = tasks.find((t) => t.id === m.id);
-                  if (task) setSelectedTask(task);
-                }}
-              >
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: progressColor(m) }} />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{m.name}</p>
-                  {m.owner && (
-                    <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>
-                      {m.owner.avatarEmoji ?? '👤'} {m.owner.username}
-                    </p>
-                  )}
-                </div>
+              <div className="flex items-center gap-0.5">
+                <button onClick={() => applyZoom(0.5)} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom in">+</button>
+                <button onClick={() => applyZoom(2)} disabled={isFullView} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom out">−</button>
+                <button onClick={() => { setViewStart(fullStart); setViewEnd(fullEnd); }} disabled={isFullView} className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>Fit</button>
               </div>
-            ))}
+            </div>
+
+            {milestones.map((m) => {
+              const color = progressColor(m);
+              return (
+                <div
+                  key={m.id}
+                  className="px-3 flex flex-col justify-center cursor-pointer transition-colors"
+                  style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredMilestone === m.id ? 'var(--surface-2)' : 'transparent' }}
+                  onMouseEnter={() => setHoveredMilestone(m.id)}
+                  onMouseLeave={() => setHoveredMilestone(null)}
+                  onClick={() => { const t = tasks.find((t) => t.id === m.id); if (t) setSelectedTask(t); }}
+                >
+                  <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{m.name}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                    <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                      {m.doneDependencies}/{m.totalDependencies || 0} done
+                    </span>
+                    {m.owner && (
+                      <span className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>· {m.owner.avatarEmoji ?? '👤'} {m.owner.username}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
             {/* Product row */}
-            <div className="h-16 px-4 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--brand)' }} />
-              <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{activeProduct.name}</p>
+            <div className="px-3 flex flex-col justify-center" style={{ height: ROW_H, borderBottom: '1px solid var(--border)' }}>
+              <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{activeProduct.emoji} {activeProduct.name}</p>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-3)' }}>Deadline {new Date(activeProduct.deadline).toLocaleDateString()}</p>
             </div>
           </div>
 
           {/* Right: timeline */}
-          <div className="flex-1 overflow-x-auto" ref={timelineRef}>
-            <div style={{ minWidth: 500, position: 'relative' }}>
-              {/* Month axis */}
-              <div className="h-10 relative" style={{ borderBottom: '1px solid var(--border)' }}>
-                {months.map((month) => {
-                  const pos = pct(month, start, end) * 100;
+          <div
+            className="flex-1 overflow-hidden select-none"
+            style={{ paddingRight: 24, cursor: isDragging ? 'grabbing' : 'grab' }}
+            ref={attachWheel}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          >
+            <div style={{ position: 'relative', height: '100%' }}>
+
+              {/* Time axis */}
+              <div className="h-10 relative overflow-hidden" style={{ borderBottom: '1px solid var(--border)' }}>
+                {markers.map((marker) => {
+                  const pos = pct(marker.date, vs, ve) * 100;
+                  if (pos < 0 || pos > 97) return null;
                   return (
                     <div
-                      key={month.toISOString()}
-                      className="absolute top-0 h-full flex items-end pb-1.5"
-                      style={{ left: `${pos}%`, paddingLeft: 4 }}
+                      key={marker.date.toISOString()}
+                      className="absolute top-0 h-full flex items-end pb-2"
+                      style={{ left: `${pos}%`, paddingLeft: 4, pointerEvents: 'none' }}
                     >
-                      <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-                        {month.toLocaleDateString('en', { month: 'short', year: '2-digit' })}
-                      </span>
+                      <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{marker.label}</span>
                     </div>
                   );
                 })}
-                {/* Today marker (top axis) */}
-                {todayPct >= 0 && todayPct <= 1 && (
-                  <div className="absolute top-0 h-full flex items-end pb-1.5" style={{ left: `${todayPct * 100}%`, zIndex: 2 }}>
-                    <span className="text-xs font-semibold px-1 rounded" style={{ background: 'var(--brand)', color: 'white', fontSize: 10 }}>Today</span>
+                {todayPct > 0 && todayPct < 1 && (
+                  <div className="absolute top-0 h-full flex items-end pb-1.5" style={{ left: `${todayPct * 100}%`, zIndex: 2, pointerEvents: 'none' }}>
+                    <span className="text-[10px] font-semibold px-1 rounded" style={{ background: 'var(--brand)', color: 'white' }}>Today</span>
                   </div>
                 )}
               </div>
 
-              {/* Milestone rows */}
+              {/* Rows */}
               <div style={{ position: 'relative' }}>
                 {/* Today line */}
-                {todayPct >= 0 && todayPct <= 1 && (
-                  <div
-                    style={{
-                      position: 'absolute', top: 0, bottom: 0, left: `${todayPct * 100}%`,
-                      width: 2, background: 'var(--brand)', zIndex: 3, opacity: 0.7,
-                    }}
-                  />
+                {todayPct > 0 && todayPct < 1 && (
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPct * 100}%`, width: 1, background: 'var(--brand)', zIndex: 3, opacity: 0.5, pointerEvents: 'none' }} />
                 )}
 
                 {milestones.map((m) => {
-                  const deadlinePct = pct(new Date(m.deadline), start, end) * 100;
+                  const deadlinePct = pct(new Date(m.deadline), vs, ve) * 100;
                   const fillWidth = m.progress * deadlinePct;
                   const color = progressColor(m);
                   const isOverdue = new Date(m.deadline) < today && m.status !== 'done';
 
+                  // Sort: active tasks first, done tasks at bottom
+                  const sortedDeps = [...m.dependencyList].sort((a, b) => {
+                    if (a.status === 'done' && b.status !== 'done') return 1;
+                    if (a.status !== 'done' && b.status === 'done') return -1;
+                    return 0;
+                  });
+
                   return (
                     <div
                       key={m.id}
-                      className="h-16 relative flex items-center px-4"
-                      style={{ borderBottom: '1px solid var(--border)', background: hoveredMilestone === m.id ? 'var(--surface-2)' : 'transparent' }}
+                      className="relative flex items-center"
+                      style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredMilestone === m.id ? 'var(--surface-2)' : 'transparent' }}
                       onMouseEnter={() => setHoveredMilestone(m.id)}
                       onMouseLeave={() => setHoveredMilestone(null)}
                     >
                       {/* Bar track */}
                       <div
                         className="absolute rounded-full"
-                        style={{
-                          left: '1%',
-                          width: `${Math.max(deadlinePct - 1, 2)}%`,
-                          height: 12,
-                          background: `${color}22`,
-                          border: `1px solid ${color}44`,
-                        }}
+                        style={{ left: '0.5%', width: `${Math.max(deadlinePct - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: `${color}25`, border: `1px solid ${color}40` }}
                       />
                       {/* Progress fill */}
-                      {fillWidth > 1 && (
-                        <div
-                          className="absolute rounded-full"
-                          style={{
-                            left: '1%',
-                            width: `${fillWidth - 1}%`,
-                            height: 12,
-                            background: color,
-                            opacity: 0.85,
-                          }}
-                        />
+                      {fillWidth > 0.5 && (
+                        <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(fillWidth - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: color, opacity: 0.8 }} />
                       )}
-                      {/* Deadline flag */}
-                      <div
-                        className="absolute flex items-center gap-1"
-                        style={{ left: `${deadlinePct}%`, top: '50%', transform: 'translate(-50%, -50%)', zIndex: 2 }}
-                      >
-                        <span style={{ fontSize: 16 }}>{isOverdue ? '⚠️' : '⚑'}</span>
-                      </div>
-                      {/* Label */}
-                      <div
-                        className="absolute"
-                        style={{ left: `${Math.min(deadlinePct + 2, 85)}%`, top: '50%', transform: 'translateY(-50%)' }}
-                      >
-                        <span className="text-xs font-medium whitespace-nowrap" style={{ color }}>
-                          {m.doneDependencies}/{m.totalDependencies || '—'} done
-                        </span>
-                      </div>
+                      {/* Deadline marker — vertical line + diamond */}
+                      {deadlinePct >= 0 && deadlinePct <= 100 && (
+                        <div style={{ position: 'absolute', left: `${deadlinePct}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
+                          <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: color, opacity: 0.6, transform: 'translateX(-50%)' }} />
+                          <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: isOverdue ? '#ef4444' : color, transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
+                        </div>
+                      )}
 
                       {/* Hover popover */}
                       {hoveredMilestone === m.id && m.dependencyList.length > 0 && (
                         <div
-                          className="absolute z-20 rounded-xl shadow-xl p-4"
-                          style={{
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                            top: '100%',
-                            left: '2%',
-                            minWidth: 240,
-                            maxWidth: 320,
-                          }}
+                          className="absolute z-20 rounded-xl shadow-xl p-3"
+                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', top: '100%', left: '2%', minWidth: 220, maxWidth: 300 }}
+                          onMouseEnter={() => setHoveredMilestone(m.id)}
                         >
-                          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
-                            Dependencies ({m.doneDependencies}/{m.totalDependencies} done)
+                          <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
+                            {m.doneDependencies}/{m.totalDependencies} tasks done
                           </p>
-                          <div className="space-y-1 max-h-40 overflow-auto">
-                            {m.dependencyList.map((d) => (
-                              <div key={d.id} className="flex items-center gap-2 text-xs">
-                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: STATUS_COLOR[d.status] ?? '#64748b' }} />
-                                <span className="flex-1 truncate" style={{ color: 'var(--text)', textDecoration: d.status === 'done' ? 'line-through' : 'none', opacity: d.status === 'done' ? 0.5 : 1 }}>{d.name}</span>
-                                {!d.ownerId && d.status !== 'done' && <span className="text-[10px] px-1 rounded" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>unassigned</span>}
-                              </div>
-                            ))}
+                          <div className="space-y-1 max-h-48 overflow-auto">
+                            {sortedDeps.map((d, i) => {
+                              const isDone = d.status === 'done';
+                              const isFirstDone = isDone && (i === 0 || sortedDeps[i - 1].status !== 'done');
+                              return (
+                                <div key={d.id}>
+                                  {isFirstDone && m.doneDependencies > 0 && m.doneDependencies < m.totalDependencies && (
+                                    <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>Completed</div>
+                                  )}
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: STATUS_COLOR[d.status] ?? '#64748b' }} />
+                                    <span className="flex-1 truncate" style={{ color: 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.45 : 1 }}>{d.name}</span>
+                                    {!d.ownerId && !isDone && <span className="text-[10px] px-1 rounded flex-shrink-0" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>unassigned</span>}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                           {m.unassignedDeps > 0 && (
-                            <p className="text-xs mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
-                              ⚠ {m.unassignedDeps} unassigned task{m.unassignedDeps !== 1 ? 's' : ''} blocking this milestone
+                            <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
+                              ⚠ {m.unassignedDeps} unassigned blocking
                             </p>
                           )}
                         </div>
@@ -267,26 +380,15 @@ export default function GanttPage() {
                   );
                 })}
 
-                {/* Product row */}
-                <div className="h-16 relative flex items-center px-4" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <div
-                    className="absolute rounded-full"
-                    style={{
-                      left: '1%',
-                      width: `${Math.max(pct(end, start, end) * 100 - 1, 2)}%`,
-                      height: 12,
-                      background: 'rgba(124,58,237,0.15)',
-                      border: '1px solid rgba(124,58,237,0.3)',
-                    }}
-                  />
-                  <div
-                    className="absolute flex items-center"
-                    style={{ right: '2%', top: '50%', transform: 'translateY(-50%)' }}
-                  >
-                    <span className="text-xs font-semibold" style={{ color: 'var(--brand)' }}>
-                      {new Date(activeProduct.deadline).toLocaleDateString()}
-                    </span>
-                  </div>
+                {/* Product deadline row */}
+                <div className="relative flex items-center" style={{ height: ROW_H, borderBottom: '1px solid var(--border)' }}>
+                  <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)' }} />
+                  {pct(fullEnd, vs, ve) >= 0 && pct(fullEnd, vs, ve) <= 1 && (
+                    <div style={{ position: 'absolute', left: `${pct(fullEnd, vs, ve) * 100}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
+                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: 'var(--brand)', opacity: 0.6, transform: 'translateX(-50%)' }} />
+                      <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: 'var(--brand)', transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -298,7 +400,13 @@ export default function GanttPage() {
         <TaskDetailPanel
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
-          onUpdated={async () => { setSelectedTask(null); if (activeProduct) { const r = await api.milestones.list(activeProduct.id); setMilestones(r.milestones); } }}
+          onUpdated={async () => {
+            setSelectedTask(null);
+            if (activeProduct) {
+              const r = await api.milestones.list(activeProduct.id);
+              setMilestones(r.milestones);
+            }
+          }}
         />
       )}
     </div>

@@ -1,5 +1,15 @@
 export type Status = string;
 
+export interface Sprint {
+  id: string;
+  productId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  taskIds: string[];
+}
+
 export interface KanbanColumn {
   id: string;
   productId: string;
@@ -17,6 +27,7 @@ export interface User {
   email: string;
   realName?: string;
   avatarEmoji?: string;
+  avatarUrl?: string;
   phone?: string;
   createdAt: string;
 }
@@ -24,6 +35,7 @@ export interface User {
 export interface TeamMember {
   userId: string;
   user: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+  role?: string;
 }
 
 export interface Team {
@@ -40,6 +52,7 @@ export interface Product {
   description?: string;
   deadline: string;
   teamId: string;
+  ownerId?: string | null;
   createdAt: string;
   team?: Team;
 }
@@ -64,6 +77,7 @@ export interface Task {
   owner?: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
   color?: string;
   deadline?: string;
+  kanbanOrder: number;
   canvasX?: number;
   canvasY?: number;
   completedBy?: string;

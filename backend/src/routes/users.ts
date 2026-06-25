@@ -3,14 +3,14 @@ import bcrypt from 'bcryptjs';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 
-const USER_SELECT = { id: true, username: true, email: true, realName: true, avatarEmoji: true, phone: true, createdAt: true };
+const USER_SELECT = { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, createdAt: true };
 
 export async function userRoutes(app: FastifyInstance) {
   app.get('/api/users', { preHandler: requireAuth }, async (_req, reply) => {
     reply.send(await prisma.user.findMany({ select: USER_SELECT }));
   });
 
-  app.post('/api/users', { preHandler: requireAuth }, async (req, reply) => {
+  app.post('/api/users', async (req, reply) => {
     const { username, email, password, realName, phone, avatarEmoji } = req.body as {
       username: string; email: string; password: string;
       realName?: string; phone?: string; avatarEmoji?: string;
@@ -19,7 +19,7 @@ export async function userRoutes(app: FastifyInstance) {
 
     const passwordHash = await bcrypt.hash(password, 12);
     try {
-      const user = await prisma.user.create({ data: { username, email, passwordHash, realName, phone, avatarEmoji }, select: USER_SELECT });
+      const user = await prisma.user.create({ data: { username: username.trim(), email: email.toLowerCase().trim(), passwordHash, realName, phone, avatarEmoji }, select: USER_SELECT });
       reply.status(201).send(user);
     } catch {
       reply.status(409).send({ error: 'Username or email already taken' });
@@ -35,9 +35,9 @@ export async function userRoutes(app: FastifyInstance) {
 
   app.patch('/api/users/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { realName, phone, avatarEmoji } = req.body as { realName?: string; phone?: string; avatarEmoji?: string };
+    const { realName, phone, avatarEmoji, avatarUrl } = req.body as { realName?: string; phone?: string; avatarEmoji?: string; avatarUrl?: string | null };
     try {
-      const user = await prisma.user.update({ where: { id }, data: { realName, phone, avatarEmoji }, select: USER_SELECT });
+      const user = await prisma.user.update({ where: { id }, data: { realName, phone, avatarEmoji, avatarUrl }, select: USER_SELECT });
       reply.send(user);
     } catch {
       reply.status(404).send({ error: 'Not found' });

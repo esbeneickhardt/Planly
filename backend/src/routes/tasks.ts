@@ -14,7 +14,18 @@ export async function taskRoutes(app: FastifyInstance) {
   // List tasks for a product
   app.get('/api/products/:productId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    reply.send(await prisma.task.findMany({ where: { productId }, include: TASK_INCLUDE }));
+    reply.send(await prisma.task.findMany({ where: { productId }, include: TASK_INCLUDE, orderBy: { kanbanOrder: 'asc' } }));
+  });
+
+  // Reorder tasks within / across columns
+  app.patch('/api/products/:productId/tasks/reorder', { preHandler: requireAuth }, async (req, reply) => {
+    const { updates } = req.body as { updates: { taskId: string; order: number }[] };
+    await prisma.$transaction(
+      updates.map(({ taskId, order }) =>
+        prisma.task.update({ where: { id: taskId }, data: { kanbanOrder: order } }),
+      ),
+    );
+    reply.send({ ok: true });
   });
 
   // Create task

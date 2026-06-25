@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 export default function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ username: '', email: '', password: '', realName: '' });
+  const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '', realName: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,6 +17,10 @@ export default function RegisterPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
     setLoading(true);
     try {
       await api.users.create({ username: form.username, email: form.email, password: form.password, realName: form.realName || undefined });
@@ -33,8 +37,8 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4" style={{ background: 'var(--brand)' }}>
-            <span className="text-white text-xl font-bold">P</span>
+          <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
+            <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
           </div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Create account</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>Start planning your project</p>
@@ -56,6 +60,10 @@ export default function RegisterPage() {
           <div>
             <label className="label">Password</label>
             <input type="password" required minLength={6} value={form.password} onChange={set('password')} className="input" placeholder="••••••••" />
+          </div>
+          <div>
+            <label className="label">Confirm password</label>
+            <input type="password" required minLength={6} value={form.confirmPassword} onChange={set('confirmPassword')} className="input" placeholder="••••••••" />
           </div>
           {error && (
             <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
