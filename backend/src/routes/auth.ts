@@ -9,7 +9,7 @@ export async function authRoutes(app: FastifyInstance) {
     const { email, password } = req.body as { email: string; password: string };
     if (!email || !password) return reply.status(400).send({ error: 'Email and password required' });
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
@@ -33,7 +33,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, phone: true },
+      select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true },
     });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     reply.send(user);

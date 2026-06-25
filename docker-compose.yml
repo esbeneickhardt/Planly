@@ -21,6 +21,9 @@ services:
       DATABASE_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
       JWT_SECRET: ${JWT_SECRET}
       FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-80}
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - uploads_data:/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -37,3 +40,4 @@ services:
 
 volumes:
   db_data:
+  uploads_data:

@@ -81,4 +81,17 @@ export async function teamRoutes(app: FastifyInstance) {
       reply.status(404).send({ error: 'Not found' });
     }
   });
+
+  app.patch('/api/teams/:id/members/:userId/role', { preHandler: requireAuth }, async (req, reply) => {
+    const { id: teamId, userId } = req.params as { id: string; userId: string };
+    const { role } = req.body as { role: string };
+    if (!['member', 'co-owner'].includes(role)) return reply.status(400).send({ error: 'Invalid role' });
+    // Find any product in this team owned by the requester
+    const team = await prisma.team.findUnique({ where: { id: teamId }, include: { products: true } });
+    if (!team) return reply.status(404).send({ error: 'Not found' });
+    const isOwner = team.products.some(p => p.ownerId === req.user.userId);
+    if (!isOwner) return reply.status(403).send({ error: 'Only the product owner can change roles' });
+    await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role } });
+    reply.send({ ok: true });
+  });
 }

@@ -15,14 +15,20 @@ model User {
   realName     String?
   phone        String?
   avatarEmoji  String?
+  avatarUrl    String?
   passwordHash String
   createdAt    DateTime @default(now())
 
   teams             TeamMember[]
-  ownedTasks        Task[]       @relation("TaskOwner")
-  completedTasks    Task[]       @relation("TaskCompleter")
-  createdTasks      Task[]       @relation("TaskCreator")
-  completedSubtasks Subtask[]    @relation("SubtaskCompleter")
+  ownedTasks        Task[]           @relation("TaskOwner")
+  completedTasks    Task[]           @relation("TaskCompleter")
+  createdTasks      Task[]           @relation("TaskCreator")
+  completedSubtasks Subtask[]        @relation("SubtaskCompleter")
+  canvasSnapshots   CanvasSnapshot[]
+  tabPermissions    TabPermission[]
+  messages          Message[]
+  ownedProducts     Product[]        @relation("ProductOwner")
+  accessRequests    AccessRequest[]
 }
 
 model Team {
@@ -37,6 +43,7 @@ model Team {
 model TeamMember {
   teamId String
   userId String
+  role   String @default("member")
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -50,11 +57,20 @@ model Product {
   description String?
   deadline    DateTime
   teamId      String
+  ownerId     String?
   createdAt   DateTime @default(now())
 
-  team          Team           @relation(fields: [teamId], references: [id])
-  tasks         Task[]
-  kanbanColumns KanbanColumn[]
+  team               Team                @relation(fields: [teamId], references: [id])
+  ownerUser          User?               @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  tasks              Task[]
+  kanbanColumns      KanbanColumn[]
+  productConnections ProductConnection[]
+  colorLegendEntries ColorLegendEntry[]
+  sprints            Sprint[]
+  canvasSnapshots    CanvasSnapshot[]
+  tabPermissions     TabPermission[]
+  messages           Message[]
+  accessRequests     AccessRequest[]
 }
 
 model KanbanColumn {
@@ -83,18 +99,22 @@ model Task {
   deadline    DateTime?
   canvasX     Float?
   canvasY     Float?
+  kanbanOrder Int       @default(0)
   completedBy String?
   completedAt DateTime?
   createdBy   String
   createdAt   DateTime  @default(now())
 
-  product    Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
-  owner      User?            @relation("TaskOwner", fields: [ownerId], references: [id])
-  completer  User?            @relation("TaskCompleter", fields: [completedBy], references: [id])
-  creator    User             @relation("TaskCreator", fields: [createdBy], references: [id])
-  subtasks   Subtask[]
-  dependsOn  TaskDependency[] @relation("dependent")
-  requiredBy TaskDependency[] @relation("prerequisite")
+  product            Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  owner              User?             @relation("TaskOwner", fields: [ownerId], references: [id])
+  completer          User?             @relation("TaskCompleter", fields: [completedBy], references: [id])
+  creator            User              @relation("TaskCreator", fields: [createdBy], references: [id])
+  subtasks           Subtask[]
+  dependsOn          TaskDependency[]  @relation("dependent")
+  requiredBy         TaskDependency[]  @relation("prerequisite")
+  productConnections ProductConnection[]
+  sprintTasks        SprintTask[]
+  messages           Message[]
 }
 
 model TaskDependency {
@@ -118,4 +138,99 @@ model Subtask {
 
   task      Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   completer User? @relation("SubtaskCompleter", fields: [completedBy], references: [id])
+}
+
+model ProductConnection {
+  productId String
+  taskId    String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([productId, taskId])
+}
+
+model ColorLegendEntry {
+  id        String  @id @default(uuid())
+  productId String
+  colorKey  String
+  name      String
+  enabled   Boolean @default(true)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, colorKey])
+}
+
+model Sprint {
+  id        String   @id @default(uuid())
+  productId String
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+
+  product    Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sprintTasks SprintTask[]
+}
+
+model SprintTask {
+  sprintId String
+  taskId   String
+  sprint   Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  task     Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([sprintId, taskId])
+}
+
+model Message {
+  id          String    @id @default(uuid())
+  productId   String
+  taskId      String?
+  authorId    String
+  content     String
+  attachments Json      @default("[]")
+  createdAt   DateTime  @default(now())
+  editedAt    DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId],    references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId],  references: [id], onDelete: Cascade)
+}
+
+model TabPermission {
+  id        String  @id @default(uuid())
+  productId String
+  userId    String
+  tab       String
+  level     String  @default("write")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId, tab])
+}
+
+model CanvasSnapshot {
+  id        String   @id @default(uuid())
+  productId String
+  userId    String
+  name      String
+  positions Json
+  viewport  Json
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AccessRequest {
+  id        String   @id @default(uuid())
+  productId String
+  userId    String
+  note      String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
 }

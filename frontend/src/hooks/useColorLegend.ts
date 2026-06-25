@@ -1,59 +1,75 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { api } from '../api/client';
 
-const PRESET_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
+export const PRESET_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
 const DEFAULT_NAMES: Record<string, string> = {
-  '#7c3aed': 'Feature',
-  '#3b82f6': 'Bug',
-  '#10b981': 'Enhancement',
-  '#f59e0b': 'Milestone',
-  '#ef4444': 'Blocker',
-  '#ec4899': 'Design',
-  '#06b6d4': 'Infrastructure',
-  '#f97316': 'Research',
+  '#7c3aed': 'Feature', '#3b82f6': 'Bug', '#10b981': 'Enhancement',
+  '#f59e0b': 'Milestone', '#ef4444': 'Blocker', '#ec4899': 'Design',
+  '#06b6d4': 'Infrastructure', '#f97316': 'Research',
 };
 
 export type ColorLegend = Record<string, string>;
 
+interface LegendEntry { colorKey: string; name: string; enabled: boolean; }
+
 export function useColorLegend(productId: string) {
-  const key = `planly-colors-${productId}`;
-  const enabledKey = `planly-colors-enabled-${productId}`;
+  const [legend, setLegend] = useState<ColorLegend>(DEFAULT_NAMES);
+  const [enabledSet, setEnabledSet] = useState<Set<string>>(new Set(PRESET_COLORS));
+  const [loaded, setLoaded] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stateRef = useRef({ legend: DEFAULT_NAMES, enabledSet: new Set<string>(PRESET_COLORS) });
 
-  const [legend, setLegend] = useState<ColorLegend>(() => {
-    try {
-      const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : DEFAULT_NAMES;
-    } catch {
-      return DEFAULT_NAMES;
-    }
-  });
+  useEffect(() => {
+    if (!productId) return;
+    setLoaded(false);
+    api.colorLegend.list(productId).then((entries) => {
+      const leg: ColorLegend = {};
+      const ena = new Set<string>();
+      entries.forEach((e) => {
+        leg[e.colorKey] = e.name;
+        if (e.enabled) ena.add(e.colorKey);
+      });
+      setLegend(leg);
+      setEnabledSet(ena);
+      stateRef.current = { legend: leg, enabledSet: ena };
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, [productId]);
 
-  const [enabled, setEnabled] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem(enabledKey);
-      return saved ? new Set(JSON.parse(saved)) : new Set(PRESET_COLORS);
-    } catch {
-      return new Set(PRESET_COLORS);
-    }
-  });
+  function scheduleSave(leg: ColorLegend, ena: Set<string>) {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const entries: LegendEntry[] = PRESET_COLORS.map((c) => ({
+        colorKey: c,
+        name: leg[c] ?? DEFAULT_NAMES[c] ?? c,
+        enabled: ena.has(c),
+      }));
+      api.colorLegend.update(productId, entries).catch(() => {});
+    }, 600);
+  }
 
   const update = useCallback((color: string, name: string) => {
     setLegend((prev) => {
       const next = { ...prev, [color]: name };
-      localStorage.setItem(key, JSON.stringify(next));
+      stateRef.current.legend = next;
+      scheduleSave(next, stateRef.current.enabledSet);
       return next;
     });
-  }, [key]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]);
 
   const toggleEnabled = useCallback((color: string) => {
-    setEnabled((prev) => {
+    setEnabledSet((prev) => {
       const next = new Set(prev);
       if (next.has(color)) next.delete(color); else next.add(color);
-      localStorage.setItem(enabledKey, JSON.stringify([...next]));
+      stateRef.current.enabledSet = next;
+      scheduleSave(stateRef.current.legend, next);
       return next;
     });
-  }, [enabledKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]);
 
-  const enabledColors = PRESET_COLORS.filter((c) => enabled.has(c));
+  const enabledColors = PRESET_COLORS.filter((c) => enabledSet.has(c));
 
-  return { legend, update, toggleEnabled, colors: PRESET_COLORS, enabledColors };
+  return { legend, update, toggleEnabled, colors: PRESET_COLORS, enabledColors, loaded };
 }

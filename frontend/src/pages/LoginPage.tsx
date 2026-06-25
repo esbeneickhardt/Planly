@@ -29,8 +29,8 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4" style={{ background: 'var(--brand)' }}>
-            <span className="text-white text-xl font-bold">P</span>
+          <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
+            <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
           </div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Welcome back</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>Sign in to your workspace</p>

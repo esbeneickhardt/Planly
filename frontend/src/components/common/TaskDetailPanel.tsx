@@ -3,12 +3,16 @@ import type { Task, KanbanColumn, User, Subtask } from '../../types';
 import { api } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useColorLegend } from '../../hooks/useColorLegend';
+import { useToast } from '../../context/ToastContext';
+import ChatPanel from './ChatPanel';
 
 interface Props {
   task: Task;
   columns?: KanbanColumn[];
   onClose: () => void;
   onUpdated: (task: Task) => void;
+  onDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 const DEFAULT_STATUSES = [
@@ -19,9 +23,11 @@ const DEFAULT_STATUSES = [
   { statusKey: 'done',        label: 'Done',         color: '#10b981' },
 ];
 
-export default function TaskDetailPanel({ task, columns, onClose, onUpdated }: Props) {
+export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onDeleted, readOnly = false }: Props) {
   const { activeProduct } = useProduct();
   const { legend, enabledColors } = useColorLegend(activeProduct?.id ?? '');
+  const { showToast } = useToast();
+  const [minimized, setMinimized] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [name, setName] = useState(task.name);
   const [description, setDescription] = useState(task.description ?? '');
@@ -31,12 +37,20 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated }: P
   const [deadline, setDeadline] = useState(task.deadline ? task.deadline.split('T')[0] : '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
-  // Subtask state
   const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtaskName, setNewSubtaskName] = useState('');
   const [subtaskLoading, setSubtaskLoading] = useState<string | null>(null);
+
+  const isDirty =
+    name !== task.name ||
+    description !== (task.description ?? '') ||
+    ownerId !== (task.ownerId ?? '') ||
+    status !== task.status ||
+    color !== (task.color ?? '') ||
+    deadline !== (task.deadline ? task.deadline.split('T')[0] : '');
 
   useEffect(() => { api.users.list().then(setUsers).catch(() => {}); }, []);
 
@@ -49,6 +63,11 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated }: P
 
   const currentStatus = statusOptions.find((s) => s.statusKey === status);
 
+  function handleClose() {
+    if (isDirty && !confirm('You have unsaved changes. Close anyway?')) return;
+    onClose();
+  }
+
   async function save() {
     if (!activeProduct) return;
     setSaving(true);
@@ -59,8 +78,10 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated }: P
         status, color: color || undefined, deadline: deadline || undefined,
       });
       onUpdated(updated);
+      onClose();
     } catch (err) {
       setError((err as Error).message);
+      showToast((err as Error).message, 'error');
     } finally {
       setSaving(false);
     }
@@ -83,28 +104,95 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated }: P
     setAddingSubtask(false);
   }
 
+  async function deleteTask() {
+    if (!activeProduct) return;
+    if (!confirm(`Delete "${task.name}"? This cannot be undone.`)) return;
+    try {
+      await api.tasks.delete(activeProduct.id, task.id);
+      onDeleted?.();
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    }
+  }
+
   async function deleteSubtask(s: Subtask) {
     if (!activeProduct) return;
     await api.subtasks.delete(activeProduct.id, task.id, s.id);
     setSubtasks((prev) => prev.filter((x) => x.id !== s.id));
   }
 
+  if (minimized) {
+    return (
+      <div
+        className="fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-xl cursor-pointer"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxWidth: 280 }}
+        onClick={() => setMinimized(false)}
+      >
+        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: currentStatus?.color ?? '#64748b' }} />
+        <span className="text-sm font-medium truncate flex-1" style={{ color: 'var(--text)' }}>{name}</span>
+        {isDirty && (
+          <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>●</span>
+        )}
+        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>↑ Restore</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); handleClose(); }}
+          className="flex-shrink-0 text-xs"
+          style={{ color: 'var(--text-3)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+        >✕</button>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose} />
+      {showChat && (
+        <ChatPanel
+          taskId={task.id}
+          taskName={task.name}
+          onClose={() => setShowChat(false)}
+        />
+      )}
+      <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={handleClose} />
       <div className="fixed right-0 top-0 h-full w-full max-w-md z-50 flex flex-col" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)', boxShadow: '-20px 0 60px rgba(0,0,0,0.3)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full" style={{ background: currentStatus?.color ?? '#64748b' }} />
             <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Task detail</h2>
+            {isDirty && (
+              <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+                Unsaved
+              </span>
+            )}
           </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-colors" style={{ color: 'var(--text-3)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowChat((v) => !v)}
+              title="Open chat"
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-colors"
+              style={{ color: showChat ? 'var(--brand)' : 'var(--text-3)', background: showChat ? 'var(--brand-subtle)' : 'transparent' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = showChat ? 'var(--brand)' : 'var(--text-3)')}
+            >💬</button>
+            <button
+              onClick={() => setMinimized(true)}
+              title="Minimise"
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-colors"
+              style={{ color: 'var(--text-3)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+            >−</button>
+            <button
+              onClick={handleClose}
+              title="Close"
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-colors"
+              style={{ color: 'var(--text-3)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+            >✕</button>
+          </div>
         </div>
 
         {/* Body */}
@@ -216,9 +304,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated }: P
                         style={{ color: 'var(--text-3)' }}
                         onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
                         onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                      >
-                        ✕
-                      </button>
+                      >✕</button>
                     </div>
                   ))}
                 </div>
@@ -263,10 +349,26 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated }: P
 
         {/* Footer */}
         <div className="px-6 py-4 flex gap-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
-          <button onClick={save} disabled={saving} className="btn-primary flex-1 flex justify-center">
-            {saving ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Save changes'}
-          </button>
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          {readOnly ? (
+            <div className="flex-1 flex items-center gap-2 text-xs" style={{ color: 'var(--text-3)' }}>
+              <span>🔒</span> View only — you don't have write access to this tab
+            </div>
+          ) : (
+            <button onClick={save} disabled={saving} className="btn-primary flex-1 flex justify-center">
+              {saving ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Save changes'}
+            </button>
+          )}
+          <button onClick={handleClose} className="btn-secondary">Close</button>
+          {!readOnly && onDeleted && (
+            <button
+              onClick={deleteTask}
+              title="Delete task"
+              className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0"
+              style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.16)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+            >🗑</button>
+          )}
         </div>
       </div>
     </>
