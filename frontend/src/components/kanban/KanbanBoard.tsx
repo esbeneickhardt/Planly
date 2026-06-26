@@ -58,7 +58,16 @@ export default function KanbanBoard() {
   useEffect(() => { api.users.list().then(setUsers).catch(() => {}); }, []);
 
   useEffect(() => {
-    if (activeProduct) api.sprints.list(activeProduct.id).then(setSprints).catch(() => {});
+    if (!activeProduct) return;
+    api.sprints.list(activeProduct.id).then((ss) => {
+      setSprints(ss);
+      // Auto-select the sprint overlapping today (newest one if multiple)
+      const now = new Date();
+      const active = [...ss]
+        .filter((s) => new Date(s.startDate) <= now && new Date(s.endDate) >= now)
+        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
+      if (active) setSprintFilter(active.id);
+    }).catch(() => {});
   }, [activeProduct?.id]);
 
   const loadColumns = useCallback(async () => {
