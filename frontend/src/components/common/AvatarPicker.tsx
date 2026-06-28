@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 const EMOJIS = [
   '😀','😃','😄','😁','😆','😊','🙂','😎',
@@ -10,33 +10,12 @@ const EMOJIS = [
   '🌟','⭐','🌈','🔥','⚡','🎯','💫','🎪',
 ];
 
+const PREVIEW = 200; // px — the crop circle diameter
+
 interface Value { avatarEmoji?: string; avatarUrl?: string | null; }
 interface Props {
   current: Value;
   onChange: (v: Value) => void;
-}
-
-function resizeToDataUrl(file: File, size = 128): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d')!;
-        // Centre-crop to square
-        const s = Math.min(img.width, img.height);
-        ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
-        resolve(canvas.toDataURL('image/jpeg', 0.88));
-      };
-      img.src = e.target!.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
 }
 
 export default function AvatarPicker({ current, onChange }: Props) {
@@ -45,16 +24,107 @@ export default function AvatarPicker({ current, onChange }: Props) {
   const currentEmoji = current.avatarEmoji;
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Crop editor state
+  const [cropImg, setCropImg] = useState<HTMLImageElement | null>(null);
+  const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+
+  // Rendered scale of the image inside the PREVIEW circle
+  const scale = cropImg
+    ? (PREVIEW / Math.min(cropImg.naturalWidth, cropImg.naturalHeight)) * zoom
+    : 1;
+
+  // Clamp offset so image always covers the circle
+  function clamp(ox: number, oy: number, img: HTMLImageElement, s: number) {
+    const hw = (img.naturalWidth * s) / 2;
+    const hh = (img.naturalHeight * s) / 2;
+    const half = PREVIEW / 2;
+    return {
+      x: Math.min(hw - half, Math.max(-(hw - half), ox)),
+      y: Math.min(hh - half, Math.max(-(hh - half), oy)),
+    };
+  }
+
+  // Pointer drag handlers
+  function onPointerDown(e: React.PointerEvent) {
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
+    setDragging(true);
+  }
+
+  useEffect(() => {
+    if (!dragging || !cropImg) return;
+    function onMove(e: PointerEvent) {
+      if (!dragRef.current || !cropImg) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      setOffset(clamp(dragRef.current.ox + dx, dragRef.current.oy + dy, cropImg, scale));
+    }
+    function onUp() { setDragging(false); }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [dragging, cropImg, scale]);
+
+  // Re-clamp when zoom changes
+  useEffect(() => {
+    if (cropImg) setOffset((o) => clamp(o.x, o.y, cropImg, scale));
+  }, [zoom]);
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = await resizeToDataUrl(file);
-    setPreview(url);
-    onChange({ avatarUrl: url, avatarEmoji: undefined });
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      if (cropObjectUrl) URL.revokeObjectURL(cropObjectUrl);
+      setCropObjectUrl(url);
+      setCropImg(img);
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+    };
+    img.src = url;
+    if (fileRef.current) fileRef.current.value = '';
   }
 
-  function selectEmoji(emoji: string) {
-    onChange({ avatarEmoji: emoji, avatarUrl: null });
+  function applyAndConfirm() {
+    if (!cropImg) return;
+    const canvas = document.createElement('canvas');
+    const OUT = 128;
+    canvas.width = OUT;
+    canvas.height = OUT;
+    const ctx = canvas.getContext('2d')!;
+    ctx.beginPath();
+    ctx.arc(OUT / 2, OUT / 2, OUT / 2, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Map from canvas (128×128) back to source image coords
+    // Preview center of image = (PREVIEW/2 + offset.x, PREVIEW/2 + offset.y)
+    const cx = PREVIEW / 2 + offset.x;
+    const cy = PREVIEW / 2 + offset.y;
+    // At preview pixel (0,0): source pixel = (imgW/2 - cx/scale, imgH/2 - cy/scale)
+    const sx = cropImg.naturalWidth / 2 - cx / scale;
+    const sy = cropImg.naturalHeight / 2 - cy / scale;
+    const sw = PREVIEW / scale;
+    const sh = PREVIEW / scale;
+    ctx.drawImage(cropImg, sx, sy, sw, sh, 0, 0, OUT, OUT);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    onChange({ avatarUrl: dataUrl, avatarEmoji: undefined });
+    setPreview(dataUrl);
+    setCropImg(null);
+    if (cropObjectUrl) { URL.revokeObjectURL(cropObjectUrl); setCropObjectUrl(null); }
+  }
+
+  function cancelCrop() {
+    setCropImg(null);
+    if (cropObjectUrl) { URL.revokeObjectURL(cropObjectUrl); setCropObjectUrl(null); }
   }
 
   function removePhoto() {
@@ -89,7 +159,7 @@ export default function AvatarPicker({ current, onChange }: Props) {
             <button
               key={e}
               type="button"
-              onClick={() => selectEmoji(e)}
+              onClick={() => onChange({ avatarEmoji: e, avatarUrl: null })}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all hover:scale-110"
               style={{
                 background: currentEmoji === e ? 'var(--brand-subtle)' : 'transparent',
@@ -103,43 +173,104 @@ export default function AvatarPicker({ current, onChange }: Props) {
 
       {tab === 'photo' && (
         <div className="flex flex-col items-center gap-3 p-4">
-          {/* Preview */}
-          <div
-            className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-4xl cursor-pointer relative group"
-            style={{ background: 'var(--surface)', border: '2px dashed var(--border)' }}
-            onClick={() => fileRef.current?.click()}
-          >
-            {preview
-              ? <img src={preview} className="w-full h-full object-cover" alt="avatar" />
-              : <span style={{ opacity: 0.3 }}>👤</span>
-            }
-            <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium" style={{ background: 'rgba(0,0,0,0.45)' }}>
-              {preview ? 'Change' : 'Upload'}
-            </div>
-          </div>
+          {cropImg ? (
+            /* ── Crop editor ── */
+            <>
+              <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>Drag to reposition · scroll or use slider to zoom</p>
 
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+              {/* Crop circle */}
+              <div
+                style={{
+                  width: PREVIEW, height: PREVIEW,
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  position: 'relative',
+                  cursor: dragging ? 'grabbing' : 'grab',
+                  border: '2px solid var(--brand)',
+                  flexShrink: 0,
+                  userSelect: 'none',
+                }}
+                onPointerDown={onPointerDown}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  setZoom((z) => Math.min(4, Math.max(1, z - e.deltaY * 0.002)));
+                }}
+              >
+                <img
+                  src={cropObjectUrl!}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    position: 'absolute',
+                    width: cropImg.naturalWidth * scale,
+                    height: cropImg.naturalHeight * scale,
+                    left: PREVIEW / 2 + offset.x - (cropImg.naturalWidth * scale) / 2,
+                    top: PREVIEW / 2 + offset.y - (cropImg.naturalHeight * scale) / 2,
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
 
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="btn-secondary text-xs px-3 py-1.5"
-          >
-            {preview ? 'Change photo' : 'Upload photo'}
-          </button>
+              {/* Zoom slider */}
+              <div className="w-full flex items-center gap-3">
+                <span className="text-xs" style={{ color: 'var(--text-3)' }}>1×</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={4}
+                  step={0.01}
+                  value={zoom}
+                  onChange={(e) => setZoom(parseFloat(e.target.value))}
+                  className="flex-1 accent-[var(--brand)]"
+                />
+                <span className="text-xs w-8 text-right" style={{ color: 'var(--text-3)' }}>{zoom.toFixed(1)}×</span>
+              </div>
 
-          {preview && (
-            <button
-              type="button"
-              onClick={removePhoto}
-              className="text-xs transition-colors"
-              style={{ color: 'var(--text-3)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-            >
-              Remove photo
-            </button>
+              <div className="flex gap-2 w-full">
+                <button type="button" onClick={cancelCrop} className="btn-secondary text-xs flex-1">Cancel</button>
+                <button type="button" onClick={applyAndConfirm} className="btn-primary text-xs flex-1">Apply</button>
+              </div>
+            </>
+          ) : (
+            /* ── Upload / preview ── */
+            <>
+              <div
+                className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-4xl cursor-pointer relative group"
+                style={{ background: 'var(--surface)', border: '2px dashed var(--border)' }}
+                onClick={() => fileRef.current?.click()}
+              >
+                {preview
+                  ? <img src={preview} className="w-full h-full object-cover" alt="avatar" />
+                  : <span style={{ opacity: 0.3 }}>👤</span>
+                }
+                <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium" style={{ background: 'rgba(0,0,0,0.45)' }}>
+                  {preview ? 'Change' : 'Upload'}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="btn-secondary text-xs px-3 py-1.5"
+              >
+                {preview ? 'Change photo' : 'Upload photo'}
+              </button>
+
+              {preview && (
+                <button
+                  type="button"
+                  onClick={removePhoto}
+                  className="text-xs transition-colors"
+                  style={{ color: 'var(--text-3)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+                >
+                  Remove photo
+                </button>
+              )}
+            </>
           )}
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
         </div>
       )}
     </div>

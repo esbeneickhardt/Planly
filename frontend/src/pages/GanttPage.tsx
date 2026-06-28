@@ -71,9 +71,11 @@ export default function GanttPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [hoveredMilestone, setHoveredMilestone] = useState<string | null>(null);
+  const [hoveredProduct, setHoveredProduct] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewStart, setViewStart] = useState<Date | null>(null);
   const [viewEnd, setViewEnd] = useState<Date | null>(null);
+  const [hideDone, setHideDone] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ vs: new Date(), ve: new Date(), fullStart: new Date(), fullEnd: new Date() });
@@ -113,11 +115,24 @@ export default function GanttPage() {
   }
 
   if (milestones.length === 0) {
+    const tasksWithoutDeadline = tasks.filter((t) => !t.deadline && t.status !== 'done').length;
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
+      <div className="h-full flex flex-col items-center justify-center gap-3" style={{ color: 'var(--text-3)' }}>
         <div className="text-5xl opacity-30">📅</div>
         <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No milestones yet</p>
-        <p className="text-xs text-center max-w-xs">Set a deadline on any task to make it a milestone. Milestones appear here with automatic progress tracking.</p>
+        <p className="text-xs text-center max-w-xs" style={{ color: 'var(--text-3)' }}>
+          In Planly, a milestone is any task with a deadline. Open a task and set its deadline to make it appear here with progress tracking.
+        </p>
+        {tasksWithoutDeadline > 0 && (
+          <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
+            You have <strong style={{ color: 'var(--text-2)' }}>{tasksWithoutDeadline}</strong> task{tasksWithoutDeadline !== 1 ? 's' : ''} without a deadline — set one to create a milestone.
+          </p>
+        )}
+        {tasks.length === 0 && (
+          <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
+            This project has no tasks yet. Add tasks in the Execute or Tasks view first.
+          </p>
+        )}
       </div>
     );
   }
@@ -125,6 +140,16 @@ export default function GanttPage() {
   const fullStart = new Date(product?.createdAt ?? activeProduct.createdAt);
   const fullEnd = new Date(product?.deadline ?? activeProduct.deadline);
   const today = new Date();
+
+  // Sort: active milestones first (soonest deadline first), done milestones last
+  const sortedMilestones = [...milestones].sort((a, b) => {
+    const aDone = a.status === 'done';
+    const bDone = b.status === 'done';
+    if (aDone !== bDone) return aDone ? 1 : -1;
+    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+  });
+  const visibleMilestones = hideDone ? sortedMilestones.filter((m) => m.status !== 'done') : sortedMilestones;
+  const doneCount = milestones.filter((m) => m.status === 'done').length;
 
   const vs = viewStart ?? fullStart;
   const ve = viewEnd ?? fullEnd;
@@ -211,10 +236,46 @@ export default function GanttPage() {
   function handlePointerUp() { dragState.current = null; setIsDragging(false); }
 
   const isFullView = vs.getTime() <= fullStart.getTime() && ve.getTime() >= fullEnd.getTime();
-  const ROW_H = 44;
+  const ROW_H = 52;
+
+  const allDone = doneCount === milestones.length;
+  const progressPct = milestones.length > 0 ? Math.round((doneCount / milestones.length) * 100) : 0;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {/* Summary bar */}
+      <div className="flex-shrink-0 px-4 py-2 flex items-center gap-4" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+        {/* Progress */}
+        <div className="flex items-center gap-2 flex-1">
+          <span className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
+            {doneCount}/{milestones.length} milestone{milestones.length !== 1 ? 's' : ''} complete
+          </span>
+          <div className="flex-1 max-w-48 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, background: allDone ? '#10b981' : 'var(--brand)' }} />
+          </div>
+          <span className="text-xs font-medium" style={{ color: allDone ? '#10b981' : 'var(--text-3)' }}>{progressPct}%</span>
+        </div>
+
+        {/* Hide done toggle */}
+        {doneCount > 0 && (
+          <button
+            onClick={() => setHideDone((v) => !v)}
+            className="flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-medium transition-all flex-shrink-0"
+            style={{
+              background: hideDone ? 'var(--surface-2)' : 'rgba(16,185,129,0.12)',
+              color: hideDone ? 'var(--text-3)' : '#10b981',
+              border: `1px solid ${hideDone ? 'var(--border)' : 'rgba(16,185,129,0.3)'}`,
+            }}
+          >
+            <span style={{ fontSize: 10 }}>{hideDone ? '○' : '✓'}</span>
+            {hideDone ? `Show ${doneCount} done` : `${doneCount} done`}
+          </button>
+        )}
+
+        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+          Due {new Date(activeProduct.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </span>
+      </div>
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="flex min-h-full">
 
@@ -230,8 +291,9 @@ export default function GanttPage() {
               </div>
             </div>
 
-            {milestones.map((m) => {
+            {visibleMilestones.map((m) => {
               const color = progressColor(m);
+              const isDone = m.status === 'done';
               return (
                 <div
                   key={m.id}
@@ -241,24 +303,48 @@ export default function GanttPage() {
                   onMouseLeave={() => setHoveredMilestone(null)}
                   onClick={() => { const t = tasks.find((t) => t.id === m.id); if (t) setSelectedTask(t); }}
                 >
-                  <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{m.name}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-                    <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-                      {m.doneDependencies}/{m.totalDependencies || 0} done
-                    </span>
-                    {m.owner && (
-                      <span className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>· {m.owner.avatarEmoji ?? '👤'} {m.owner.username}</span>
+                  <div className="flex items-center gap-1.5">
+                    {isDone && (
+                      <span className="flex-shrink-0 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: '#10b981', color: 'white' }}>✓</span>
                     )}
+                    <p className="text-xs font-medium leading-tight min-w-0" title={m.name} style={{ color: isDone ? 'var(--text-3)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{m.name}</p>
                   </div>
+                  {!isDone && (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                      <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                        {m.doneDependencies}/{m.totalDependencies || 0} done
+                      </span>
+                      {m.owner && (
+                        <span className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>· {m.owner.avatarEmoji ?? '👤'} {m.owner.username}</span>
+                      )}
+                    </div>
+                  )}
+                  {isDone && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-[11px]" style={{ color: '#10b981' }}>
+                        {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}
 
-            {/* Product row */}
-            <div className="px-3 flex flex-col justify-center" style={{ height: ROW_H, borderBottom: '1px solid var(--border)' }}>
-              <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{activeProduct.emoji} {activeProduct.name}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-3)' }}>Deadline {new Date(activeProduct.deadline).toLocaleDateString()}</p>
+            {/* Product / Final Delivery row */}
+            <div
+              className="px-3 flex flex-col justify-center gap-1 cursor-default"
+              style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredProduct ? 'var(--surface-2)' : 'transparent' }}
+            >
+              <p className="text-xs font-semibold leading-tight" title={`${activeProduct.emoji ?? ''} ${activeProduct.name}`} style={{ color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{activeProduct.emoji} {activeProduct.name}</p>
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: allDone ? '#10b981' : 'var(--brand)' }} />
+                </div>
+                <span className="text-[11px] flex-shrink-0" style={{ color: allDone ? '#10b981' : 'var(--text-3)' }}>
+                  {doneCount}/{milestones.length}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -303,7 +389,7 @@ export default function GanttPage() {
                   <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPct * 100}%`, width: 1, background: 'var(--brand)', zIndex: 3, opacity: 0.5, pointerEvents: 'none' }} />
                 )}
 
-                {milestones.map((m) => {
+                {visibleMilestones.map((m) => {
                   const deadlinePct = pct(new Date(m.deadline), vs, ve) * 100;
                   const fillWidth = m.progress * deadlinePct;
                   const color = progressColor(m);
@@ -381,12 +467,69 @@ export default function GanttPage() {
                 })}
 
                 {/* Product deadline row */}
-                <div className="relative flex items-center" style={{ height: ROW_H, borderBottom: '1px solid var(--border)' }}>
-                  <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)' }} />
+                <div
+                  className="relative flex items-center"
+                  style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredProduct ? 'var(--surface-2)' : 'transparent' }}
+                  onMouseEnter={() => setHoveredProduct(true)}
+                  onMouseLeave={() => setHoveredProduct(false)}
+                >
+                  {/* Track */}
+                  <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? 'rgba(16,185,129,0.15)' : 'rgba(124,58,237,0.15)', border: `1px solid ${allDone ? 'rgba(16,185,129,0.3)' : 'rgba(124,58,237,0.3)'}` }} />
+                  {/* Progress fill */}
+                  {progressPct > 0 && (
+                    <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 * (progressPct / 100) - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.75 }} />
+                  )}
                   {pct(fullEnd, vs, ve) >= 0 && pct(fullEnd, vs, ve) <= 1 && (
                     <div style={{ position: 'absolute', left: `${pct(fullEnd, vs, ve) * 100}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
-                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: 'var(--brand)', opacity: 0.6, transform: 'translateX(-50%)' }} />
-                      <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: 'var(--brand)', transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
+                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.6, transform: 'translateX(-50%)' }} />
+                      <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: allDone ? '#10b981' : 'var(--brand)', transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
+                    </div>
+                  )}
+
+                  {/* Hover popover — milestone list (above the row, no gap) */}
+                  {hoveredProduct && milestones.length > 0 && (
+                    <div
+                      className="absolute z-20 rounded-xl shadow-xl p-3"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', bottom: '100%', left: '2%', minWidth: 220, maxWidth: 320 }}
+                      onMouseEnter={() => setHoveredProduct(true)}
+                    >
+                      <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
+                        {doneCount}/{milestones.length} milestones complete
+                      </p>
+                      <div className="space-y-1 max-h-48 overflow-auto">
+                        {[...milestones]
+                          .sort((a, b) => {
+                            if (a.status === 'done' && b.status !== 'done') return 1;
+                            if (a.status !== 'done' && b.status === 'done') return -1;
+                            return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+                          })
+                          .map((m, i, arr) => {
+                            const isDone = m.status === 'done';
+                            const isFirstDone = isDone && (i === 0 || arr[i - 1].status !== 'done');
+                            return (
+                              <div key={m.id}>
+                                {isFirstDone && doneCount > 0 && doneCount < milestones.length && (
+                                  <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>Completed</div>
+                                )}
+                                <div className="flex items-center gap-2 text-xs">
+                                  {isDone
+                                    ? <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{ background: '#10b981', color: 'white' }}>✓</span>
+                                    : <span className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0" style={{ borderColor: progressColor(m) }} />
+                                  }
+                                  <span className="flex-1 truncate" style={{ color: isDone ? 'var(--text-3)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.55 : 1 }}>{m.name}</span>
+                                  <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
+                                    {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                      {milestones.some((m) => m.status !== 'done' && m.doneDependencies < m.totalDependencies && m.totalDependencies > 0) && (
+                        <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
+                          ⚠ Some milestones have incomplete tasks
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

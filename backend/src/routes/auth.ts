@@ -6,11 +6,15 @@ import { requireAuth } from '../middleware/auth';
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (req, reply) => {
-    const { email, password } = req.body as { email: string; password: string };
-    if (!email || !password) return reply.status(400).send({ error: 'Email and password required' });
+    const { identifier, password } = req.body as { identifier: string; password: string };
+    if (!identifier || !password) return reply.status(400).send({ error: 'Email/username and password required' });
 
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+    const normalized = identifier.trim().toLowerCase();
+    const user = await prisma.user.findFirst({
+      where: { OR: [{ email: normalized }, { username: normalized }] },
+    });
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
+    if (!user.passwordHash) return reply.status(401).send({ error: 'This account uses SSO — please sign in via your identity provider.' });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return reply.status(401).send({ error: 'Invalid credentials' });
@@ -33,7 +37,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true },
+      select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true },
     });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     reply.send(user);

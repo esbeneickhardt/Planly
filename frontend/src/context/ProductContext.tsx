@@ -2,11 +2,13 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { api } from '../api/client';
 import type { Product, Task } from '../types';
 import { useAuth } from './AuthContext';
+import { useRealtimeUpdates } from '../hooks/useRealtimeUpdates';
 
 interface ProductContextValue {
   products: Product[];
   activeProduct: Product | null;
   tasks: Task[];
+  tasksLoaded: boolean;
   setActiveProduct: (p: Product) => void;
   refreshTasks: () => Promise<void>;
   refreshProducts: () => Promise<void>;
@@ -22,6 +24,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [activeProduct, setActiveProductState] = useState<Product | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
 
   const refreshProducts = useCallback(async () => {
     const ps = await api.products.list();
@@ -36,6 +39,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     if (!activeProduct) return;
     const ts = await api.tasks.list(activeProduct.id);
     setTasks(ts);
+    setTasksLoaded(true);
   }, [activeProduct]);
 
   // Update canvas positions in the local task cache without a round-trip.
@@ -47,6 +51,13 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       return u ? { ...t, canvasX: u.canvasX, canvasY: u.canvasY } : t;
     }));
   }, []);
+
+  useRealtimeUpdates(activeProduct?.id, useCallback((e) => {
+    if (e.event === 'task.created' || e.event === 'task.updated' || e.event === 'task.deleted' ||
+        e.event === 'task.status_changed' || e.event === 'task.assigned') {
+      refreshTasks();
+    }
+  }, [refreshTasks]));
 
   useEffect(() => {
     if (user) refreshProducts();
@@ -61,6 +72,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     if (activeProduct?.id === p.id) return;
     setActiveProductState(p);
     setTasks([]);
+    setTasksLoaded(false);
   }
 
   async function createProduct(data: { name: string; emoji?: string; description?: string; deadline: string }) {
@@ -79,7 +91,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ProductContext.Provider value={{ products, activeProduct, tasks, setActiveProduct, refreshTasks, refreshProducts, createProduct, createTask, patchTaskPositions }}>
+    <ProductContext.Provider value={{ products, activeProduct, tasks, tasksLoaded, setActiveProduct, refreshTasks, refreshProducts, createProduct, createTask, patchTaskPositions }}>
       {children}
     </ProductContext.Provider>
   );

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from './TopBar';
 import SearchModal from './SearchModal';
 import ChatPanel from './ChatPanel';
+import PlanlyVisionModal, { shouldShowWelcome } from './PlanlyVisionModal';
 import { usePermission } from '../../context/PermissionContext';
 import { useProduct } from '../../context/ProductContext';
 
@@ -35,6 +36,15 @@ function PermissionGuard({ children }: { children: ReactNode }) {
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [showSearch, setShowSearch] = useState(false);
   const [showProductChat, setShowProductChat] = useState(false);
+  const [showVision, setShowVision] = useState(false);
+  const { products } = useProduct();
+
+  // Auto-show vision modal for first-time users with no projects
+  useEffect(() => {
+    if (products !== undefined && shouldShowWelcome(products.length === 0)) {
+      setShowVision(true);
+    }
+  }, [products?.length]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -47,12 +57,26 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
-      <TopBar onOpenSearch={() => setShowSearch(true)} onOpenChat={() => setShowProductChat((v) => !v)} chatOpen={showProductChat} />
+      <TopBar
+        onOpenSearch={() => setShowSearch(true)}
+        onOpenChat={() => setShowProductChat((v) => !v)}
+        onOpenVision={() => setShowVision(true)}
+        chatOpen={showProductChat}
+      />
       <PermissionGuard>
         <main className="flex-1 overflow-auto min-w-0">{children}</main>
       </PermissionGuard>
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
-      {showProductChat && <ChatPanel onClose={() => setShowProductChat(false)} />}
+      {showProductChat && (
+        <>
+          <div
+            className="fixed inset-0 z-[59]"
+            onClick={() => setShowProductChat(false)}
+          />
+          <ChatPanel onClose={() => setShowProductChat(false)} />
+        </>
+      )}
+      {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
     </div>
   );
 }

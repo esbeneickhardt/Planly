@@ -1,89 +1,118 @@
 import { FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
-import { createHash } from 'crypto';
-import { writeFile, mkdir, readFile } from 'fs/promises';
-import { join } from 'path';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-
-const UPLOADS_DIR = process.env.UPLOADS_DIR ?? '/tmp/planly-uploads';
+import { requireProductMember } from '../utils/product-guard';
+import { dispatchWebhooks } from '../utils/webhook-dispatch';
+import { broadcast } from '../realtime/manager';
+import { logActivity } from '../utils/activity';
+import { storeFile, getFileBuffer, fileExtFromMime, generateFilename, mimeFromExt } from '../utils/storage';
 
 const AUTHOR_SELECT = { id: true, username: true, avatarEmoji: true };
+
+const ALLOWED_MIME_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'application/pdf': 'pdf',
+  'text/plain': 'txt',
+  'text/markdown': 'md',
+};
 
 export async function messageRoutes(app: FastifyInstance) {
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
 
-  // Ensure uploads dir exists
-  await mkdir(UPLOADS_DIR, { recursive: true });
-
-  // Upload a file, return its URL
+  // Upload file — returns a URL that can be embedded in messages
   app.post('/api/upload', { preHandler: requireAuth }, async (req, reply) => {
     const data = await req.file();
     if (!data) return reply.status(400).send({ error: 'No file' });
+
+    const ext = ALLOWED_MIME_TYPES[data.mimetype];
+    if (!ext) return reply.status(400).send({ error: `File type not allowed: ${data.mimetype}` });
+
     const buf = await data.toBuffer();
-    const ext = data.filename.split('.').pop() ?? 'bin';
-    const hash = createHash('sha256').update(buf).digest('hex').slice(0, 16);
-    const filename = `${hash}.${ext}`;
-    await writeFile(join(UPLOADS_DIR, filename), buf);
+    const filename = generateFilename(buf, ext);
+    await storeFile(buf, filename, data.mimetype);
     reply.send({ url: `/api/uploads/${filename}`, name: data.filename, type: data.mimetype });
   });
 
-  // Serve uploaded files
-  app.get('/api/uploads/:filename', async (req, reply) => {
+  // Serve uploaded files — requires auth to prevent public URL enumeration
+  app.get('/api/uploads/:filename', { preHandler: requireAuth }, async (req, reply) => {
     const { filename } = req.params as { filename: string };
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
     try {
-      const buf = await readFile(join(UPLOADS_DIR, safe));
+      const buf = await getFileBuffer(safe);
       const ext = safe.split('.').pop()?.toLowerCase() ?? '';
-      const mime: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', pdf: 'application/pdf' };
-      reply.header('Content-Type', mime[ext] ?? 'application/octet-stream').send(buf);
+      reply.header('Content-Type', mimeFromExt(ext) ?? 'application/octet-stream').send(buf);
     } catch {
       reply.status(404).send({ error: 'Not found' });
     }
   });
 
-  // List messages (for a product, optionally filtered by taskId, or all=true for all product messages)
   app.get('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    const { taskId, all } = req.query as { taskId?: string; all?: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    const { taskId, all, cursor, limit = '100' } = req.query as { taskId?: string; all?: string; cursor?: string; limit?: string };
+    const take = Math.min(parseInt(limit), 200);
     const where = all === 'true' ? { productId } : { productId, taskId: taskId ?? null };
     const messages = await prisma.message.findMany({
-      where,
-      include: {
-        author: { select: AUTHOR_SELECT },
-        task: { select: { id: true, name: true } },
-      },
+      where: { ...where, ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}) },
+      include: { author: { select: AUTHOR_SELECT }, task: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'asc' },
-      take: 200,
+      take,
     });
     reply.send(messages);
   });
 
-  // Post a message
   app.post('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const { content, taskId, attachments } = req.body as {
       content: string;
       taskId?: string;
       attachments?: { url: string; name: string; type: string }[];
     };
     if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
+    if (content.length > 10000) return reply.status(400).send({ error: 'content too long (max 10000)' });
     const msg = await prisma.message.create({
-      data: {
-        productId,
-        taskId: taskId ?? null,
-        authorId: req.user.userId,
-        content: content.trim(),
-        attachments: attachments ?? [],
-      },
-      include: { author: { select: AUTHOR_SELECT } },
+      data: { productId, taskId: taskId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
+      include: { author: { select: AUTHOR_SELECT }, task: { select: { id: true, name: true } } },
     });
+    dispatchWebhooks(productId, 'message.created', msg).catch(() => {});
+    broadcast(productId, 'message.created', msg);
+    logActivity({ productId, actorId: req.user.userId, action: 'message.created', entityType: 'message', entityId: msg.id });
+
+    // Create notifications for @mentioned users (fire-and-forget)
+    const mentionedUsernames = [...content.matchAll(/@(\w+)/g)].map((m) => m[1]);
+    if (mentionedUsernames.length > 0) {
+      prisma.user.findMany({
+        where: { username: { in: mentionedUsernames }, id: { not: req.user.userId } },
+        select: { id: true },
+      }).then((users) => {
+        if (!users.length) return;
+        const taskName = msg.task?.name;
+        const snippet = content.slice(0, 200);
+        return prisma.notification.createMany({
+          data: users.map((u) => ({
+            userId: u.id,
+            type: 'mention',
+            title: `${req.user.username} mentioned you${taskName ? ` in "${taskName}"` : ''}`,
+            body: snippet,
+            productId,
+            taskId: taskId ?? null,
+          })),
+          skipDuplicates: true,
+        });
+      }).catch(() => {});
+    }
+
     reply.status(201).send(msg);
   });
 
-  // Edit own message
   app.patch('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const { content } = req.body as { content: string };
     const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
@@ -96,9 +125,9 @@ export async function messageRoutes(app: FastifyInstance) {
     reply.send(updated);
   });
 
-  // Delete own message
   app.delete('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });

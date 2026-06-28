@@ -7,12 +7,16 @@ import { ToastProvider } from './context/ToastContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import InvitePage from './pages/InvitePage';
 import AppLayout from './components/common/AppLayout';
 import KanbanPage from './pages/KanbanPage';
 import BacklogPage from './pages/BacklogPage';
 import CanvasPage from './pages/CanvasPage';
 import GanttPage from './pages/GanttPage';
 import SettingsPage from './pages/SettingsPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -37,6 +41,9 @@ export default function App() {
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/invite/:token" element={<InvitePage />} />
                 <Route
                   path="/*"
                   element={
@@ -50,6 +57,7 @@ export default function App() {
                               <Route path="/backlog" element={<BacklogPage />} />
                               <Route path="/canvas" element={<CanvasPage />} />
                               <Route path="/gantt" element={<GanttPage />} />
+                              <Route path="/analytics" element={<AnalyticsPage />} />
                               <Route path="/categories" element={<Navigate to="/settings" replace />} />
                               <Route path="/settings" element={<SettingsPage />} />
                             </Routes>

@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { createNotification } from '../utils/notifications';
 
 export async function accessRequestRoutes(app: FastifyInstance) {
   // Discover: products the current user is NOT a member of
@@ -53,7 +54,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     const myMembership = product.team.members.find(m => m.userId === req.user.userId);
-    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co-owner';
+    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
     if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
     const requests = await prisma.accessRequest.findMany({
       where: { productId, status: 'pending' },
@@ -73,21 +74,30 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     const myMembership = product.team.members.find(m => m.userId === req.user.userId);
-    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co-owner';
+    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
     if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
     const accessReq = await prisma.accessRequest.findFirst({ where: { id: requestId, productId } });
     if (!accessReq) return reply.status(404).send({ error: 'Not found' });
 
     if (action === 'approve') {
-      // Add to team
       await prisma.teamMember.upsert({
         where: { teamId_userId: { teamId: product.teamId, userId: accessReq.userId } },
         create: { teamId: product.teamId, userId: accessReq.userId },
         update: {},
       });
       await prisma.accessRequest.update({ where: { id: requestId }, data: { status: 'approved' } });
+      createNotification({
+        userId: accessReq.userId, type: 'access_approved',
+        title: `Your access request to "${product.name}" was approved`,
+        productId,
+      });
     } else {
       await prisma.accessRequest.update({ where: { id: requestId }, data: { status: 'rejected' } });
+      createNotification({
+        userId: accessReq.userId, type: 'access_rejected',
+        title: `Your access request to "${product.name}" was declined`,
+        productId,
+      });
     }
     reply.send({ ok: true });
   });

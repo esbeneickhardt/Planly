@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: planly
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: planly
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U planly"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      APP_URL: ${APP_URL}
+      UPLOADS_DIR: /data/uploads
+      LOG_LEVEL: info
+      # SMTP (optional — leave empty to log emails to console)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Planly <noreply@planly.app>}
+    volumes:
+      - uploads_data:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+
+  # Automated hourly backup — dumps DB + uploads to /backups on the host
+  backup:
+    image: docker:cli
+    restart: always
+    entrypoint: >
+      sh -c "
+        while true; do
+          sleep 3600
+          DB_CONTAINER=$$(docker ps --filter name=planly-db --format '{{.Names}}' | head -1)
+          TIMESTAMP=$$(date +%Y%m%d_%H%M%S)
+          mkdir -p /backups/planly/$$TIMESTAMP
+          docker exec $$DB_CONTAINER pg_dump -U planly planly | gzip > /backups/planly/$$TIMESTAMP/db.sql.gz
+          tar -czf /backups/planly/$$TIMESTAMP/uploads.tar.gz -C /uploads . 2>/dev/null || true
+          find /backups/planly -maxdepth 1 -type d -mtime +30 -exec rm -rf {} + 2>/dev/null || true
+          echo \"[$$TIMESTAMP] Backup complete\"
+        done
+      "
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - uploads_data:/uploads:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+
+volumes:
+  db_data:
+  uploads_data:

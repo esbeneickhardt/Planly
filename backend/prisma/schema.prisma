@@ -8,57 +8,92 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  email        String   @unique
-  realName     String?
-  phone        String?
-  avatarEmoji  String?
-  avatarUrl    String?
-  passwordHash String
-  createdAt    DateTime @default(now())
+// ── Enums ────────────────────────────────────────────────────────────────────
 
-  teams             TeamMember[]
-  ownedTasks        Task[]           @relation("TaskOwner")
-  completedTasks    Task[]           @relation("TaskCompleter")
-  createdTasks      Task[]           @relation("TaskCreator")
-  completedSubtasks Subtask[]        @relation("SubtaskCompleter")
-  canvasSnapshots   CanvasSnapshot[]
-  tabPermissions    TabPermission[]
-  messages          Message[]
-  ownedProducts     Product[]        @relation("ProductOwner")
-  accessRequests    AccessRequest[]
+enum TeamRole {
+  member
+  co_owner
+}
+
+enum PermissionLevel {
+  write
+  read
+  none
+}
+
+enum AccessRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+// ── Core models ──────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  email         String   @unique
+  realName      String?
+  phone         String?
+  avatarEmoji   String?
+  avatarUrl     String?
+  passwordHash  String?
+  emailVerified Boolean  @default(true)
+  ssoProvider   String?
+  ssoSub        String?
+  createdAt     DateTime @default(now())
+
+  teams               TeamMember[]
+  ownedTasks          Task[]               @relation("TaskOwner")
+  completedTasks      Task[]               @relation("TaskCompleter")
+  createdTasks        Task[]               @relation("TaskCreator")
+  completedSubtasks   Subtask[]            @relation("SubtaskCompleter")
+  canvasSnapshots     CanvasSnapshot[]
+  tabPermissions      TabPermission[]
+  messages            Message[]
+  ownedProducts       Product[]            @relation("ProductOwner")
+  accessRequests      AccessRequest[]
+  apiTokens           ApiToken[]           @relation("UserApiTokens")
+  ownedApps           AppRegistration[]    @relation("OwnedApps")
+  notifications       Notification[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerifyTokens   EmailVerifyToken[]
 }
 
 model Team {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   name      String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
   members  TeamMember[]
   products Product[]
+  invites  TeamInvite[]
 }
 
 model TeamMember {
   teamId String
   userId String
-  role   String @default("member")
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   TeamRole @default(member)
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([teamId, userId])
+  @@index([userId])
 }
 
 model Product {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   name        String
   emoji       String?
   description String?
   deadline    DateTime
   teamId      String
   ownerId     String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  deletedAt   DateTime?
 
   team               Team                @relation(fields: [teamId], references: [id])
   ownerUser          User?               @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -71,6 +106,10 @@ model Product {
   tabPermissions     TabPermission[]
   messages           Message[]
   accessRequests     AccessRequest[]
+  webhooks           Webhook[]
+
+  @@index([teamId])
+  @@index([ownerId])
 }
 
 model KanbanColumn {
@@ -86,6 +125,7 @@ model KanbanColumn {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, statusKey])
+  @@index([productId])
 }
 
 model Task {
@@ -104,6 +144,8 @@ model Task {
   completedAt DateTime?
   createdBy   String
   createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  deletedAt   DateTime?
 
   product            Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
   owner              User?             @relation("TaskOwner", fields: [ownerId], references: [id])
@@ -115,6 +157,12 @@ model Task {
   productConnections ProductConnection[]
   sprintTasks        SprintTask[]
   messages           Message[]
+
+  @@index([productId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([productId, status])
+  @@index([deletedAt])
 }
 
 model TaskDependency {
@@ -134,19 +182,23 @@ model Subtask {
   completed   Boolean   @default(false)
   completedBy String?
   completedAt DateTime?
-  order       Int
+  order       Int       @default(0)
 
   task      Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   completer User? @relation("SubtaskCompleter", fields: [completedBy], references: [id])
+
+  @@index([taskId])
 }
 
 model ProductConnection {
   productId String
   taskId    String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@id([productId, taskId])
+  @@index([taskId])
 }
 
 model ColorLegendEntry {
@@ -155,7 +207,8 @@ model ColorLegendEntry {
   colorKey  String
   name      String
   enabled   Boolean @default(true)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, colorKey])
 }
@@ -168,17 +221,21 @@ model Sprint {
   endDate   DateTime
   createdAt DateTime @default(now())
 
-  product    Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   sprintTasks SprintTask[]
+
+  @@index([productId])
 }
 
 model SprintTask {
   sprintId String
   taskId   String
-  sprint   Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-  task     Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@id([sprintId, taskId])
+  @@index([taskId])
 }
 
 model Message {
@@ -194,18 +251,23 @@ model Message {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   task    Task?   @relation(fields: [taskId],    references: [id], onDelete: Cascade)
   author  User    @relation(fields: [authorId],  references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([taskId])
 }
 
 model TabPermission {
-  id        String  @id @default(uuid())
+  id        String          @id @default(uuid())
   productId String
   userId    String
   tab       String
-  level     String  @default("write")
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level     PermissionLevel @default(write)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([productId, userId, tab])
+  @@index([productId, userId])
 }
 
 model CanvasSnapshot {
@@ -219,18 +281,178 @@ model CanvasSnapshot {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 model AccessRequest {
-  id        String   @id @default(uuid())
+  id        String              @id @default(uuid())
   productId String
   userId    String
   note      String?
-  status    String   @default("pending")
-  createdAt DateTime @default(now())
+  status    AccessRequestStatus @default(pending)
+  createdAt DateTime            @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([productId, userId])
+  @@index([userId])
+}
+
+// ── API access ───────────────────────────────────────────────────────────────
+
+model ApiToken {
+  id         String    @id @default(uuid())
+  userId     String
+  appId      String?
+  name       String
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User             @relation("UserApiTokens", fields: [userId], references: [id], onDelete: Cascade)
+  app  AppRegistration? @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AppRegistration {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+
+  owner  User       @relation("OwnedApps", fields: [ownerId], references: [id], onDelete: Cascade)
+  tokens ApiToken[]
+
+  @@index([ownerId])
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  read      Boolean  @default(false)
+  productId String?
+  taskId    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, read])
+}
+
+// ── Webhooks ──────────────────────────────────────────────────────────────────
+
+model Webhook {
+  id        String   @id @default(uuid())
+  productId String
+  url       String
+  secret    String
+  events    String[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  product    Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([productId])
+}
+
+model WebhookDelivery {
+  id           String   @id @default(uuid())
+  webhookId    String
+  event        String
+  payload      Json
+  statusCode   Int?
+  responseBody String?
+  success      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+}
+
+// ── Team invites ──────────────────────────────────────────────────────────────
+
+model TeamInvite {
+  id        String    @id @default(uuid())
+  teamId    String
+  email     String?
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+}
+
+// ── Auth tokens ───────────────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerifyToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ── SMTP configuration (UI-settable, overrides env vars) ─────────────────────
+
+model SmtpConfig {
+  id        String   @id @default("default")
+  host      String
+  port      Int      @default(587)
+  secure    Boolean  @default(false)
+  user      String
+  pass      String
+  from      String
+  updatedAt DateTime @updatedAt
+}
+
+// ── Activity log ──────────────────────────────────────────────────────────────
+
+model ActivityEvent {
+  id        String   @id @default(uuid())
+  productId String
+  actorId   String
+  action    String
+  entityType String
+  entityId  String?
+  entityName String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([productId, createdAt])
 }

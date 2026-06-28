@@ -1,16 +1,44 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { requireProductMember } from '../utils/product-guard';
 
 export async function permissionRoutes(app: FastifyInstance) {
-  // Get all tab permissions for a product (all users)
+  // Returns the authenticated user's permissions across all their projects
+  app.get('/api/me/permissions', { preHandler: requireAuth }, async (req, reply) => {
+    const userId = req.user.userId;
+    const memberships = await prisma.teamMember.findMany({
+      where: { userId },
+      include: {
+        team: {
+          include: {
+            products: {
+              where: { deletedAt: null },
+              include: { tabPermissions: { where: { userId } } },
+            },
+          },
+        },
+      },
+    });
+    const result = memberships.flatMap((m) =>
+      m.team.products.map((p) => ({
+        productId: p.id,
+        productName: p.name,
+        productEmoji: p.emoji,
+        role: p.ownerId === userId ? 'owner' : m.role,
+        permissions: Object.fromEntries(p.tabPermissions.map((tp) => [tp.tab, tp.level])),
+      })),
+    );
+    reply.send(result);
+  });
+
   app.get('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const rows = await prisma.tabPermission.findMany({ where: { productId } });
     reply.send(rows);
   });
 
-  // Upsert permissions for one or more user/tab combinations (owner or co-owner only)
   app.put('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     const updates = req.body as { userId: string; tab: string; level: string }[];
@@ -21,15 +49,15 @@ export async function permissionRoutes(app: FastifyInstance) {
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     const myMembership = product.team.members.find(m => m.userId === req.user.userId);
-    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co-owner';
+    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
     if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
 
     await prisma.$transaction(
       updates.map(({ userId, tab, level }) =>
         prisma.tabPermission.upsert({
           where: { productId_userId_tab: { productId, userId, tab } },
-          create: { productId, userId, tab, level },
-          update: { level },
+          create: { productId, userId, tab, level: level as any },
+          update: { level: level as any },
         }),
       ),
     );

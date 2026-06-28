@@ -1,5 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
+import { createHash } from 'crypto';
+import prisma from '../db/client';
 
 export interface AuthPayload {
   userId: string;
@@ -12,17 +14,38 @@ declare module 'fastify' {
   }
 }
 
-export function requireAuth(req: FastifyRequest, reply: FastifyReply, done: () => void) {
-  const token = req.cookies?.token;
-  if (!token) {
-    reply.status(401).send({ error: 'Unauthorized' });
-    return;
+export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
+  // 1. Cookie-based auth (web app sessions)
+  const cookieToken = req.cookies?.token;
+  if (cookieToken) {
+    try {
+      req.user = jwt.verify(cookieToken, process.env.JWT_SECRET!) as AuthPayload;
+      return;
+    } catch {
+      // invalid/expired — fall through to Bearer check
+    }
   }
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthPayload;
-    req.user = payload;
-    done();
-  } catch {
-    reply.status(401).send({ error: 'Unauthorized' });
+
+  // 2. Bearer token auth (API access tokens)
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    const rawToken = authHeader.slice(7);
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    try {
+      const apiToken = await prisma.apiToken.findUnique({
+        where: { tokenHash },
+        select: { id: true, userId: true, expiresAt: true, user: { select: { username: true } } },
+      });
+      if (apiToken && (!apiToken.expiresAt || apiToken.expiresAt > new Date())) {
+        req.user = { userId: apiToken.userId, username: apiToken.user.username };
+        // Update lastUsedAt without blocking the response
+        prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
+        return;
+      }
+    } catch {
+      // DB error — fall through to 401
+    }
   }
+
+  reply.status(401).send({ error: 'Unauthorized' });
 }

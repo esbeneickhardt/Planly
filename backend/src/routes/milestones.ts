@@ -1,48 +1,68 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { requireProductMember } from '../utils/product-guard';
 
 export async function milestoneRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/milestones', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
 
-    const milestones = await prisma.task.findMany({
-      where: { productId, deadline: { not: null } },
-      include: { owner: { select: { id: true, username: true, avatarEmoji: true } } },
-    });
-
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    const [product, milestones] = await Promise.all([
+      prisma.product.findUnique({ where: { id: productId } }),
+      prisma.task.findMany({
+        where: { productId, deadline: { not: null }, deletedAt: null },
+        include: { owner: { select: { id: true, username: true, avatarEmoji: true } } },
+      }),
+    ]);
     if (!product) return reply.status(404).send({ error: 'Not found' });
+    if (milestones.length === 0) return reply.send({ milestones: [], product });
 
-    const result = await Promise.all(
-      milestones.map(async (milestone) => {
-        const deps = await prisma.$queryRaw<{ id: string; status: string; name: string; ownerId: string | null }[]>`
-          WITH RECURSIVE reachable AS (
-            SELECT "prerequisiteId" AS id FROM "TaskDependency" WHERE "dependentId" = ${milestone.id}
-            UNION
-            SELECT td."prerequisiteId" FROM "TaskDependency" td JOIN reachable r ON td."dependentId" = r.id
-          )
-          SELECT t.id, t.status, t.name, t."ownerId"
-          FROM "Task" t JOIN reachable r ON t.id = r.id
-        `;
+    // Single batched query: find all transitive prerequisites for all milestones at once.
+    // We use a UNION of per-milestone CTEs rather than N separate round-trips.
+    const milestoneIds = milestones.map((m) => m.id);
 
-        const total = deps.length;
-        const done = deps.filter((d) => d.status === 'done').length;
+    const depRows = await prisma.$queryRaw<{ milestoneId: string; id: string; status: string; name: string; ownerId: string | null }[]>`
+      WITH RECURSIVE reachable AS (
+        SELECT "dependentId" AS "milestoneId", "prerequisiteId" AS id
+        FROM "TaskDependency"
+        WHERE "dependentId" = ANY(${milestoneIds})
 
-        return {
-          id: milestone.id,
-          name: milestone.name,
-          status: milestone.status,
-          deadline: milestone.deadline,
-          owner: milestone.owner,
-          totalDependencies: total,
-          doneDependencies: done,
-          progress: total > 0 ? done / total : milestone.status === 'done' ? 1 : 0,
-          dependencyList: deps,
-          unassignedDeps: deps.filter((d) => !d.ownerId && d.status !== 'done').length,
-        };
-      })
-    );
+        UNION
+
+        SELECT r."milestoneId", td."prerequisiteId"
+        FROM "TaskDependency" td
+        JOIN reachable r ON td."dependentId" = r.id
+        WHERE td."prerequisiteId" != ALL(${milestoneIds})
+      )
+      SELECT r."milestoneId", t.id, t.status, t.name, t."ownerId"
+      FROM reachable r
+      JOIN "Task" t ON t.id = r.id AND t."deletedAt" IS NULL
+    `;
+
+    const depsByMilestone = new Map<string, typeof depRows>();
+    for (const row of depRows) {
+      if (!depsByMilestone.has(row.milestoneId)) depsByMilestone.set(row.milestoneId, []);
+      depsByMilestone.get(row.milestoneId)!.push(row);
+    }
+
+    const result = milestones.map((milestone) => {
+      const deps = depsByMilestone.get(milestone.id) ?? [];
+      const total = deps.length;
+      const done = deps.filter((d) => d.status === 'done').length;
+      return {
+        id: milestone.id,
+        name: milestone.name,
+        status: milestone.status,
+        deadline: milestone.deadline,
+        owner: milestone.owner,
+        totalDependencies: total,
+        doneDependencies: done,
+        progress: total > 0 ? done / total : milestone.status === 'done' ? 1 : 0,
+        dependencyList: deps.map(({ id, status, name, ownerId }) => ({ id, status, name, ownerId })),
+        unassignedDeps: deps.filter((d) => !d.ownerId && d.status !== 'done').length,
+      };
+    });
 
     reply.send({ milestones: result, product });
   });

@@ -40,10 +40,22 @@ export default function KanbanBoard() {
   const [colorFilters, setColorFilters] = useState<Set<string>>(new Set());
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
+  const sprintInitialized = useRef<string | null>(null);
+  const [compact, setCompact] = useState(() => localStorage.getItem('planly_kanban_compact') === '1');
+  const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>({ key: 'status', dir: 1 });
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   const { legend: colorLegend } = useColorLegend(activeProduct?.id ?? '');
+
+  function setSprintFilterAndSave(val: string | null) {
+    setSprintFilter(val);
+    if (activeProduct) {
+      if (val !== null) localStorage.setItem(`planly_sprint_${activeProduct.id}`, val);
+      else localStorage.removeItem(`planly_sprint_${activeProduct.id}`);
+    }
+  }
 
   // Board pan-scroll
   const boardRef = useRef<HTMLDivElement>(null);
@@ -59,14 +71,21 @@ export default function KanbanBoard() {
 
   useEffect(() => {
     if (!activeProduct) return;
+    sprintInitialized.current = null;
     api.sprints.list(activeProduct.id).then((ss) => {
       setSprints(ss);
-      // Auto-select the sprint overlapping today (newest one if multiple)
-      const now = new Date();
-      const active = [...ss]
-        .filter((s) => new Date(s.startDate) <= now && new Date(s.endDate) >= now)
-        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
-      if (active) setSprintFilter(active.id);
+      // Restore last user selection; fall back to current overlapping sprint
+      const saved = localStorage.getItem(`planly_sprint_${activeProduct.id}`);
+      if (saved && ss.some((s) => s.id === saved)) {
+        setSprintFilter(saved);
+      } else {
+        const now = new Date();
+        const current = [...ss]
+          .filter((s) => new Date(s.startDate) <= now && new Date(s.endDate) >= now)
+          .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
+        setSprintFilter(current?.id ?? null);
+      }
+      sprintInitialized.current = activeProduct.id;
     }).catch(() => {});
   }, [activeProduct?.id]);
 
@@ -92,19 +111,16 @@ export default function KanbanBoard() {
 
   const hasFilters = ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null;
 
+
   const filteredTasks = useMemo(() => {
-    const sprintTaskIds = sprintFilter && sprintFilter !== 'none'
+    const sprintTaskIds = sprintFilter
       ? new Set(sprints.find((s) => s.id === sprintFilter)?.taskIds ?? [])
-      : null;
-    const allSprintTaskIds = sprintFilter === 'none'
-      ? new Set(sprints.flatMap((s) => s.taskIds))
       : null;
     return tasks.filter((t) => {
       if (!visibleStatusKeys.has(t.status)) return false;
       if (ownerFilters.size > 0 && (!t.ownerId || !ownerFilters.has(t.ownerId))) return false;
       if (colorFilters.size > 0 && (!t.color || !colorFilters.has(t.color))) return false;
-      if (sprintFilter === 'none' && allSprintTaskIds?.has(t.id)) return false;
-      if (sprintFilter && sprintFilter !== 'none' && !sprintTaskIds?.has(t.id)) return false;
+      if (sprintFilter && !sprintTaskIds?.has(t.id)) return false;
       return true;
     });
   }, [tasks, visibleStatusKeys, ownerFilters, colorFilters, sprintFilter, sprints]);
@@ -264,6 +280,16 @@ export default function KanbanBoard() {
     catch (err) { showToast((err as Error).message); }
   }
 
+  async function handleCompactStatusChange(taskId: string, newStatus: string) {
+    if (!activeProduct || readOnly) return;
+    setUpdatingStatus(taskId);
+    try {
+      await api.tasks.update(activeProduct.id, taskId, { status: newStatus });
+      await refreshTasks();
+    } catch (err) { showToast((err as Error).message); }
+    finally { setUpdatingStatus(null); }
+  }
+
   async function handleDeleteColumn() {
     if (!pendingDeleteCol || !activeProduct) return;
     setDeleting(true);
@@ -301,7 +327,7 @@ export default function KanbanBoard() {
 
         {/* Reset */}
         <button
-          onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); setSprintFilter(null); }}
+          onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); setSprintFilterAndSave(null); }}
           className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
           style={{
             color: hasFilters ? 'var(--brand)' : 'var(--text-3)',
@@ -348,7 +374,7 @@ export default function KanbanBoard() {
                       onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
                     >
                       <span>{u.avatarEmoji ?? '👤'}</span>
-                      <span className="flex-1 text-left truncate">{u.realName ?? u.username}</span>
+                      <span className="flex-1 text-left truncate">{u.username}</span>
                       {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
                     </button>
                   );
@@ -397,7 +423,7 @@ export default function KanbanBoard() {
             <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sprint</span>
             <select
               value={sprintFilter ?? ''}
-              onChange={(e) => setSprintFilter(e.target.value === '' ? null : e.target.value)}
+              onChange={(e) => setSprintFilterAndSave(e.target.value === '' ? null : e.target.value)}
               className="text-xs px-2 py-0.5 rounded transition-all"
               style={{
                 background: sprintFilter !== null ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -405,22 +431,190 @@ export default function KanbanBoard() {
                 border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
               }}
             >
-              <option value="">All tasks</option>
-              <option value="none">No sprint</option>
+              <option value="">All sprints</option>
               {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
         )}
 
         {toast && (
-          <div className="text-xs px-2 py-1 rounded-lg ml-auto" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <div className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
             {toast}
           </div>
         )}
+
+        <div className="ml-auto flex-shrink-0">
+          <button
+            onClick={() => {
+              const next = !compact;
+              setCompact(next);
+              localStorage.setItem('planly_kanban_compact', next ? '1' : '0');
+            }}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
+            title={compact ? 'Switch to board view' : 'Switch to compact list view'}
+            style={{
+              background: compact ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              color: compact ? 'var(--brand)' : 'var(--text-3)',
+              border: `1px solid ${compact ? 'var(--brand)' : 'var(--border)'}`,
+            }}
+          >
+            {compact ? '▦ Board' : '☰ Compact'}
+          </button>
+        </div>
       </div>
 
+      {/* ── Compact list view ── */}
+      {compact && (() => {
+        const colOrder = Object.fromEntries(columns.map((c, i) => [c.statusKey, i]));
+        const sorted = [...filteredTasks].sort((a, b) => {
+          const { key, dir } = compactSort;
+          if (key === 'status') {
+            const diff = (colOrder[a.status] ?? 99) - (colOrder[b.status] ?? 99);
+            return diff * dir;
+          }
+          if (key === 'name') return a.name.localeCompare(b.name) * dir;
+          if (key === 'owner') {
+            const an = users.find((u) => u.id === a.ownerId)?.username ?? '';
+            const bn = users.find((u) => u.id === b.ownerId)?.username ?? '';
+            return an.localeCompare(bn) * dir;
+          }
+          if (key === 'deadline') {
+            if (!a.deadline && !b.deadline) return 0;
+            if (!a.deadline) return 1;
+            if (!b.deadline) return -1;
+            return (new Date(a.deadline).getTime() - new Date(b.deadline).getTime()) * dir;
+          }
+          return 0;
+        });
+
+        function SortHeader({ k, label }: { k: typeof compactSort['key']; label: string }) {
+          const active = compactSort.key === k;
+          return (
+            <button
+              onClick={() => setCompactSort((prev) => prev.key === k ? { key: k, dir: (prev.dir * -1) as 1 | -1 } : { key: k, dir: 1 })}
+              className="flex items-center gap-1 text-left"
+              style={{ color: active ? 'var(--brand)' : 'var(--text-3)', fontWeight: active ? 600 : 400 }}
+            >
+              {label}
+              <span className="text-[10px]">{active ? (compactSort.dir === 1 ? '▲' : '▼') : '⇅'}</span>
+            </button>
+          );
+        }
+
+        return (
+          <div className="flex-1 overflow-auto px-6 pb-6">
+            <table className="w-full text-sm border-separate" style={{ borderSpacing: '0 2px' }}>
+              <thead>
+                <tr className="text-xs" style={{ color: 'var(--text-3)' }}>
+                  <th className="text-left px-3 py-2 w-36"><SortHeader k="status" label="Status" /></th>
+                  <th className="text-left px-3 py-2"><SortHeader k="name" label="Task" /></th>
+                  <th className="text-left px-3 py-2 w-32"><SortHeader k="owner" label="Owner" /></th>
+                  <th className="text-left px-3 py-2 w-28"><SortHeader k="deadline" label="Deadline" /></th>
+                  <th className="w-6" />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((task) => {
+                  const col = columns.find((c) => c.statusKey === task.status);
+                  const owner = users.find((u) => u.id === task.ownerId);
+                  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && !col?.isDone;
+                  return (
+                    <tr
+                      key={task.id}
+                      onClick={() => setSelectedTask(task)}
+                      className="group cursor-pointer rounded-xl"
+                      style={{ background: 'var(--surface)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface)')}
+                    >
+                      {/* Status */}
+                      <td className="px-3 py-2 rounded-l-xl" onClick={(e) => e.stopPropagation()}>
+                        {readOnly ? (
+                          <span
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                            style={{ background: `${col?.color ?? '#64748b'}20`, color: col?.color ?? '#64748b' }}
+                          >
+                            {col?.label ?? task.status}
+                          </span>
+                        ) : (
+                          <select
+                            value={task.status}
+                            onChange={(e) => handleCompactStatusChange(task.id, e.target.value)}
+                            disabled={updatingStatus === task.id}
+                            className="text-xs px-2 py-0.5 rounded-full font-medium border-0 outline-none cursor-pointer"
+                            style={{
+                              background: `${col?.color ?? '#64748b'}20`,
+                              color: col?.color ?? '#64748b',
+                              opacity: updatingStatus === task.id ? 0.6 : 1,
+                            }}
+                          >
+                            {columns.map((c) => (
+                              <option key={c.statusKey} value={c.statusKey}>{c.label}</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      {/* Name */}
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          {task.color && (
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
+                          )}
+                          <span
+                            className="font-medium truncate max-w-xs"
+                            style={{
+                              color: 'var(--text)',
+                              textDecoration: col?.isDone ? 'line-through' : 'none',
+                              opacity: col?.isDone ? 0.6 : 1,
+                            }}
+                          >{task.name}</span>
+                          {(task.subtasks?.length ?? 0) > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
+                              {task.subtasks!.filter((s) => s.completed).length}/{task.subtasks!.length}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      {/* Owner */}
+                      <td className="px-3 py-2">
+                        {owner ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">{owner.avatarEmoji ?? '👤'}</span>
+                            <span className="text-xs truncate" style={{ color: 'var(--text-2)' }}>{owner.username}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>—</span>
+                        )}
+                      </td>
+                      {/* Deadline */}
+                      <td className="px-3 py-2">
+                        {task.deadline ? (
+                          <span className="text-xs" style={{ color: isOverdue ? '#ef4444' : 'var(--text-3)' }}>
+                            {isOverdue && '⚠ '}
+                            {new Date(task.deadline).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          </span>
+                        ) : (
+                          <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>—</span>
+                        )}
+                      </td>
+                      {/* Arrow */}
+                      <td className="px-2 py-2 rounded-r-xl">
+                        <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-3)' }}>›</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {sorted.length === 0 && (
+              <div className="text-center py-16 text-sm" style={{ color: 'var(--text-3)' }}>No tasks match the current filters</div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── Board ── */}
-      <DndContext
+      {!compact && <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
         onDragStart={onDragStart}
@@ -484,7 +678,7 @@ export default function KanbanBoard() {
             </div>
           ) : null}
         </DragOverlay>
-      </DndContext>
+      </DndContext>}
 
       {/* Detail panel */}
       {selectedTask && (

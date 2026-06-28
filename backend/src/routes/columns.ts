@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { randomUUID } from 'crypto';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { requireProductMember } from '../utils/product-guard';
 
 const DEFAULT_COLUMNS = [
   { label: 'To Do',       color: '#3b82f6', order: 0, isDone: false, statusKey: 'todo'        },
@@ -21,28 +22,24 @@ async function ensureColumns(productId: string) {
 }
 
 export async function columnRoutes(app: FastifyInstance) {
-  // List columns (lazy-creates defaults)
   app.get('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const columns = await ensureColumns(productId);
     reply.send(columns.sort((a, b) => a.order - b.order));
   });
 
-  // Create a new custom column
   app.post('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const { label, color } = req.body as { label: string; color?: string };
     if (!label) return reply.status(400).send({ error: 'label required' });
 
     await ensureColumns(productId);
-    const maxOrder = await prisma.kanbanColumn.aggregate({ where: { productId }, _max: { order: true } });
-    const order = (maxOrder._max.order ?? 0) + 1;
-
-    // Put new column before the done column
     const doneCol = await prisma.kanbanColumn.findFirst({ where: { productId, isDone: true } });
-    const insertOrder = doneCol ? doneCol.order : order;
+    const maxOrder = await prisma.kanbanColumn.aggregate({ where: { productId }, _max: { order: true } });
+    const insertOrder = doneCol ? doneCol.order : (maxOrder._max.order ?? 0) + 1;
 
-    // Shift done column up
     if (doneCol) {
       await prisma.kanbanColumn.update({ where: { id: doneCol.id }, data: { order: insertOrder + 1 } });
     }
@@ -54,9 +51,10 @@ export async function columnRoutes(app: FastifyInstance) {
     reply.status(201).send(column);
   });
 
-  // Reorder columns — must be registered BEFORE /:columnId
+  // Must be registered BEFORE /:columnId
   app.patch('/api/products/:productId/columns/reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const { order } = req.body as { order: { id: string; order: number }[] };
     await prisma.$transaction(
       order.map(({ id, order: o }) => prisma.kanbanColumn.update({ where: { id, productId }, data: { order: o } }))
@@ -64,24 +62,21 @@ export async function columnRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Update column label/color
   app.patch('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const { label, color } = req.body as { label?: string; color?: string };
     try {
-      const col = await prisma.kanbanColumn.update({
-        where: { id: columnId, productId },
-        data: { label, color },
-      });
+      const col = await prisma.kanbanColumn.update({ where: { id: columnId, productId }, data: { label, color } });
       reply.send(col);
     } catch {
       reply.status(404).send({ error: 'Not found' });
     }
   });
 
-  // Delete column (reassign its tasks to backlog)
   app.delete('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const col = await prisma.kanbanColumn.findFirst({ where: { id: columnId, productId } });
     if (!col) return reply.status(404).send({ error: 'Not found' });
     if (col.isDone) return reply.status(400).send({ error: 'Cannot delete the completion column' });
