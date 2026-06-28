@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Task, KanbanColumn, User, Subtask } from '../../types';
+import type { Sprint } from '../../api/client';
 import { api } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useColorLegend } from '../../hooks/useColorLegend';
@@ -28,7 +29,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const { legend, enabledColors } = useColorLegend(activeProduct?.id ?? '');
   const { showToast } = useToast();
   const [minimized, setMinimized] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>([]);
   const [name, setName] = useState(task.name);
   const [description, setDescription] = useState(task.description ?? '');
   const [ownerId, setOwnerId] = useState(task.ownerId ?? '');
@@ -44,15 +45,38 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const [newSubtaskName, setNewSubtaskName] = useState('');
   const [subtaskLoading, setSubtaskLoading] = useState<string | null>(null);
 
+  // Sprint membership
+  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [sprintIds, setSprintIds] = useState<Set<string>>(new Set());
+  const initialSprintIdsRef = useRef<Set<string>>(new Set());
+
+  const sprintsDirty = (() => {
+    const init = initialSprintIdsRef.current;
+    if (sprintIds.size !== init.size) return true;
+    for (const id of sprintIds) if (!init.has(id)) return true;
+    return false;
+  })();
+
   const isDirty =
     name !== task.name ||
     description !== (task.description ?? '') ||
     ownerId !== (task.ownerId ?? '') ||
     status !== task.status ||
     color !== (task.color ?? '') ||
-    deadline !== (task.deadline ? task.deadline.split('T')[0] : '');
+    deadline !== (task.deadline ? task.deadline.split('T')[0] : '') ||
+    sprintsDirty;
 
   useEffect(() => { api.users.list().then(setUsers).catch(() => {}); }, []);
+
+  useEffect(() => {
+    if (!activeProduct) return;
+    api.sprints.list(activeProduct.id).then((ss) => {
+      setSprints(ss);
+      const ids = new Set(ss.filter((s) => s.taskIds.includes(task.id)).map((s) => s.id));
+      setSprintIds(ids);
+      initialSprintIdsRef.current = new Set(ids);
+    }).catch(() => {});
+  }, [activeProduct?.id, task.id]);
 
   const statusOptions = columns && columns.length > 0
     ? [
@@ -77,6 +101,19 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
         name, description: description || undefined, ownerId: ownerId || undefined,
         status, color: color || undefined, deadline: deadline || undefined,
       });
+
+      // Apply sprint membership changes
+      if (sprintsDirty) {
+        const init = initialSprintIdsRef.current;
+        const toAdd = [...sprintIds].filter((id) => !init.has(id));
+        const toRemove = [...init].filter((id) => !sprintIds.has(id));
+        await Promise.all([
+          ...toAdd.map((sprintId) => api.sprints.addTasks(activeProduct.id, sprintId, [task.id])),
+          ...toRemove.map((sprintId) => api.sprints.removeTask(activeProduct.id, sprintId, task.id)),
+        ]);
+        initialSprintIdsRef.current = new Set(sprintIds);
+      }
+
       onUpdated(updated);
       onClose();
     } catch (err) {
@@ -222,6 +259,37 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
               </select>
             </div>
           </div>
+
+          {sprints.length > 0 && (
+            <div>
+              <label className="label">Sprint</label>
+              <div className="flex flex-wrap gap-2">
+                {sprints.map((s) => {
+                  const active = sprintIds.has(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSprintIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                        return next;
+                      })}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: active ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                        color: active ? 'var(--brand)' : 'var(--text-2)',
+                        border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
+                      }}
+                    >
+                      ⚡ {s.name}
+                      {active && <span style={{ color: 'var(--brand)', fontSize: 10 }}>✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="label">Deadline <span className="normal-case font-normal" style={{ color: 'var(--text-3)' }}>(makes this a Milestone)</span></label>

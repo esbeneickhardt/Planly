@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { requireProductMember } from '../utils/product-guard';
 
 const PRESET_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
 const DEFAULT_NAMES: Record<string, string> = {
@@ -12,22 +13,19 @@ const DEFAULT_NAMES: Record<string, string> = {
 export async function colorLegendRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/color-legend', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const entries = await prisma.colorLegendEntry.findMany({ where: { productId } });
     const entryMap = new Map(entries.map((e) => [e.colorKey, e]));
-
     const result = PRESET_COLORS.map((color) => {
       const entry = entryMap.get(color);
-      return {
-        colorKey: color,
-        name: entry?.name ?? DEFAULT_NAMES[color] ?? color,
-        enabled: entry?.enabled ?? true,
-      };
+      return { colorKey: color, name: entry?.name ?? DEFAULT_NAMES[color] ?? color, enabled: entry?.enabled ?? true };
     });
     reply.send(result);
   });
 
   app.put('/api/products/:productId/color-legend', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const entries = req.body as { colorKey: string; name: string; enabled: boolean }[];
     if (!Array.isArray(entries)) return reply.status(400).send({ error: 'Expected array' });
 

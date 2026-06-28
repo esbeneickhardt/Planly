@@ -7,14 +7,14 @@ import { useTheme } from '../../context/ThemeContext';
 import { api } from '../../api/client';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
-import type { Product } from '../../types';
 
 const NAV = [
-  { to: '/kanban',   label: 'Kanban',   icon: '▦',  tab: 'kanban' },
-  { to: '/backlog',  label: 'Backlog',  icon: '☰',  tab: 'backlog' },
-  { to: '/canvas',   label: 'Plan',     icon: '◈',  tab: 'canvas' },
-  { to: '/gantt',    label: 'Gantt',    icon: '📅', tab: 'gantt' },
-  { to: '/settings', label: 'Settings', icon: '⚙',  tab: 'categories' },
+  { to: '/kanban',    label: 'Kanban',    icon: '▦',  tab: 'kanban' },
+  { to: '/backlog',   label: 'Backlog',   icon: '☰',  tab: 'backlog' },
+  { to: '/canvas',    label: 'Plan',      icon: '◈',  tab: 'canvas' },
+  { to: '/gantt',     label: 'Gantt',     icon: '📅', tab: 'gantt' },
+  { to: '/analytics', label: 'Analytics', icon: '📊', tab: 'analytics' },
+  { to: '/settings',  label: 'Settings',  icon: '⚙',  tab: 'categories' },
 ];
 
 interface NewProductForm { name: string; emoji: string; description: string; deadline: string; }
@@ -67,13 +67,6 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
     finally { setSeeding(false); }
   }
 
-  async function handleDeleteProduct(p: Product) {
-    if (!confirm(`Delete "${p.name}"? All tasks will be permanently deleted.`)) return;
-    try {
-      await api.products.delete(p.id);
-      await refreshProducts();
-    } catch (err) { alert((err as Error).message); }
-  }
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -211,32 +204,21 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
             ) : (
               <div className="space-y-0.5">
                 {products.map((p) => (
-                  <div key={p.id} className="group relative flex items-center">
-                    <button
-                      onClick={() => setActiveProduct(p)}
-                      className="w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2"
-                      style={{
-                        background: activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
-                        color: activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text-2)',
-                        fontWeight: activeProduct?.id === p.id ? 500 : 400,
-                      }}
-                      onMouseEnter={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                      onMouseLeave={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      {p.emoji && <span className="flex-shrink-0">{p.emoji}</span>}
-                      <span className="truncate">{p.name}</span>
-                    </button>
-                    {p.ownerId === user?.id && (
-                      <button
-                        onClick={() => handleDeleteProduct(p)}
-                        className="absolute right-1.5 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-xs flex-shrink-0"
-                        style={{ color: 'var(--text-3)' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                        title={`Delete ${p.name}`}
-                      >✕</button>
-                    )}
-                  </div>
+                  <button
+                    key={p.id}
+                    onClick={() => setActiveProduct(p)}
+                    className="w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 min-w-0"
+                    style={{
+                      background: activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
+                      color: activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text-2)',
+                      fontWeight: activeProduct?.id === p.id ? 500 : 400,
+                    }}
+                    onMouseEnter={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {p.emoji && <span className="flex-shrink-0">{p.emoji}</span>}
+                    <span className="truncate min-w-0">{p.name}</span>
+                  </button>
                 ))}
                 <button onClick={handleLoadExamples} disabled={seeding} className="w-full text-left text-xs px-2 py-1 transition-colors" style={{ color: 'var(--text-3)' }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}

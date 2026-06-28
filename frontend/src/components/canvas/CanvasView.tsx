@@ -225,7 +225,7 @@ function LegendModal({ onClose }: { onClose: () => void }) {
 
 // ─── Main canvas ──────────────────────────────────────────────────────────────
 function CanvasInner() {
-  const { activeProduct, tasks, refreshTasks, patchTaskPositions } = useProduct();
+  const { activeProduct, tasks, tasksLoaded, refreshTasks, patchTaskPositions } = useProduct();
   const { user: currentUser } = useAuth();
   const { canWrite } = usePermission();
   const canWriteCanvas = canWrite('canvas');
@@ -257,10 +257,10 @@ function CanvasInner() {
   const [savingSnapshot, setSavingSnapshot] = useState(false);
 
   // Dropdown open states (not persisted)
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [showMilestoneFocusDropdown, setShowMilestoneFocusDropdown] = useState(false);
+  const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
+  const [showDisplayDropdown, setShowDisplayDropdown] = useState(false);
+  const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
   const [showSprintPicker, setShowSprintPicker] = useState(false);
-  const [showSprintMgmt, setShowSprintMgmt] = useState(false);
   const [showNewSprint, setShowNewSprint] = useState(false);
   const [sprintForm, setSprintForm] = useState({ name: '', startDate: '', endDate: '' });
 
@@ -271,6 +271,7 @@ function CanvasInner() {
   const [localSprintMemberIds, setLocalSprintMemberIds] = useState<Set<string>>(new Set());
   const sprintInitRef = useRef<string | null>(null);
 
+  const [layoutReady, setLayoutReady] = useState(false);
   const initializedRef = useRef<string | null>(null);
   const productConnectionsRef = useRef<Set<string>>(new Set());
   const activeProductRef = useRef(activeProduct);
@@ -286,6 +287,7 @@ function CanvasInner() {
     if (!activeProduct) return;
     initializedRef.current = null;
     sprintInitRef.current = null;
+    setLayoutReady(false);
     const s = loadState(activeProduct.id);
     setViewMode(s.viewMode ?? 'all');
     setStatusFilter(s.statusFilter ?? null);
@@ -382,6 +384,15 @@ function CanvasInner() {
     setEdges(e);
 
     if (initializedRef.current !== activeProduct.id) {
+      // Wait until tasks have been fetched before locking in initialization.
+      // Without this guard, the effect fires with an empty task list (tasks still
+      // loading), locks initializedRef, and subsequent task arrivals hit the
+      // merge branch — leaving every node at position (0,0).
+      if (!tasksLoaded) {
+        setNodes(n); // show the product node while loading
+        return;
+      }
+
       initializedRef.current = activeProduct.id;
       const unpositioned = filteredTasks.filter((t) => t.canvasX == null);
       const allUnpositioned = unpositioned.length === filteredTasks.length && filteredTasks.length > 0;
@@ -402,11 +413,15 @@ function CanvasInner() {
           });
         });
       } else if (unpositioned.length > 0) {
-        // Some tasks lack positions (created outside canvas): place in a row, keep others
+        // Some tasks lack positions (created outside canvas): auto-layout the unpositioned
+        // ones relative to the existing cluster rather than stacking at (0,0).
+        const positioned = n.filter((nd) => !unpositioned.find((t) => t.id === nd.id) && !nd.id.startsWith('product-'));
+        const maxX = positioned.length > 0 ? Math.max(...positioned.map((nd) => nd.position.x)) : 0;
+        const midY = positioned.length > 0 ? positioned.reduce((s, nd) => s + nd.position.y, 0) / positioned.length : 200;
         let col = 0;
         const laid = n.map((node) => {
           if (!unpositioned.find((t) => t.id === node.id)) return node;
-          const pos = { x: 200 + col * 220, y: 200 };
+          const pos = { x: maxX + 260 + col * 220, y: midY + (col % 2 === 0 ? -60 : 60) };
           col++;
           return { ...node, position: pos };
         });
@@ -426,22 +441,48 @@ function CanvasInner() {
           });
         });
       } else {
-        setNodes(n);
+        // First visit for this user/browser: no saved viewport → run auto-layout once for a clean first impression
+        const hasVisited = !!loadState(activeProduct.id).viewport;
+        if (!hasVisited && filteredTasks.length > 0) {
+          const laid = runAutoLayout(n, e);
+          setNodes(laid);
+          const updates = laid
+            .filter((nd) => !nd.id.startsWith('product-'))
+            .map((nd) => ({ taskId: nd.id, canvasX: nd.position.x, canvasY: nd.position.y }));
+          const productNode = laid.find((nd) => nd.id.startsWith('product-'));
+          if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
+          patchTaskPositions(updates);
+          updates.forEach(async ({ taskId, canvasX, canvasY }) => {
+            await fetch(`/api/products/${activeProduct.id}/tasks/${taskId}/position`, {
+              method: 'PATCH', credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ x: canvasX, y: canvasY }),
+            });
+          });
+        } else {
+          setNodes(n);
+        }
       }
 
       setTimeout(() => {
         const vp = loadState(activeProduct.id).viewport;
         if (vp) setViewport(vp);
-        else fitView({ padding: 0.2 });
+        else {
+          fitView({ padding: 0.2 });
+          // Save viewport so subsequent visits restore this fit-view instead of re-layout
+          setTimeout(() => save({ viewport: getViewport() }), 60);
+        }
+        setLayoutReady(true);
       }, 80);
     } else {
+      setLayoutReady(true);
       setNodes((curr) => {
         const byId = new Map(curr.map((nd) => [nd.id, nd]));
         return n.map((nn) => { const ex = byId.get(nn.id); return ex ? { ...ex, data: nn.data } : nn; });
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTasks, activeProduct, autoLayoutEnabled, sprints, selectedSprintFilter, showSprintAura, sprintColorsMap, localSprintMemberIds]);
+  }, [filteredTasks, activeProduct, autoLayoutEnabled, sprints, selectedSprintFilter, showSprintAura, sprintColorsMap, localSprintMemberIds, tasksLoaded]);
 
   // Sprint membership toggle — optimistic: updates local Set immediately, syncs to backend async
   const toggleSprintMembership = useCallback(async (taskId: string) => {
@@ -573,7 +614,13 @@ function CanvasInner() {
   }
 
   // ReactFlow callbacks
-  const onPaneClick = useCallback(() => setCtxMenu(null), []);
+  const onPaneClick = useCallback(() => {
+    setCtxMenu(null);
+    setShowFiltersDropdown(false);
+    setShowDisplayDropdown(false);
+    setShowLayoutDropdown(false);
+    setShowSprintPicker(false);
+  }, []);
 
   const onConnect = useCallback(async (connection: Connection) => {
     setCtxMenu(null);
@@ -791,7 +838,7 @@ function CanvasInner() {
                   </button>
                 ))}
 
-                {/* Sprint view mode — with inline picker */}
+                {/* Sprint view mode — picker + management in one place */}
                 <div className="relative">
                   <button
                     onClick={() => { setViewModeSave('sprint'); setShowSprintPicker((v) => !v); }}
@@ -804,108 +851,206 @@ function CanvasInner() {
                   {showSprintPicker && (
                     <div
                       className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 220 }}
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 260 }}
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {/* Header */}
+                      <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Sprints</span>
+                        <button
+                          onClick={() => { setShowSprintPicker(false); setShowNewSprint(true); }}
+                          className="text-xs font-medium px-2 py-0.5 rounded-lg transition-colors"
+                          style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                        >+ New</button>
+                      </div>
+
+                      {/* No sprint option */}
                       <button
                         onClick={() => { setSprintFilterSave(null); setViewModeSave('all'); setShowSprintPicker(false); }}
-                        className="w-full text-left px-3 py-2 text-xs transition-colors"
-                        style={{ color: !selectedSprintFilter ? 'var(--brand)' : 'var(--text-3)', borderBottom: '1px solid var(--border)' }}
+                        className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2 transition-colors"
+                        style={{ borderBottom: sortedSprints.length > 0 ? '1px solid var(--border)' : 'none' }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                       >
-                        No sprint selected
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
+                        <span style={{ color: !selectedSprintFilter ? 'var(--brand)' : 'var(--text-2)' }}>No sprint (exit sprint mode)</span>
+                        {!selectedSprintFilter && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
                       </button>
+
+                      {/* Sprint list with select + delete */}
                       {sortedSprints.length === 0 && (
-                        <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet — create one first.</p>
+                        <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet — create one to start planning.</p>
                       )}
-                      {sortedSprints.map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => { setSprintFilterSave(s.id); setShowSprintPicker(false); }}
-                          className="w-full text-left px-3 py-2 text-xs transition-colors"
-                          style={{ color: selectedSprintFilter === s.id ? 'var(--brand)' : 'var(--text)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <span className="font-medium">{s.name}</span>
-                          <span className="ml-2 opacity-60">{new Date(s.startDate).toLocaleDateString()} → {new Date(s.endDate).toLocaleDateString()}</span>
-                        </button>
-                      ))}
+                      {sortedSprints.map((s, i) => {
+                        const isActive = selectedSprintFilter === s.id;
+                        return (
+                          <div
+                            key={s.id}
+                            className="flex items-center gap-2 px-3 py-2.5 group transition-colors cursor-pointer"
+                            style={{ background: isActive ? 'var(--brand-subtle)' : 'transparent' }}
+                            onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'var(--brand-subtle)' : 'transparent'; }}
+                            onClick={() => { setSprintFilterSave(isActive ? null : s.id); setShowSprintPicker(false); }}
+                          >
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: SPRINT_PALETTE[i % SPRINT_PALETTE.length], flexShrink: 0 }} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate" style={{ color: isActive ? 'var(--brand)' : 'var(--text)' }}>{s.name}</p>
+                              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>
+                                {new Date(s.startDate).toLocaleDateString()} → {new Date(s.endDate).toLocaleDateString()} · {s.taskIds.length} tasks
+                              </p>
+                            </div>
+                            {isActive && <span style={{ color: 'var(--brand)', fontSize: 11, flexShrink: 0 }}>✓</span>}
+                            <button
+                              className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
+                              style={{ color: 'var(--text-3)' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
+                              onClick={(e) => { e.stopPropagation(); deleteSprint(s.id); }}
+                              title="Delete sprint"
+                            >✕</button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Row 2 — secondary filters */}
-              <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Row 2 — grouped control dropdowns */}
+              <div className="flex items-center gap-1.5">
 
-                {/* Status filter */}
+                {/* Filters dropdown — status + milestone focus */}
                 <div className="relative">
-                  <button onClick={() => setShowStatusDropdown((v) => !v)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(!!statusFilter)}>
-                    {statusFilter ? STATUS_OPTIONS.find((s) => s.key === statusFilter)?.label : 'Status'}
+                  <button
+                    onClick={() => { setShowFiltersDropdown((v) => !v); setShowDisplayDropdown(false); setShowLayoutDropdown(false); }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                    style={chip(!!statusFilter || selectedMilestoneIds.length > 0)}
+                  >
+                    {statusFilter
+                      ? <><span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: STATUS_OPTIONS.find((s) => s.key === statusFilter)?.color }} />{STATUS_OPTIONS.find((s) => s.key === statusFilter)?.label}</>
+                      : selectedMilestoneIds.length > 0
+                      ? `⭐ ${selectedMilestoneIds.length} milestone${selectedMilestoneIds.length > 1 ? 's' : ''}`
+                      : 'Filters'}
                     <span className="text-[10px] opacity-50">▾</span>
                   </button>
-                  {showStatusDropdown && (
-                    <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 py-1 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 150 }} onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => { setStatusFilterSave(null); setShowStatusDropdown(false); }} className="w-full text-left px-3 py-1.5 text-xs transition-colors" style={{ color: !statusFilter ? 'var(--brand)' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>All statuses</button>
+                  {showFiltersDropdown && (
+                    <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 220 }} onClick={(e) => e.stopPropagation()}>
+                      {/* Status section */}
+                      <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Status</div>
+                      <button onClick={() => { setStatusFilterSave(null); }} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: !statusFilter ? 'var(--brand)' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        All statuses {!statusFilter && <span className="ml-auto">✓</span>}
+                      </button>
                       {STATUS_OPTIONS.map((s) => (
-                        <button key={s.key} onClick={() => { setStatusFilterSave(s.key); setShowStatusDropdown(false); }} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: statusFilter === s.key ? 'var(--brand)' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />{s.label}
+                        <button key={s.key} onClick={() => { setStatusFilterSave(statusFilter === s.key ? null : s.key); }} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: statusFilter === s.key ? 'var(--brand)' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />{s.label} {statusFilter === s.key && <span className="ml-auto">✓</span>}
                         </button>
                       ))}
+                      {/* Milestone focus section */}
+                      {milestoneTasks.length > 0 && (
+                        <>
+                          <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}>Milestone focus</div>
+                          <button onClick={() => { setMilestoneIdsSave([]); }} className="w-full text-left px-3 py-1.5 text-xs transition-colors" style={{ color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                            Show all {selectedMilestoneIds.length === 0 && '✓'}
+                          </button>
+                          {milestoneTasks.map((t) => {
+                            const sel = selectedMilestoneIds.includes(t.id);
+                            const overdue = new Date(t.deadline!) < new Date() && t.status !== 'done';
+                            return (
+                              <button key={t.id} onClick={() => { setMilestoneIdsSave(sel ? selectedMilestoneIds.filter((id) => id !== t.id) : [...selectedMilestoneIds, t.id]); }} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                                <span style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, background: sel ? (overdue ? '#ef4444' : '#f59e0b') : 'transparent', border: `1.5px solid ${overdue ? 'rgba(239,68,68,0.5)' : 'rgba(245,158,11,0.5)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  {sel && <span style={{ color: 'white', fontSize: 8 }}>✓</span>}
+                                </span>
+                                <span className="flex-1 truncate">{t.name}</span>
+                                <span style={{ color: overdue ? '#ef4444' : 'var(--text-3)', flexShrink: 0, fontSize: 10 }}>{new Date(t.deadline!).toLocaleDateString()}</span>
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
+                      {(statusFilter || selectedMilestoneIds.length > 0) && (
+                        <div style={{ borderTop: '1px solid var(--border)' }}>
+                          <button onClick={() => { setStatusFilterSave(null); setMilestoneIdsSave([]); setShowFiltersDropdown(false); }} className="w-full text-left px-3 py-2 text-xs font-medium transition-colors" style={{ color: '#ef4444' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                            Clear all filters
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Milestone focus */}
-                {milestoneTasks.length > 0 && (
-                  <div className="relative">
-                    <button onClick={() => setShowMilestoneFocusDropdown((v) => !v)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(selectedMilestoneIds.length > 0, '#f59e0b')}>
-                      ⭐{selectedMilestoneIds.length > 0 ? ` ${selectedMilestoneIds.length}` : ' Focus'}
-                      <span className="text-[10px] opacity-50">▾</span>
-                    </button>
-                    {showMilestoneFocusDropdown && (
-                      <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 230 }} onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => { setMilestoneIdsSave([]); setShowMilestoneFocusDropdown(false); }} className="w-full text-left px-3 py-2 text-xs transition-colors" style={{ color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)', borderBottom: '1px solid var(--border)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                          Clear focus (show all)
-                        </button>
-                        <div className="py-1 px-2 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
-                          Shows dependency chain + unlinked tasks
+                {/* Display dropdown — layout, sprint map, simple mode */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowDisplayDropdown((v) => !v); setShowFiltersDropdown(false); setShowLayoutDropdown(false); }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                    style={chip(showSprintAura || simpleMode)}
+                  >
+                    Display{showSprintAura || simpleMode ? ' ●' : ''}
+                    <span className="text-[10px] opacity-50">▾</span>
+                  </button>
+                  {showDisplayDropdown && (
+                    <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }} onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => { setAutoLayoutSave(true); setShowDisplayDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        <span style={{ fontSize: 15 }}>◫</span>
+                        <div>
+                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Re-layout graph</p>
+                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Auto-arrange using DAG layout</p>
                         </div>
-                        {milestoneTasks.map((t) => {
-                          const sel = selectedMilestoneIds.includes(t.id);
-                          const overdue = new Date(t.deadline!) < new Date() && t.status !== 'done';
-                          return (
-                            <button key={t.id} onClick={() => { setMilestoneIdsSave(sel ? selectedMilestoneIds.filter((id) => id !== t.id) : [...selectedMilestoneIds, t.id]); }} className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors" style={{ color: 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                              <span style={{ width: 13, height: 13, borderRadius: 3, flexShrink: 0, background: sel ? (overdue ? '#ef4444' : '#f59e0b') : 'transparent', border: `1.5px solid ${overdue ? 'rgba(239,68,68,0.5)' : 'rgba(245,158,11,0.5)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {sel && <span style={{ color: 'white', fontSize: 8 }}>✓</span>}
-                              </span>
-                              <span className="flex-1 truncate">{t.name}</span>
-                              <span style={{ color: overdue ? '#ef4444' : 'var(--text-3)', flexShrink: 0, fontSize: 10 }}>{new Date(t.deadline!).toLocaleDateString()}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
+                      </button>
+                      <div style={{ borderTop: '1px solid var(--border)' }} />
+                      <button onClick={() => setSprintAuraSave(!showSprintAura)} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        <span style={{ fontSize: 15 }}>🎨</span>
+                        <div className="flex-1">
+                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Sprint colour map</p>
+                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Colour tasks by sprint membership</p>
+                        </div>
+                        {showSprintAura && <span style={{ color: 'var(--brand)', fontSize: 12 }}>✓</span>}
+                      </button>
+                      <button onClick={() => setSimpleModeSave(!simpleMode)} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        <span style={{ fontSize: 15 }}>◻</span>
+                        <div className="flex-1">
+                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Simple mode</p>
+                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Show task names only</p>
+                        </div>
+                        {simpleMode && <span style={{ color: 'var(--brand)', fontSize: 12 }}>✓</span>}
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-                {/* Auto-layout toggle */}
-                <button onClick={() => setAutoLayoutSave(!autoLayoutEnabled)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(autoLayoutEnabled)}>◫ Auto-layout</button>
-
-                {/* Sprint map toggle */}
-                <button onClick={() => setSprintAuraSave(!showSprintAura)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(showSprintAura)} title="Colour tasks by sprint membership">🎨 Sprint map</button>
-                {/* Simple mode toggle */}
-                <button onClick={() => setSimpleModeSave(!simpleMode)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(simpleMode)} title="Show task names only">◻ Simple</button>
-
-                {/* Layout sharing */}
-                <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
-                <button onClick={openShareModal} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(false)} title="Save current layout as a shared snapshot">↑ Share layout</button>
-                <button onClick={openLoadModal} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(false)} title="Apply a saved layout from your team">↓ Load layout</button>
+                {/* Layouts dropdown — save / load snapshots */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowLayoutDropdown((v) => !v); setShowFiltersDropdown(false); setShowDisplayDropdown(false); }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                    style={chip(false)}
+                  >
+                    Layouts <span className="text-[10px] opacity-50">▾</span>
+                  </button>
+                  {showLayoutDropdown && (
+                    <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }} onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => { openShareModal(); setShowLayoutDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        <span style={{ fontSize: 15 }}>↑</span>
+                        <div>
+                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Save layout</p>
+                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Share current positions with team</p>
+                        </div>
+                      </button>
+                      <button onClick={() => { openLoadModal(); setShowLayoutDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        <span style={{ fontSize: 15 }}>↓</span>
+                        <div>
+                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Load layout</p>
+                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Apply a saved team snapshot</p>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {/* Legend */}
-                <button onClick={() => setShowLegend(true)} title="Visual guide" className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold" style={chip(false)}>?</button>
+                <button onClick={() => setShowLegend(true)} title="Visual guide" className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold" style={chip(false)}>?</button>
               </div>
             </div>
           </Panel>
@@ -933,58 +1078,18 @@ function CanvasInner() {
           {/* ── Top-right ───────────────────────────────────────────────── */}
           <Panel position="top-right">
             <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
+              {/* New task — hidden for read-only users */}
+              {canWriteCanvas && (
+                <button
+                  onClick={() => setShowNewTask(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
+                  style={{ background: 'var(--brand)', color: 'white', border: '1px solid transparent', boxShadow: '0 1px 4px rgba(124,58,237,0.35)' }}
+                >
+                  + New task
+                </button>
+              )}
 
-                {/* Sprint management */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowSprintMgmt((v) => !v)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
-                    style={{ background: 'rgba(124,58,237,0.12)', color: 'var(--brand)', border: '1px solid rgba(124,58,237,0.3)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
-                  >
-                    ⚡ Sprints{sprints.length > 0 ? ` (${sprints.length})` : ''}
-                    <span className="text-[10px] opacity-60">▾</span>
-                  </button>
-                  {showSprintMgmt && (
-                    <div className="absolute right-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 260 }} onClick={(e) => e.stopPropagation()}>
-                      {sortedSprints.length === 0 && <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet.</p>}
-                      {sortedSprints.map((s, i) => {
-                        const isActive = selectedSprintFilter === s.id;
-                        return (
-                          <div key={s.id} className="flex items-center gap-2 px-3 py-2.5 group cursor-pointer transition-colors" style={{ background: isActive ? 'var(--brand-subtle)' : 'transparent' }}
-                            onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'var(--brand-subtle)' : 'transparent'; }}
-                            onClick={() => { setSprintFilterSave(isActive ? null : s.id); setShowSprintMgmt(false); }}
-                          >
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: SPRINT_PALETTE[i % SPRINT_PALETTE.length], flexShrink: 0 }} />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold truncate" style={{ color: isActive ? 'var(--brand)' : 'var(--text)' }}>{s.name}</p>
-                              <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>{new Date(s.startDate).toLocaleDateString()} → {new Date(s.endDate).toLocaleDateString()} · {s.taskIds.length} tasks</p>
-                            </div>
-                            <button className="opacity-0 group-hover:opacity-100 text-xs transition-opacity flex-shrink-0 px-1" style={{ color: 'var(--text-3)' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }} onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; }} onClick={(e) => { e.stopPropagation(); deleteSprint(s.id); }}>✕</button>
-                          </div>
-                        );
-                      })}
-                      <div style={{ borderTop: '1px solid var(--border)' }}>
-                        <button onClick={() => { setShowSprintMgmt(false); setShowNewSprint(true); }} className="w-full text-left px-3 py-2 text-xs font-medium transition-colors" style={{ color: 'var(--brand)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--brand-subtle)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>+ New sprint</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* New task — hidden for read-only users */}
-                {canWriteCanvas && (
-                  <button
-                    onClick={() => setShowNewTask(true)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
-                    style={{ background: 'var(--brand)', color: 'white', border: '1px solid transparent', boxShadow: '0 1px 4px rgba(124,58,237,0.35)' }}
-                  >
-                    + New task
-                  </button>
-                )}
-              </div>
-
-              {/* Sprint map legend */}
+              {/* Sprint map legend — only when sprint aura is on */}
               {showSprintAura && sortedSprints.length > 0 && (
                 <div className="rounded-xl px-3 py-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
                   <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-3)' }}>Sprint map</p>
@@ -1078,6 +1183,19 @@ function CanvasInner() {
         )}
 
         {showLegend && <LegendModal onClose={() => setShowLegend(false)} />}
+
+        {/* Loading overlay — shown until initial layout is computed */}
+        {!layoutReady && (
+          <div
+            className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
+            style={{ background: 'var(--bg)', transition: 'opacity 0.2s' }}
+          >
+            <div className="flex flex-col items-center gap-3" style={{ color: 'var(--text-3)' }}>
+              <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--brand)' }} />
+              <span className="text-xs">Loading canvas…</span>
+            </div>
+          </div>
+        )}
 
         {/* ── Share layout modal ─────────────────────────────────────── */}
         {showShareModal && (

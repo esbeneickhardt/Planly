@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -8,6 +7,8 @@ import { api } from '../../api/client';
 import type { Message } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
+import type { User, Task } from '../../types';
+import TaskDetailPanel from './TaskDetailPanel';
 
 interface Props {
   taskId?: string;
@@ -26,7 +27,6 @@ function formatTime(iso: string) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-
 function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
   msg: Message;
   isOwn: boolean;
@@ -34,6 +34,40 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
   onDelete: () => void;
   onImageClick: (url: string) => void;
 }) {
+  const renderContent = (content: string, isOwn: boolean) => (
+    <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5 }}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
+        components={{
+          pre: ({ children }) => (
+            <pre style={{ margin: '6px -4px', borderRadius: 6, overflow: 'auto', fontSize: 12 }}>{children}</pre>
+          ),
+          code: ({ className, children, ...props }) => {
+            const isBlock = Boolean(className?.startsWith('language-'));
+            return isBlock ? (
+              <code className={className} {...props}>{children}</code>
+            ) : (
+              <code style={{ background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)', padding: '1px 4px', borderRadius: 3, fontSize: '0.88em', fontFamily: 'monospace' }} {...props}>{children}</code>
+            );
+          },
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noreferrer" style={{ color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--brand)', textDecoration: 'underline' }}>{children}</a>
+          ),
+          p: ({ children }) => <p style={{ margin: '2px 0' }}>{children}</p>,
+          ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ul>,
+          ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ol>,
+          li: ({ children }) => <li style={{ margin: '2px 0' }}>{children}</li>,
+          blockquote: ({ children }) => (
+            <blockquote style={{ margin: '4px 0', paddingLeft: 10, borderLeft: `3px solid ${isOwn ? 'rgba(255,255,255,0.4)' : 'var(--brand)'}`, opacity: 0.8 }}>{children}</blockquote>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+
   return (
     <div className={`flex gap-2.5 group ${isOwn ? 'flex-row-reverse' : ''}`}>
       <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-sm" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
@@ -56,37 +90,7 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
               wordBreak: 'break-word',
             }}
           >
-            <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5 }}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
-                components={{
-                  pre: ({ children }) => (
-                    <pre style={{ margin: '6px -4px', borderRadius: 6, overflow: 'auto', fontSize: 12 }}>{children}</pre>
-                  ),
-                  code: ({ className, children, ...props }) => {
-                    const isBlock = Boolean(className?.startsWith('language-'));
-                    return isBlock ? (
-                      <code className={className} {...props}>{children}</code>
-                    ) : (
-                      <code style={{ background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)', padding: '1px 4px', borderRadius: 3, fontSize: '0.88em', fontFamily: 'monospace' }} {...props}>{children}</code>
-                    );
-                  },
-                  a: ({ href, children }) => (
-                    <a href={href} target="_blank" rel="noreferrer" style={{ color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--brand)', textDecoration: 'underline' }}>{children}</a>
-                  ),
-                  p: ({ children }) => <p style={{ margin: '2px 0' }}>{children}</p>,
-                  ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ul>,
-                  ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ol>,
-                  li: ({ children }) => <li style={{ margin: '2px 0' }}>{children}</li>,
-                  blockquote: ({ children }) => (
-                    <blockquote style={{ margin: '4px 0', paddingLeft: 10, borderLeft: `3px solid ${isOwn ? 'rgba(255,255,255,0.4)' : 'var(--brand)'}`, opacity: 0.8 }}>{children}</blockquote>
-                  ),
-                }}
-              >
-                {msg.content}
-              </ReactMarkdown>
-            </div>
+            {renderContent(msg.content, isOwn)}
           </div>
         )}
         {msg.attachments.length > 0 && (
@@ -115,18 +119,32 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
   );
 }
 
-export default function ChatPanel({ taskId, taskName, onClose }: Props) {
-  const { activeProduct } = useProduct();
-  const { user } = useAuth();
-  const navigate = useNavigate();
+const PINS_KEY = (productId: string) => `planly_pinned_chats_${productId}`;
+const DISMISSED_KEY = (productId: string) => `planly_dismissed_chats_${productId}`;
 
-  // All messages for this product (used in top-bar mode for task grouping, search, files)
+function loadPins(productId: string): string[] {
+  try { return JSON.parse(localStorage.getItem(PINS_KEY(productId)) ?? '[]'); } catch { return []; }
+}
+function savePins(productId: string, ids: string[]) {
+  localStorage.setItem(PINS_KEY(productId), JSON.stringify(ids));
+}
+function loadDismissed(productId: string): string[] {
+  try { return JSON.parse(localStorage.getItem(DISMISSED_KEY(productId)) ?? '[]'); } catch { return []; }
+}
+function saveDismissed(productId: string, ids: string[]) {
+  localStorage.setItem(DISMISSED_KEY(productId), JSON.stringify(ids));
+}
+
+export default function ChatPanel({ taskId, taskName, onClose }: Props) {
+  const { activeProduct, tasks } = useProduct();
+  const { user } = useAuth();
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [tab, setTab] = useState<Tab>('messages');
-  // Which task is open in the Tasks tab
   const [selectedTask, setSelectedTask] = useState<{ id: string; name: string } | null>(null);
+  const [openedTask, setOpenedTask] = useState<Task | null>(null);
+  const [openingTask, setOpeningTask] = useState(false);
 
-  // Compose state (shared across message views)
+  // Compose state
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -137,6 +155,18 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
   const [search, setSearch] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  // @ mention state
+  const [mentionSearch, setMentionSearch] = useState<string | null>(null);
+  const [mentionCursorStart, setMentionCursorStart] = useState<number>(0);
+  const [mentionHighlight, setMentionHighlight] = useState(0);
+  const [teamMembers, setTeamMembers] = useState<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>([]);
+
+  // Pin/dismiss state for Tasks tab
+  const [pinnedTaskIds, setPinnedTaskIds] = useState<string[]>([]);
+  const [dismissedTaskIds, setDismissedTaskIds] = useState<string[]>([]);
+  const [showAllTasks, setShowAllTasks] = useState(false);
+  const [taskSearch, setTaskSearch] = useState('');
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -144,9 +174,53 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
 
   const panelRight = taskId ? 448 : 0;
   const productId = activeProduct?.id;
-
-  // What taskId to use when sending
   const sendTaskId = taskId ?? (tab === 'tasks' && selectedTask ? selectedTask.id : undefined);
+
+  // Load team members for @ mentions
+  useEffect(() => {
+    const teamId = activeProduct?.teamId;
+    if (!teamId) return;
+    api.teams.get(teamId)
+      .then((team) => setTeamMembers(team.members.map((m) => m.user)))
+      .catch(() => {});
+  }, [activeProduct?.teamId]);
+
+  // Clear messages immediately when product changes (prevents stale cross-product data)
+  useEffect(() => {
+    setAllMessages([]);
+  }, [productId]);
+
+  // Load pins + dismissed from localStorage
+  useEffect(() => {
+    if (!productId) return;
+    setPinnedTaskIds(loadPins(productId));
+    setDismissedTaskIds(loadDismissed(productId));
+    setShowAllTasks(false);
+  }, [productId]);
+
+  const togglePin = useCallback((taskId: string) => {
+    if (!productId) return;
+    setPinnedTaskIds((prev) => {
+      const next = prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId];
+      savePins(productId, next);
+      return next;
+    });
+  }, [productId]);
+
+  const dismissTask = useCallback((taskId: string) => {
+    if (!productId) return;
+    // Unpin if pinned
+    setPinnedTaskIds((prev) => {
+      const next = prev.filter((id) => id !== taskId);
+      savePins(productId, next);
+      return next;
+    });
+    setDismissedTaskIds((prev) => {
+      const next = [...prev, taskId];
+      saveDismissed(productId, next);
+      return next;
+    });
+  }, [productId]);
 
   const load = useCallback(async () => {
     if (!productId) return;
@@ -170,39 +244,72 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Messages shown in the active message pane
   const displayMessages = useMemo(() => {
-    if (taskId) return allMessages; // task-panel mode: all loaded msgs are for this task
+    if (taskId) return allMessages;
     if (tab === 'tasks' && selectedTask) return allMessages.filter((m) => m.taskId === selectedTask.id);
-    if (tab === 'search' || tab === 'files') return allMessages; // search/files span all product messages
-    return allMessages.filter((m) => !m.taskId); // Messages tab: project-level only
+    if (tab === 'search' || tab === 'files') return allMessages;
+    return allMessages.filter((m) => !m.taskId);
   }, [allMessages, taskId, tab, selectedTask]);
 
-  // Task groups for the Tasks tab list
-  const taskGroups = useMemo(() => {
-    const groups = new Map<string, { task: { id: string; name: string }; count: number; last: Message }>();
+  // Build task groups with message counts
+  const taskMessageCounts = useMemo(() => {
+    const counts = new Map<string, { count: number; last: Message; task: { id: string; name: string } }>();
     for (const msg of allMessages) {
       if (!msg.task) continue;
-      const existing = groups.get(msg.task.id);
+      const existing = counts.get(msg.task.id);
       if (!existing) {
-        groups.set(msg.task.id, { task: msg.task, count: 1, last: msg });
+        counts.set(msg.task.id, { task: msg.task, count: 1, last: msg });
       } else {
         existing.count++;
         existing.last = msg;
       }
     }
-    return Array.from(groups.values()).sort(
-      (a, b) => new Date(b.last.createdAt).getTime() - new Date(a.last.createdAt).getTime()
-    );
+    return counts;
   }, [allMessages]);
 
-  // Scroll to bottom when messages or tab changes to a message view
+  // Tasks where the current user is @mentioned in any message
+  const mentionedTaskIds = useMemo(() => {
+    if (!user) return new Set<string>();
+    const pattern = new RegExp(`@${user.username}\\b`, 'i');
+    const ids = new Set<string>();
+    for (const msg of allMessages) {
+      if (msg.taskId && pattern.test(msg.content)) ids.add(msg.taskId);
+    }
+    return ids;
+  }, [allMessages, user]);
+
+  // Filtered task list for Tasks tab
+  const filteredTasks = useMemo(() => {
+    const q = taskSearch.toLowerCase().trim();
+    return tasks.filter((t) => {
+      if (q) return t.name.toLowerCase().includes(q);
+      if (showAllTasks) return true;
+      // Default: show pinned, owned, mentioned — hide dismissed and done (unless pinned)
+      if (pinnedTaskIds.includes(t.id)) return true;
+      if (dismissedTaskIds.includes(t.id)) return false;
+      if (t.status === 'done') return false;
+      if (t.ownerId === user?.id) return true;
+      if (mentionedTaskIds.has(t.id)) return true;
+      return false;
+    });
+  }, [tasks, taskSearch, showAllTasks, pinnedTaskIds, dismissedTaskIds, user, mentionedTaskIds]);
+
+  // Pinned tasks shown first in list
+  const sortedFilteredTasks = useMemo(() => {
+    const pinned = filteredTasks.filter((t) => pinnedTaskIds.includes(t.id));
+    const rest = filteredTasks.filter((t) => !pinnedTaskIds.includes(t.id));
+    // Sort rest by last message date, then by task creation
+    const withMsg = rest.filter((t) => taskMessageCounts.has(t.id))
+      .sort((a, b) => new Date(taskMessageCounts.get(b.id)!.last.createdAt).getTime() - new Date(taskMessageCounts.get(a.id)!.last.createdAt).getTime());
+    const withoutMsg = rest.filter((t) => !taskMessageCounts.has(t.id));
+    return [...pinned, ...withMsg, ...withoutMsg];
+  }, [filteredTasks, pinnedTaskIds, taskMessageCounts]);
+
   const showingMessages = tab === 'messages' || (tab === 'tasks' && selectedTask != null) || !!taskId;
   useEffect(() => {
     if (showingMessages) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [displayMessages.length, showingMessages]);
 
-  // Search across context-scoped messages
   const filteredMessages = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return [];
@@ -213,7 +320,6 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
     );
   }, [displayMessages, search]);
 
-  // All attachments in the current context
   const allAttachments = useMemo(() => {
     const result: { att: Message['attachments'][number]; msg: Message }[] = [];
     for (const msg of displayMessages) {
@@ -221,6 +327,53 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
     }
     return result;
   }, [displayMessages]);
+
+  // Filtered mention candidates
+  const mentionCandidates = useMemo(() => {
+    if (mentionSearch === null) return [];
+    const q = mentionSearch.toLowerCase();
+    return teamMembers.filter((m) => m.username.toLowerCase().startsWith(q) && m.id !== user?.id).slice(0, 6);
+  }, [mentionSearch, teamMembers, user?.id]);
+
+  function handleDraftChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value;
+    setDraft(val);
+    const cursor = e.target.selectionStart ?? val.length;
+    const textBeforeCursor = val.slice(0, cursor);
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+    if (mentionMatch) {
+      setMentionSearch(mentionMatch[1]);
+      setMentionCursorStart(cursor - mentionMatch[0].length);
+      setMentionHighlight(0);
+    } else {
+      setMentionSearch(null);
+    }
+  }
+
+  function insertMention(username: string) {
+    const before = draft.slice(0, mentionCursorStart);
+    const after = draft.slice(mentionCursorStart + 1 + (mentionSearch?.length ?? 0));
+    const newDraft = `${before}@${username} ${after}`;
+    setDraft(newDraft);
+    setMentionSearch(null);
+    setTimeout(() => {
+      if (textRef.current) {
+        const pos = before.length + username.length + 2;
+        textRef.current.focus();
+        textRef.current.setSelectionRange(pos, pos);
+      }
+    }, 0);
+  }
+
+  function handleDraftKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (mentionSearch !== null && mentionCandidates.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionHighlight((h) => Math.min(h + 1, mentionCandidates.length - 1)); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionHighlight((h) => Math.max(h - 1, 0)); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(mentionCandidates[mentionHighlight].username); return; }
+      if (e.key === 'Escape') { setMentionSearch(null); return; }
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
+  }
 
   async function send() {
     if ((!draft.trim() && attachments.length === 0) || !productId) return;
@@ -231,6 +384,7 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
       setDraft('');
       setAttachments([]);
       setPreview(false);
+      setMentionSearch(null);
     } finally {
       setSending(false);
       setTimeout(() => textRef.current?.focus(), 0);
@@ -283,10 +437,35 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
     >{label}</button>
   );
 
-  // Called as {composeArea()} — NOT as <ComposeArea /> — so React never remounts it on render
   function composeArea() {
     return (
-      <div className="px-4 pb-4 pt-2 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+      <div className="px-4 pb-4 pt-2 flex-shrink-0 relative" style={{ borderTop: '1px solid var(--border)' }}>
+        {/* @ mention dropdown */}
+        {mentionSearch !== null && mentionCandidates.length > 0 && (
+          <div
+            className="absolute left-4 right-4 bottom-full mb-1 rounded-xl overflow-hidden shadow-xl z-10"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <div className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>Mention a member</span>
+            </div>
+            {mentionCandidates.map((m, i) => (
+              <button
+                key={m.id}
+                onMouseDown={(e) => { e.preventDefault(); insertMention(m.username); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                style={{ background: i === mentionHighlight ? 'var(--surface-2)' : 'transparent' }}
+                onMouseEnter={() => setMentionHighlight(i)}
+              >
+                <span className="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  {m.avatarEmoji ?? '👤'}
+                </span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>@{m.username}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-1 mb-2">
           <button
             onClick={() => setPreview((v) => !v)}
@@ -300,6 +479,7 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
             style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
           >{uploading ? '⏳' : '📎'} Attach</button>
         </div>
+
         {preview ? (
           <div className="min-h-[80px] max-h-40 overflow-y-auto px-3 py-2 rounded-lg mb-2 text-sm"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
@@ -312,13 +492,14 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
             ref={textRef}
             rows={3}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={handleDraftChange}
             onPaste={handlePaste}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(); }}
-            placeholder="Write a message… (⌘↵ to send)"
+            onKeyDown={handleDraftKeyDown}
+            placeholder="Write a message… type @ to mention · ⌘↵ send"
             className="input text-sm w-full resize-none mb-2"
           />
         )}
+
         {attachments.length > 0 && (
           <div className="pb-2 flex gap-2 flex-wrap">
             {attachments.map((att, i) => (
@@ -336,8 +517,9 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
             ))}
           </div>
         )}
+
         <div className="flex justify-between items-center">
-          <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>Paste images · ```python · ⌘↵ send</span>
+          <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>@ mention · ```python · ⌘↵ send</span>
           <button onClick={send} disabled={sending || (!draft.trim() && attachments.length === 0)} className="btn-primary text-xs px-4">
             {sending ? '…' : 'Send'}
           </button>
@@ -346,7 +528,6 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
     );
   }
 
-  // Called as {messageList(msgs)} — NOT as <MessageList /> — so React never remounts it on render
   function messageList(msgs: Message[]) {
     return (
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -393,6 +574,7 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
   }
 
   const projectMsgCount = allMessages.filter((m) => !m.taskId).length;
+  const taskThreadCount = taskMessageCounts.size;
 
   return (
     <div
@@ -412,15 +594,15 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}>✕</button>
       </div>
 
-      {/* Tabs — Tasks tab only shown in top-bar (project) mode */}
+      {/* Tabs */}
       <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
         {tabBtn('messages', `Messages${projectMsgCount > 0 ? ` (${projectMsgCount})` : ''}`)}
-        {!taskId && tabBtn('tasks', `Tasks${taskGroups.length > 0 ? ` (${taskGroups.length})` : ''}`)}
+        {!taskId && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`)}
         {tabBtn('search', 'Search')}
         {tabBtn('files', `Files${allAttachments.length > 0 ? ` (${allAttachments.length})` : ''}`)}
       </div>
 
-      {/* ── Messages tab ── project-level only */}
+      {/* ── Messages tab ── */}
       {tab === 'messages' && (
         <>
           {messageList(displayMessages)}
@@ -431,7 +613,6 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
       {/* ── Tasks tab ── */}
       {tab === 'tasks' && !taskId && (
         selectedTask ? (
-          // Task detail view
           <>
             <div className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
               <button
@@ -441,55 +622,138 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
               >← Back</button>
               <p className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>{selectedTask.name}</p>
               <button
-                onClick={() => { onClose(); navigate('/kanban'); }}
+                onClick={() => togglePin(selectedTask.id)}
+                className="text-sm px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                title={pinnedTaskIds.includes(selectedTask.id) ? 'Unpin' : 'Pin'}
+                style={{ background: pinnedTaskIds.includes(selectedTask.id) ? 'var(--brand-subtle)' : 'var(--surface-2)', color: pinnedTaskIds.includes(selectedTask.id) ? 'var(--brand)' : 'var(--text-3)' }}
+              >📌</button>
+              <button
+                onClick={async () => {
+                  if (!selectedTask || !activeProduct) return;
+                  setOpeningTask(true);
+                  try {
+                    const full = await api.tasks.get(activeProduct.id, selectedTask.id);
+                    setOpenedTask(full);
+                  } catch { /* ignore */ }
+                  finally { setOpeningTask(false); }
+                }}
+                disabled={openingTask}
                 className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
                 style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-              >Open task →</button>
+              >{openingTask ? '…' : 'Open task →'}</button>
             </div>
             {messageList(displayMessages)}
             {composeArea()}
           </>
         ) : (
-          // Task list view
-          <div className="flex-1 overflow-y-auto">
-            {taskGroups.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: 'var(--text-3)' }}>
-                <span className="text-3xl opacity-30">📋</span>
-                <p className="text-sm">No task messages yet.</p>
-                <p className="text-xs text-center px-6">Open a task and use the chat icon there to start a conversation.</p>
-              </div>
-            ) : (
-              <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                {taskGroups.map(({ task, count, last }) => (
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Search / filter tasks */}
+            <div className="px-4 pt-3 pb-2 flex-shrink-0 space-y-2">
+              <input
+                type="text"
+                value={taskSearch}
+                onChange={(e) => setTaskSearch(e.target.value)}
+                placeholder="Search tasks…"
+                className="input text-sm w-full"
+              />
+              {!taskSearch && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+                    {showAllTasks ? 'All tasks' : 'Your tasks (owned or mentioned)'}
+                  </span>
                   <button
-                    key={task.id}
-                    onClick={() => setSelectedTask(task)}
-                    className="w-full text-left px-4 py-3.5 flex gap-3 transition-colors"
-                    style={{ background: 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    onClick={() => setShowAllTasks((v) => !v)}
+                    className="text-[10px] px-2 py-0.5 rounded-md transition-colors"
+                    style={{ background: showAllTasks ? 'var(--brand-subtle)' : 'var(--surface-2)', color: showAllTasks ? 'var(--brand)' : 'var(--text-3)' }}
                   >
-                    <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-base" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                      📋
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2 mb-0.5">
-                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{task.name}</p>
-                        <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-3)' }}>{formatTime(last.createdAt)}</span>
-                      </div>
-                      <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>
-                        {last.author.avatarEmoji ?? '👤'} {last.author.username}: {last.content || '📎 attachment'}
-                      </p>
-                    </div>
-                    {count > 0 && (
-                      <span className="flex-shrink-0 self-center text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>
-                        {count}
-                      </span>
-                    )}
+                    {showAllTasks ? 'Show mine' : 'Show all'}
                   </button>
-                ))}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {sortedFilteredTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 gap-2" style={{ color: 'var(--text-3)' }}>
+                  <span className="text-3xl opacity-30">📋</span>
+                  <p className="text-sm">{taskSearch ? 'No tasks match.' : 'No active tasks assigned to you.'}</p>
+                  {!taskSearch && !showAllTasks && (
+                    <button
+                      onClick={() => setShowAllTasks(true)}
+                      className="text-xs px-3 py-1 rounded-lg"
+                      style={{ background: 'var(--surface-2)', color: 'var(--brand)' }}
+                    >Show all tasks</button>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                  {sortedFilteredTasks.map((task) => {
+                    const msgInfo = taskMessageCounts.get(task.id);
+                    const isPinned = pinnedTaskIds.includes(task.id);
+                    const isMentioned = mentionedTaskIds.has(task.id);
+                    return (
+                      <div
+                        key={task.id}
+                        className="flex gap-2 px-4 py-3 group/task transition-colors"
+                        style={{ background: 'transparent' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <button
+                          onClick={() => setSelectedTask({ id: task.id, name: task.name })}
+                          className="flex gap-3 flex-1 min-w-0 text-left"
+                        >
+                          <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-base" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                            {task.color ? <span style={{ background: task.color }} className="w-3.5 h-3.5 rounded-full block" /> : '📋'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                              <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
+                                {isPinned && <span className="mr-1 text-xs">📌</span>}
+                                {isMentioned && !isPinned && <span className="mr-1 text-xs">@</span>}
+                                {task.name}
+                              </p>
+                              {msgInfo && <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-3)' }}>{formatTime(msgInfo.last.createdAt)}</span>}
+                            </div>
+                            {msgInfo ? (
+                              <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>
+                                {msgInfo.last.author.avatarEmoji ?? '👤'} {msgInfo.last.author.username}: {msgInfo.last.content || '📎 attachment'}
+                              </p>
+                            ) : (
+                              <p className="text-xs" style={{ color: 'var(--text-3)' }}>No messages yet</p>
+                            )}
+                          </div>
+                          {msgInfo && (
+                            <span className="flex-shrink-0 self-center text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>
+                              {msgInfo.count}
+                            </span>
+                          )}
+                        </button>
+                        {/* Action buttons */}
+                        <div className="flex flex-col gap-1 self-center opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0">
+                          <button
+                            onClick={() => togglePin(task.id)}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                            title={isPinned ? 'Unpin' : 'Pin to top'}
+                            style={{ background: isPinned ? 'var(--brand-subtle)' : 'var(--surface)', color: isPinned ? 'var(--brand)' : 'var(--text-3)', border: '1px solid var(--border)' }}
+                          >📌</button>
+                          {!isPinned && (
+                            <button
+                              onClick={() => dismissTask(task.id)}
+                              className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                              title="Remove from feed"
+                              style={{ background: 'var(--surface)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+                            >✕</button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )
       )}
@@ -512,14 +776,28 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
               <div className="flex flex-col items-center justify-center h-32 gap-2" style={{ color: 'var(--text-3)' }}>
                 <span className="text-3xl opacity-30">🔍</span>
                 <p className="text-sm">Type to search messages</p>
-                <p className="text-xs" style={{ color: 'var(--text-3)' }}>Searches content, task names, and authors</p>
               </div>
             ) : filteredMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 gap-2" style={{ color: 'var(--text-3)' }}>
                 <p className="text-sm">No messages match "{search}"</p>
               </div>
             ) : filteredMessages.map((msg) => (
-              <div key={msg.id} className="rounded-xl px-3 py-2.5" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <button
+                key={msg.id}
+                className="w-full text-left rounded-xl px-3 py-2.5 transition-colors"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                onClick={() => {
+                  if (msg.task) {
+                    setSelectedTask(msg.task);
+                    setTab('tasks');
+                  } else {
+                    setTab('messages');
+                  }
+                  setSearch('');
+                }}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm">{msg.author.avatarEmoji ?? '👤'}</span>
                   <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{msg.author.username}</span>
@@ -530,17 +808,17 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
                   )}
                   <span className="text-[10px] ml-auto flex-shrink-0" style={{ color: 'var(--text-3)' }}>{formatTime(msg.createdAt)}</span>
                 </div>
-                <p className="text-xs" style={{ color: 'var(--text-2)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
+                <p className="text-xs" style={{ color: 'var(--text-2)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', textAlign: 'left' }}>{msg.content}</p>
                 {msg.attachments.length > 0 && (
                   <p className="text-[10px] mt-1" style={{ color: 'var(--text-3)' }}>📎 {msg.attachments.length} attachment{msg.attachments.length > 1 ? 's' : ''}</p>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Files tab ── all files across all messages */}
+      {/* ── Files tab ── */}
       {tab === 'files' && (
         <div className="flex-1 overflow-y-auto px-4 py-4">
           {allAttachments.length === 0 ? (
@@ -600,6 +878,17 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
       )}
 
       <input ref={fileRef} type="file" multiple accept="image/*,.pdf,.txt,.csv,.zip" className="hidden" onChange={handleFileChange} />
+
+      {/* Task detail panel opened via "Open task →" */}
+      {openedTask && (
+        <TaskDetailPanel
+          task={openedTask}
+          readOnly={false}
+          onClose={() => setOpenedTask(null)}
+          onUpdated={(updated) => setOpenedTask(updated)}
+          onDeleted={() => setOpenedTask(null)}
+        />
+      )}
 
       {/* Lightbox */}
       {lightboxUrl && (

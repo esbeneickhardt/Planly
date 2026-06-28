@@ -6,7 +6,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
 import KanbanCard from './KanbanCard';
 
-type SortMode = 'default' | 'alpha-asc' | 'alpha-desc' | 'oldest' | 'newest';
+type SortMode = 'default' | 'alpha-asc' | 'alpha-desc' | 'deadline' | 'oldest' | 'newest';
 
 interface Props {
   column: KanbanColumnType;
@@ -18,20 +18,27 @@ interface Props {
 }
 
 const SORT_LABELS: Record<SortMode, string> = {
-  default:     'Default',
+  default:     'Custom (drag order)',
   'alpha-asc':  'A → Z',
   'alpha-desc': 'Z → A',
+  deadline:    'Deadline',
   oldest:      'Oldest first',
   newest:      'Newest first',
 };
-const SORT_CYCLE: SortMode[] = ['default', 'alpha-asc', 'alpha-desc', 'oldest', 'newest'];
+const SORT_CYCLE: SortMode[] = ['default', 'alpha-asc', 'alpha-desc', 'deadline', 'oldest', 'newest'];
 
 function sortTasks(tasks: Task[], mode: SortMode): Task[] {
   if (mode === 'default') return tasks;
   return [...tasks].sort((a, b) => {
     if (mode === 'alpha-asc')  return a.name.localeCompare(b.name);
     if (mode === 'alpha-desc') return b.name.localeCompare(a.name);
-    if (mode === 'oldest')     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (mode === 'deadline') {
+      if (a.deadline && b.deadline) return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      if (a.deadline) return -1;
+      if (b.deadline) return 1;
+      return a.kanbanOrder - b.kanbanOrder;
+    }
+    if (mode === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 }
@@ -180,14 +187,14 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
 
           {sortMode !== 'default' && (
             <div className="mt-1 flex items-center gap-1.5">
-              <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>Sorted: {SORT_LABELS[sortMode]}</span>
+              <span className="text-[10px]" style={{ color: column.color }}>↕ {SORT_LABELS[sortMode]}</span>
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => setSortMode('default')}
                 className="text-[10px] underline"
                 style={{ color: 'var(--text-3)' }}
               >
-                clear
+                reset
               </button>
             </div>
           )}

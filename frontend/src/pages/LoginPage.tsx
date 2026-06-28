@@ -1,21 +1,31 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sso, setSso] = useState<{ enabled: boolean; providerName: string } | null>(null);
+
+  useEffect(() => {
+    api.auth.ssoConfig().then(setSso).catch(() => {});
+    // Show SSO error from callback redirect
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get('error');
+    if (err) setError(err === 'sso_state_mismatch' ? 'SSO session expired — please try again.' : 'SSO sign-in failed. Try again or use email/password.');
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
       navigate('/kanban', { replace: true });
     } catch (err) {
       setError((err as Error).message);
@@ -36,20 +46,41 @@ export default function LoginPage() {
           <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>Sign in to your workspace</p>
         </div>
 
+        {sso?.enabled && (
+          <div className="mb-4">
+            <a
+              href="/api/auth/sso/authorize"
+              className="btn-primary w-full justify-center flex items-center gap-2 no-underline"
+              style={{ textDecoration: 'none' }}
+            >
+              <span>🔐</span> Sign in with {sso.providerName}
+            </a>
+            <div className="flex items-center gap-3 mt-4 mb-1">
+              <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+              <span className="text-xs" style={{ color: 'var(--text-3)' }}>or</span>
+              <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="card p-6 space-y-4">
           <div>
-            <label className="label">Email</label>
+            <label className="label">Email or username</label>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="input"
-              placeholder="you@example.com"
+              placeholder="you@example.com or username"
             />
           </div>
           <div>
-            <label className="label">Password</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="label mb-0">Password</label>
+              <Link to="/forgot-password" className="text-xs" style={{ color: 'var(--brand)' }}>Forgot password?</Link>
+            </div>
             <input
               type="password"
               required

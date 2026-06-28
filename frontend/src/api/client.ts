@@ -1,5 +1,62 @@
 import type { Product, Task, Team, User, Status, Subtask, KanbanColumn } from '../types';
 
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  read: boolean;
+  productId: string | null;
+  taskId: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export interface Webhook {
+  id: string;
+  productId: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  createdAt: string;
+  /** Only present at creation */
+  secret?: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  event: string;
+  statusCode: number | null;
+  success: boolean;
+  responseBody: string | null;
+  createdAt: string;
+}
+
+export interface TeamInvite {
+  id: string;
+  email: string | null;
+  inviteUrl: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface InviteInfo {
+  teamId: string;
+  teamName: string;
+  email: string | null;
+  expiresAt: string;
+}
+
+export interface SearchResults {
+  tasks: (Task & { product: { id: string; name: string; emoji: string | null } })[];
+  messages: {
+    id: string; content: string; createdAt: string;
+    product: { id: string; name: string; emoji: string | null };
+    author: { id: string; username: string; avatarEmoji: string | null };
+    task?: { id: string; name: string } | null;
+  }[];
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
   if (!res.ok) {
@@ -58,16 +115,29 @@ export interface Sprint {
   taskIds: string[];
 }
 
+export interface ApiToken {
+  id: string;
+  name: string;
+  appId: string | null;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  /** Only present immediately after creation — never retrievable again */
+  token?: string;
+}
+
+export interface AppRegistration {
+  id: string;
+  name: string;
+  description: string | null;
+  ownerId: string;
+  createdAt: string;
+}
+
 export const api = {
-  auth: {
-    login: (email: string, password: string) =>
-      request<User>('/api/auth/login', { method: 'POST', body: json({ email, password }) }),
-    logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST', body: json({}) }),
-    me: () => request<User>('/api/auth/me'),
-  },
 
   users: {
-    list: () => request<User[]>('/api/users'),
+    list: () => request<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>('/api/users'),
     create: (data: { username: string; email: string; password: string; realName?: string; avatarEmoji?: string }) =>
       request<User>('/api/users', { method: 'POST', body: json(data) }),
     get: (id: string) => request<User>(`/api/users/${id}`),
@@ -87,7 +157,7 @@ export const api = {
       request<{ ok: boolean }>(`/api/teams/${id}/members`, { method: 'POST', body: json({ userId }) }),
     removeMember: (id: string, userId: string) =>
       request<{ ok: boolean }>(`/api/teams/${id}/members/${userId}`, { method: 'DELETE' }),
-    setMemberRole: (teamId: string, userId: string, role: string) =>
+    setMemberRole: (teamId: string, userId: string, role: 'member' | 'co_owner') =>
       request<{ ok: boolean }>(`/api/teams/${teamId}/members/${userId}/role`, { method: 'PATCH', body: json({ role }) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/teams/${id}`, { method: 'DELETE' }),
   },
@@ -203,7 +273,13 @@ export const api = {
     const form = new FormData();
     form.append('file', file);
     return fetch('/api/upload', { method: 'POST', credentials: 'include', body: form })
-      .then((r) => r.json() as Promise<{ url: string; name: string; type: string }>);
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error((body as { error?: string }).error ?? `HTTP ${r.status}`);
+        }
+        return r.json() as Promise<{ url: string; name: string; type: string }>;
+      });
   },
 
   permissions: {
@@ -224,5 +300,123 @@ export const api = {
 
   seed: {
     examples: () => request<{ ok: boolean; products: string[] }>('/api/seed-examples', { method: 'POST', body: json({}) }),
+  },
+
+  notifications: {
+    list: (cursor?: string) =>
+      request<{ notifications: Notification[]; nextCursor: string | null }>(`/api/notifications${cursor ? `?cursor=${cursor}` : ''}`),
+    unreadCount: () => request<{ count: number }>('/api/notifications/unread-count'),
+    markRead: (ids: string[]) => request<{ ok: boolean }>('/api/notifications/read', { method: 'PATCH', body: json({ ids }) }),
+    markAllRead: () => request<{ ok: boolean }>('/api/notifications/read-all', { method: 'POST', body: json({}) }),
+    delete: (id: string) => request<{ ok: boolean }>(`/api/notifications/${id}`, { method: 'DELETE' }),
+  },
+
+  webhooks: {
+    list: (productId: string) => request<Webhook[]>(`/api/products/${productId}/webhooks`),
+    create: (productId: string, data: { url: string; events: string[] }) =>
+      request<Webhook & { secret: string }>(`/api/products/${productId}/webhooks`, { method: 'POST', body: json(data) }),
+    update: (productId: string, webhookId: string, data: { url?: string; events?: string[]; active?: boolean }) =>
+      request<Webhook>(`/api/products/${productId}/webhooks/${webhookId}`, { method: 'PATCH', body: json(data) }),
+    delete: (productId: string, webhookId: string) =>
+      request<{ ok: boolean }>(`/api/products/${productId}/webhooks/${webhookId}`, { method: 'DELETE' }),
+    rotateSecret: (productId: string, webhookId: string) =>
+      request<{ secret: string }>(`/api/products/${productId}/webhooks/${webhookId}/rotate-secret`, { method: 'POST', body: json({}) }),
+    deliveries: (productId: string, webhookId: string) =>
+      request<WebhookDelivery[]>(`/api/products/${productId}/webhooks/${webhookId}/deliveries`),
+  },
+
+  invites: {
+    list: (teamId: string) => request<TeamInvite[]>(`/api/teams/${teamId}/invites`),
+    create: (teamId: string, email?: string) =>
+      request<TeamInvite>(`/api/teams/${teamId}/invites`, { method: 'POST', body: json({ email }) }),
+    revoke: (teamId: string, inviteId: string) =>
+      request<{ ok: boolean }>(`/api/teams/${teamId}/invites/${inviteId}`, { method: 'DELETE' }),
+    getInfo: (token: string) => request<InviteInfo>(`/api/invites/${token}`),
+    accept: (token: string) => request<{ ok: boolean; teamId: string; teamName: string }>(`/api/invites/${token}/accept`, { method: 'POST', body: json({}) }),
+  },
+
+  auth: {
+    login: (identifier: string, password: string) =>
+      request<User>('/api/auth/login', { method: 'POST', body: json({ identifier, password }) }),
+    logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST', body: json({}) }),
+    me: () => request<User>('/api/auth/me'),
+    emailEnabled: () =>
+      request<{ enabled: boolean }>('/api/auth/email-enabled'),
+    forgotPassword: (email: string) =>
+      request<{ ok: boolean }>('/api/auth/forgot-password', { method: 'POST', body: json({ email }) }),
+    resetPassword: (token: string, password: string) =>
+      request<{ ok: boolean }>('/api/auth/reset-password', { method: 'POST', body: json({ token, password }) }),
+    sendVerification: () =>
+      request<{ ok: boolean }>('/api/auth/send-verification', { method: 'POST', body: json({}) }),
+    verifyEmail: (token: string) =>
+      request<{ ok: boolean }>('/api/auth/verify-email', { method: 'POST', body: json({ token }) }),
+    ssoConfig: () => request<{ enabled: boolean; providerName: string }>('/api/auth/sso/config'),
+  },
+
+  export: {
+    product: (productId: string) => `/api/products/${productId}/export`,
+  },
+
+  search: (q: string, productId?: string) =>
+    request<SearchResults>(`/api/search?q=${encodeURIComponent(q)}${productId ? `&productId=${productId}` : ''}`),
+
+  apiTokens: {
+    list: () => request<ApiToken[]>('/api/auth/tokens'),
+    create: (data: { name: string; expiresAt?: string }) =>
+      request<ApiToken & { token: string }>('/api/auth/tokens', { method: 'POST', body: json(data) }),
+    delete: (tokenId: string) =>
+      request<{ ok: boolean }>(`/api/auth/tokens/${tokenId}`, { method: 'DELETE' }),
+  },
+
+  appRegistrations: {
+    list: () => request<AppRegistration[]>('/api/apps'),
+    create: (data: { name: string; description?: string }) =>
+      request<AppRegistration>('/api/apps', { method: 'POST', body: json(data) }),
+    update: (appId: string, data: { name?: string; description?: string }) =>
+      request<AppRegistration>(`/api/apps/${appId}`, { method: 'PATCH', body: json(data) }),
+    delete: (appId: string) =>
+      request<{ ok: boolean }>(`/api/apps/${appId}`, { method: 'DELETE' }),
+    listTokens: (appId: string) =>
+      request<ApiToken[]>(`/api/apps/${appId}/tokens`),
+    createToken: (appId: string, data: { name: string; expiresAt?: string }) =>
+      request<ApiToken & { token: string }>(`/api/apps/${appId}/tokens`, { method: 'POST', body: json(data) }),
+    deleteToken: (appId: string, tokenId: string) =>
+      request<{ ok: boolean }>(`/api/apps/${appId}/tokens/${tokenId}`, { method: 'DELETE' }),
+  },
+
+  emailStatus: {
+    get: () => request<{ enabled: boolean; from: string | null; config: { host: string; port: number; secure: boolean; user: string; from: string } | null }>('/api/email-status'),
+    test: () => request<{ ok: boolean }>('/api/email-status/test', { method: 'POST' }),
+  },
+
+  emailConfig: {
+    get: () => request<{ host: string; port: number; secure: boolean; user: string; from: string } | null>('/api/email-config'),
+    save: (data: { host: string; port: number; secure: boolean; user: string; pass?: string; from: string }) =>
+      request<{ ok: boolean }>('/api/email-config', { method: 'PUT', body: json(data) }),
+    clear: () => request<{ ok: boolean }>('/api/email-config', { method: 'DELETE' }),
+  },
+
+  me: {
+    permissions: () => request<Array<{
+      productId: string;
+      productName: string;
+      productEmoji: string | null;
+      role: string;
+      permissions: Record<string, string>;
+    }>>('/api/me/permissions'),
+  },
+
+  analytics: {
+    get: (productId: string) => request<{
+      tasksByDay: { date: string; count: number }[];
+      topContributors: { userId: string; username: string; avatarEmoji: string | null; count: number }[];
+      cycleTimeAvgDays: number | null;
+      totalCompleted: number;
+      totalActive: number;
+    }>(`/api/products/${productId}/analytics`),
+    activity: (productId: string, cursor?: string) => request<{
+      events: { id: string; actorId: string; action: string; entityType: string; entityId: string | null; entityName: string | null; metadata: unknown; createdAt: string }[];
+      nextCursor: string | null;
+    }>(`/api/products/${productId}/activity${cursor ? `?cursor=${cursor}` : ''}`),
   },
 };

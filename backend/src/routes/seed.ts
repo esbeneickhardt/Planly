@@ -24,7 +24,7 @@ export async function seedRoutes(app: FastifyInstance) {
     });
     const p1deadline = new Date(); p1deadline.setDate(p1deadline.getDate() + 90);
     const p1 = await prisma.product.create({
-      data: { name: 'Planly App', emoji: '📋', description: 'A visual project management tool built around DAG planning.', deadline: p1deadline, teamId: team1.id },
+      data: { name: 'Planly App', emoji: '📋', description: 'A visual project management tool built around DAG planning.', deadline: p1deadline, teamId: team1.id, ownerId: userId },
     });
 
     const t = (data: TaskInput) =>
@@ -73,7 +73,7 @@ export async function seedRoutes(app: FastifyInstance) {
     });
     const p2deadline = new Date(); p2deadline.setDate(p2deadline.getDate() + 120);
     const p2 = await prisma.product.create({
-      data: { name: 'Mobile App', emoji: '📱', description: 'Cross-platform mobile app for iOS and Android.', deadline: p2deadline, teamId: team2.id },
+      data: { name: 'Mobile App', emoji: '📱', description: 'Cross-platform mobile app for iOS and Android.', deadline: p2deadline, teamId: team2.id, ownerId: userId },
     });
 
     const t2 = (data: TaskInput) =>

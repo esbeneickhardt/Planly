@@ -8,7 +8,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { api } from '../../api/client';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
-import type { Product } from '../../types';
+import MembershipsModal from './MembershipsModal';
+import IntegrationsModal from './IntegrationsModal';
+import NotificationBell from './NotificationBell';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -77,7 +79,7 @@ interface NewProductForm { name: string; emoji: string; description: string; dea
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function TopBar({ onOpenSearch, onOpenChat, chatOpen }: { onOpenSearch: () => void; onOpenChat: () => void; chatOpen?: boolean }) {
+export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpen }: { onOpenSearch: () => void; onOpenChat: () => void; onOpenVision: () => void; chatOpen?: boolean }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
@@ -86,6 +88,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, chatOpen }: { onOpenS
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showMemberships, setShowMemberships] = useState(false);
+  const [showIntegrations, setShowIntegrations] = useState(false);
   const [showProjectDd, setShowProjectDd] = useState(false);
   const [showAccountDd, setShowAccountDd] = useState(false);
   const [productForm, setProductForm] = useState<NewProductForm>({ name: '', emoji: '', description: '', deadline: '' });
@@ -136,12 +140,6 @@ export default function TopBar({ onOpenSearch, onOpenChat, chatOpen }: { onOpenS
     finally { setSeeding(false); }
   }
 
-  async function handleDeleteProduct(p: Product, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!confirm(`Delete "${p.name}"? All tasks will be permanently deleted.`)) return;
-    try { await api.products.delete(p.id); await refreshProducts(); }
-    catch (err) { alert((err as Error).message); }
-  }
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -250,6 +248,19 @@ export default function TopBar({ onOpenSearch, onOpenChat, chatOpen }: { onOpenS
         {/* ── RIGHT: chat + project + account ── */}
         <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: 288, justifyContent: 'flex-end' }}>
 
+          {/* How Planly works */}
+          <button
+            onClick={onOpenVision}
+            className="w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 text-sm font-semibold"
+            style={{ color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid transparent' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}
+            title="How Planly works"
+          >?</button>
+
+          {/* Notification bell */}
+          <NotificationBell />
+
           {/* Project chat */}
           <button
             onClick={onOpenChat}
@@ -289,32 +300,21 @@ export default function TopBar({ onOpenSearch, onOpenChat, chatOpen }: { onOpenS
                   <>
                     <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>Projects</p>
                     {products.map((p) => (
-                      <div key={p.id} className="group relative flex items-center">
-                        <button
-                          onClick={() => { setActiveProduct(p); setShowProjectDd(false); }}
-                          className="flex-1 flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors"
-                          style={{
-                            background: activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
-                            color: activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text)',
-                          }}
-                          onMouseEnter={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                          onMouseLeave={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <span className="text-base">{p.emoji ?? '📁'}</span>
-                          <span className="flex-1 truncate font-medium">{p.name}</span>
-                          {activeProduct?.id === p.id && <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>✓</span>}
-                        </button>
-                        {p.ownerId === user?.id && (
-                          <button
-                            onClick={(e) => handleDeleteProduct(p, e)}
-                            className="absolute right-3 opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center transition-all text-xs"
-                            style={{ color: 'var(--text-3)' }}
-                            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                            title={`Delete ${p.name}`}
-                          >✕</button>
-                        )}
-                      </div>
+                      <button
+                        key={p.id}
+                        onClick={() => { setActiveProduct(p); setShowProjectDd(false); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors"
+                        style={{
+                          background: activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
+                          color: activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text)',
+                        }}
+                        onMouseEnter={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <span className="text-base">{p.emoji ?? '📁'}</span>
+                        <span className="flex-1 truncate font-medium">{p.name}</span>
+                        {activeProduct?.id === p.id && <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>✓</span>}
+                      </button>
                     ))}
                     <div className="mx-4 my-1.5" style={{ height: 1, background: 'var(--border)' }} />
                   </>
@@ -416,6 +416,26 @@ export default function TopBar({ onOpenSearch, onOpenChat, chatOpen }: { onOpenS
                   <span className="w-5 text-center flex-shrink-0">✏️</span>
                   Edit profile
                 </button>
+                <button
+                  onClick={() => { setShowMemberships(true); setShowAccountDd(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: 'var(--text-2)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span className="w-5 text-center flex-shrink-0">🏠</span>
+                  Memberships
+                </button>
+                <button
+                  onClick={() => { setShowIntegrations(true); setShowAccountDd(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: 'var(--text-2)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span className="w-5 text-center flex-shrink-0">🔑</span>
+                  Integrations
+                </button>
                 <div className="mx-4 my-1" style={{ height: 1, background: 'var(--border)' }} />
                 <button
                   onClick={logout}
@@ -468,6 +488,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, chatOpen }: { onOpenS
       )}
 
       {showDiscover && <DiscoverProjectsModal onClose={() => setShowDiscover(false)} />}
+      {showMemberships && <MembershipsModal onClose={() => setShowMemberships(false)} />}
+      {showIntegrations && <IntegrationsModal onClose={() => setShowIntegrations(false)} />}
 
       {showProfile && (
         <Modal title="Edit profile" onClose={() => setShowProfile(false)} width="max-w-sm">

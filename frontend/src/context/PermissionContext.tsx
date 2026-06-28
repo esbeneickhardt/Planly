@@ -43,6 +43,7 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
       setMyPerms(mine);
       const member = team.members.find(m => m.userId === user.id);
       setMyRole(member?.role ?? 'member');
+
     } catch {
       setMyPerms({});
       setMyRole('member');
@@ -56,7 +57,7 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
   const canWrite = (tab: string) => levelFor(tab) === 'write';
 
   const isOwner = !!(user && activeProduct?.ownerId === user.id);
-  const isCoOwner = myRole === 'co-owner';
+  const isCoOwner = myRole === 'co_owner';
   const canManage = isOwner || isCoOwner;
 
   return (
