@@ -53,6 +53,19 @@ services:
       #   SMTP_SECURE: "true"   # use SSL on port 465 instead of STARTTLS on 587
       #   SMTP_FROM: Planly <noreply@yourdomain.com>
       #   APP_URL: https://planly.yourdomain.com  # base URL used in email links
+      #
+      # ── Admin (optional) ────────────────────────────────────────────────────
+      # Set ADMIN_EMAIL to designate the founding server admin.
+      # Whoever registers (or already has an account) with this email gets
+      # isAdmin + isFoundingAdmin on startup. The /admin panel becomes visible.
+      #
+      #   ADMIN_EMAIL: you@company.com
+      #
+      # Optionally enforce email verification before users can sign in:
+      #   REQUIRE_EMAIL_VERIFICATION: "true"
+      #
+      # Optionally restrict registration to an allowlist (managed in /admin):
+      #   REQUIRE_WHITELIST: "true"
     volumes:
       - uploads_data:/data/uploads
     depends_on:

@@ -386,7 +386,7 @@ export const api = {
 
   emailStatus: {
     get: () => request<{ enabled: boolean; from: string | null; config: { host: string; port: number; secure: boolean; user: string; from: string } | null }>('/api/email-status'),
-    test: () => request<{ ok: boolean }>('/api/email-status/test', { method: 'POST' }),
+    test: () => request<{ ok: boolean }>('/api/email-status/test', { method: 'POST', body: json({}) }),
   },
 
   emailConfig: {
@@ -404,6 +404,20 @@ export const api = {
       role: string;
       permissions: Record<string, string>;
     }>>('/api/me/permissions'),
+  },
+
+  admin: {
+    users: () => request<{ id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string }[]>('/api/admin/users'),
+    promote: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/promote`, { method: 'PUT', body: json({}) }),
+    demote: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/demote`, { method: 'PUT', body: json({}) }),
+    transferCrown: (userId: string) => request<{ ok: boolean }>('/api/admin/transfer-crown', { method: 'PUT', body: json({ userId }) }),
+    verifyEmail: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/verify-email`, { method: 'PUT', body: json({}) }),
+    deleteUser: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
+    whitelist: () => request<{ id: string; pattern: string; createdAt: string }[]>('/api/admin/whitelist'),
+    addWhitelist: (pattern: string) => request<{ id: string; pattern: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern }) }),
+    removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
+    config: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean }>('/api/admin/config'),
+    logs: (offset?: number) => request<{ id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string }[]>(`/api/admin/logs${offset ? `?offset=${offset}` : ''}`),
   },
 
   analytics: {

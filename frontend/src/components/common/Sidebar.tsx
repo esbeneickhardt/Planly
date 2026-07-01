@@ -109,6 +109,21 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
           ))}
           <div className="flex-1" />
 
+          {/* Admin icon — only for admins */}
+          {user?.isAdmin && (
+            <NavLink
+              to="/admin"
+              title="Admin"
+              className={({ isActive }) =>
+                `w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all ${
+                  isActive ? 'bg-[var(--surface-2)] text-[var(--text)]' : 'text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                }`
+              }
+            >
+              🛡️
+            </NavLink>
+          )}
+
           {/* Find projects icon */}
           <button
             onClick={() => setShowDiscover(true)}
@@ -268,6 +283,24 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
               )}
             </NavLink>
           ))}
+
+          {/* Admin panel — only visible to admins */}
+          {user?.isAdmin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-all ${
+                  isActive
+                    ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
+                    : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                }`
+              }
+            >
+              <span className="text-sm opacity-60">🛡️</span>
+              Admin
+              {user?.isFoundingAdmin && <span className="ml-auto text-xs">👑</span>}
+            </NavLink>
+          )}
 
           {/* Search */}
           <button onClick={onOpenSearch}

@@ -29,4 +29,9 @@ export const config = {
     providerName: process.env.OIDC_PROVIDER_NAME ?? 'SSO',
     scopes: process.env.OIDC_SCOPES ?? 'openid email profile',
   },
+  admin: {
+    email: process.env.ADMIN_EMAIL ?? '',
+    requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION === 'true',
+    requireWhitelist: process.env.REQUIRE_WHITELIST === 'true',
+  },
 };

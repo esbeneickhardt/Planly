@@ -1,7 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { config } from '../config/env';
+import { sendEmail } from '../utils/email';
 
 // Public profile fields — never expose passwordHash
 const USER_SELF_SELECT = {
@@ -38,19 +41,73 @@ export async function userRoutes(app: FastifyInstance) {
     if (realName && realName.length > 100) {
       return reply.status(400).send({ error: 'Name too long' });
     }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Whitelist check
+    if (config.admin.requireWhitelist) {
+      const patterns = await prisma.emailWhitelist.findMany();
+      const allowed = patterns.some(({ pattern }) => {
+        if (pattern.startsWith('@')) return normalizedEmail.endsWith(pattern);
+        return normalizedEmail === pattern.toLowerCase();
+      });
+      if (!allowed) {
+        return reply.status(403).send({ error: 'This email address is not on the allowed list. Contact the server administrator.' });
+      }
+    }
+
+    const isAdmin = config.admin.email && normalizedEmail === config.admin.email.toLowerCase();
+    const emailVerified = isAdmin || !config.admin.requireEmailVerification;
+
     const passwordHash = await bcrypt.hash(password, 12);
+    let user: { id: string; username: string; email: string; realName: string | null; avatarEmoji: string | null; avatarUrl: string | null; phone: string | null; createdAt: Date; emailVerified: boolean };
     try {
-      const user = await prisma.user.create({
+      user = await prisma.user.create({
         data: {
-          username: username.trim(), email: email.toLowerCase().trim(),
+          username: username.trim(), email: normalizedEmail,
           passwordHash, realName: realName?.trim() || undefined, phone: phone?.trim() || undefined, avatarEmoji,
+          isAdmin: !!isAdmin, isFoundingAdmin: !!isAdmin,
+          emailVerified,
         },
         select: USER_SELF_SELECT,
       });
-      reply.status(201).send(user);
     } catch {
-      reply.status(409).send({ error: 'Username or email already taken' });
+      return reply.status(409).send({ error: 'Username or email already taken' });
     }
+
+    // Log admin creation
+    if (isAdmin) {
+      await prisma.adminLog.create({ data: { action: 'FOUNDING_ADMIN_REGISTERED', actorName: user.username, targetName: user.email } });
+    }
+
+    // Send verification email if required
+    if (!emailVerified) {
+      try {
+        const rawToken = randomBytes(32).toString('hex');
+        const { createHash } = await import('crypto');
+        const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+        await prisma.emailVerifyToken.create({
+          data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+        });
+        const verifyUrl = `${config.appUrl}/verify-email?token=${rawToken}`;
+        await sendEmail({
+          to: user.email,
+          subject: 'Verify your Planly email address',
+          html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+            <h2 style="margin:0 0 16px">Verify your email</h2>
+            <p>Hi ${user.username},</p>
+            <p>Click the button below to verify your email address. The link expires in 24 hours.</p>
+            <p style="margin:24px 0"><a href="${verifyUrl}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Verify email →</a></p>
+            <p style="color:#aaa;font-size:12px">If you didn't create a Planly account, you can ignore this email.</p>
+          </div>`,
+        });
+      } catch {
+        // Non-fatal — user can request a new link later
+      }
+    }
+
+    await prisma.adminLog.create({ data: { action: 'USER_REGISTERED', actorName: user.username, targetName: user.email } });
+    reply.status(201).send(user);
   });
 
   // Get own profile (full fields) or another user's public profile

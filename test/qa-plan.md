@@ -1,15 +1,26 @@
 # Planly QA & Polish Plan
 
-Work through each milestone in order. When you find a bug, note it below the failing checkbox.
+Work through each milestone in order. When you find a bug, note it in the **Bug log** at the bottom.
 
 ---
 
 ## Milestone 0 — Prerequisites (do this first)
 
-### Gmail SMTP setup
+### Step 1 — Admin env var (server config, before first login)
+- [ ] Edit `docker-compose.yml` → add `ADMIN_EMAIL: your@email.com` under the backend environment section
+- [ ] Restart backend: `docker compose up -d backend`
+
+### Step 2 — Register as admin
+- [ ] Open Planly → register a new account using **exactly** the email set in `ADMIN_EMAIL`
+- [ ] Account is created normally — no special flow needed
+- [ ] `🛡️ Admin` link appears in the sidebar
+- [ ] Open Admin panel → your account shows 👑 badge (server owner)
+
+### Step 3 — Gmail SMTP setup (requires being logged in)
 - [ ] Go to myaccount.google.com → Security → 2-Step Verification → enable
 - [ ] Go to Security → App passwords → generate one for "Planly" → copy the 16-char code
-- [ ] Open Planly → Settings → Email → fill in:
+- [ ] Create a product (needed to access Settings)
+- [ ] Open Settings → Email → fill in:
   - Host: `smtp.gmail.com`
   - Port: `587`, SSL off
   - Username: your Gmail address
@@ -63,7 +74,57 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 2 — Products & Teams
+## Milestone 2 — Admin Panel
+
+### Basic access
+- [ ] Non-admin users do NOT see the 🛡️ Admin link in the sidebar
+- [ ] Navigating to `/admin` as a non-admin shows "Access denied"
+- [ ] Admin user sees the 🛡️ Admin link in the sidebar
+- [ ] Admin panel loads with Users / Email Whitelist / Audit Log tabs
+
+### Users tab
+- [ ] All registered users listed with email and join date
+- [ ] Founding admin shown with 👑 badge
+- [ ] "Email verified" / "Unverified" badge shown per user
+- [ ] Founding admin can promote a regular user to admin → they appear with Admin badge
+- [ ] Founding admin can demote a regular admin → badge removed
+- [ ] Cannot demote the last admin (clear error message)
+- [ ] Cannot demote the founding admin (clear error message)
+- [ ] Founding admin can force-verify an unverified user's email
+
+### Crown transfer
+- [ ] "Transfer server ownership" button visible only to founding admin
+- [ ] Select another admin from the dropdown → click Transfer → confirm dialog
+- [ ] After transfer: new user has 👑, old user loses it but retains Admin badge
+- [ ] New founding admin can now use all founding-admin-only actions
+
+### Email whitelist tab
+- [ ] Add a domain pattern (`@company.com`) → appears in list
+- [ ] Add an exact address (`user@example.com`) → appears in list
+- [ ] Remove an entry → removed from list
+- [ ] Invalid pattern (no @ prefix and not a full email) → error shown
+
+### Audit log tab
+- [ ] Registration events appear (USER_REGISTERED)
+- [ ] Login events appear (LOGIN)
+- [ ] Failed login events appear (LOGIN_FAILED)
+- [ ] Admin actions appear (USER_PROMOTED, USER_DEMOTED, CROWN_TRANSFERRED)
+- [ ] "Load more" loads older events
+
+### Email verification enforcement (requires `REQUIRE_EMAIL_VERIFICATION=true`)
+- [ ] New user registers → receives verification email
+- [ ] Trying to log in before verifying → clear "verify your email" error
+- [ ] Click verify link in email → success page
+- [ ] Log in after verification → works
+
+### Whitelist enforcement (requires `REQUIRE_WHITELIST=true`)
+- [ ] Register with an email NOT on the whitelist → clear error message
+- [ ] Register with an email ON the whitelist → succeeds
+- [ ] ADMIN_EMAIL is always allowed regardless of whitelist
+
+---
+
+## Milestone 3 — Products & Teams
 
 ### Creating products
 - [ ] Create a product (name, emoji, description, deadline)
@@ -102,7 +163,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 3 — Kanban Board
+## Milestone 4 — Kanban Board
 
 ### Columns
 - [ ] Create a new column
@@ -143,7 +204,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 4 — Task Detail Panel
+## Milestone 5 — Task Detail Panel
 
 ### Opening
 - [ ] Click a Kanban card → detail panel slides in
@@ -172,7 +233,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 5 — Canvas (Plan view)
+## Milestone 6 — Canvas (Plan view)
 
 ### Creating & moving
 - [ ] Double-click canvas → creates a new task
@@ -201,7 +262,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 6 — Gantt / Progress view
+## Milestone 7 — Gantt / Progress view
 
 - [ ] All milestones for the active product appear as bars
 - [ ] Bar colour reflects health: green (on track), amber (at risk), red (overdue)
@@ -213,7 +274,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 7 — Backlog
+## Milestone 8 — Backlog
 
 - [ ] All tasks with no sprint assignment appear in the backlog
 - [ ] Tasks already in a sprint do not appear
@@ -224,7 +285,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 8 — Chat & Messaging
+## Milestone 9 — Chat & Messaging
 
 ### Product chat
 - [ ] Send a message in the product-level chat
@@ -253,7 +314,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 9 — Sprints
+## Milestone 10 — Sprints
 
 - [ ] Create a sprint (name, start date, end date)
 - [ ] Sprint appears in sprint filter dropdown on Kanban
@@ -267,7 +328,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 10 — Settings
+## Milestone 11 — Settings
 
 ### Team tab
 - [ ] All members listed with correct role (member / co-owner / owner)
@@ -317,7 +378,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 11 — Integrations & Account
+## Milestone 12 — Integrations & Account
 
 - [ ] Open Integrations modal (from account menu or top bar)
 - [ ] "Access Tokens" tab: create a PAT, name it, set expiry
@@ -332,7 +393,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 12 — Analytics
+## Milestone 13 — Analytics
 
 - [ ] Analytics page loads for the active product (sidebar "📊 Analytics")
 - [ ] Summary cards show correct counts (active tasks, completed, cycle time, total)
@@ -348,7 +409,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 13 — Notifications
+## Milestone 14 — Notifications
 
 - [ ] Assign a task to another user → they receive a notification
 - [ ] Notification bell shows unread badge count
@@ -359,7 +420,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 14 — Search
+## Milestone 15 — Search
 
 - [ ] Open global search (keyboard shortcut or sidebar button)
 - [ ] Type a task name → matching tasks appear
@@ -371,7 +432,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 15 — Account & Profile
+## Milestone 16 — Account & Profile
 
 - [ ] Open account/profile settings
 - [ ] Edit display name (real name)
@@ -383,7 +444,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 16 — Export
+## Milestone 17 — Export
 
 - [ ] Export a product's data from Settings or via API
 - [ ] Download contains tasks with all fields
@@ -392,7 +453,7 @@ Work through each milestone in order. When you find a bug, note it below the fai
 
 ---
 
-## Milestone 17 — Cross-cutting & Polish
+## Milestone 18 — Cross-cutting & Polish
 
 - [ ] Dark / light theme toggle works
 - [ ] Theme persists across page refresh
