@@ -17,6 +17,8 @@ import CanvasPage from './pages/CanvasPage';
 import GanttPage from './pages/GanttPage';
 import SettingsPage from './pages/SettingsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import AdminPage from './pages/AdminPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -44,6 +46,7 @@ export default function App() {
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/invite/:token" element={<InvitePage />} />
+                <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route
                   path="/*"
                   element={
@@ -58,6 +61,7 @@ export default function App() {
                               <Route path="/canvas" element={<CanvasPage />} />
                               <Route path="/gantt" element={<GanttPage />} />
                               <Route path="/analytics" element={<AnalyticsPage />} />
+                              <Route path="/admin" element={<AdminPage />} />
                               <Route path="/categories" element={<Navigate to="/settings" replace />} />
                               <Route path="/settings" element={<SettingsPage />} />
                             </Routes>

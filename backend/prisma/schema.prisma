@@ -30,18 +30,20 @@ enum AccessRequestStatus {
 // ── Core models ──────────────────────────────────────────────────────────────
 
 model User {
-  id            String   @id @default(uuid())
-  username      String   @unique
-  email         String   @unique
-  realName      String?
-  phone         String?
-  avatarEmoji   String?
-  avatarUrl     String?
-  passwordHash  String?
-  emailVerified Boolean  @default(true)
-  ssoProvider   String?
-  ssoSub        String?
-  createdAt     DateTime @default(now())
+  id              String   @id @default(uuid())
+  username        String   @unique
+  email           String   @unique
+  realName        String?
+  phone           String?
+  avatarEmoji     String?
+  avatarUrl       String?
+  passwordHash    String?
+  emailVerified   Boolean  @default(true)
+  ssoProvider     String?
+  ssoSub          String?
+  isAdmin         Boolean  @default(false)
+  isFoundingAdmin Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   teams               TeamMember[]
   ownedTasks          Task[]               @relation("TaskOwner")
@@ -438,6 +440,27 @@ model SmtpConfig {
   pass      String
   from      String
   updatedAt DateTime @updatedAt
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+model EmailWhitelist {
+  id        String   @id @default(uuid())
+  pattern   String   @unique
+  createdAt DateTime @default(now())
+}
+
+model AdminLog {
+  id         String   @id @default(uuid())
+  action     String
+  actorId    String?
+  actorName  String?
+  targetId   String?
+  targetName String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // ── Activity log ──────────────────────────────────────────────────────────────

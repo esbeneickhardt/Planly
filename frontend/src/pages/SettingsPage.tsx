@@ -114,6 +114,7 @@ export default function SettingsPage() {
   const [smtpForm, setSmtpForm] = useState({ host: '', port: 587, secure: false, user: '', pass: '', from: '' });
   const [smtpFormDirty, setSmtpFormDirty] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
+  const [smtpInfoOpen, setSmtpInfoOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!activeProduct) return;
@@ -1034,11 +1035,51 @@ if (sig !== expected) throw new Error('Bad signature');`}</code>
 
             {/* SMTP configuration form */}
             <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <div>
-                <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>SMTP configuration</h2>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                  Configure your outgoing mail server. Settings saved here override environment variables.
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>SMTP configuration</h2>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+                    Configure your outgoing mail server. Settings saved here override environment variables.
+                  </p>
+                </div>
+                {/* Info popover */}
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={() => setSmtpInfoOpen((v) => !v)}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
+                    style={{ background: smtpInfoOpen ? 'var(--brand-subtle)' : 'var(--surface-2)', color: smtpInfoOpen ? 'var(--brand)' : 'var(--text-3)', border: '1px solid var(--border)' }}
+                    title="Setup guide"
+                  >ℹ</button>
+                  {smtpInfoOpen && (
+                        <div
+                          className="absolute right-0 top-8 z-50 rounded-2xl shadow-xl p-4 space-y-3"
+                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 320 }}
+                        >
+                          <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>Field guide</p>
+                          <div className="space-y-2 text-xs" style={{ color: 'var(--text-3)' }}>
+                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>Host</span> — The address of your mail server (e.g. smtp.gmail.com). Your email provider publishes this.</div>
+                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>Port</span> — 587 is standard (STARTTLS). Use 465 with SSL on for older servers.</div>
+                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>Username</span> — Usually your full email address.</div>
+                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>Password</span> — For Gmail, this must be an App Password, not your normal login password.</div>
+                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>From address</span> — The name and email address that appears in the recipient's inbox. Format: <code style={{ color: 'var(--brand)' }}>Display Name {'<'}email@example.com{'>'}</code>. For Gmail this must match your Gmail address.</div>
+                          </div>
+                          <div className="pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text)' }}>Gmail example</p>
+                            <div className="space-y-1 text-xs font-mono rounded-lg p-2" style={{ background: 'var(--surface-2)' }}>
+                              <div><span style={{ color: 'var(--text-3)' }}>Host</span> <span style={{ color: 'var(--brand)' }}>smtp.gmail.com</span></div>
+                              <div><span style={{ color: 'var(--text-3)' }}>Port</span> <span style={{ color: 'var(--brand)' }}>587</span> <span style={{ color: 'var(--text-3)' }}>SSL off</span></div>
+                              <div><span style={{ color: 'var(--text-3)' }}>User</span> <span style={{ color: 'var(--brand)' }}>you@gmail.com</span></div>
+                              <div><span style={{ color: 'var(--text-3)' }}>Pass</span> <span style={{ color: 'var(--brand)' }}>xxxx xxxx xxxx xxxx</span></div>
+                              <div><span style={{ color: 'var(--text-3)' }}>From</span> <span style={{ color: 'var(--brand)' }}>Planly {'<'}you@gmail.com{'>'}</span></div>
+                            </div>
+                            <p className="text-[11px] mt-2" style={{ color: 'var(--text-3)' }}>
+                              Get the app password at <span style={{ color: 'var(--brand)' }}>myaccount.google.com/apppasswords</span> — requires 2-Step Verification to be on first.
+                            </p>
+                          </div>
+                          <button onClick={() => setSmtpInfoOpen(false)} className="text-xs w-full text-right" style={{ color: 'var(--text-3)' }}>Close</button>
+                        </div>
+                      )}
+                  </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1157,26 +1198,29 @@ if (sig !== expected) throw new Error('Bad signature');`}</code>
 
             {/* Features */}
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-3)' }}>Email features</h3>
+              <div className="flex items-baseline justify-between mb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Email features</h3>
+                <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>These are built into Planly — they turn on and off with SMTP, not individually.</p>
+              </div>
               <div className="space-y-2">
                 {[
-                  { icon: '✉️', label: 'Team invites', desc: 'Send invite links directly to email addresses.', needs: true },
-                  { icon: '🔑', label: 'Password reset', desc: 'Allow users to reset their password via email.', needs: true },
-                  { icon: '🔔', label: 'Notifications', desc: 'Digest emails for task assignments and mentions.', needs: true },
-                  { icon: '🔐', label: 'Multi-factor authentication', desc: 'Require an email code when logging in. Configure MFA policy in your identity provider.', needs: false },
+                  { icon: '✉️', label: 'Team invites', desc: 'When you invite a member by email address, Planly sends the invite link to their inbox.', needs: true },
+                  { icon: '🔑', label: 'Password reset', desc: 'Users who forget their password receive a reset link by email. Without SMTP this flow is unavailable.', needs: true },
+                  { icon: '🔔', label: 'Notifications', desc: 'Task assignment and @mention notifications are sent by email. Without SMTP they appear only in the bell icon.', needs: true },
+                  { icon: '🔐', label: 'Multi-factor authentication', desc: 'MFA is handled by your identity provider (SSO), not by Planly directly. Configure it there, not here.', needs: false },
                 ].map(({ icon, label, desc, needs }) => (
                   <div key={label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', opacity: (needs && !emailStatus?.enabled) ? 0.55 : 1 }}>
                     <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{label}</p>
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>{desc}</p>
+                      <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-3)' }}>{desc}</p>
                     </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5 font-medium" style={{
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5 font-medium whitespace-nowrap" style={{
                       background: (needs && emailStatus?.enabled) || !needs ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
                       color: (needs && emailStatus?.enabled) || !needs ? '#10b981' : '#f59e0b',
                       border: `1px solid ${(needs && emailStatus?.enabled) || !needs ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)'}`,
                     }}>
-                      {!needs ? 'External' : emailStatus?.enabled ? 'Active' : 'Needs SMTP'}
+                      {!needs ? 'Via SSO' : emailStatus?.enabled ? 'On' : 'Needs SMTP'}
                     </span>
                   </div>
                 ))}

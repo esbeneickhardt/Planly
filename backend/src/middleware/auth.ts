@@ -49,3 +49,10 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
 
   reply.status(401).send({ error: 'Unauthorized' });
 }
+
+export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
+  await requireAuth(req, reply);
+  if (reply.sent) return;
+  const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+  if (!user?.isAdmin) reply.status(403).send({ error: 'Admin access required' });
+}

@@ -30,6 +30,9 @@ export interface User {
   avatarUrl?: string;
   phone?: string;
   createdAt: string;
+  emailVerified?: boolean;
+  isAdmin?: boolean;
+  isFoundingAdmin?: boolean;
 }
 
 export interface TeamMember {

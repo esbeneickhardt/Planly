@@ -36,12 +36,26 @@ import { docsRoutes } from './routes/docs';
 import { emailStatusRoutes } from './routes/email-status';
 import { ssoRoutes } from './routes/sso';
 import { analyticsRoutes } from './routes/analytics';
+import { adminRoutes } from './routes/admin';
 import { csrfCheck } from './middleware/csrf';
 
 import websocket from '@fastify/websocket';
 import prisma from './db/client';
 
+async function applyAdminFlags() {
+  if (!config.admin.email) return;
+  const adminEmail = config.admin.email.toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: adminEmail } });
+  if (!user) return; // Will be applied on first registration
+  if (!user.isAdmin || !user.isFoundingAdmin) {
+    await prisma.user.update({ where: { email: adminEmail }, data: { isAdmin: true, isFoundingAdmin: true } });
+    console.log(`[admin] Founding admin flags applied to ${adminEmail}`);
+  }
+}
+
 async function main() {
+  await applyAdminFlags();
+
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
@@ -113,6 +127,7 @@ async function main() {
   await app.register(emailStatusRoutes);
   await app.register(ssoRoutes);
   await app.register(analyticsRoutes);
+  await app.register(adminRoutes);
 
   // Health check — verifies DB connection
   app.get('/api/health', async (_req, reply) => {
