@@ -22,7 +22,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   app.get('/api/admin/users', { preHandler: requireAdmin }, async (_req, reply) => {
     const users = await prisma.user.findMany({
-      select: { id: true, username: true, email: true, isAdmin: true, isFoundingAdmin: true, emailVerified: true, createdAt: true },
+      select: { id: true, username: true, email: true, isAdmin: true, isFoundingAdmin: true, emailVerified: true, createdAt: true, failedLoginAttempts: true, loginLockedUntil: true },
       orderBy: [{ isFoundingAdmin: 'desc' }, { isAdmin: 'desc' }, { createdAt: 'asc' }],
     });
     reply.send(users);
@@ -74,6 +74,17 @@ export async function adminRoutes(app: FastifyInstance) {
       prisma.user.update({ where: { id: targetId }, data: { isFoundingAdmin: true } }),
     ]);
     await prisma.adminLog.create({ data: { action: 'CROWN_TRANSFERRED', actorName: actor.username, targetName: target.username } });
+    reply.send({ ok: true });
+  });
+
+  // Unlock a locked-out account
+  app.put('/api/admin/users/:id/unlock', { preHandler: requireAdmin }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+    const target = await prisma.user.findUnique({ where: { id }, select: { username: true } });
+    if (!target) return reply.status(404).send({ error: 'User not found' });
+    await prisma.user.update({ where: { id }, data: { failedLoginAttempts: 0, loginLockedUntil: null } });
+    await prisma.adminLog.create({ data: { action: 'LOGIN_UNLOCKED', actorName: actor?.username, targetName: target.username } });
     reply.send({ ok: true });
   });
 

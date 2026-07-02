@@ -61,7 +61,7 @@ function StatCard({ label, value, sub }: { label: string; value: number | string
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type AdminTab = 'ownership' | 'users' | 'projects' | 'email' | 'logs' | 'statistics';
-type AdminUser = { id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string };
+type AdminUser = { id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string; failedLoginAttempts: number; loginLockedUntil: string | null };
 type AdminProject = { id: string; name: string; emoji: string | null; deadline: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number };
 type AdminLogEntry = { id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string };
 type ServerConfig = { adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean };
@@ -89,6 +89,8 @@ const ACTION_LABELS: Record<string, string> = {
   USER_DELETED: 'User deleted',
   SERVER_CONFIG_UPDATED: 'Server config updated',
   LOGS_PRUNED: 'Logs pruned',
+  LOGIN_LOCKED: 'Account locked',
+  LOGIN_UNLOCKED: 'Account unlocked',
 };
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -282,6 +284,7 @@ export default function AdminPage() {
                     <th className="text-left py-2 font-medium">User</th>
                     <th className="text-left py-2 font-medium">Email</th>
                     <th className="text-left py-2 font-medium">Verified</th>
+                    <th className="text-left py-2 font-medium">Login</th>
                     <th className="text-left py-2 font-medium">Joined</th>
                     {isFoundingAdmin && <th className="py-2 text-right font-medium pr-1">Actions</th>}
                   </tr>
@@ -309,6 +312,31 @@ export default function AdminPage() {
                             </button>
                           )}
                         </div>
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {(() => {
+                          const locked = u.loginLockedUntil && new Date(u.loginLockedUntil) > new Date();
+                          if (locked) {
+                            const mins = Math.ceil((new Date(u.loginLockedUntil!).getTime() - Date.now()) / 60000);
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#ef444422', color: '#ef4444' }}>
+                                  Locked {mins}m
+                                </span>
+                                {me?.isAdmin && (
+                                  <button onClick={() => act(async () => { await api.admin.unlock(u.id); await loadUsers(); })}
+                                    className="text-xs underline opacity-60 hover:opacity-100" style={{ color: 'var(--text-3)' }}>
+                                    Unlock
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          }
+                          if (u.failedLoginAttempts > 0) {
+                            return <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#f59e0b22', color: '#f59e0b' }}>{u.failedLoginAttempts} fail{u.failedLoginAttempts === 1 ? '' : 's'}</span>;
+                          }
+                          return <span className="text-xs" style={{ color: 'var(--text-3)' }}>—</span>;
+                        })()}
                       </td>
                       <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(u.createdAt).toLocaleDateString()}</td>
                       {isFoundingAdmin && (
@@ -475,7 +503,12 @@ export default function AdminPage() {
                         <div className="col-span-2 flex items-center gap-2">
                           <input id="ssl" type="checkbox" checked={smtpForm.secure}
                             onChange={(e) => { setSmtpForm((f) => ({ ...f, secure: e.target.checked })); setSmtpDirty(true); }} />
-                          <label htmlFor="ssl" className="text-xs" style={{ color: 'var(--text-2)' }}>Use SSL (port 465)</label>
+                          <label htmlFor="ssl" className="text-xs" style={{ color: 'var(--text-2)' }}>
+                            Use SSL (port 465)
+                          </label>
+                          <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                            — leave off for port 587 (STARTTLS), which most providers including Gmail use
+                          </span>
                         </div>
                       </div>
                       <div className="flex gap-2">

@@ -85,9 +85,13 @@ async function ensureAdminAccount() {
     console.log(`[admin] Founding admin account created: ${adminEmail} (password from ADMIN_PASSWORD env var)`);
   } else {
     console.log('');
-    console.log('[admin] Founding admin account created with a temporary password.');
-    console.log('[admin] You will be prompted to change it on first login.');
-    console.log(`[admin] Email: ${adminEmail}`);
+    console.log('[admin] ╔══════════════════════════════════════════╗');
+    console.log('[admin] ║   Founding admin account created         ║');
+    console.log(`[admin] ║   Email:    ${adminEmail.padEnd(29)}║`);
+    console.log(`[admin] ║   Password: ${initialPassword.padEnd(29)}║`);
+    console.log('[admin] ║   You will be prompted to change it      ║');
+    console.log('[admin] ║   on first login.                        ║');
+    console.log('[admin] ╚══════════════════════════════════════════╝');
     console.log('');
   }
 }

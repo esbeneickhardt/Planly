@@ -5,6 +5,9 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
 
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCK_MINUTES = 15;
+
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (req, reply) => {
     const { identifier, password } = req.body as { identifier: string; password: string };
@@ -18,10 +21,35 @@ export async function authRoutes(app: FastifyInstance) {
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
     if (!user.passwordHash) return reply.status(401).send({ error: 'This account uses SSO — please sign in via your identity provider.' });
 
+    // Check lockout
+    if (user.loginLockedUntil && user.loginLockedUntil > new Date()) {
+      const remaining = Math.ceil((user.loginLockedUntil.getTime() - Date.now()) / 60000);
+      return reply.status(429).send({ error: `Account temporarily locked. Try again in ${remaining} minute${remaining === 1 ? '' : 's'}.` });
+    }
+
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
-      await prisma.adminLog.create({ data: { action: 'LOGIN_FAILED', targetName: user.email } }).catch(() => {});
-      return reply.status(401).send({ error: 'Invalid credentials' });
+      const attempts = user.failedLoginAttempts + 1;
+      const shouldLock = attempts >= LOGIN_MAX_ATTEMPTS;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: attempts,
+          ...(shouldLock ? { loginLockedUntil: new Date(Date.now() + LOGIN_LOCK_MINUTES * 60 * 1000) } : {}),
+        },
+      });
+      await prisma.adminLog.create({ data: { action: 'LOGIN_FAILED', targetName: user.email, metadata: { attempts } } }).catch(() => {});
+      if (shouldLock) {
+        await prisma.adminLog.create({ data: { action: 'LOGIN_LOCKED', targetName: user.email } }).catch(() => {});
+        return reply.status(429).send({ error: `Too many failed attempts. Account locked for ${LOGIN_LOCK_MINUTES} minutes.` });
+      }
+      const remaining = LOGIN_MAX_ATTEMPTS - attempts;
+      return reply.status(401).send({ error: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.` });
+    }
+
+    // Successful login — reset lockout state
+    if (user.failedLoginAttempts > 0 || user.loginLockedUntil) {
+      await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, loginLockedUntil: null } });
     }
 
     const serverConfig = await getServerConfig();

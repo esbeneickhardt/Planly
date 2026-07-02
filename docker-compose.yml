@@ -56,6 +56,21 @@ services:
       #
       # Optionally restrict registration to an allowlist (managed in /admin):
       #   REQUIRE_WHITELIST: "true"
+      #
+      # ── Single Sign-On / OIDC (optional) ────────────────────────────────────
+      # Enables a "Sign in with <provider>" button on the login page.
+      # Works with any OpenID Connect provider (Google, Microsoft, Auth0, Okta, …).
+      # Credentials go in .env — reference them here:
+      # OIDC_ISSUER: ${OIDC_ISSUER}
+      # OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      # OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      # OIDC_PROVIDER_NAME: Google         # label shown on the login button (default: SSO)
+      # OIDC_SCOPES: openid email profile  # default — change only if your IdP requires it
+      #
+      # The callback URL to register with your identity provider:
+      #   <APP_URL>/api/auth/sso/callback
+      # Set APP_URL to your public backend URL so the redirect is correct:
+      # APP_URL: https://planly.yourdomain.com
     volumes:
       - uploads_data:/data/uploads
     depends_on:

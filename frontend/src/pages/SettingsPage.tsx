@@ -19,6 +19,16 @@ type AccessRequestRow = {
 
 type SettingsTab = 'team' | 'permissions' | 'colors' | 'ownership' | 'apps' | 'webhooks' | 'danger';
 
+const PROJECT_EMOJIS = [
+  '📋','📌','📍','🗂️','📁','📂','📊','📈','📉','🗃️','🗄️','📝',
+  '✅','☑️','🎯','🏆','🥇','🎖️','🚀','⚡','🔥','💡','🔑','⚙️',
+  '🛠️','🔧','🔨','🪛','🧩','🎮','🕹️','🖥️','💻','📱','🖨️','⌨️',
+  '🌐','🌍','🗺️','🧭','🏗️','🏢','🏭','🏠','🌆','🌇','🎪','🎨',
+  '🧪','🔬','🔭','📡','🛸','🤖','🦾','🧠','💎','🪙','💰','💳',
+  '🌟','⭐','✨','💫','🌈','🎉','🎊','🪄','🎭','🎬','🎥','📸',
+  '🌱','🌿','🍀','🌸','🦋','🐝','🦁','🐯','🦊','🐺','🦅','🦉',
+];
+
 const PAGE_TABS: { key: SettingsTab; label: string; ownerOnly?: boolean; danger?: boolean }[] = [
   { key: 'team',        label: 'Team' },
   { key: 'permissions', label: 'Permissions' },
@@ -107,7 +117,22 @@ export default function SettingsPage() {
   const [newInviteEmail, setNewInviteEmail] = useState('');
   const [creatingInvite, setCreatingInvite] = useState(false);
 
-  // Email status state
+  // Project details form state
+  const [projName, setProjName] = useState(activeProduct?.name ?? '');
+  const [projEmoji, setProjEmoji] = useState(activeProduct?.emoji ?? '');
+  const [projDesc, setProjDesc] = useState(activeProduct?.description ?? '');
+  const [projDirty, setProjDirty] = useState(false);
+  const [savingProj, setSavingProj] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  useEffect(() => {
+    if (activeProduct) {
+      setProjName(activeProduct.name);
+      setProjEmoji(activeProduct.emoji ?? '');
+      setProjDesc(activeProduct.description ?? '');
+      setProjDirty(false);
+    }
+  }, [activeProduct?.id]);
 
   const load = useCallback(async () => {
     if (!activeProduct) return;
@@ -311,6 +336,90 @@ export default function SettingsPage() {
         {/* ── Team tab ── */}
         {activeTab === 'team' && (
           <div className="max-w-2xl space-y-8">
+
+            {/* Project details — owner and co-owners only */}
+            {canManage && (
+              <div>
+                <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Project details</h2>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>Change the project name, icon, and description.</p>
+                <div className="space-y-3">
+                  {/* Icon + Name row */}
+                  <div className="flex gap-2 items-start">
+                    {/* Emoji picker button */}
+                    <div className="relative flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setShowEmojiPicker((v) => !v)}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors"
+                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                        title="Pick an icon"
+                      >
+                        {projEmoji || '📋'}
+                      </button>
+                      {showEmojiPicker && (
+                        <div
+                          className="absolute top-12 left-0 z-20 rounded-xl p-2 shadow-xl"
+                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 280 }}
+                        >
+                          <div className="grid grid-cols-10 gap-0.5 max-h-52 overflow-y-auto">
+                            {PROJECT_EMOJIS.map((e) => (
+                              <button
+                                key={e}
+                                type="button"
+                                onClick={() => { setProjEmoji(e); setProjDirty(true); setShowEmojiPicker(false); }}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-base hover:scale-110 transition-all"
+                                style={{ background: projEmoji === e ? 'var(--brand-subtle)' : 'transparent' }}
+                              >{e}</button>
+                            ))}
+                          </div>
+                          {projEmoji && (
+                            <button
+                              type="button"
+                              onClick={() => { setProjEmoji(''); setProjDirty(true); setShowEmojiPicker(false); }}
+                              className="mt-1.5 w-full text-xs py-1 rounded-lg transition-colors"
+                              style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
+                            >Remove icon</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      className="input text-sm flex-1"
+                      value={projName}
+                      onChange={(e) => { setProjName(e.target.value); setProjDirty(true); }}
+                      placeholder="Project name"
+                    />
+                  </div>
+                  {/* Description */}
+                  <textarea
+                    className="input text-sm w-full resize-none"
+                    rows={2}
+                    value={projDesc}
+                    onChange={(e) => { setProjDesc(e.target.value); setProjDirty(true); }}
+                    placeholder="Short description (optional)"
+                  />
+                  <button
+                    disabled={savingProj || !projDirty || !projName.trim()}
+                    onClick={async () => {
+                      if (!activeProduct || !projName.trim()) return;
+                      setSavingProj(true);
+                      try {
+                        await api.products.update(activeProduct.id, { name: projName.trim(), emoji: projEmoji || undefined, description: projDesc || undefined });
+                        await refreshProducts();
+                        setProjDirty(false);
+                        showToast('Project updated', 'success');
+                      } finally {
+                        setSavingProj(false);
+                      }
+                    }}
+                    className="btn-primary text-sm px-4"
+                  >
+                    {savingProj ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Add member</h2>
               <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>Search for a registered user and add them directly to the project.</p>

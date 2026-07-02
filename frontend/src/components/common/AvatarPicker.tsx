@@ -1,14 +1,159 @@
 import { useRef, useState, useEffect } from 'react';
 
-const EMOJIS = [
-  '😀','😃','😄','😁','😆','😊','🙂','😎',
-  '🥰','😍','🤩','😇','🤗','😌','😉','🫡',
-  '😏','🤓','🧐','🥸','🤠','😤','🫠','🤫',
-  '👶','🧒','👦','👧','🧑','👩','👨','🧓',
-  '🧑‍💻','🧙','🦸','🥷','🤖','👽','🎭','🫂',
-  '🐱','🐶','🐭','🐻','🐼','🦊','🐯','🦁',
-  '🌟','⭐','🌈','🔥','⚡','🎯','💫','🎪',
+// ── Emoji categories ──────────────────────────────────────────────────────────
+
+const EMOJI_CATEGORIES = [
+  {
+    label: 'Smileys',
+    emojis: [
+      '😀','😃','😄','😁','😆','😊','🙂','😎',
+      '🥰','😍','🤩','😇','🤗','😌','😉','🫡',
+      '😏','🤓','🧐','🥸','🤠','😤','🫠','🤫',
+      '😂','🤣','😅','😬','🥹','😔','🙄','😳',
+      '🤯','😱','🥶','🥵','😴','🤒','🤑','🤡',
+      '👻','💀','☠️','🎭',
+    ],
+  },
+  {
+    label: 'People',
+    emojis: [
+      '👶','🧒','👦','👧','🧑','👩','👨','🧓',
+      '🧑‍💻','🧑‍🎨','🧑‍🏫','🧑‍🍳','🧑‍🔧','🧑‍🚀','🧑‍⚕️','🧑‍🎤',
+      '🧙','🦸','🦹','🥷','🧛','🧜','🧝','🤖',
+      '👽','🫂','👍','👎','👌','✌️','🤞','🤙',
+      '👋','🤝','🙏','👏','🫶','❤️','🧠','💪',
+    ],
+  },
+  {
+    label: 'Animals',
+    emojis: [
+      '🐱','🐶','🐭','🐹','🐰','🦊','🐻','🐼',
+      '🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔',
+      '🐧','🐦','🦆','🦅','🦉','🦇','🐝','🦋',
+      '🐢','🦎','🐍','🐠','🐬','🐳','🦈','🦑',
+      '🦀','🦞','🐙','🦭','🦓','🦒','🐘','🦏',
+    ],
+  },
+  {
+    label: 'Nature',
+    emojis: [
+      '🌸','🌺','🌻','🌹','🌷','🍀','🌿','🌱',
+      '🎋','🍄','🌊','🔥','⚡','❄️','🌈','⭐',
+      '🌟','💫','✨','🌙','☀️','🌤️','⛅','🌍',
+      '🌋','🏔️','🌲','🌴','🌵','🪸','🌾','🍁',
+      '🍂','🪨','💎','🌠','☄️','🌀','🌡️','🌊',
+    ],
+  },
+  {
+    label: 'Food & Fun',
+    emojis: [
+      '🍕','🍔','🌮','🍜','🍣','🍱','🍩','🎂',
+      '🍦','🍺','☕','🧃','⚽','🏀','🎮','🎲',
+      '🎯','🎸','🎹','🎺','🎻','🥁','🎤','🎬',
+      '🏆','🥇','🎖️','🏅','🎪','🎨','🖌️','✏️',
+      '🎠','🎡','🎢','🎭','🎉','🎊','🪄','🎁',
+    ],
+  },
+  {
+    label: 'Objects',
+    emojis: [
+      '💡','🔑','🗝️','🔒','🔓','💰','📱','💻',
+      '🖥️','⌨️','📚','📖','📝','✉️','📦','🛠️',
+      '⚙️','🔭','🔬','🧪','🧲','🚀','✈️','🚗',
+      '🚂','⛵','🏠','🏰','🌆','🗺️','🧭','📡',
+      '🔮','🪙','📊','📈','🗂️','📋','📌','⚠️',
+    ],
+  },
 ];
+
+// ── EXIF orientation normalizer ───────────────────────────────────────────────
+
+async function readJpegOrientation(file: File): Promise<number> {
+  try {
+    const buf = await file.slice(0, 65536).arrayBuffer();
+    const v = new DataView(buf);
+    if (v.byteLength < 4 || v.getUint16(0, false) !== 0xFFD8) return 1;
+    let off = 2;
+    while (off + 4 <= v.byteLength) {
+      const marker = v.getUint16(off, false);
+      if (marker === 0xFFDA) break;
+      const segLen = v.getUint16(off + 2, false);
+      if (marker === 0xFFE1 && segLen > 10 && off + 4 + segLen <= v.byteLength) {
+        if (v.getUint32(off + 4, false) === 0x45786966) {
+          const tiff = off + 10;
+          if (tiff + 8 > v.byteLength) break;
+          const le = v.getUint16(tiff, false) === 0x4949;
+          const ifdOff = v.getUint32(tiff + 4, le);
+          const ifd = tiff + ifdOff;
+          if (ifd + 2 > v.byteLength) break;
+          const count = v.getUint16(ifd, le);
+          for (let i = 0; i < count; i++) {
+            const e = ifd + 2 + i * 12;
+            if (e + 12 > v.byteLength) break;
+            if (v.getUint16(e, le) === 0x0112) return v.getUint16(e + 8, le);
+          }
+        }
+      }
+      if (segLen < 2) break;
+      off += 2 + segLen;
+    }
+  } catch {}
+  return 1;
+}
+
+// Returns a blob URL of the image with EXIF rotation baked in as pixel data.
+async function normalizeImageOrientation(file: File): Promise<{ url: string; img: HTMLImageElement }> {
+  const rawUrl = URL.createObjectURL(file);
+  const raw = await new Promise<HTMLImageElement>((resolve) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.src = rawUrl;
+  });
+
+  const orientation = await readJpegOrientation(file);
+
+  if (orientation <= 1) {
+    // No rotation needed — use original
+    return { url: rawUrl, img: raw };
+  }
+
+  URL.revokeObjectURL(rawUrl);
+
+  const sw = raw.naturalWidth;
+  const sh = raw.naturalHeight;
+  const swap = orientation >= 5; // 90° or 270° rotation swaps width/height
+  const cw = swap ? sh : sw;
+  const ch = swap ? sw : sh;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d')!;
+
+  // Apply the EXIF-specified transform before drawing
+  switch (orientation) {
+    case 2: ctx.transform(-1, 0, 0,  1,  sw,  0); break;
+    case 3: ctx.transform(-1, 0, 0, -1,  sw, sh); break;
+    case 4: ctx.transform( 1, 0, 0, -1,   0, sh); break;
+    case 5: ctx.transform( 0, 1, 1,  0,   0,  0); break;
+    case 6: ctx.transform( 0, 1,-1,  0,  sh,  0); break;
+    case 7: ctx.transform( 0,-1,-1,  0,  sh, sw); break;
+    case 8: ctx.transform( 0,-1, 1,  0,   0, sw); break;
+  }
+  ctx.drawImage(raw, 0, 0);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) { reject(new Error('toBlob failed')); return; }
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => resolve({ url, img });
+      img.src = url;
+    }, 'image/jpeg', 0.92);
+  });
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 const PREVIEW = 200; // px — the crop circle diameter
 
@@ -20,6 +165,7 @@ interface Props {
 
 export default function AvatarPicker({ current, onChange }: Props) {
   const [tab, setTab] = useState<'emoji' | 'photo'>('emoji');
+  const [emojiPage, setEmojiPage] = useState(0);
   const [preview, setPreview] = useState<string | null>(current.avatarUrl ?? null);
   const currentEmoji = current.avatarEmoji;
   const fileRef = useRef<HTMLInputElement>(null);
@@ -48,7 +194,6 @@ export default function AvatarPicker({ current, onChange }: Props) {
     };
   }
 
-  // Pointer drag handlers
   function onPointerDown(e: React.PointerEvent) {
     e.preventDefault();
     dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
@@ -72,7 +217,6 @@ export default function AvatarPicker({ current, onChange }: Props) {
     };
   }, [dragging, cropImg, scale]);
 
-  // Re-clamp when zoom changes
   useEffect(() => {
     if (cropImg) setOffset((o) => clamp(o.x, o.y, cropImg, scale));
   }, [zoom]);
@@ -80,17 +224,28 @@ export default function AvatarPicker({ current, onChange }: Props) {
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
+    if (fileRef.current) fileRef.current.value = '';
+
+    try {
+      const { url, img } = await normalizeImageOrientation(file);
       if (cropObjectUrl) URL.revokeObjectURL(cropObjectUrl);
       setCropObjectUrl(url);
       setCropImg(img);
       setZoom(1);
       setOffset({ x: 0, y: 0 });
-    };
-    img.src = url;
-    if (fileRef.current) fileRef.current.value = '';
+    } catch {
+      // Fallback: load directly without normalization
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        if (cropObjectUrl) URL.revokeObjectURL(cropObjectUrl);
+        setCropObjectUrl(url);
+        setCropImg(img);
+        setZoom(1);
+        setOffset({ x: 0, y: 0 });
+      };
+      img.src = url;
+    }
   }
 
   function applyAndConfirm() {
@@ -104,11 +259,8 @@ export default function AvatarPicker({ current, onChange }: Props) {
     ctx.arc(OUT / 2, OUT / 2, OUT / 2, 0, Math.PI * 2);
     ctx.clip();
 
-    // Map from canvas (128×128) back to source image coords
-    // Preview center of image = (PREVIEW/2 + offset.x, PREVIEW/2 + offset.y)
     const cx = PREVIEW / 2 + offset.x;
     const cy = PREVIEW / 2 + offset.y;
-    // At preview pixel (0,0): source pixel = (imgW/2 - cx/scale, imgH/2 - cy/scale)
     const sx = cropImg.naturalWidth / 2 - cx / scale;
     const sy = cropImg.naturalHeight / 2 - cy / scale;
     const sw = PREVIEW / scale;
@@ -145,6 +297,8 @@ export default function AvatarPicker({ current, onChange }: Props) {
     >{label}</button>
   );
 
+  const category = EMOJI_CATEGORIES[emojiPage];
+
   return (
     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
       {/* Tabs */}
@@ -154,27 +308,65 @@ export default function AvatarPicker({ current, onChange }: Props) {
       </div>
 
       {tab === 'emoji' && (
-        <div className="grid grid-cols-8 gap-0.5 p-2">
-          {EMOJIS.map((e) => (
+        <div>
+          {/* Category header with prev/next arrows */}
+          <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
             <button
-              key={e}
               type="button"
-              onClick={() => onChange({ avatarEmoji: e, avatarUrl: null })}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all hover:scale-110"
-              style={{
-                background: currentEmoji === e ? 'var(--brand-subtle)' : 'transparent',
-                boxShadow: currentEmoji === e ? `0 0 0 2px var(--brand)` : 'none',
-              }}
-              title={e}
-            >{e}</button>
-          ))}
+              onClick={() => setEmojiPage((p) => Math.max(0, p - 1))}
+              disabled={emojiPage === 0}
+              className="w-6 h-6 flex items-center justify-center rounded-md text-sm transition-colors disabled:opacity-30"
+              style={{ color: 'var(--text-3)', background: 'var(--surface)' }}
+            >‹</button>
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>{category.label}</span>
+            <button
+              type="button"
+              onClick={() => setEmojiPage((p) => Math.min(EMOJI_CATEGORIES.length - 1, p + 1))}
+              disabled={emojiPage === EMOJI_CATEGORIES.length - 1}
+              className="w-6 h-6 flex items-center justify-center rounded-md text-sm transition-colors disabled:opacity-30"
+              style={{ color: 'var(--text-3)', background: 'var(--surface)' }}
+            >›</button>
+          </div>
+
+          {/* Emoji grid */}
+          <div className="grid grid-cols-8 gap-0.5 p-2">
+            {category.emojis.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => onChange({ avatarEmoji: e, avatarUrl: null })}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all hover:scale-110"
+                style={{
+                  background: currentEmoji === e ? 'var(--brand-subtle)' : 'transparent',
+                  boxShadow: currentEmoji === e ? `0 0 0 2px var(--brand)` : 'none',
+                }}
+                title={e}
+              >{e}</button>
+            ))}
+          </div>
+
+          {/* Page dots */}
+          <div className="flex justify-center gap-1 pb-2">
+            {EMOJI_CATEGORIES.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setEmojiPage(i)}
+                className="rounded-full transition-all"
+                style={{
+                  width: i === emojiPage ? 16 : 5,
+                  height: 5,
+                  background: i === emojiPage ? 'var(--brand)' : 'var(--border)',
+                }}
+              />
+            ))}
+          </div>
         </div>
       )}
 
       {tab === 'photo' && (
         <div className="flex flex-col items-center gap-3 p-4">
           {cropImg ? (
-            /* ── Crop editor ── */
             <>
               <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>Drag to reposition · scroll or use slider to zoom</p>
 
@@ -202,6 +394,7 @@ export default function AvatarPicker({ current, onChange }: Props) {
                   draggable={false}
                   style={{
                     position: 'absolute',
+                    maxWidth: 'none',
                     width: cropImg.naturalWidth * scale,
                     height: cropImg.naturalHeight * scale,
                     left: PREVIEW / 2 + offset.x - (cropImg.naturalWidth * scale) / 2,
@@ -232,7 +425,6 @@ export default function AvatarPicker({ current, onChange }: Props) {
               </div>
             </>
           ) : (
-            /* ── Upload / preview ── */
             <>
               <div
                 className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-4xl cursor-pointer relative group"

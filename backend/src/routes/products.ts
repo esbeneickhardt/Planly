@@ -49,14 +49,21 @@ export async function productRoutes(app: FastifyInstance) {
       name?: string; emoji?: string; description?: string; deadline?: string; ownerId?: string;
     };
 
-    // Only team members can update; only the owner can transfer ownership
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { team: { select: { members: { where: { userId: req.user.userId } } } } },
+      include: { team: { select: { members: { where: { userId: req.user.userId }, select: { role: true } } } } },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    if (product.team.members.length === 0) return reply.status(403).send({ error: 'Forbidden' });
-    if (ownerId !== undefined && product.ownerId !== req.user.userId) {
+    const membership = product.team.members[0];
+    if (!membership) return reply.status(403).send({ error: 'Forbidden' });
+
+    const isProductOwner = product.ownerId === req.user.userId;
+    const isCoOwner = membership.role === 'co_owner';
+
+    if ((name !== undefined || emoji !== undefined || description !== undefined) && !isProductOwner && !isCoOwner) {
+      return reply.status(403).send({ error: 'Only the owner or co-owners can update project details' });
+    }
+    if (ownerId !== undefined && !isProductOwner) {
       return reply.status(403).send({ error: 'Only the owner can transfer ownership' });
     }
 
