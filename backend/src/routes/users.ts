@@ -5,6 +5,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { config } from '../config/env';
 import { sendEmail } from '../utils/email';
+import { getServerConfig } from '../utils/server-config';
 
 // Public profile fields — never expose passwordHash
 const USER_SELF_SELECT = {
@@ -44,8 +45,10 @@ export async function userRoutes(app: FastifyInstance) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
+    const serverConfig = await getServerConfig();
+
     // Whitelist check
-    if (config.admin.requireWhitelist) {
+    if (serverConfig.requireWhitelist) {
       const patterns = await prisma.emailWhitelist.findMany();
       const allowed = patterns.some(({ pattern }) => {
         if (pattern.startsWith('@')) return normalizedEmail.endsWith(pattern);
@@ -56,9 +59,6 @@ export async function userRoutes(app: FastifyInstance) {
       }
     }
 
-    const isAdmin = config.admin.email && normalizedEmail === config.admin.email.toLowerCase();
-    const emailVerified = isAdmin || !config.admin.requireEmailVerification;
-
     const passwordHash = await bcrypt.hash(password, 12);
     let user: { id: string; username: string; email: string; realName: string | null; avatarEmoji: string | null; avatarUrl: string | null; phone: string | null; createdAt: Date; emailVerified: boolean };
     try {
@@ -66,8 +66,7 @@ export async function userRoutes(app: FastifyInstance) {
         data: {
           username: username.trim(), email: normalizedEmail,
           passwordHash, realName: realName?.trim() || undefined, phone: phone?.trim() || undefined, avatarEmoji,
-          isAdmin: !!isAdmin, isFoundingAdmin: !!isAdmin,
-          emailVerified,
+          emailVerified: false,
         },
         select: USER_SELF_SELECT,
       });
@@ -75,13 +74,8 @@ export async function userRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: 'Username or email already taken' });
     }
 
-    // Log admin creation
-    if (isAdmin) {
-      await prisma.adminLog.create({ data: { action: 'FOUNDING_ADMIN_REGISTERED', actorName: user.username, targetName: user.email } });
-    }
-
-    // Send verification email if required
-    if (!emailVerified) {
+    // Send verification email when verification is enforced (user must click link before logging in)
+    if (serverConfig.requireEmailVerification) {
       try {
         const rawToken = randomBytes(32).toString('hex');
         const { createHash } = await import('crypto');

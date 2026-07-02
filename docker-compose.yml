@@ -23,35 +23,25 @@ services:
       FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-80}
       UPLOADS_DIR: /data/uploads
       # ── Email (optional) ────────────────────────────────────────────────────
-      # Leave SMTP_HOST unset to disable email features (password reset, invites).
-      # Works with any standard SMTP provider — set the vars for your provider:
+      # RECOMMENDED: configure email through the UI after first login.
+      #   Settings → Email → fill in host/port/credentials → Save.
+      #   Credentials are stored in the database — nothing goes in this file.
       #
-      #  Gmail (free, needs App Password from myaccount.google.com/apppasswords):
-      #    SMTP_HOST: smtp.gmail.com
-      #    SMTP_PORT: 587
-      #    SMTP_USER: you@gmail.com
-      #    SMTP_PASS: <16-char app password>
+      # ALTERNATIVE: env vars (credentials go in .env, NOT here — see below).
+      #   Add to .env:        SMTP_HOST=smtp.gmail.com
+      #                       SMTP_PORT=587
+      #                       SMTP_USER=you@gmail.com
+      #                       SMTP_PASS=your-app-password   ← keep out of this file
+      #   Then reference here (no quotes, no plain values):
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
       #
-      #  Outlook / Hotmail / Microsoft 365:
-      #    SMTP_HOST: smtp-mail.outlook.com
-      #    SMTP_PORT: 587
+      # The .env file is listed in .gitignore and never committed.
+      # UI config takes priority over env vars when both are present.
       #
-      #  Apple iCloud Mail (needs App-Specific Password from appleid.apple.com):
-      #    SMTP_HOST: smtp.mail.me.com
-      #    SMTP_PORT: 587
-      #
-      #  ProtonMail (requires Proton Mail Bridge running locally):
-      #    SMTP_HOST: 127.0.0.1
-      #    SMTP_PORT: 1025
-      #    SMTP_SECURE: "false"
-      #
-      #  Resend / Brevo / Mailgun / any custom SMTP:
-      #    SMTP_HOST: smtp.resend.com   # or your provider's host
-      #    SMTP_PORT: 587
-      #
-      # Common optional overrides:
-      #   SMTP_SECURE: "true"   # use SSL on port 465 instead of STARTTLS on 587
-      #   SMTP_FROM: Planly <noreply@yourdomain.com>
+      # Optional overrides (safe to set here — not secret):
       #   APP_URL: https://planly.yourdomain.com  # base URL used in email links
       #
       # ── Admin (optional) ────────────────────────────────────────────────────
@@ -59,7 +49,7 @@ services:
       # Whoever registers (or already has an account) with this email gets
       # isAdmin + isFoundingAdmin on startup. The /admin panel becomes visible.
       #
-      #   ADMIN_EMAIL: you@company.com
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
       #
       # Optionally enforce email verification before users can sign in:
       #   REQUIRE_EMAIL_VERIFICATION: "true"

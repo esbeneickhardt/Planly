@@ -2,6 +2,19 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
 import prisma from '../db/client';
+import { getServerConfig } from '../utils/server-config';
+
+// Routes where an authenticated but unverified user must still be allowed through
+// (so they can verify themselves or change their password)
+const EMAIL_VERIFY_EXEMPT = new Set([
+  '/api/auth/me',
+  '/api/auth/send-verification',
+  '/api/auth/resend-verification',
+  '/api/auth/change-password',
+  '/api/auth/verify-email',
+  '/api/auth/logout',
+  '/api/admin/server-config', // admins must be able to turn off verification even if unverified
+]);
 
 export interface AuthPayload {
   userId: string;
@@ -14,13 +27,25 @@ declare module 'fastify' {
   }
 }
 
-export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
+// Called by requireAuth after the JWT is validated to enforce email verification policy.
+// Skipped for exempt routes and for admin routes (admins must stay in control of the toggle).
+async function enforceEmailVerification(req: FastifyRequest, reply: FastifyReply) {
+  if (EMAIL_VERIFY_EXEMPT.has(req.routerPath ?? req.url.split('?')[0])) return;
+  const cfg = await getServerConfig();
+  if (!cfg.requireEmailVerification) return;
+  const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { emailVerified: true } });
+  if (!user?.emailVerified) {
+    reply.status(403).send({ error: 'Please verify your email address to continue.', code: 'EMAIL_NOT_VERIFIED' });
+  }
+}
+
+async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   // 1. Cookie-based auth (web app sessions)
   const cookieToken = req.cookies?.token;
   if (cookieToken) {
     try {
       req.user = jwt.verify(cookieToken, process.env.JWT_SECRET!) as AuthPayload;
-      return;
+      return true;
     } catch {
       // invalid/expired — fall through to Bearer check
     }
@@ -38,20 +63,29 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
       });
       if (apiToken && (!apiToken.expiresAt || apiToken.expiresAt > new Date())) {
         req.user = { userId: apiToken.userId, username: apiToken.user.username };
-        // Update lastUsedAt without blocking the response
         prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
-        return;
+        return true;
       }
     } catch {
-      // DB error — fall through to 401
+      // DB error — fall through
     }
   }
 
   reply.status(401).send({ error: 'Unauthorized' });
+  return false;
+}
+
+export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
+  const ok = await validateToken(req, reply);
+  if (!ok) return;
+  await enforceEmailVerification(req, reply);
 }
 
 export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
-  await requireAuth(req, reply);
+  const ok = await validateToken(req, reply);
+  if (!ok) return;
+  // Admins are subject to email verification like everyone else
+  await enforceEmailVerification(req, reply);
   if (reply.sent) return;
   const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
   if (!user?.isAdmin) reply.status(403).send({ error: 'Admin access required' });

@@ -33,6 +33,7 @@ export interface User {
   emailVerified?: boolean;
   isAdmin?: boolean;
   isFoundingAdmin?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface TeamMember {

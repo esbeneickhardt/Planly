@@ -3,7 +3,8 @@ import { randomBytes, createHash } from 'crypto';
 import bcrypt from 'bcryptjs';
 import prisma from '../db/client';
 import { config } from '../config/env';
-import { sendEmail, emailEnabled, resetPasswordEmail, verifyEmailTemplate } from '../utils/email';
+import { sendEmail, emailEnabled, getSmtpSettings, resetPasswordEmail, verifyEmailTemplate } from '../utils/email';
+import { requireAuth } from '../middleware/auth';
 
 export async function passwordResetRoutes(app: FastifyInstance) {
   // Report whether email features are available
@@ -72,13 +73,35 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Request email verification
-  app.post('/api/auth/send-verification', async (req, reply) => {
-    if (!emailEnabled) {
+  // Public resend — for users who got logged out before they could verify (no auth required)
+  app.post('/api/auth/resend-verification', async (req, reply) => {
+    const { email } = req.body as { email?: string };
+    if (!email) return reply.status(400).send({ error: 'email required' });
+    const smtpSettings = await getSmtpSettings();
+    if (!smtpSettings) return reply.status(503).send({ error: 'Email is not configured on this server.' });
+
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+    // Always respond OK to avoid user enumeration
+    if (!user || user.emailVerified) return reply.send({ ok: true });
+
+    const raw = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(raw).digest('hex');
+    await prisma.emailVerifyToken.create({ data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
+    await sendEmail({
+      to: user.email,
+      subject: 'Verify your Planly email',
+      html: verifyEmailTemplate(`${config.appUrl}/verify-email?token=${raw}`, user.username),
+    });
+    reply.send({ ok: true });
+  });
+
+  // Request email verification (requires login)
+  app.post('/api/auth/send-verification', { preHandler: requireAuth }, async (req, reply) => {
+    const smtpSettings = await getSmtpSettings();
+    if (!smtpSettings) {
       return reply.status(503).send({ error: 'Email is not configured on this server.' });
     }
-    const userId = (req as any).user?.userId;
-    if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
+    const userId = req.user.userId;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return reply.status(404).send({ error: 'Not found' });
@@ -97,6 +120,24 @@ export async function passwordResetRoutes(app: FastifyInstance) {
       html: verifyEmailTemplate(verifyUrl, user.username),
     });
 
+    reply.send({ ok: true });
+  });
+
+  // Change password while logged in (also clears mustChangePassword flag)
+  app.post('/api/auth/change-password', { preHandler: requireAuth }, async (req, reply) => {
+    const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+    if (!newPassword || newPassword.length < 8) return reply.status(400).send({ error: 'New password must be at least 8 characters' });
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!user) return reply.status(404).send({ error: 'Not found' });
+    if (!user.passwordHash) return reply.status(400).send({ error: 'This account uses SSO — password cannot be changed here.' });
+    // If mustChangePassword is set, skip current-password check (they can't know it)
+    if (!user.mustChangePassword) {
+      if (!currentPassword) return reply.status(400).send({ error: 'Current password required' });
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) return reply.status(401).send({ error: 'Current password is incorrect' });
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false } });
     reply.send({ ok: true });
   });
 

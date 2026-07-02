@@ -41,20 +41,59 @@ import { csrfCheck } from './middleware/csrf';
 
 import websocket from '@fastify/websocket';
 import prisma from './db/client';
+import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
-async function applyAdminFlags() {
+async function ensureAdminAccount() {
   if (!config.admin.email) return;
   const adminEmail = config.admin.email.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email: adminEmail } });
-  if (!user) return; // Will be applied on first registration
-  if (!user.isAdmin || !user.isFoundingAdmin) {
-    await prisma.user.update({ where: { email: adminEmail }, data: { isAdmin: true, isFoundingAdmin: true } });
-    console.log(`[admin] Founding admin flags applied to ${adminEmail}`);
+  const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
+
+  if (existing) {
+    // ADMIN_EMAIL guarantees admin access only — never touch isFoundingAdmin on an existing account.
+    // The founding-admin seat belongs to whoever holds it in the DB (managed via Transfer Ownership).
+    if (!existing.isAdmin) {
+      await prisma.user.update({ where: { email: adminEmail }, data: { isAdmin: true } });
+      console.log(`[admin] Admin flag restored for ${adminEmail}`);
+    }
+    return;
+  }
+
+  // Account doesn't exist — create it now so no one else can claim the email
+  const useEnvPassword = !!config.admin.password;
+  const initialPassword = useEnvPassword ? config.admin.password : randomBytes(12).toString('base64url');
+  const passwordHash = await bcrypt.hash(initialPassword, 12);
+
+  const base = adminEmail.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32) || 'admin';
+  let username = base;
+  let suffix = 0;
+  while (await prisma.user.findUnique({ where: { username } })) username = `${base}${++suffix}`;
+
+  await prisma.user.create({
+    data: {
+      email: adminEmail,
+      username,
+      passwordHash,
+      isAdmin: true,
+      isFoundingAdmin: true,
+      emailVerified: true,
+      mustChangePassword: !useEnvPassword, // force change only when password was auto-generated
+    },
+  });
+
+  if (useEnvPassword) {
+    console.log(`[admin] Founding admin account created: ${adminEmail} (password from ADMIN_PASSWORD env var)`);
+  } else {
+    console.log('');
+    console.log('[admin] Founding admin account created with a temporary password.');
+    console.log('[admin] You will be prompted to change it on first login.');
+    console.log(`[admin] Email: ${adminEmail}`);
+    console.log('');
   }
 }
 
 async function main() {
-  await applyAdminFlags();
+  await ensureAdminAccount();
 
   const app = Fastify({
     logger: {

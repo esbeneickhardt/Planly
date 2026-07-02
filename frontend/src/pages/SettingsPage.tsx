@@ -17,7 +17,7 @@ type AccessRequestRow = {
   user: { id: string; username: string; avatarEmoji: string | null; realName: string | null };
 };
 
-type SettingsTab = 'team' | 'permissions' | 'colors' | 'ownership' | 'apps' | 'webhooks' | 'email' | 'danger';
+type SettingsTab = 'team' | 'permissions' | 'colors' | 'ownership' | 'apps' | 'webhooks' | 'danger';
 
 const PAGE_TABS: { key: SettingsTab; label: string; ownerOnly?: boolean; danger?: boolean }[] = [
   { key: 'team',        label: 'Team' },
@@ -26,7 +26,6 @@ const PAGE_TABS: { key: SettingsTab; label: string; ownerOnly?: boolean; danger?
   { key: 'ownership',   label: 'Ownership', ownerOnly: true },
   { key: 'apps',        label: 'Apps' },
   { key: 'webhooks',    label: 'Webhooks' },
-  { key: 'email',       label: 'Email' },
   { key: 'danger',      label: 'Danger zone', danger: true },
 ];
 
@@ -109,12 +108,6 @@ export default function SettingsPage() {
   const [creatingInvite, setCreatingInvite] = useState(false);
 
   // Email status state
-  const [emailStatus, setEmailStatus] = useState<{ enabled: boolean; from: string | null; config: { host: string; port: number; secure: boolean; user: string; from: string } | null } | null>(null);
-  const [testingEmail, setTestingEmail] = useState(false);
-  const [smtpForm, setSmtpForm] = useState({ host: '', port: 587, secure: false, user: '', pass: '', from: '' });
-  const [smtpFormDirty, setSmtpFormDirty] = useState(false);
-  const [savingSmtp, setSavingSmtp] = useState(false);
-  const [smtpInfoOpen, setSmtpInfoOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!activeProduct) return;
@@ -157,15 +150,6 @@ export default function SettingsPage() {
   useEffect(() => { loadInvites(); }, [loadInvites]);
   useEffect(() => {
     api.users.list().then(setAllUsers).catch(() => {});
-    api.emailStatus.get().then((s) => {
-      setEmailStatus(s);
-      if (s.config) {
-        setSmtpForm((prev) => ({ ...prev, host: s.config!.host, port: s.config!.port, secure: s.config!.secure, user: s.config!.user, from: s.config!.from }));
-      }
-    }).catch(() => {});
-    api.emailConfig.get().then((cfg) => {
-      if (cfg) setSmtpForm((prev) => ({ ...prev, host: cfg.host, port: cfg.port, secure: cfg.secure, user: cfg.user, from: cfg.from }));
-    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -997,236 +981,6 @@ const expected = 'sha256=' +
 if (sig !== expected) throw new Error('Bad signature');`}</code>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ── Email tab ── */}
-        {activeTab === 'email' && (
-          <div className="max-w-lg space-y-6">
-
-            {/* Status banner */}
-            <div className="p-3 rounded-xl flex items-center gap-3" style={{ background: emailStatus?.enabled ? 'rgba(16,185,129,0.08)' : 'var(--surface-2)', border: `1px solid ${emailStatus?.enabled ? 'rgba(16,185,129,0.3)' : 'var(--border)'}` }}>
-              <span className="text-lg flex-shrink-0">{emailStatus?.enabled ? '✅' : '⚠️'}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-                  {emailStatus === null ? 'Checking…' : emailStatus.enabled ? 'Email is active' : 'Email not configured'}
-                </p>
-                {emailStatus?.enabled && emailStatus.from && (
-                  <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-3)' }}>Sending from: <code style={{ color: 'var(--text-2)' }}>{emailStatus.from}</code></p>
-                )}
-              </div>
-              {emailStatus?.enabled && (
-                <button
-                  disabled={testingEmail}
-                  onClick={async () => {
-                    setTestingEmail(true);
-                    try {
-                      await api.emailStatus.test();
-                      showToast('Test email sent — check your inbox', 'success');
-                    } catch (err) { showToast((err as Error).message, 'error'); }
-                    finally { setTestingEmail(false); }
-                  }}
-                  className="btn-secondary text-xs flex-shrink-0"
-                >
-                  {testingEmail ? '…' : 'Send test email'}
-                </button>
-              )}
-            </div>
-
-            {/* SMTP configuration form */}
-            <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>SMTP configuration</h2>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                    Configure your outgoing mail server. Settings saved here override environment variables.
-                  </p>
-                </div>
-                {/* Info popover */}
-                <div className="relative flex-shrink-0">
-                  <button
-                    onClick={() => setSmtpInfoOpen((v) => !v)}
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
-                    style={{ background: smtpInfoOpen ? 'var(--brand-subtle)' : 'var(--surface-2)', color: smtpInfoOpen ? 'var(--brand)' : 'var(--text-3)', border: '1px solid var(--border)' }}
-                    title="Setup guide"
-                  >ℹ</button>
-                  {smtpInfoOpen && (
-                        <div
-                          className="absolute right-0 top-8 z-50 rounded-2xl shadow-xl p-4 space-y-3"
-                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 320 }}
-                        >
-                          <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>Field guide</p>
-                          <div className="space-y-2 text-xs" style={{ color: 'var(--text-3)' }}>
-                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>Host</span> — The address of your mail server (e.g. smtp.gmail.com). Your email provider publishes this.</div>
-                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>Port</span> — 587 is standard (STARTTLS). Use 465 with SSL on for older servers.</div>
-                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>Username</span> — Usually your full email address.</div>
-                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>Password</span> — For Gmail, this must be an App Password, not your normal login password.</div>
-                            <div><span className="font-medium" style={{ color: 'var(--text)' }}>From address</span> — The name and email address that appears in the recipient's inbox. Format: <code style={{ color: 'var(--brand)' }}>Display Name {'<'}email@example.com{'>'}</code>. For Gmail this must match your Gmail address.</div>
-                          </div>
-                          <div className="pt-1" style={{ borderTop: '1px solid var(--border)' }}>
-                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text)' }}>Gmail example</p>
-                            <div className="space-y-1 text-xs font-mono rounded-lg p-2" style={{ background: 'var(--surface-2)' }}>
-                              <div><span style={{ color: 'var(--text-3)' }}>Host</span> <span style={{ color: 'var(--brand)' }}>smtp.gmail.com</span></div>
-                              <div><span style={{ color: 'var(--text-3)' }}>Port</span> <span style={{ color: 'var(--brand)' }}>587</span> <span style={{ color: 'var(--text-3)' }}>SSL off</span></div>
-                              <div><span style={{ color: 'var(--text-3)' }}>User</span> <span style={{ color: 'var(--brand)' }}>you@gmail.com</span></div>
-                              <div><span style={{ color: 'var(--text-3)' }}>Pass</span> <span style={{ color: 'var(--brand)' }}>xxxx xxxx xxxx xxxx</span></div>
-                              <div><span style={{ color: 'var(--text-3)' }}>From</span> <span style={{ color: 'var(--brand)' }}>Planly {'<'}you@gmail.com{'>'}</span></div>
-                            </div>
-                            <p className="text-[11px] mt-2" style={{ color: 'var(--text-3)' }}>
-                              Get the app password at <span style={{ color: 'var(--brand)' }}>myaccount.google.com/apppasswords</span> — requires 2-Step Verification to be on first.
-                            </p>
-                          </div>
-                          <button onClick={() => setSmtpInfoOpen(false)} className="text-xs w-full text-right" style={{ color: 'var(--text-3)' }}>Close</button>
-                        </div>
-                      )}
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="label">SMTP host</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="smtp.gmail.com"
-                    value={smtpForm.host}
-                    onChange={(e) => { setSmtpForm((f) => ({ ...f, host: e.target.value })); setSmtpFormDirty(true); }}
-                  />
-                </div>
-                <div>
-                  <label className="label">Port</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      className="input"
-                      placeholder="587"
-                      value={smtpForm.port}
-                      onChange={(e) => { setSmtpForm((f) => ({ ...f, port: parseInt(e.target.value) || 587 })); setSmtpFormDirty(true); }}
-                    />
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        id="smtp-ssl"
-                        checked={smtpForm.secure}
-                        onChange={(e) => { setSmtpForm((f) => ({ ...f, secure: e.target.checked, port: e.target.checked ? 465 : 587 })); setSmtpFormDirty(true); }}
-                      />
-                      <label htmlFor="smtp-ssl" className="text-xs cursor-pointer" style={{ color: 'var(--text-2)' }}>SSL</label>
-                    </div>
-                  </div>
-                </div>
-                <div className="col-span-2">
-                  <label className="label">Username / email</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="you@gmail.com"
-                    value={smtpForm.user}
-                    onChange={(e) => { setSmtpForm((f) => ({ ...f, user: e.target.value })); setSmtpFormDirty(true); }}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="label">Password / app password</label>
-                  <input
-                    type="password"
-                    className="input"
-                    placeholder={emailStatus?.enabled ? '•••••••• (leave blank to keep current)' : 'App-specific password or SMTP password'}
-                    value={smtpForm.pass}
-                    onChange={(e) => { setSmtpForm((f) => ({ ...f, pass: e.target.value })); setSmtpFormDirty(true); }}
-                    autoComplete="new-password"
-                  />
-                  <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
-                    For Gmail: use an <strong>App Password</strong> (Google Account → Security → 2-Step Verification → App passwords).
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <label className="label">From address</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Planly <noreply@example.com>"
-                    value={smtpForm.from}
-                    onChange={(e) => { setSmtpForm((f) => ({ ...f, from: e.target.value })); setSmtpFormDirty(true); }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  disabled={savingSmtp || !smtpFormDirty}
-                  onClick={async () => {
-                    setSavingSmtp(true);
-                    try {
-                      await api.emailConfig.save({
-                        host: smtpForm.host,
-                        port: smtpForm.port,
-                        secure: smtpForm.secure,
-                        user: smtpForm.user,
-                        ...(smtpForm.pass ? { pass: smtpForm.pass } : {}),
-                        from: smtpForm.from,
-                      });
-                      setSmtpFormDirty(false);
-                      setSmtpForm((f) => ({ ...f, pass: '' }));
-                      const s = await api.emailStatus.get();
-                      setEmailStatus(s);
-                      showToast('Email configuration saved', 'success');
-                    } catch (err) { showToast((err as Error).message, 'error'); }
-                    finally { setSavingSmtp(false); }
-                  }}
-                  className="btn-primary text-sm"
-                >
-                  {savingSmtp ? 'Saving…' : 'Save configuration'}
-                </button>
-                {emailStatus?.enabled && (
-                  <button
-                    onClick={async () => {
-                      if (!confirm('Clear saved SMTP configuration? Server environment variables will be used instead.')) return;
-                      try {
-                        await api.emailConfig.clear();
-                        const s = await api.emailStatus.get();
-                        setEmailStatus(s);
-                        showToast('Configuration cleared', 'success');
-                      } catch (err) { showToast((err as Error).message, 'error'); }
-                    }}
-                    className="text-xs"
-                    style={{ color: 'var(--text-3)' }}
-                  >
-                    Clear saved config
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Features */}
-            <div>
-              <div className="flex items-baseline justify-between mb-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Email features</h3>
-                <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>These are built into Planly — they turn on and off with SMTP, not individually.</p>
-              </div>
-              <div className="space-y-2">
-                {[
-                  { icon: '✉️', label: 'Team invites', desc: 'When you invite a member by email address, Planly sends the invite link to their inbox.', needs: true },
-                  { icon: '🔑', label: 'Password reset', desc: 'Users who forget their password receive a reset link by email. Without SMTP this flow is unavailable.', needs: true },
-                  { icon: '🔔', label: 'Notifications', desc: 'Task assignment and @mention notifications are sent by email. Without SMTP they appear only in the bell icon.', needs: true },
-                  { icon: '🔐', label: 'Multi-factor authentication', desc: 'MFA is handled by your identity provider (SSO), not by Planly directly. Configure it there, not here.', needs: false },
-                ].map(({ icon, label, desc, needs }) => (
-                  <div key={label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', opacity: (needs && !emailStatus?.enabled) ? 0.55 : 1 }}>
-                    <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{label}</p>
-                      <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-3)' }}>{desc}</p>
-                    </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5 font-medium whitespace-nowrap" style={{
-                      background: (needs && emailStatus?.enabled) || !needs ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
-                      color: (needs && emailStatus?.enabled) || !needs ? '#10b981' : '#f59e0b',
-                      border: `1px solid ${(needs && emailStatus?.enabled) || !needs ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)'}`,
-                    }}>
-                      {!needs ? 'Via SSO' : emailStatus?.enabled ? 'On' : 'Needs SMTP'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
           </div>
         )}
 

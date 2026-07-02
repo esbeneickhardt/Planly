@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [sso, setSso] = useState<{ enabled: boolean; providerName: string } | null>(null);
+  const [showResend, setShowResend] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
 
   useEffect(() => {
     api.auth.ssoConfig().then(setSso).catch(() => {});
@@ -28,7 +30,9 @@ export default function LoginPage() {
       await login(identifier, password);
       navigate('/kanban', { replace: true });
     } catch (err) {
-      setError((err as Error).message);
+      const msg = (err as Error).message;
+      setError(msg);
+      setShowResend(msg.toLowerCase().includes('verify your email'));
     } finally {
       setLoading(false);
     }
@@ -91,7 +95,28 @@ export default function LoginPage() {
             />
           </div>
           {error && (
-            <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
+            <div className="space-y-2">
+              <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
+              {showResend && (
+                resendSent ? (
+                  <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>Verification email sent — check your inbox.</p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const email = identifier.includes('@') ? identifier : '';
+                      if (!email) { setError('Enter your email address above to resend the verification link.'); return; }
+                      await api.auth.resendVerification(email).catch(() => {});
+                      setResendSent(true);
+                    }}
+                    className="w-full text-sm text-center py-1"
+                    style={{ color: 'var(--brand)' }}
+                  >
+                    Resend verification email
+                  </button>
+                )
+              )}
+            </div>
           )}
           <button type="submit" disabled={loading} className="btn-primary w-full justify-center flex">
             {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Sign in'}

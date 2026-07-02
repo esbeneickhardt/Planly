@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import AvatarPicker from './AvatarPicker';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
@@ -66,6 +66,74 @@ const ChatIcon = ({ size = 20 }: { size?: number }) => (
   </svg>
 );
 
+const ShieldIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+// ── Admin-section icons (same style as nav icons above) ────────────────────
+
+const CrownIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 19h20" />
+    <path d="M4 19L2 7l5.5 4.5L12 3l4.5 8.5L22 7l-2 12" />
+    <circle cx="12" cy="3" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="2" cy="7" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="22" cy="7" r="1.5" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const UsersIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const FolderGridIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7V5a1 1 0 0 1 1-1h4l2 2h9a1 1 0 0 1 1 1v1" />
+    <rect x="2" y="7" width="9" height="14" rx="1" />
+    <rect x="13" y="7" width="9" height="14" rx="1" />
+  </svg>
+);
+
+const MailIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <polyline points="2,8 12,14 22,8" />
+  </svg>
+);
+
+const ActivityIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" />
+  </svg>
+);
+
+const BarChartIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10" />
+    <line x1="12" y1="20" x2="12" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="14" />
+    <line x1="3" y1="20" x2="21" y2="20" />
+  </svg>
+);
+
+// ── Admin tab definitions ──────────────────────────────────────────────────
+
+const ADMIN_TABS: { key: string; label: string; Icon: (p: { size?: number }) => JSX.Element }[] = [
+  { key: 'ownership',  label: 'Ownership',  Icon: CrownIcon },
+  { key: 'users',      label: 'Users',       Icon: UsersIcon },
+  { key: 'projects',   label: 'Projects',    Icon: FolderGridIcon },
+  { key: 'email',      label: 'Email',       Icon: MailIcon },
+  { key: 'logs',       label: 'Audit Logs',  Icon: ActivityIcon },
+  { key: 'statistics', label: 'Stats',       Icon: BarChartIcon },
+];
+
 // ── Nav config ─────────────────────────────────────────────────────────────
 
 const NAV = [
@@ -81,6 +149,10 @@ interface NewProductForm { name: string; emoji: string; description: string; dea
 
 export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpen }: { onOpenSearch: () => void; onOpenChat: () => void; onOpenVision: () => void; chatOpen?: boolean }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isAdminPage = location.pathname === '/admin';
+  const adminTab = searchParams.get('tab') ?? 'ownership';
   const { user, logout } = useAuth();
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
   const { canRead, canManage } = usePermission();
@@ -186,66 +258,92 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
 
         {/* ── CENTER: nav tabs ── */}
         <nav className="flex-1 flex items-stretch justify-center h-full">
-          {NAV.filter(({ tab }) => !activeProduct || canRead(tab)).map(({ to, label, Icon }) => {
-            const badge = label === 'Tasks' ? unassignedCount : label === 'Progress' ? overdueCount : 0;
-            return (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `relative flex flex-col items-center justify-center gap-0.5 w-24 text-[11px] font-medium tracking-wide transition-colors rounded-none ${
-                    isActive
-                      ? 'text-[var(--brand)]'
-                      : 'text-[var(--text-3)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'
-                  }`
-                }
+          {isAdminPage ? (
+            // ── Admin section tabs — same style as project nav ──
+            ADMIN_TABS.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                onClick={() => setSearchParams({ tab: key })}
+                className={`relative flex flex-col items-center justify-center gap-0.5 w-24 text-[11px] font-medium tracking-wide transition-colors ${
+                  adminTab === key
+                    ? 'text-[var(--brand)]'
+                    : 'text-[var(--text-3)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'
+                }`}
               >
-                {({ isActive }) => (
-                  <>
-                    <div className="relative">
-                      <Icon />
-                      {badge > 0 && (
-                        <span
-                          className="absolute -top-1.5 -right-2.5 text-white rounded-full text-[9px] font-bold leading-none flex items-center justify-center"
-                          style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 3px' }}
-                        >
-                          {badge > 99 ? '99+' : badge}
-                        </span>
-                      )}
-                    </div>
-                    <span>{label}</span>
-                    {isActive && (
-                      <div className="absolute bottom-0 left-6 right-6 h-[3px] rounded-t-full" style={{ background: 'var(--brand)' }} />
-                    )}
-                  </>
-                )}
-              </NavLink>
-            );
-          })}
-
-          {/* Settings — only for owners/co-owners */}
-          {(!activeProduct || canManage) && <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `relative flex flex-col items-center justify-center gap-0.5 w-24 text-[11px] font-medium tracking-wide transition-colors ${isActive ? 'text-[var(--text)]' : 'text-[var(--text-3)]'}`
-            }
-            style={({ isActive }) => ({ color: isActive ? 'var(--text)' : undefined })}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ''; e.currentTarget.style.background = 'transparent'; }}
-          >
-            {({ isActive }) => (
-              <>
-                <CategoriesIcon />
-                <span>Settings</span>
-                {isActive && (
+                <Icon />
+                <span>{label}</span>
+                {adminTab === key && (
                   <div className="absolute bottom-0 left-6 right-6 h-[3px] rounded-t-full" style={{ background: 'var(--brand)' }} />
                 )}
-              </>
-            )}
-          </NavLink>}
+              </button>
+            ))
+          ) : (
+            // ── Normal project tabs ──
+            <>
+              {NAV.filter(({ tab }) => !activeProduct || canRead(tab)).map(({ to, label, Icon }) => {
+                const badge = label === 'Tasks' ? unassignedCount : label === 'Progress' ? overdueCount : 0;
+                return (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) =>
+                      `relative flex flex-col items-center justify-center gap-0.5 w-24 text-[11px] font-medium tracking-wide transition-colors rounded-none ${
+                        isActive
+                          ? 'text-[var(--brand)]'
+                          : 'text-[var(--text-3)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <div className="relative">
+                          <Icon />
+                          {badge > 0 && (
+                            <span
+                              className="absolute -top-1.5 -right-2.5 text-white rounded-full text-[9px] font-bold leading-none flex items-center justify-center"
+                              style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 3px' }}
+                            >
+                              {badge > 99 ? '99+' : badge}
+                            </span>
+                          )}
+                        </div>
+                        <span>{label}</span>
+                        {isActive && (
+                          <div className="absolute bottom-0 left-6 right-6 h-[3px] rounded-t-full" style={{ background: 'var(--brand)' }} />
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+
+              {/* Settings — only for owners/co-owners */}
+              {(!activeProduct || canManage) && (
+                <NavLink
+                  to="/settings"
+                  className={({ isActive }) =>
+                    `relative flex flex-col items-center justify-center gap-0.5 w-24 text-[11px] font-medium tracking-wide transition-colors ${isActive ? 'text-[var(--text)]' : 'text-[var(--text-3)]'}`
+                  }
+                  style={({ isActive }) => ({ color: isActive ? 'var(--text)' : undefined })}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ''; e.currentTarget.style.background = 'transparent'; }}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <CategoriesIcon />
+                      <span>Settings</span>
+                      {isActive && (
+                        <div className="absolute bottom-0 left-6 right-6 h-[3px] rounded-t-full" style={{ background: 'var(--brand)' }} />
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              )}
+            </>
+          )}
         </nav>
 
-        {/* ── RIGHT: chat + project + account ── */}
+        {/* ── RIGHT: icons + project picker + account ── */}
         <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: 288, justifyContent: 'flex-end' }}>
 
           {/* How Planly works */}
@@ -260,6 +358,27 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
 
           {/* Notification bell */}
           <NotificationBell />
+
+          {/* Admin panel toggle — only for admins */}
+          {user?.isAdmin && (
+            <button
+              onClick={() => isAdminPage ? navigate('/kanban') : navigate('/admin')}
+              title={isAdminPage ? 'Exit admin panel' : 'Admin panel'}
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+              style={{
+                color: isAdminPage ? 'var(--brand)' : 'var(--text-3)',
+                background: isAdminPage ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                border: `1px solid ${isAdminPage ? 'var(--brand)' : 'transparent'}`,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = isAdminPage ? 'var(--brand)' : 'var(--text-3)';
+                e.currentTarget.style.borderColor = isAdminPage ? 'var(--brand)' : 'transparent';
+              }}
+            >
+              <ShieldIcon size={18} />
+            </button>
+          )}
 
           {/* Project chat */}
           <button
@@ -277,17 +396,30 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             <ChatIcon />
           </button>
 
-          {/* Project picker */}
+          {/* Project picker — shows "Admin" label when in admin mode */}
           <div ref={projectRef} className="relative">
             <button
               onClick={() => { setShowProjectDd((v) => !v); setShowAccountDd(false); }}
               className="flex items-center gap-1.5 h-9 px-2.5 rounded-full transition-all text-sm flex-shrink-0"
-              style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}
+              style={{
+                background: 'var(--surface-2)',
+                color: isAdminPage ? 'var(--brand)' : 'var(--text)',
+                border: `1px solid ${isAdminPage ? 'var(--brand)' : 'var(--border)'}`,
+              }}
               onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = isAdminPage ? 'var(--brand)' : 'var(--border)')}
             >
-              <span className="text-lg leading-none">{activeProduct?.emoji ?? '📁'}</span>
-              <span className="text-xs font-medium max-w-[72px] truncate">{activeProduct?.name ?? 'Project'}</span>
+              {isAdminPage ? (
+                <>
+                  <ShieldIcon size={15} />
+                  <span className="text-xs font-medium">Admin</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-lg leading-none">{activeProduct?.emoji ?? '📁'}</span>
+                  <span className="text-xs font-medium max-w-[72px] truncate">{activeProduct?.name ?? 'Project'}</span>
+                </>
+              )}
               <ChevronDown />
             </button>
 
@@ -296,24 +428,33 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 className="absolute right-0 top-full mt-2 w-64 rounded-2xl shadow-2xl overflow-hidden py-1.5"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
               >
+                {isAdminPage && products.length > 0 && (
+                  <p className="px-4 pt-2 pb-1 text-[10px]" style={{ color: 'var(--text-3)' }}>
+                    Select a project to leave admin mode
+                  </p>
+                )}
                 {products.length > 0 && (
                   <>
                     <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>Projects</p>
                     {products.map((p) => (
                       <button
                         key={p.id}
-                        onClick={() => { setActiveProduct(p); setShowProjectDd(false); }}
+                        onClick={() => {
+                          setActiveProduct(p);
+                          setShowProjectDd(false);
+                          if (isAdminPage) navigate('/kanban');
+                        }}
                         className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors"
                         style={{
-                          background: activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
-                          color: activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text)',
+                          background: !isAdminPage && activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
+                          color: !isAdminPage && activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text)',
                         }}
-                        onMouseEnter={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={(e) => { if (activeProduct?.id !== p.id) e.currentTarget.style.background = 'transparent'; }}
+                        onMouseEnter={(e) => { if (isAdminPage || activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = (!isAdminPage && activeProduct?.id === p.id) ? 'var(--brand-subtle)' : 'transparent'; }}
                       >
                         <span className="text-base">{p.emoji ?? '📁'}</span>
                         <span className="flex-1 truncate font-medium">{p.name}</span>
-                        {activeProduct?.id === p.id && <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>✓</span>}
+                        {!isAdminPage && activeProduct?.id === p.id && <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>✓</span>}
                       </button>
                     ))}
                     <div className="mx-4 my-1.5" style={{ height: 1, background: 'var(--border)' }} />
