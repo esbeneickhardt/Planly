@@ -31,7 +31,6 @@ export const config = {
   },
   admin: {
     email: process.env.ADMIN_EMAIL ?? '',
-    requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION === 'true',
-    requireWhitelist: process.env.REQUIRE_WHITELIST === 'true',
+    password: process.env.ADMIN_PASSWORD ?? '',
   },
 };

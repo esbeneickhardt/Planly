@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ProductProvider } from './context/ProductContext';
+import { ProductProvider, useProduct } from './context/ProductContext';
 import { PermissionProvider } from './context/PermissionContext';
 import { ToastProvider } from './context/ToastContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -19,6 +19,7 @@ import SettingsPage from './pages/SettingsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AdminPage from './pages/AdminPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -30,7 +31,16 @@ function RequireAuth({ children }: { children: JSX.Element }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   return children;
+}
+
+function DefaultRoute() {
+  const { user } = useAuth();
+  const { products, tasksLoaded } = useProduct();
+  if (!tasksLoaded && products.length === 0) return null;
+  if (user?.isAdmin && products.length === 0) return <Navigate to="/admin" replace />;
+  return <Navigate to="/kanban" replace />;
 }
 
 export default function App() {
@@ -47,6 +57,7 @@ export default function App() {
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/invite/:token" element={<InvitePage />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
+                <Route path="/change-password" element={<ChangePasswordPage />} />
                 <Route
                   path="/*"
                   element={
@@ -55,7 +66,7 @@ export default function App() {
                         <PermissionProvider>
                           <AppLayout>
                             <Routes>
-                              <Route path="/" element={<Navigate to="/kanban" replace />} />
+                              <Route path="/" element={<DefaultRoute />} />
                               <Route path="/kanban" element={<KanbanPage />} />
                               <Route path="/backlog" element={<BacklogPage />} />
                               <Route path="/canvas" element={<CanvasPage />} />

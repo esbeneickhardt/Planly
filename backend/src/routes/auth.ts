@@ -3,16 +3,17 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { config } from '../config/env'; // used for requireEmailVerification check in login
+import { getServerConfig } from '../utils/server-config';
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (req, reply) => {
     const { identifier, password } = req.body as { identifier: string; password: string };
     if (!identifier || !password) return reply.status(400).send({ error: 'Email/username and password required' });
 
-    const normalized = identifier.trim().toLowerCase();
+    const trimmed = identifier.trim();
+    const normalized = trimmed.toLowerCase();
     const user = await prisma.user.findFirst({
-      where: { OR: [{ email: normalized }, { username: normalized }] },
+      where: { OR: [{ email: normalized }, { username: { equals: trimmed, mode: 'insensitive' } }] },
     });
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
     if (!user.passwordHash) return reply.status(401).send({ error: 'This account uses SSO — please sign in via your identity provider.' });
@@ -23,7 +24,8 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid credentials' });
     }
 
-    if (!user.emailVerified && config.admin.requireEmailVerification) {
+    const serverConfig = await getServerConfig();
+    if (!user.emailVerified && serverConfig.requireEmailVerification) {
       return reply.status(403).send({ error: 'Please verify your email address before signing in. Check your inbox for a verification link.' });
     }
 
@@ -37,7 +39,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     reply
       .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7 })
-      .send({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji });
+      .send({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified });
   });
 
   app.post('/api/auth/logout', async (_req, reply) => {
@@ -47,7 +49,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true },
+      select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true, mustChangePassword: true },
     });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     reply.send(user);

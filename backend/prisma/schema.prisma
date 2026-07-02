@@ -30,20 +30,21 @@ enum AccessRequestStatus {
 // ── Core models ──────────────────────────────────────────────────────────────
 
 model User {
-  id              String   @id @default(uuid())
-  username        String   @unique
-  email           String   @unique
-  realName        String?
-  phone           String?
-  avatarEmoji     String?
-  avatarUrl       String?
-  passwordHash    String?
-  emailVerified   Boolean  @default(true)
-  ssoProvider     String?
-  ssoSub          String?
-  isAdmin         Boolean  @default(false)
-  isFoundingAdmin Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  id                String   @id @default(uuid())
+  username          String   @unique
+  email             String   @unique
+  realName          String?
+  phone             String?
+  avatarEmoji       String?
+  avatarUrl         String?
+  passwordHash      String?
+  emailVerified     Boolean  @default(true)
+  ssoProvider       String?
+  ssoSub            String?
+  isAdmin           Boolean  @default(false)
+  isFoundingAdmin   Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
+  createdAt         DateTime @default(now())
 
   teams               TeamMember[]
   ownedTasks          Task[]               @relation("TaskOwner")
@@ -442,6 +443,14 @@ model SmtpConfig {
   updatedAt DateTime @updatedAt
 }
 
+// ── Server-wide configuration (singleton, managed in admin panel) ─────────────
+
+model ServerConfig {
+  id                       String  @id @default("main")
+  requireEmailVerification Boolean @default(false)
+  requireWhitelist         Boolean @default(false)
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 model EmailWhitelist {
@@ -460,7 +469,8 @@ model AdminLog {
   metadata   Json?
   createdAt  DateTime @default(now())
 
-  @@index([createdAt])
+  @@index([createdAt(sort: Desc)])
+  @@index([action])
 }
 
 // ── Activity log ──────────────────────────────────────────────────────────────

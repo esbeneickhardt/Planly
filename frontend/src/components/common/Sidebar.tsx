@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { api } from '../../api/client';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
+import { ADMIN_TABS } from '../../pages/AdminPage';
 
 const NAV = [
   { to: '/kanban',    label: 'Kanban',    icon: '▦',  tab: 'kanban' },
@@ -25,6 +26,10 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   const { canRead, levelFor, canManage } = usePermission();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isAdminPage = location.pathname === '/admin';
+  const adminTab = searchParams.get('tab') ?? 'ownership';
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
@@ -92,25 +97,40 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
           >P</button>
 
           {/* Nav icons */}
-          {NAV.filter(({ tab }) => tab === 'categories' ? canManage : canRead(tab)).map(({ to, label, icon, tab }) => (
-            <NavLink
-              key={to}
-              to={to}
-              title={levelFor(tab) === 'read' ? `${label} (read-only)` : label}
-              className={({ isActive }) =>
-                `w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all relative ${
-                  isActive ? 'bg-[var(--surface-2)] text-[var(--text)]' : 'text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-                }`
-              }
-            >
-              {icon}
-              {levelFor(tab) === 'read' && <span style={{ position: 'absolute', top: 0, right: 0, fontSize: 8 }}>🔒</span>}
-            </NavLink>
-          ))}
+          {isAdminPage ? (
+            ADMIN_TABS.map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => setSearchParams({ tab: key })}
+                title={label}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all ${
+                  adminTab === key ? 'bg-[var(--surface-2)] text-[var(--text)]' : 'text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                }`}
+              >
+                {icon}
+              </button>
+            ))
+          ) : (
+            activeProduct && NAV.filter(({ tab }) => tab === 'categories' ? canManage : canRead(tab)).map(({ to, label, icon, tab }) => (
+              <NavLink
+                key={to}
+                to={to}
+                title={levelFor(tab) === 'read' ? `${label} (read-only)` : label}
+                className={({ isActive }) =>
+                  `w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all relative ${
+                    isActive ? 'bg-[var(--surface-2)] text-[var(--text)]' : 'text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                  }`
+                }
+              >
+                {icon}
+                {levelFor(tab) === 'read' && <span style={{ position: 'absolute', top: 0, right: 0, fontSize: 8 }}>🔒</span>}
+              </NavLink>
+            ))
+          )}
           <div className="flex-1" />
 
-          {/* Admin icon — only for admins */}
-          {user?.isAdmin && (
+          {/* Admin icon — only shown when NOT already on admin page */}
+          {user?.isAdmin && !isAdminPage && (
             <NavLink
               to="/admin"
               title="Admin"
@@ -254,52 +274,74 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-3 space-y-0.5">
-          {NAV.filter(({ tab }) => tab === 'categories' ? canManage : canRead(tab)).map(({ to, label, icon, tab }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center justify-between px-2 py-1.5 rounded-lg text-sm transition-all ${
-                  isActive
-                    ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
-                    : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-                }`
-              }
-            >
-              <span className="flex items-center gap-2.5">
-                <span className="text-sm opacity-60">{icon}</span>
-                {label}
-                {levelFor(tab) === 'read' && <span className="text-[10px] opacity-50">🔒</span>}
-              </span>
-              {tab === 'backlog' && unassignedCount > 0 && (
-                <span className="text-xs text-white rounded-full px-1.5 py-0.5 leading-none font-medium" style={{ background: '#ef4444' }}>
-                  {unassignedCount}
-                </span>
-              )}
-              {tab === 'gantt' && overdueCount > 0 && (
-                <span className="text-xs text-white rounded-full px-1.5 py-0.5 leading-none font-medium" style={{ background: '#ef4444' }}>
-                  {overdueCount}
-                </span>
-              )}
-            </NavLink>
-          ))}
+          {isAdminPage ? (
+            <>
+              <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>Admin Panel</p>
+              {ADMIN_TABS.map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setSearchParams({ tab: key })}
+                  className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm text-left transition-all ${
+                    adminTab === key
+                      ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
+                      : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                  }`}
+                >
+                  <span className="text-sm opacity-60">{icon}</span>
+                  {label}
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              {activeProduct && NAV.filter(({ tab }) => tab === 'categories' ? canManage : canRead(tab)).map(({ to, label, icon, tab }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `flex items-center justify-between px-2 py-1.5 rounded-lg text-sm transition-all ${
+                      isActive
+                        ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
+                        : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                    }`
+                  }
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className="text-sm opacity-60">{icon}</span>
+                    {label}
+                    {levelFor(tab) === 'read' && <span className="text-[10px] opacity-50">🔒</span>}
+                  </span>
+                  {tab === 'backlog' && unassignedCount > 0 && (
+                    <span className="text-xs text-white rounded-full px-1.5 py-0.5 leading-none font-medium" style={{ background: '#ef4444' }}>
+                      {unassignedCount}
+                    </span>
+                  )}
+                  {tab === 'gantt' && overdueCount > 0 && (
+                    <span className="text-xs text-white rounded-full px-1.5 py-0.5 leading-none font-medium" style={{ background: '#ef4444' }}>
+                      {overdueCount}
+                    </span>
+                  )}
+                </NavLink>
+              ))}
 
-          {/* Admin panel — only visible to admins */}
-          {user?.isAdmin && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-all ${
-                  isActive
-                    ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
-                    : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-                }`
-              }
-            >
-              <span className="text-sm opacity-60">🛡️</span>
-              Admin
-              {user?.isFoundingAdmin && <span className="ml-auto text-xs">👑</span>}
-            </NavLink>
+              {/* Admin panel link — only shown when not already on admin page */}
+              {user?.isAdmin && (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-all ${
+                      isActive
+                        ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
+                        : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                    }`
+                  }
+                >
+                  <span className="text-sm opacity-60">🛡️</span>
+                  Admin
+                  {user?.isFoundingAdmin && <span className="ml-auto text-xs">👑</span>}
+                </NavLink>
+              )}
+            </>
           )}
 
           {/* Search */}

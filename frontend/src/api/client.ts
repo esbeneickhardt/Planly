@@ -61,6 +61,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 403 && (body as { code?: string }).code === 'EMAIL_NOT_VERIFIED') {
+      window.dispatchEvent(new CustomEvent('planly:email-not-verified'));
+    }
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
   }
   return res.json() as Promise<T>;
@@ -348,9 +351,13 @@ export const api = {
       request<{ ok: boolean }>('/api/auth/reset-password', { method: 'POST', body: json({ token, password }) }),
     sendVerification: () =>
       request<{ ok: boolean }>('/api/auth/send-verification', { method: 'POST', body: json({}) }),
+    resendVerification: (email: string) =>
+      request<{ ok: boolean }>('/api/auth/resend-verification', { method: 'POST', body: json({ email }) }),
     verifyEmail: (token: string) =>
       request<{ ok: boolean }>('/api/auth/verify-email', { method: 'POST', body: json({ token }) }),
     ssoConfig: () => request<{ enabled: boolean; providerName: string }>('/api/auth/sso/config'),
+    changePassword: (data: { currentPassword?: string; newPassword: string }) =>
+      request<{ ok: boolean }>('/api/auth/change-password', { method: 'POST', body: json(data) }),
   },
 
   export: {
@@ -416,8 +423,37 @@ export const api = {
     whitelist: () => request<{ id: string; pattern: string; createdAt: string }[]>('/api/admin/whitelist'),
     addWhitelist: (pattern: string) => request<{ id: string; pattern: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern }) }),
     removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
-    config: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean }>('/api/admin/config'),
-    logs: (offset?: number) => request<{ id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string }[]>(`/api/admin/logs${offset ? `?offset=${offset}` : ''}`),
+    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean }>('/api/admin/server-config'),
+    updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean }) =>
+      request<{ ok: boolean; verificationEmailsSent?: number }>('/api/admin/server-config', { method: 'PUT', body: json(data) }),
+    logs: (params?: { cursor?: string; action?: string; from?: string; to?: string }) => {
+      const qs = new URLSearchParams();
+      if (params?.cursor) qs.set('cursor', params.cursor);
+      if (params?.action) qs.set('action', params.action);
+      if (params?.from) qs.set('from', params.from);
+      if (params?.to) qs.set('to', params.to);
+      const q = qs.toString();
+      return request<{ logs: { id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string }[]; nextCursor: string | null }>(`/api/admin/logs${q ? `?${q}` : ''}`);
+    },
+    exportLogs: async (params?: { format?: 'csv' | 'jsonl'; action?: string; from?: string; to?: string }) => {
+      const qs = new URLSearchParams({ format: params?.format ?? 'csv' });
+      if (params?.action) qs.set('action', params.action);
+      if (params?.from) qs.set('from', params.from);
+      if (params?.to) qs.set('to', params.to);
+      const res = await fetch(`/api/admin/logs/export?${qs}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.${params?.format === 'jsonl' ? 'jsonl' : 'csv'}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    pruneLogs: (olderThanDays: number) =>
+      request<{ ok: boolean; deletedCount: number }>('/api/admin/logs/prune', { method: 'DELETE', body: json({ olderThanDays }) }),
+    projects: () => request<{ id: string; name: string; emoji: string | null; deadline: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number }[]>('/api/admin/projects'),
+    stats: () => request<{ userCount: number; projectCount: number; taskCount: number; messageCount: number; newUsers: number; newProjects: number }>('/api/admin/stats'),
   },
 
   analytics: {

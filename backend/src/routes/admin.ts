@@ -1,7 +1,21 @@
 import { FastifyInstance } from 'fastify';
+import { Readable } from 'stream';
+import { randomBytes, createHash } from 'crypto';
 import { requireAdmin } from '../middleware/auth';
 import { config } from '../config/env';
 import prisma from '../db/client';
+import { getServerConfig } from '../utils/server-config';
+import { getSmtpSettings, sendEmail, verifyEmailTemplate } from '../utils/email';
+
+function buildLogWhere(action?: string, from?: string, to?: string) {
+  return {
+    ...(action ? { action } : {}),
+    ...((from || to) ? { createdAt: {
+      ...(from ? { gte: new Date(from) } : {}),
+      ...(to ? { lte: new Date(to) } : {}),
+    }} : {}),
+  };
+}
 
 export async function adminRoutes(app: FastifyInstance) {
   // ── Users ────────────────────────────────────────────────────────────────────
@@ -115,25 +129,174 @@ export async function adminRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // ── Server config (read-only) ─────────────────────────────────────────────────
+  // ── Server config (editable in-app) ──────────────────────────────────────────
 
-  app.get('/api/admin/config', { preHandler: requireAdmin }, async (_req, reply) => {
+  app.get('/api/admin/server-config', { preHandler: requireAdmin }, async (_req, reply) => {
+    const cfg = await getServerConfig();
     reply.send({
       adminEmail: config.admin.email || null,
-      requireEmailVerification: config.admin.requireEmailVerification,
-      requireWhitelist: config.admin.requireWhitelist,
+      ...cfg,
     });
+  });
+
+  app.put('/api/admin/server-config', { preHandler: requireAdmin }, async (req, reply) => {
+    const { requireEmailVerification, requireWhitelist } = req.body as {
+      requireEmailVerification?: boolean;
+      requireWhitelist?: boolean;
+    };
+    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+
+    const prevConfig = await getServerConfig();
+
+    await prisma.serverConfig.upsert({
+      where: { id: 'main' },
+      update: {
+        ...(requireEmailVerification !== undefined ? { requireEmailVerification } : {}),
+        ...(requireWhitelist !== undefined ? { requireWhitelist } : {}),
+      },
+      create: {
+        id: 'main',
+        requireEmailVerification: requireEmailVerification ?? false,
+        requireWhitelist: requireWhitelist ?? false,
+      },
+    });
+    await prisma.adminLog.create({
+      data: { action: 'SERVER_CONFIG_UPDATED', actorName: actor?.username, metadata: { requireEmailVerification, requireWhitelist } },
+    });
+
+    // When turning email verification ON: email everyone who has never verified
+    // Already-verified users are unaffected — verification is a permanent record of a confirmed address
+    let verificationEmailsSent = 0;
+    if (requireEmailVerification === true && !prevConfig.requireEmailVerification) {
+      const smtp = await getSmtpSettings();
+      if (smtp) {
+        const unverified = await prisma.user.findMany({ where: { emailVerified: false }, select: { id: true, email: true, username: true } });
+        console.log(`[email-verification] Sending verification emails to ${unverified.length} unverified user(s)`);
+        const results = await Promise.allSettled(unverified.map(async (u) => {
+          const raw = randomBytes(32).toString('hex');
+          const tokenHash = createHash('sha256').update(raw).digest('hex');
+          await prisma.emailVerifyToken.create({ data: { userId: u.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
+          await sendEmail({ to: u.email, subject: 'Verify your Planly email', html: verifyEmailTemplate(`${config.appUrl}/verify-email?token=${raw}`, u.username) });
+          console.log(`[email-verification] Sent to ${u.email}`);
+        }));
+        verificationEmailsSent = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) console.error(`[email-verification] ${failed.length} failed:`, failed.map(r => (r as PromiseRejectedResult).reason));
+      } else {
+        console.warn('[email-verification] Email not configured — skipping bulk verification send');
+      }
+    }
+
+    reply.send({ ok: true, verificationEmailsSent });
+  });
+
+  // ── Projects (server-wide) ────────────────────────────────────────────────────
+
+  app.get('/api/admin/projects', { preHandler: requireAdmin }, async (_req, reply) => {
+    const products = await prisma.product.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true, name: true, emoji: true, deadline: true, createdAt: true,
+        ownerUser: { select: { username: true, avatarEmoji: true } },
+        _count: { select: { tasks: { where: { deletedAt: null } } } },
+        team: { select: { _count: { select: { members: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    reply.send(products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      emoji: p.emoji,
+      deadline: p.deadline,
+      createdAt: p.createdAt,
+      ownerUsername: p.ownerUser?.username ?? null,
+      ownerEmoji: p.ownerUser?.avatarEmoji ?? null,
+      memberCount: p.team._count.members,
+      taskCount: p._count.tasks,
+    })));
+  });
+
+  // ── Statistics ─────────────────────────────────────────────────────────────────
+
+  app.get('/api/admin/stats', { preHandler: requireAdmin }, async (_req, reply) => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [userCount, projectCount, taskCount, messageCount, newUsers, newProjects] = await Promise.all([
+      prisma.user.count(),
+      prisma.product.count({ where: { deletedAt: null } }),
+      prisma.task.count({ where: { deletedAt: null } }),
+      prisma.message.count(),
+      prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.product.count({ where: { deletedAt: null, createdAt: { gte: thirtyDaysAgo } } }),
+    ]);
+    reply.send({ userCount, projectCount, taskCount, messageCount, newUsers, newProjects });
   });
 
   // ── Logs ──────────────────────────────────────────────────────────────────────
 
   app.get('/api/admin/logs', { preHandler: requireAdmin }, async (req, reply) => {
-    const { limit = '50', offset = '0' } = req.query as { limit?: string; offset?: string };
+    const { limit = '50', cursor, action, from, to } = req.query as {
+      limit?: string; cursor?: string; action?: string; from?: string; to?: string;
+    };
+    const take = Math.min(parseInt(limit) || 50, 200);
+    const where = buildLogWhere(action, from, to);
     const logs = await prisma.adminLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: Math.min(parseInt(limit), 200),
-      skip: parseInt(offset),
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
-    reply.send(logs);
+    reply.send({ logs, nextCursor: logs.length === take ? logs[logs.length - 1].id : null });
+  });
+
+  app.get('/api/admin/logs/export', { preHandler: requireAdmin }, async (req, reply) => {
+    const { format = 'csv', action, from, to } = req.query as {
+      format?: string; action?: string; from?: string; to?: string;
+    };
+    const fmt = format === 'jsonl' ? 'jsonl' : 'csv';
+    const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.${fmt}`;
+    const where = buildLogWhere(action, from, to);
+
+    reply.header('Content-Type', fmt === 'csv' ? 'text/csv; charset=utf-8' : 'application/x-ndjson');
+    reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+
+    const readable = new Readable({ read() {} });
+    reply.send(readable);
+
+    if (fmt === 'csv') {
+      readable.push('id,action,actorId,actorName,targetId,targetName,createdAt,metadata\n');
+    }
+
+    let batchCursor: string | undefined;
+    const BATCH = 1000;
+    while (true) {
+      const batch = await prisma.adminLog.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: BATCH,
+        ...(batchCursor ? { cursor: { id: batchCursor }, skip: 1 } : {}),
+      });
+      for (const row of batch) {
+        if (fmt === 'csv') {
+          const meta = row.metadata ? JSON.stringify(row.metadata).replace(/"/g, '""') : '';
+          readable.push(`"${row.id}","${row.action}","${row.actorId ?? ''}","${row.actorName ?? ''}","${row.targetId ?? ''}","${row.targetName ?? ''}","${row.createdAt.toISOString()}","${meta}"\n`);
+        } else {
+          readable.push(JSON.stringify(row) + '\n');
+        }
+      }
+      if (batch.length < BATCH) break;
+      batchCursor = batch[batch.length - 1].id;
+    }
+    readable.push(null);
+  });
+
+  app.delete('/api/admin/logs/prune', { preHandler: requireAdmin }, async (req, reply) => {
+    const { olderThanDays } = req.body as { olderThanDays: number };
+    const days = Math.max(1, parseInt(String(olderThanDays)) || 90);
+    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true, isFoundingAdmin: true } });
+    if (!actor?.isFoundingAdmin) return reply.status(403).send({ error: 'Only the founding admin can prune logs.' });
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const { count } = await prisma.adminLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    await prisma.adminLog.create({ data: { action: 'LOGS_PRUNED', actorName: actor.username, metadata: { olderThanDays: days, deletedCount: count, cutoff } } });
+    reply.send({ ok: true, deletedCount: count });
   });
 }

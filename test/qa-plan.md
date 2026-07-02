@@ -1,51 +1,54 @@
-# Planly QA & Polish Plan
+# Planly QA Plan
 
-Work through each milestone in order. When you find a bug, note it in the **Bug log** at the bottom.
+Work through each milestone in order. Check off items as you verify them. Add bugs to the **Bug log** at the bottom.
 
 ---
 
-## Milestone 0 — Prerequisites (do this first)
+## Milestone 0 — Prerequisites
 
-### Step 1 — Admin env var (server config, before first login)
-- [ ] Edit `docker-compose.yml` → add `ADMIN_EMAIL: your@email.com` under the backend environment section
+### Step 1 — Configure admin email (before first login)
+- [ ] Edit `docker-compose.yml` → set `ADMIN_EMAIL: your@email.com` under backend environment
 - [ ] Restart backend: `docker compose up -d backend`
+- [ ] Check logs: `docker compose logs backend` — look for the ╔══╗ box with a temporary password
 
-### Step 2 — Register as admin
-- [ ] Open Planly → register a new account using **exactly** the email set in `ADMIN_EMAIL`
-- [ ] Account is created normally — no special flow needed
-- [ ] `🛡️ Admin` link appears in the sidebar
-- [ ] Open Admin panel → your account shows 👑 badge (server owner)
+### Step 2 — First login as admin
+- [ ] Log in with `ADMIN_EMAIL` and the temporary password from the logs
+- [ ] Admin shield button `🛡` appears in the top-right bar (next to `?`, bell)
+- [ ] You are immediately prompted to change your password — do so
 
-### Step 3 — Gmail SMTP setup (requires being logged in)
+### Step 3 — Enter admin mode
+- [ ] Click the shield button → center nav switches to 6 admin tabs (Ownership, Users, Projects, Email, Audit Logs, Stats)
+- [ ] Project dropdown shows "Admin" label
+- [ ] Opening the project dropdown shows "Select a project to leave admin mode"
+- [ ] Clicking a project in the dropdown exits admin mode and navigates to Kanban
+
+### Step 4 — Gmail SMTP setup
 - [ ] Go to myaccount.google.com → Security → 2-Step Verification → enable
-- [ ] Go to Security → App passwords → generate one for "Planly" → copy the 16-char code
-- [ ] Create a product (needed to access Settings)
-- [ ] Open Settings → Email → fill in:
-  - Host: `smtp.gmail.com`
-  - Port: `587`, SSL off
+- [ ] Security → App passwords → generate one for "Planly" → copy the 16-char code
+- [ ] In Admin → Email Settings → fill in:
+  - Host: `smtp.gmail.com`, Port: `587`, SSL off
   - Username: your Gmail address
   - Password: the 16-character app password
   - From: `Planly <youraddress@gmail.com>`
-- [ ] Click **Save configuration**
+- [ ] Click **Save configuration** → status banner shows "Email is active"
 - [ ] Click **Send test email** → email arrives in inbox
-- [ ] Status banner shows "Email is active"
 
 ---
 
 ## Milestone 1 — Auth & Onboarding
 
 ### Registration
-- [ ] Register a new account — form validation works (empty fields, bad email)
+- [ ] Register a new account — form validation works (empty fields, bad email, short password)
 - [ ] Duplicate email gives a clear error
 - [ ] Duplicate username gives a clear error
-- [ ] Successful register redirects to the app
+- [ ] Successful registration redirects to the app
 
 ### Login
 - [ ] Log in with email
 - [ ] Log in with username
 - [ ] Wrong password gives a clear error
 - [ ] Log out → redirected to login page
-- [ ] Log back in → lands on Kanban
+- [ ] Log back in → lands on Kanban (or `/admin` if admin with no projects)
 
 ### Forgot password
 - [ ] Click "Forgot password?" on login page
@@ -57,85 +60,134 @@ Work through each milestone in order. When you find a bug, note it in the **Bug 
 - [ ] Old password no longer works
 
 ### Onboarding modal
-- [ ] First login (no products) → "The Planly way of working" modal appears
-- [ ] Page 1 (The flow) — three phase cards shown, connector line visible
-- [ ] Page 2 (Key concepts) — four concept cards shown
-- [ ] Page 3 (How we work) — eight principles shown in 2-column grid
-- [ ] Dot indicators at bottom are clickable
-- [ ] ← → arrow keys navigate between pages
+- [ ] First login with no projects → "The Planly way of working" modal appears
+- [ ] Page 1, 2, 3 display correctly; dot indicators and arrow keys navigate
 - [ ] "Get started →" on last page closes the modal
-- [ ] Escape key closes the modal
-- [ ] Clicking the backdrop closes the modal
-- [ ] Re-trigger: open console → `localStorage.removeItem('planly_seen_welcome_v1')` → refresh → modal reappears
+- [ ] Escape and backdrop click both close the modal
+- [ ] Re-trigger: `localStorage.removeItem('planly_seen_welcome_v1')` → refresh → modal reappears
 
 ### SSO (skip if not configured)
-- [ ] SSO button only appears on login page when OIDC env vars are set
+- [ ] SSO button only appears when OIDC env vars are set
 - [ ] SSO flow completes and lands on Kanban
 
 ---
 
 ## Milestone 2 — Admin Panel
 
-### Basic access
-- [ ] Non-admin users do NOT see the 🛡️ Admin link in the sidebar
+### Access control
+- [ ] Non-admin users do NOT see the shield button in the top bar
 - [ ] Navigating to `/admin` as a non-admin shows "Access denied"
-- [ ] Admin user sees the 🛡️ Admin link in the sidebar
-- [ ] Admin panel loads with Users / Email Whitelist / Audit Log tabs
+- [ ] Admin user sees the shield button in the top bar
+
+### Admin mode UX
+- [ ] Shield button highlighted (brand colour, ring) when on `/admin`; neutral when not
+- [ ] Clicking shield when NOT on `/admin` → navigates to `/admin`, center nav shows admin tabs
+- [ ] Clicking shield when ON `/admin` → exits to `/kanban`
+- [ ] Admin tabs: Ownership, Users, Projects, Email, Audit Logs, Stats — all load without error
+- [ ] URL search param `?tab=ownership` etc. drives the active tab
+
+### Ownership tab
+- [ ] Shows the founding admin (👑 badge) and all current admins
+- [ ] "Transfer server ownership" section visible only to founding admin
+- [ ] Select another admin from the dropdown → click Transfer → confirm
+- [ ] After transfer: new user has 👑, old user retains Admin badge
+- [ ] New founding admin can use founding-admin-only actions; old one cannot
 
 ### Users tab
-- [ ] All registered users listed with email and join date
-- [ ] Founding admin shown with 👑 badge
-- [ ] "Email verified" / "Unverified" badge shown per user
-- [ ] Founding admin can promote a regular user to admin → they appear with Admin badge
-- [ ] Founding admin can demote a regular admin → badge removed
-- [ ] Cannot demote the last admin (clear error message)
-- [ ] Cannot demote the founding admin (clear error message)
-- [ ] Founding admin can force-verify an unverified user's email
+- [ ] All registered users listed with email, join date, verification status
+- [ ] Founding admin shows 👑, other admins show Admin badge
+- [ ] Promote a regular user to admin → Admin badge appears
+- [ ] Demote a regular admin → badge removed
+- [ ] Cannot demote the last admin — clear error
+- [ ] Cannot demote the founding admin — clear error
+- [ ] Force-verify an unverified user's email → badge updates
+- [ ] Founding admin can delete a non-founding user → user removed from list
+- [ ] Cannot delete yourself — clear error
 
-### Crown transfer
-- [ ] "Transfer server ownership" button visible only to founding admin
-- [ ] Select another admin from the dropdown → click Transfer → confirm dialog
-- [ ] After transfer: new user has 👑, old user loses it but retains Admin badge
-- [ ] New founding admin can now use all founding-admin-only actions
+### Projects tab
+- [ ] All server projects listed with owner, member count, task count
+- [ ] Shows creation date and deadline (if set)
 
-### Email whitelist tab
-- [ ] Add a domain pattern (`@company.com`) → appears in list
-- [ ] Add an exact address (`user@example.com`) → appears in list
-- [ ] Remove an entry → removed from list
-- [ ] Invalid pattern (no @ prefix and not a full email) → error shown
+### Email Settings tab
+- [ ] SMTP status banner: "Email is active" (green) or "Email not configured" (amber)
+- [ ] SMTP form pre-filled with saved values; password field blank (masked)
+- [ ] Save config → status updates
+- [ ] Send test email → arrives in inbox
+- [ ] Clear saved config → reverts to env-var fallback (or shows not configured)
+- [ ] "Require email verification" toggle only visible when email IS configured
+- [ ] Turning on email verification when admin's own email is unverified:
+  - [ ] Does NOT enable the setting
+  - [ ] Sends a verification email to the admin
+  - [ ] Shows inline warning: "Verify your email first — we sent a link to [email]"
+  - [ ] After admin verifies and returns, enabling the toggle works
+- [ ] "Enforce email whitelist" toggle visible regardless of email status
+- [ ] Email allowlist section only appears when whitelist is enabled
+- [ ] Add a domain (`@company.com`) → appears in list
+- [ ] Add an exact address → appears in list
+- [ ] Remove an entry → removed
+- [ ] Invalid pattern → clear error
 
-### Audit log tab
-- [ ] Registration events appear (USER_REGISTERED)
-- [ ] Login events appear (LOGIN)
-- [ ] Failed login events appear (LOGIN_FAILED)
-- [ ] Admin actions appear (USER_PROMOTED, USER_DEMOTED, CROWN_TRANSFERRED)
-- [ ] "Load more" loads older events
+### Audit Logs tab
+- [ ] Log entries shown newest first
+- [ ] Action badge coloured: red for FAIL/DELETE/PRUNE, purple for others
+- [ ] Actor and target names shown
+- [ ] Filter by action type → list updates
+- [ ] Filter by date range (From / To) → list updates
+- [ ] Apply and Reset buttons work correctly
+- [ ] "Load more" loads next page without resetting filters
+- [ ] **Export CSV** button → downloads a `.csv` file with all matching rows
+- [ ] **Export JSONL** button → downloads a `.jsonl` file
+- [ ] Export respects active filters (action, date range)
+- [ ] Prune section visible only to founding admin
+- [ ] Enter days, click Prune → confirm step appears
+- [ ] Confirm → old entries deleted; new LOGS_PRUNED entry appears at top
+- [ ] Cancel → nothing deleted
 
-### Email verification enforcement (requires `REQUIRE_EMAIL_VERIFICATION=true`)
+### Statistics tab
+- [ ] Total users, projects, tasks, messages counts shown
+- [ ] "+N last 30 days" sub-labels shown for users and projects
+- [ ] Admin count and unverified user count correct
+
+### Admin API access (for deployers)
+- [ ] Create an API token in Settings → Apps
+- [ ] Call `GET /api/admin/logs/export?format=jsonl` with `Authorization: Bearer <token>` → streams JSONL
+- [ ] Call with date filters (`&from=2026-01-01&to=2026-06-30`) → filtered export
+- [ ] Call `DELETE /api/admin/logs/prune` with token → returns 403 unless founding admin token
+
+---
+
+## Milestone 3 — Email Verification Enforcement
+
+> Requires email to be configured and "Require email verification" turned on in Admin → Email Settings.
+
 - [ ] New user registers → receives verification email
 - [ ] Trying to log in before verifying → clear "verify your email" error
-- [ ] Click verify link in email → success page
+- [ ] Click verify link in email → success
 - [ ] Log in after verification → works
 
-### Whitelist enforcement (requires `REQUIRE_WHITELIST=true`)
-- [ ] Register with an email NOT on the whitelist → clear error message
+---
+
+## Milestone 4 — Whitelist Enforcement
+
+> Requires "Enforce email whitelist" turned on and at least one pattern added.
+
+- [ ] Register with an email NOT on the whitelist → clear error
 - [ ] Register with an email ON the whitelist → succeeds
 - [ ] ADMIN_EMAIL is always allowed regardless of whitelist
 
 ---
 
-## Milestone 3 — Products & Teams
+## Milestone 5 — Products & Teams
 
 ### Creating products
 - [ ] Create a product (name, emoji, description, deadline)
-- [ ] Product appears in sidebar
+- [ ] Product appears in the project picker dropdown
 - [ ] Create a second product — both appear, switching works
-- [ ] Active product name shown in top bar
+- [ ] Active product shown in the project picker button
 
 ### Editing products
-- [ ] Edit product name → updates in sidebar and top bar
-- [ ] Edit emoji → updates in sidebar
-- [ ] Edit description and deadline → saves correctly
+- [ ] Edit product name → updates in project picker
+- [ ] Edit emoji, description, deadline → saves correctly
 
 ### Inviting members
 - [ ] Invite by link → copy link → open in incognito → new user can register and join
@@ -153,324 +205,187 @@ Work through each milestone in order. When you find a bug, note it in the **Bug 
 - [ ] Owner approves → user gets access
 - [ ] Owner rejects → user sees rejection
 
-### Memberships modal (from top bar / account menu)
+### Memberships modal
 - [ ] All products listed with correct role badge
 - [ ] "Leave" button shown for non-owners
-- [ ] Clicking "Leave" as non-owner → confirm → user removed from product
+- [ ] Clicking "Leave" as non-owner → confirm → user removed
 - [ ] Clicking "Leave" as owner → dialog offers Transfer or Delete
 - [ ] Transfer ownership → select member → confirm → new owner shown
 - [ ] Delete project from ownership dialog → product removed everywhere
 
 ---
 
-## Milestone 4 — Kanban Board
+## Milestone 6 — Kanban Board
 
 ### Columns
-- [ ] Create a new column
-- [ ] Rename a column
-- [ ] Delete a column — tasks in it move to the first column (backlog)
-- [ ] Drag columns to reorder
-- [ ] Column order persists after page refresh
+- [ ] Create, rename, delete a column
+- [ ] Drag columns to reorder — order persists after refresh
+- [ ] Deleting a column moves tasks to the first column
 
 ### Tasks
-- [ ] Create a task from the board (+ button / new task modal)
-- [ ] Task appears in the correct column
-- [ ] Drag a task to a different column → status updates
-- [ ] Drag tasks to reorder within a column
-- [ ] Drag order persists after page refresh
+- [ ] Create a task (+ button / new task modal)
+- [ ] Drag task to different column → status updates
+- [ ] Drag tasks to reorder within a column — persists after refresh
 
 ### Per-column sort
-- [ ] Click ⇅ on a column → cycle through sort modes (Custom, Deadline, etc.)
-- [ ] Sort mode label shown in column header
-- [ ] Deadline sort: tasks with deadline sorted correctly, no-deadline tasks last
+- [ ] Click ⇅ → cycle through sort modes (Custom, Deadline, etc.)
+- [ ] Deadline sort: tasks with deadline sorted correctly, no-deadline last
 - [ ] "Reset" returns to custom drag order
 
 ### Filters
-- [ ] Filter by owner → only that person's tasks shown
-- [ ] Filter by multiple owners
-- [ ] Filter by color dot
-- [ ] Filter by sprint
-- [ ] Task count updates to reflect filtered number
+- [ ] Filter by owner, colour dot, sprint — task count updates
+- [ ] Multiple filters work together
 - [ ] "↺ Reset" clears all filters
 
 ### Compact view
 - [ ] Toggle "☰ Compact" → table view renders
-- [ ] All filtered tasks appear as rows
-- [ ] Status dropdown per row → change status → task moves on board view
-- [ ] Sort by Status, Task, Owner, Deadline column headers
-- [ ] Click a row → task detail panel opens
-- [ ] Toggle "▦ Board" → returns to normal board
-- [ ] Preference persists across page refresh
+- [ ] Status dropdown per row → change status → moves on board view
+- [ ] Sort by column headers; click row → task detail panel opens
+- [ ] Toggle "▦ Board" → returns to board; preference persists across refresh
 
 ---
 
-## Milestone 5 — Task Detail Panel
+## Milestone 7 — Task Detail Panel
 
-### Opening
 - [ ] Click a Kanban card → detail panel slides in
-- [ ] Click a row in compact view → detail panel opens
-- [ ] "Open task →" in chat → detail panel opens
-
-### Editing
-- [ ] Edit task name → saved on blur/submit
-- [ ] Edit description → markdown rendered in preview
-- [ ] Assign an owner → avatar shown on card
-- [ ] Set a deadline → shown on card
-- [ ] Set a color category → dot shown on card
-- [ ] Change status via dropdown in panel
-
-### Subtasks
-- [ ] Add a subtask
-- [ ] Check a subtask complete → strikethrough, completedAt recorded
-- [ ] Reorder subtasks by drag
-- [ ] Delete a subtask
-- [ ] Subtask progress count shown on card (e.g. 2/3)
-
-### Closing & deleting
-- [ ] Close panel → changes saved
-- [ ] Make unsaved change → try to close → "unsaved changes" prompt appears
+- [ ] Edit name, description, owner, deadline, colour, status — all save
+- [ ] Add, check, reorder, delete subtasks; progress count shown on card
+- [ ] Unsaved change → close → "unsaved changes" prompt
 - [ ] Delete task → removed from board, panel closes
 
 ---
 
-## Milestone 6 — Canvas (Plan view)
+## Milestone 8 — Canvas (Plan view)
 
-### Creating & moving
-- [ ] Double-click canvas → creates a new task
-- [ ] Drag a task node to move it
-- [ ] Position persists after page refresh
-
-### Dependencies
-- [ ] Draw an arrow from task A to task B (A must finish before B)
-- [ ] Arrow appears on canvas
-- [ ] Delete an arrow
-- [ ] Cycle detection: try to create A → B → A → error shown
-
-### Milestones
-- [ ] Tasks with a deadline show milestone badge on canvas
-- [ ] Milestone tasks visually distinct from regular tasks
-
-### Sprints on canvas
-- [ ] Sprint tasks visually grouped/highlighted
-- [ ] Clicking a sprint task shows sprint info
-
-### Snapshots
-- [ ] Save a named canvas snapshot
-- [ ] Move tasks around
-- [ ] Restore the snapshot → positions revert
-- [ ] Delete a snapshot
+- [ ] Double-click canvas → creates a new task node
+- [ ] Drag to move; position persists after refresh
+- [ ] Draw dependency arrow A → B; delete arrow
+- [ ] Cycle detection: A → B → A → error shown
+- [ ] Tasks with deadline show milestone badge
+- [ ] Save/restore/delete named canvas snapshots
 
 ---
 
-## Milestone 7 — Gantt / Progress view
+## Milestone 9 — Gantt / Progress view
 
-- [ ] All milestones for the active product appear as bars
-- [ ] Bar colour reflects health: green (on track), amber (at risk), red (overdue)
-- [ ] Hover over a milestone bar → popover shows task list with completion status
-- [ ] Hover over the product bar (end product row) → popover shows milestone list
+- [ ] Milestones appear as bars; colour reflects health (green / amber / red)
+- [ ] Hover bar → popover with task list
 - [ ] Overdue milestones shown in red
-- [ ] "Milestones X/Y" counter does NOT appear on Kanban, Canvas, or Backlog
-- [ ] Milestones sorted correctly on the timeline
+- [ ] "Milestones X/Y" counter NOT shown on other views
 
 ---
 
-## Milestone 8 — Backlog
+## Milestone 10 — Backlog
 
-- [ ] All tasks with no sprint assignment appear in the backlog
-- [ ] Tasks already in a sprint do not appear
-- [ ] Create a task from the backlog
-- [ ] Assign a backlog task to a sprint
-- [ ] Unassigned task badge in sidebar shows correct count
-- [ ] Sort and filter backlog tasks
+- [ ] Tasks with no sprint appear; sprinted tasks do not
+- [ ] Create task from backlog; assign to sprint
+- [ ] Unassigned badge count in sidebar is correct
 
 ---
 
-## Milestone 9 — Chat & Messaging
+## Milestone 11 — Chat & Messaging
 
-### Product chat
-- [ ] Send a message in the product-level chat
-- [ ] Edit a message → shows "edited" label
-- [ ] Delete a message → removed from thread
-- [ ] Upload an image attachment → thumbnail shown
-- [ ] Click image → lightbox opens
-- [ ] Upload a non-image file (PDF, CSV) → download link shown
-
-### Task chat
-- [ ] Open a task → switch to task chat thread
-- [ ] Send a message in the task thread
-- [ ] Task thread messages separate from product chat
-
-### Chat panel features
-- [ ] Switch between Messages and Tasks tabs in chat panel
-- [ ] Search/filter tasks in the Tasks tab
-- [ ] Pin a task to the top of chat panel
-- [ ] Unpin a task
-- [ ] "Open task →" button fetches and opens task detail panel
-
-### Real-time
-- [ ] Open app in two browser tabs as different users
-- [ ] User A sends a message → appears for User B without refresh
-- [ ] User A moves a task → board updates for User B without refresh
+- [ ] Send, edit, delete messages in product chat
+- [ ] Upload image → thumbnail; upload file → download link
+- [ ] Task chat thread separate from product chat
+- [ ] Switch Messages / Tasks tabs in chat panel; pin and unpin tasks
+- [ ] Real-time: two tabs → message/task update appears without refresh
 
 ---
 
-## Milestone 10 — Sprints
+## Milestone 12 — Sprints
 
-- [ ] Create a sprint (name, start date, end date)
-- [ ] Sprint appears in sprint filter dropdown on Kanban
-- [ ] Edit sprint name and dates
-- [ ] Add tasks to a sprint (from canvas or backlog)
-- [ ] Tasks appear on Kanban when sprint is selected
-- [ ] Remove a task from a sprint → disappears from sprint filter view
-- [ ] Delete a sprint → tasks remain, just unassigned
-- [ ] Current sprint (today falls within dates) auto-selected on page load
-- [ ] "All sprints" shows all tasks regardless of sprint
+- [ ] Create sprint (name, start, end dates)
+- [ ] Sprint filter on Kanban works; edit sprint name/dates
+- [ ] Add / remove tasks from sprint; delete sprint → tasks remain unassigned
+- [ ] Current sprint auto-selected on load
 
 ---
 
-## Milestone 11 — Settings
+## Milestone 13 — Settings
 
-### Team tab
-- [ ] All members listed with correct role (member / co-owner / owner)
-- [ ] Pending access requests shown and actionable
-- [ ] Create invite link
-- [ ] Create invite with email address → email arrives
-
-### Permissions tab
-- [ ] Change a user's access level for a specific tab (e.g. Kanban → read)
-- [ ] Log in as that user → they can view but not edit that tab
-- [ ] Change to "none" → tab hidden for that user
-- [ ] Owner and co-owners always have full write access (cannot be restricted)
-
-### Colors tab
-- [ ] Toggle a color off → no longer available on tasks
-- [ ] Toggle back on → available again
-- [ ] Rename a color label → name shown in task color picker
-
-### Ownership tab
-- [ ] Current owner shown correctly
-- [ ] Transfer ownership to another member → badge updates
+### Team, Permissions, Colors, Ownership tabs
+- [ ] Members listed with correct roles; pending requests actionable
+- [ ] Permission changes take effect for the affected user (read-only tab, hidden tab)
+- [ ] Toggle / rename colours; transfer project ownership
 
 ### Apps tab
-- [ ] Create an app registration
-- [ ] Generate a token for the app → token revealed once
-- [ ] Use the token in an API call (`Authorization: Bearer planly_...`) → works
-- [ ] Revoke a token → API call returns 401
-- [ ] Delete an app registration
+- [ ] Create app, generate token → shown once
+- [ ] Use token in API call → works; revoke → 401
+- [ ] Delete app registration
 
 ### Webhooks tab
-- [ ] Create a webhook with a URL and event type
-- [ ] Trigger the event (e.g. create a task) → delivery log shows attempt
-- [ ] Delivery shows status code and response body
-- [ ] Deactivate a webhook → events no longer sent
-- [ ] Delete a webhook
-
-### Email tab
-- [ ] SMTP form pre-filled with saved values
-- [ ] Change a setting, save → banner updates
-- [ ] Send test email → arrives in inbox
-- [ ] Clear saved config → reverts to env vars (or shows not configured)
+- [ ] Create webhook → trigger event → delivery log shows attempt with status code
+- [ ] Deactivate → events stop; delete webhook
 
 ### Danger Zone tab
-- [ ] Non-owner sees "Leave project" option
-- [ ] Owner sees "Delete project" option in red
-- [ ] Delete project → confirm dialog → product removed, redirected away
+- [ ] Non-owner: "Leave project"; Owner: "Delete project" (red)
+- [ ] Delete project → confirm dialog → removed, redirected away
 
 ---
 
-## Milestone 12 — Integrations & Account
+## Milestone 14 — Integrations & Account
 
-- [ ] Open Integrations modal (from account menu or top bar)
-- [ ] "Access Tokens" tab: create a PAT, name it, set expiry
-- [ ] Token value shown once → copy it
-- [ ] Use PAT in a curl request → `GET /api/products` returns data
-- [ ] Revoke PAT → same curl returns 401
-- [ ] "My Permissions" tab shows all projects user belongs to
-- [ ] Role shown correctly (owner / co_owner / member) per project
-- [ ] Per-tab permission levels shown
-- [ ] Deleted projects do NOT appear in the list
-- [ ] "API docs ↗" link opens the API reference page in a new tab
+- [ ] Create PAT, name it, set expiry → token shown once
+- [ ] Use PAT in curl → data returned; revoke → 401
+- [ ] "My Permissions" tab shows all projects with correct roles and per-tab levels
+- [ ] Deleted projects do NOT appear
 
 ---
 
-## Milestone 13 — Analytics
+## Milestone 15 — Analytics
 
-- [ ] Analytics page loads for the active product (sidebar "📊 Analytics")
-- [ ] Summary cards show correct counts (active tasks, completed, cycle time, total)
-- [ ] Bar chart shows tasks completed per day
-- [ ] Period toggle: 7d / 30d / 90d — chart updates correctly
-- [ ] 90d view shows weekly buckets
-- [ ] Hover over a bar → tooltip shows task count
-- [ ] Top contributors list is correct
-- [ ] Contributor bar widths are proportional
-- [ ] Event log shows recent activity with real usernames (not IDs)
-- [ ] "Load more" loads older events correctly
-- [ ] Switching products reloads all data for the new product
+- [ ] Summary cards correct (active tasks, completed, cycle time, total)
+- [ ] Bar chart with period toggle 7d / 30d / 90d (90d = weekly buckets)
+- [ ] Hover bar → tooltip; top contributors list with proportional bars
+- [ ] Event log with real usernames; "Load more" works
+- [ ] Switching products reloads all data
 
 ---
 
-## Milestone 14 — Notifications
+## Milestone 16 — Notifications
 
-- [ ] Assign a task to another user → they receive a notification
-- [ ] Notification bell shows unread badge count
-- [ ] Click bell → notification list opens
-- [ ] Click a notification → navigates to the relevant task/product
-- [ ] Notification marked as read after clicking
-- [ ] "Mark all read" clears the badge
+- [ ] Assign task to another user → they get a notification
+- [ ] Bell shows unread badge; click → list; click notification → navigates to task
+- [ ] Notification marked read; "Mark all read" clears badge
 
 ---
 
-## Milestone 15 — Search
+## Milestone 17 — Search
 
-- [ ] Open global search (keyboard shortcut or sidebar button)
-- [ ] Type a task name → matching tasks appear
-- [ ] Type a message snippet → matching messages appear
-- [ ] Click a task result → navigates to that task on the board
-- [ ] Click a message result → navigates to that chat thread
-- [ ] Search scoped to active product vs. all products (if applicable)
-- [ ] Escape key closes search modal
+- [ ] Open global search (Ctrl/Cmd+K or search button)
+- [ ] Type task name → results; type message snippet → results
+- [ ] Click result → navigates correctly; Escape closes
 
 ---
 
-## Milestone 16 — Account & Profile
+## Milestone 18 — Account & Profile
 
-- [ ] Open account/profile settings
-- [ ] Edit display name (real name)
-- [ ] Edit username → updated in chat and task cards
-- [ ] Change avatar emoji → shown in sidebar and task cards
-- [ ] Upload a profile photo → displayed instead of emoji
-- [ ] Change password (email/password accounts only)
-- [ ] SSO accounts cannot set a password
+- [ ] Edit display name, username, avatar emoji; upload profile photo
+- [ ] Change password (email/password accounts); SSO accounts cannot set a password
 
 ---
 
-## Milestone 17 — Export
+## Milestone 19 — Export
 
-- [ ] Export a product's data from Settings or via API
-- [ ] Download contains tasks with all fields
-- [ ] Download contains milestones, columns, sprints
-- [ ] File opens correctly (CSV or JSON format)
+- [ ] Export product data → download contains tasks, milestones, columns, sprints
 
 ---
 
-## Milestone 18 — Cross-cutting & Polish
+## Milestone 20 — Cross-cutting & Polish
 
-- [ ] Dark / light theme toggle works
-- [ ] Theme persists across page refresh
-- [ ] Sidebar collapses → icons only shown
-- [ ] Sidebar expands → labels return
-- [ ] Switching products resets board, canvas, and gantt views correctly
-- [ ] All modals close on Escape
-- [ ] All modals close on backdrop click
+- [ ] Dark / light theme toggle; persists across refresh
+- [ ] Switching products resets board, canvas, and gantt correctly
+- [ ] All modals close on Escape and backdrop click
 - [ ] No JavaScript console errors during normal use
-- [ ] App usable on a narrow browser window (1024px) — no broken layouts
-- [ ] Long task names truncate cleanly, don't break layout
-- [ ] Empty states shown when no tasks / no products / no members
+- [ ] App usable at 1024 px width — no broken layouts
+- [ ] Long task names truncate cleanly
+- [ ] Empty states shown (no tasks / no products / no members)
 
 ---
 
 ## Bug log
 
-> Add bugs here as you find them during testing.
+> Add bugs here as you find them.
 
 - [ ] 
