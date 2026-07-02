@@ -7,64 +7,73 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 ## Milestone 0 — Prerequisites
 
 ### Step 1 — Configure admin email (before first login)
-- [ ] Edit `docker-compose.yml` → set `ADMIN_EMAIL: your@email.com` under backend environment
-- [ ] Restart backend: `docker compose up -d backend`
-- [ ] Check logs: `docker compose logs backend` — look for the ╔══╗ box with a temporary password
+- [X] Edit `docker-compose.yml` → set `ADMIN_EMAIL: your@email.com` under backend environment
+- [X] Restart backend: `docker compose up -d backend`
+- [X] Check logs: `docker compose logs backend | grep '\[admin\]'` — look for the temporary password line
 
 ### Step 2 — First login as admin
-- [ ] Log in with `ADMIN_EMAIL` and the temporary password from the logs
-- [ ] Admin shield button `🛡` appears in the top-right bar (next to `?`, bell)
-- [ ] You are immediately prompted to change your password — do so
+- [X] Log in with `ADMIN_EMAIL` and the temporary password from the logs
+- [X] Admin shield button `🛡` appears in the top-right bar (next to `?`, bell)
+- [X] You are immediately prompted to change your password — do so
 
 ### Step 3 — Enter admin mode
-- [ ] Click the shield button → center nav switches to 6 admin tabs (Ownership, Users, Projects, Email, Audit Logs, Stats)
-- [ ] Project dropdown shows "Admin" label
-- [ ] Opening the project dropdown shows "Select a project to leave admin mode"
-- [ ] Clicking a project in the dropdown exits admin mode and navigates to Kanban
+- [X] Click the shield button → center nav switches to 6 admin tabs (Ownership, Users, Projects, Email, Audit Logs, Stats)
+- [X] Project dropdown shows "Admin" label
+- [X] Opening the project dropdown shows "Select a project to leave admin mode"
+- [X] Clicking a project in the dropdown exits admin mode and navigates to Kanban
 
 ### Step 4 — Gmail SMTP setup
-- [ ] Go to myaccount.google.com → Security → 2-Step Verification → enable
-- [ ] Security → App passwords → generate one for "Planly" → copy the 16-char code
-- [ ] In Admin → Email Settings → fill in:
+- [X] Go to myaccount.google.com → Security → 2-Step Verification → enable
+- [X] Security → App passwords → generate one for "Planly" → copy the 16-char code
+- [X] In Admin → Email Settings → fill in:
   - Host: `smtp.gmail.com`, Port: `587`, SSL off
   - Username: your Gmail address
   - Password: the 16-character app password
   - From: `Planly <youraddress@gmail.com>`
-- [ ] Click **Save configuration** → status banner shows "Email is active"
-- [ ] Click **Send test email** → email arrives in inbox
+- [X] Click **Save configuration** → status banner shows "Email is active"
+- [X] Click **Send test email** → email arrives in inbox
 
 ---
 
 ## Milestone 1 — Auth & Onboarding
 
 ### Registration
-- [ ] Register a new account — form validation works (empty fields, bad email, short password)
-- [ ] Duplicate email gives a clear error
-- [ ] Duplicate username gives a clear error
-- [ ] Successful registration redirects to the app
+- [X] Register a new account — form validation works (empty fields, bad email, short password)
+- [X] Duplicate email gives a clear error
+- [X] Duplicate username gives a clear error
+- [X] Successful registration redirects to the app
 
 ### Login
-- [ ] Log in with email
-- [ ] Log in with username
-- [ ] Wrong password gives a clear error
-- [ ] Log out → redirected to login page
-- [ ] Log back in → lands on Kanban (or `/admin` if admin with no projects)
+- [X] Log in with email
+- [X] Log in with username
+- [X] Wrong password gives a clear error
+- [X] Log out → redirected to login page
+- [X] Log back in → lands on Kanban (or `/admin` if admin with no projects)
+
+### Login lockout
+- [X] Enter wrong password 4 times → each error shows remaining attempts (e.g. "1 attempt remaining before lockout")
+- [X] 5th wrong attempt → "Account locked for 15 minutes" message; HTTP 429
+- [X] Trying again while locked → shows "Try again in X minutes"
+- [X] Admin panel → Users tab → locked user shows "Locked Xm" badge in the Login column
+- [X] Click "Unlock" next to the locked user → badge disappears
+- [X] After unlocking, user can log in with correct password immediately
+- [X] Correct password after failed attempts (but before lockout) → counter resets; subsequent failures start fresh from 1
 
 ### Forgot password
-- [ ] Click "Forgot password?" on login page
-- [ ] Enter email → success message shown
-- [ ] Email arrives in inbox
-- [ ] Click reset link → lands on reset page
-- [ ] Set new password → redirected to login
-- [ ] Log in with new password → works
-- [ ] Old password no longer works
+- [X] Click "Forgot password?" on login page
+- [X] Enter email → success message shown
+- [X] Email arrives in inbox
+- [X] Click reset link → lands on reset page
+- [X] Set new password → redirected to login
+- [X] Log in with new password → works
+- [X] Old password no longer works
 
 ### Onboarding modal
-- [ ] First login with no projects → "The Planly way of working" modal appears
-- [ ] Page 1, 2, 3 display correctly; dot indicators and arrow keys navigate
-- [ ] "Get started →" on last page closes the modal
-- [ ] Escape and backdrop click both close the modal
-- [ ] Re-trigger: `localStorage.removeItem('planly_seen_welcome_v1')` → refresh → modal reappears
+- [X] First login with no projects → "The Planly way of working" modal appears
+- [X] Page 1, 2, 3 display correctly; dot indicators and arrow keys navigate
+- [X] "Get started →" on last page closes the modal
+- [X] Escape and backdrop click both close the modal
+- [X] Re-trigger: `localStorage.removeItem('planly_seen_welcome_v1')` → refresh → modal reappears
 
 ### SSO (skip if not configured)
 - [ ] SSO button only appears when OIDC env vars are set
@@ -75,73 +84,77 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 ## Milestone 2 — Admin Panel
 
 ### Access control
-- [ ] Non-admin users do NOT see the shield button in the top bar
-- [ ] Navigating to `/admin` as a non-admin shows "Access denied"
-- [ ] Admin user sees the shield button in the top bar
+- [X] Non-admin users do NOT see the shield button in the top bar
+- [X] Navigating to `/admin` as a non-admin silently redirects to `/kanban`
+- [X] Admin user sees the shield button in the top bar
 
 ### Admin mode UX
-- [ ] Shield button highlighted (brand colour, ring) when on `/admin`; neutral when not
-- [ ] Clicking shield when NOT on `/admin` → navigates to `/admin`, center nav shows admin tabs
-- [ ] Clicking shield when ON `/admin` → exits to `/kanban`
-- [ ] Admin tabs: Ownership, Users, Projects, Email, Audit Logs, Stats — all load without error
-- [ ] URL search param `?tab=ownership` etc. drives the active tab
+- [X] Shield button highlighted (brand colour, ring) when on `/admin`; neutral when not
+- [X] Clicking shield when NOT on `/admin` → navigates to `/admin`, center nav shows admin tabs
+- [X] Clicking shield when ON `/admin` → exits to `/kanban`
+- [X] Admin tabs: Ownership, Users, Projects, Email, Audit Logs, Stats — all load without error
+- [X] URL search param `?tab=ownership` etc. drives the active tab
 
 ### Ownership tab
-- [ ] Shows the founding admin (👑 badge) and all current admins
-- [ ] "Transfer server ownership" section visible only to founding admin
-- [ ] Select another admin from the dropdown → click Transfer → confirm
-- [ ] After transfer: new user has 👑, old user retains Admin badge
-- [ ] New founding admin can use founding-admin-only actions; old one cannot
+- [X] Shows the founding admin (👑 badge) and all current admins
+- [X] "Transfer server ownership" section visible only to founding admin
+- [X] Select another admin from the dropdown → click Transfer → confirm
+- [X] After transfer: new user has 👑, old user retains Admin badge but not 👑
+- [X] New founding admin can use founding-admin-only actions; old one cannot
+- [X] Restart the backend → ownership is preserved; `ADMIN_EMAIL` account stays admin but does NOT reclaim 👑
 
 ### Users tab
-- [ ] All registered users listed with email, join date, verification status
-- [ ] Founding admin shows 👑, other admins show Admin badge
-- [ ] Promote a regular user to admin → Admin badge appears
-- [ ] Demote a regular admin → badge removed
-- [ ] Cannot demote the last admin — clear error
-- [ ] Cannot demote the founding admin — clear error
-- [ ] Force-verify an unverified user's email → badge updates
-- [ ] Founding admin can delete a non-founding user → user removed from list
-- [ ] Cannot delete yourself — clear error
+- [X] All registered users listed with email, join date, verification status
+- [X] Founding admin shows 👑, other admins show Admin badge
+- [X] Promote a regular user to admin → Admin badge appears
+- [X] Demote a regular admin → badge removed
+- [X] Cannot demote the last admin — clear error
+- [X] Cannot demote the founding admin — clear error
+- [X] Force-verify an unverified user's email → badge updates
+- [X] Founding admin can delete a non-founding user → user removed from list
+- [X] Cannot delete yourself — clear error
 
 ### Projects tab
-- [ ] All server projects listed with owner, member count, task count
-- [ ] Shows creation date and deadline (if set)
+- [X] All server projects listed with owner, member count, task count
+- [X] Shows creation date and deadline (if set)
 
 ### Email Settings tab
-- [ ] SMTP status banner: "Email is active" (green) or "Email not configured" (amber)
-- [ ] SMTP form pre-filled with saved values; password field blank (masked)
-- [ ] Save config → status updates
-- [ ] Send test email → arrives in inbox
-- [ ] Clear saved config → reverts to env-var fallback (or shows not configured)
-- [ ] "Require email verification" toggle only visible when email IS configured
-- [ ] Turning on email verification when admin's own email is unverified:
-  - [ ] Does NOT enable the setting
-  - [ ] Sends a verification email to the admin
-  - [ ] Shows inline warning: "Verify your email first — we sent a link to [email]"
-  - [ ] After admin verifies and returns, enabling the toggle works
-- [ ] "Enforce email whitelist" toggle visible regardless of email status
-- [ ] Email allowlist section only appears when whitelist is enabled
-- [ ] Add a domain (`@company.com`) → appears in list
-- [ ] Add an exact address → appears in list
-- [ ] Remove an entry → removed
-- [ ] Invalid pattern → clear error
+- [X] SMTP status banner: "Email is active" (green) or "Email not configured" (amber)
+- [X] SMTP form pre-filled with saved values; password field blank (masked)
+- [X] Save config → status updates
+- [X] Send test email → arrives in inbox
+- [X] Clear saved config → reverts to env-var fallback (or shows not configured)
+- [X] "Require email verification" toggle only visible when email IS configured
+- [X] Turning on email verification:
+  - [X] Sends a verification email to every user whose email has never been verified (`emailVerified = false`)
+  - [X] Already-verified users are unaffected — they keep access
+  - [X] Toast shows how many emails were sent (or "all existing users already verified")
+  - [X] If the admin's own email is unverified, the amber prompt appears: "Verify your email first — we sent a link to [email]"
+  - [X] Any user who is logged in but unverified is kicked out on their next action
+- [X] Turning off email verification → unverified users can log in again immediately
+- [X] Re-enabling after some users have verified → only the still-unverified users receive a new email; previously verified users are untouched
+- [X] "Enforce email whitelist" toggle visible regardless of email status
+- [X] Email allowlist section only appears when whitelist is enabled
+- [X] Add a domain (`@company.com`) → appears in list
+- [X] Add an exact address → appears in list
+- [X] Remove an entry → removed
+- [X] Invalid pattern → clear error
 
 ### Audit Logs tab
-- [ ] Log entries shown newest first
-- [ ] Action badge coloured: red for FAIL/DELETE/PRUNE, purple for others
-- [ ] Actor and target names shown
-- [ ] Filter by action type → list updates
-- [ ] Filter by date range (From / To) → list updates
-- [ ] Apply and Reset buttons work correctly
-- [ ] "Load more" loads next page without resetting filters
-- [ ] **Export CSV** button → downloads a `.csv` file with all matching rows
-- [ ] **Export JSONL** button → downloads a `.jsonl` file
-- [ ] Export respects active filters (action, date range)
-- [ ] Prune section visible only to founding admin
-- [ ] Enter days, click Prune → confirm step appears
-- [ ] Confirm → old entries deleted; new LOGS_PRUNED entry appears at top
-- [ ] Cancel → nothing deleted
+- [X] Log entries shown newest first
+- [X] Action badge coloured: red for FAIL/DELETE/PRUNE, purple for others
+- [X] Actor and target names shown
+- [X] Filter by action type → list updates
+- [X] Filter by date range (From / To) → list updates
+- [X] Apply and Reset buttons work correctly
+- [X] "Load more" loads next page without resetting filters
+- [X] **Export CSV** button → downloads a `.csv` file with all matching rows
+- [X] **Export JSONL** button → downloads a `.jsonl` file
+- [X] Export respects active filters (action, date range)
+- [X] Prune section visible only to founding admin
+- [X] Enter days, click Prune → confirm step appears
+- [X] Confirm → old entries deleted; new LOGS_PRUNED entry appears at top
+- [X] Cancel → nothing deleted
 
 ### Statistics tab
 - [ ] Total users, projects, tasks, messages counts shown
@@ -160,10 +173,13 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 > Requires email to be configured and "Require email verification" turned on in Admin → Email Settings.
 
-- [ ] New user registers → receives verification email
-- [ ] Trying to log in before verifying → clear "verify your email" error
-- [ ] Click verify link in email → success
+- [ ] New user registers → receives verification email immediately
+- [ ] Trying to log in before verifying → clear "verify your email" error message
+- [ ] Login page shows **"Resend verification email"** link when login is blocked; clicking it sends a new link (enter email address in the identifier field first)
+- [ ] Logged-in unverified user is automatically signed out on their next action
+- [ ] Click verify link in email → lands on verification success page
 - [ ] Log in after verification → works
+- [ ] Users who were already verified before the toggle was turned on are unaffected throughout
 
 ---
 

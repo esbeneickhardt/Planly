@@ -43,8 +43,10 @@ model User {
   ssoSub            String?
   isAdmin           Boolean  @default(false)
   isFoundingAdmin   Boolean  @default(false)
-  mustChangePassword Boolean @default(false)
-  createdAt         DateTime @default(now())
+  mustChangePassword  Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
+  loginLockedUntil    DateTime?
+  createdAt           DateTime  @default(now())
 
   teams               TeamMember[]
   ownedTasks          Task[]               @relation("TaskOwner")

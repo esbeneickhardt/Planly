@@ -414,12 +414,13 @@ export const api = {
   },
 
   admin: {
-    users: () => request<{ id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string }[]>('/api/admin/users'),
+    users: () => request<{ id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string; failedLoginAttempts: number; loginLockedUntil: string | null }[]>('/api/admin/users'),
     promote: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/promote`, { method: 'PUT', body: json({}) }),
     demote: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/demote`, { method: 'PUT', body: json({}) }),
     transferCrown: (userId: string) => request<{ ok: boolean }>('/api/admin/transfer-crown', { method: 'PUT', body: json({ userId }) }),
     verifyEmail: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/verify-email`, { method: 'PUT', body: json({}) }),
     deleteUser: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
+    unlock: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/unlock`, { method: 'PUT', body: json({}) }),
     whitelist: () => request<{ id: string; pattern: string; createdAt: string }[]>('/api/admin/whitelist'),
     addWhitelist: (pattern: string) => request<{ id: string; pattern: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern }) }),
     removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
