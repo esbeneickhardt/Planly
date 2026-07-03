@@ -4,6 +4,7 @@ export interface Sprint {
   id: string;
   productId: string;
   name: string;
+  color: string;
   startDate: string;
   endDate: string;
   createdAt: string;

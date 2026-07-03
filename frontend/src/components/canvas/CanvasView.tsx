@@ -262,7 +262,9 @@ function CanvasInner() {
   const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
   const [showSprintPicker, setShowSprintPicker] = useState(false);
   const [showNewSprint, setShowNewSprint] = useState(false);
-  const [sprintForm, setSprintForm] = useState({ name: '', startDate: '', endDate: '' });
+  const [sprintForm, setSprintForm] = useState({ name: '', startDate: '', endDate: '', color: SPRINT_PALETTE[0] });
+  const [editingSprint, setEditingSprint] = useState<import('../../api/client').Sprint | null>(null);
+  const [editSprintForm, setEditSprintForm] = useState({ name: '', color: SPRINT_PALETTE[0] });
 
   // Sprints
   const [sprints, setSprints] = useState<Sprint[]>([]);
@@ -336,9 +338,8 @@ function CanvasInner() {
 
   const sprintColorsMap = useMemo<Map<string, string[]>>(() => {
     const map = new Map<string, string[]>();
-    sortedSprints.forEach((s, i) => {
-      const color = SPRINT_PALETTE[i % SPRINT_PALETTE.length];
-      s.taskIds.forEach((tid) => { map.set(tid, [...(map.get(tid) ?? []), color]); });
+    sortedSprints.forEach((s) => {
+      s.taskIds.forEach((tid) => { map.set(tid, [...(map.get(tid) ?? []), s.color]); });
     });
     return map;
   }, [sortedSprints]);
@@ -775,13 +776,28 @@ function CanvasInner() {
     } finally { setCreating(false); }
   }
 
+  async function handleEditSprint(e: React.FormEvent) {
+    e.preventDefault();
+    if (!activeProduct || !editingSprint) return;
+    try {
+      const updated = await api.sprints.update(activeProduct.id, editingSprint.id, { name: editSprintForm.name, color: editSprintForm.color });
+      setSprints((prev) => prev.map((s) => s.id === updated.id ? { ...updated, taskIds: s.taskIds } : s));
+      setEditingSprint(null);
+      showToast(`Sprint updated`, 'success');
+    } catch (err) { showToast((err as Error).message, 'error'); }
+  }
+
   async function handleCreateSprint(e: React.FormEvent) {
     e.preventDefault();
     if (!activeProduct) return;
     try {
-      const s = await api.sprints.create(activeProduct.id, { name: sprintForm.name, startDate: sprintForm.startDate, endDate: sprintForm.endDate });
-      setSprints((prev) => [...prev, s].sort((a, b) => a.startDate.localeCompare(b.startDate)));
-      setSprintForm({ name: '', startDate: '', endDate: '' });
+      const s = await api.sprints.create(activeProduct.id, { name: sprintForm.name, startDate: sprintForm.startDate, endDate: sprintForm.endDate, color: sprintForm.color });
+      setSprints((prev) => {
+        const next = [...prev, s].sort((a, b) => a.startDate.localeCompare(b.startDate));
+        const nextColor = SPRINT_PALETTE[next.length % SPRINT_PALETTE.length];
+        setSprintForm({ name: '', startDate: '', endDate: '', color: nextColor });
+        return next;
+      });
       setShowNewSprint(false);
       showToast(`Sprint "${s.name}" created`, 'success');
     } catch (err) { showToast((err as Error).message, 'error'); }
@@ -904,7 +920,7 @@ function CanvasInner() {
                       {sortedSprints.length === 0 && (
                         <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet — create one to start planning.</p>
                       )}
-                      {sortedSprints.map((s, i) => {
+                      {sortedSprints.map((s) => {
                         const isActive = selectedSprintFilter === s.id;
                         return (
                           <div
@@ -915,7 +931,7 @@ function CanvasInner() {
                             onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'var(--brand-subtle)' : 'transparent'; }}
                             onClick={() => { setSprintFilterSave(isActive ? null : s.id); setShowSprintPicker(false); }}
                           >
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: SPRINT_PALETTE[i % SPRINT_PALETTE.length], flexShrink: 0 }} />
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold truncate" style={{ color: isActive ? 'var(--brand)' : 'var(--text)' }}>{s.name}</p>
                               <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>
@@ -923,6 +939,14 @@ function CanvasInner() {
                               </p>
                             </div>
                             {isActive && <span style={{ color: 'var(--brand)', fontSize: 11, flexShrink: 0 }}>✓</span>}
+                            <button
+                              className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
+                              style={{ color: 'var(--text-3)' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
+                              onClick={(e) => { e.stopPropagation(); setEditingSprint(s); setEditSprintForm({ name: s.name, color: s.color }); setShowSprintPicker(false); }}
+                              title="Edit sprint"
+                            >✎</button>
                             <button
                               className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
                               style={{ color: 'var(--text-3)' }}
@@ -1114,9 +1138,9 @@ function CanvasInner() {
               {showSprintAura && sortedSprints.length > 0 && (
                 <div className="rounded-xl px-3 py-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
                   <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-3)' }}>Sprint map</p>
-                  {sortedSprints.map((s, i) => (
+                  {sortedSprints.map((s) => (
                     <div key={s.id} className="flex items-center gap-2 mb-1 last:mb-0">
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: SPRINT_PALETTE[i % SPRINT_PALETTE.length], flexShrink: 0 }} />
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
                       <span className="text-xs" style={{ color: 'var(--text-2)' }}>{s.name}</span>
                     </div>
                   ))}
@@ -1191,6 +1215,19 @@ function CanvasInner() {
                 <label className="label">Sprint name</label>
                 <input autoFocus required type="text" value={sprintForm.name} onChange={(e) => setSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" placeholder="e.g. Sprint 1, MVP, Beta…" />
               </div>
+              <div>
+                <label className="label">Colour</label>
+                <div className="flex gap-2 flex-wrap mt-1">
+                  {SPRINT_PALETTE.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setSprintForm((p) => ({ ...p, color: c }))}
+                      style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: sprintForm.color === c ? '3px solid var(--text)' : '2px solid transparent', outline: sprintForm.color === c ? '2px solid ' + c : 'none', outlineOffset: 2 }}
+                    />
+                  ))}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label">Start date</label><input required type="date" value={sprintForm.startDate} onChange={(e) => setSprintForm((p) => ({ ...p, startDate: e.target.value }))} className="input" /></div>
                 <div><label className="label">End date</label><input required type="date" value={sprintForm.endDate} onChange={(e) => setSprintForm((p) => ({ ...p, endDate: e.target.value }))} className="input" /></div>
@@ -1198,6 +1235,34 @@ function CanvasInner() {
               <div className="flex gap-3">
                 <button type="submit" className="btn-primary flex-1">Create sprint</button>
                 <button type="button" onClick={() => setShowNewSprint(false)} className="btn-secondary">Cancel</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {editingSprint && (
+          <Modal title="Edit sprint" onClose={() => setEditingSprint(null)} width="max-w-sm">
+            <form onSubmit={handleEditSprint} className="space-y-4">
+              <div>
+                <label className="label">Sprint name</label>
+                <input autoFocus required type="text" value={editSprintForm.name} onChange={(e) => setEditSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" />
+              </div>
+              <div>
+                <label className="label">Colour</label>
+                <div className="flex gap-2 flex-wrap mt-1">
+                  {SPRINT_PALETTE.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setEditSprintForm((p) => ({ ...p, color: c }))}
+                      style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: editSprintForm.color === c ? '3px solid var(--text)' : '2px solid transparent', outline: editSprintForm.color === c ? '2px solid ' + c : 'none', outlineOffset: 2 }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button type="submit" className="btn-primary flex-1">Save changes</button>
+                <button type="button" onClick={() => setEditingSprint(null)} className="btn-secondary">Cancel</button>
               </div>
             </form>
           </Modal>

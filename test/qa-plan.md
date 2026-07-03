@@ -311,10 +311,10 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ## Milestone 12 — Sprints
 
-- [ ] Create sprint (name, start, end dates)
-- [ ] Sprint filter on Kanban works; edit sprint name/dates
-- [ ] Add / remove tasks from sprint; delete sprint → tasks remain unassigned
-- [ ] Current sprint auto-selected on load
+- [X] Create sprint (name, start, end dates)
+- [X] Sprint filter on Kanban works; edit sprint name/dates
+- [X] Add / remove tasks from sprint; delete sprint → tasks remain unassigned
+- [X] Current sprint auto-selected on load
 
 ---
 

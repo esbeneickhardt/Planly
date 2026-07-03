@@ -223,6 +223,7 @@ model Sprint {
   id        String   @id @default(uuid())
   productId String
   name      String
+  color     String   @default("#7c3aed")
   startDate DateTime
   endDate   DateTime
   createdAt DateTime @default(now())

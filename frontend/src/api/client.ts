@@ -113,6 +113,7 @@ export interface Sprint {
   id: string;
   productId: string;
   name: string;
+  color: string;
   startDate: string;
   endDate: string;
   createdAt: string;
@@ -235,9 +236,9 @@ export const api = {
   sprints: {
     list: (productId: string) =>
       request<Sprint[]>(`/api/products/${productId}/sprints`),
-    create: (productId: string, data: { name: string; startDate: string; endDate: string; taskIds?: string[] }) =>
+    create: (productId: string, data: { name: string; startDate: string; endDate: string; color?: string; taskIds?: string[] }) =>
       request<Sprint>(`/api/products/${productId}/sprints`, { method: 'POST', body: json(data) }),
-    update: (productId: string, sprintId: string, data: { name?: string; startDate?: string; endDate?: string }) =>
+    update: (productId: string, sprintId: string, data: { name?: string; startDate?: string; endDate?: string; color?: string }) =>
       request<Sprint>(`/api/products/${productId}/sprints/${sprintId}`, { method: 'PATCH', body: json(data) }),
     delete: (productId: string, sprintId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/sprints/${sprintId}`, { method: 'DELETE' }),
