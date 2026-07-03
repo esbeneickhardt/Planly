@@ -326,9 +326,15 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
                 <button key={s.id} type="button"
                   onClick={() => setSprintIds((prev) => { const next = new Set(prev); if (next.has(s.id)) next.delete(s.id); else next.add(s.id); return next; })}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                  style={{ background: active ? 'var(--brand-subtle)' : 'var(--surface-2)', color: active ? 'var(--brand)' : 'var(--text-2)', border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}` }}
+                  style={{
+                    background: active ? `${s.color}22` : 'var(--surface-2)',
+                    color: active ? s.color : 'var(--text-2)',
+                    border: `1px solid ${active ? s.color : 'var(--border)'}`,
+                  }}
                 >
-                  ⚡ {s.name}{active && <span style={{ color: 'var(--brand)', fontSize: 10 }}>✓</span>}
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                  {s.name}
+                  {active && <span style={{ fontSize: 10 }}>✓</span>}
                 </button>
               );
             })}

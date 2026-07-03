@@ -22,14 +22,15 @@ export async function sprintRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/sprints', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const { name, startDate, endDate, taskIds } = req.body as {
-      name: string; startDate: string; endDate: string; taskIds?: string[];
+    const { name, startDate, endDate, color, taskIds } = req.body as {
+      name: string; startDate: string; endDate: string; color?: string; taskIds?: string[];
     };
     if (!name || !startDate || !endDate) return reply.status(400).send({ error: 'name, startDate, endDate required' });
 
     const sprint = await prisma.sprint.create({
       data: {
         productId, name,
+        color: color ?? '#7c3aed',
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         sprintTasks: taskIds?.length ? { create: taskIds.map((taskId) => ({ taskId })) } : undefined,
@@ -42,12 +43,13 @@ export async function sprintRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const { name, startDate, endDate } = req.body as { name?: string; startDate?: string; endDate?: string };
+    const { name, startDate, endDate, color } = req.body as { name?: string; startDate?: string; endDate?: string; color?: string };
     try {
       const sprint = await prisma.sprint.update({
         where: { id: sprintId, productId },
         data: {
           name,
+          color,
           startDate: startDate ? new Date(startDate) : undefined,
           endDate: endDate ? new Date(endDate) : undefined,
         },

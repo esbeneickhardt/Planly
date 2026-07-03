@@ -435,6 +435,7 @@ export default function KanbanBoard() {
         {sprints.length > 0 && (
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sprint</span>
+            {sprintFilter && (() => { const s = sprints.find((s) => s.id === sprintFilter); return s ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} /> : null; })()}
             <select
               value={sprintFilter ?? ''}
               onChange={(e) => setSprintFilterAndSave(e.target.value === '' ? null : e.target.value)}
