@@ -47,7 +47,7 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
       req.user = jwt.verify(cookieToken, process.env.JWT_SECRET!) as AuthPayload;
       return true;
     } catch {
-      // invalid/expired — fall through to Bearer check
+      // invalid/expired - fall through to Bearer check
     }
   }
 
@@ -67,7 +67,7 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
         return true;
       }
     } catch {
-      // DB error — fall through
+      // DB error - fall through
     }
   }
 

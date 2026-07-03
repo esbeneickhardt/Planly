@@ -213,10 +213,10 @@ export default function SearchModal({ onClose }: Props) {
               {/* Quick navigate */}
               <div className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Navigate</div>
               {[
-                { label: 'Plan — Canvas & Dependencies', path: '/canvas' },
-                { label: 'Execute — Kanban Board',       path: '/kanban' },
-                { label: 'Progress — Gantt & Milestones', path: '/gantt' },
-                { label: 'Tasks — Full task list',        path: '/backlog' },
+                { label: 'Plan - Canvas & Dependencies', path: '/canvas' },
+                { label: 'Execute - Kanban Board',       path: '/kanban' },
+                { label: 'Progress - Gantt & Milestones', path: '/gantt' },
+                { label: 'Tasks - Full task list',        path: '/backlog' },
               ].map((item) => (
                 <button
                   key={item.path}

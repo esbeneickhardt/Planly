@@ -4,25 +4,25 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 0 — Prerequisites
+## Milestone 0 - Prerequisites
 
-### Step 1 — Configure admin email (before first login)
+### Step 1 - Configure admin email (before first login)
 - [X] Edit `docker-compose.yml` → set `ADMIN_EMAIL: your@email.com` under backend environment
 - [X] Restart backend: `docker compose up -d backend`
-- [X] Check logs: `docker compose logs backend | grep '\[admin\]'` — look for the temporary password line
+- [X] Check logs: `docker compose logs backend | grep '\[admin\]'` - look for the temporary password line
 
-### Step 2 — First login as admin
+### Step 2 - First login as admin
 - [X] Log in with `ADMIN_EMAIL` and the temporary password from the logs
 - [X] Admin shield button `🛡` appears in the top-right bar (next to `?`, bell)
-- [X] You are immediately prompted to change your password — do so
+- [X] You are immediately prompted to change your password - do so
 
-### Step 3 — Enter admin mode
+### Step 3 - Enter admin mode
 - [X] Click the shield button → center nav switches to 6 admin tabs (Ownership, Users, Projects, Email, Audit Logs, Stats)
 - [X] Project dropdown shows "Admin" label
 - [X] Opening the project dropdown shows "Select a project to leave admin mode"
 - [X] Clicking a project in the dropdown exits admin mode and navigates to Kanban
 
-### Step 4 — Gmail SMTP setup
+### Step 4 - Gmail SMTP setup
 - [X] Go to myaccount.google.com → Security → 2-Step Verification → enable
 - [X] Security → App passwords → generate one for "Planly" → copy the 16-char code
 - [X] In Admin → Email Settings → fill in:
@@ -35,10 +35,10 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 1 — Auth & Onboarding
+## Milestone 1 - Auth & Onboarding
 
 ### Registration
-- [X] Register a new account — form validation works (empty fields, bad email, short password)
+- [X] Register a new account - form validation works (empty fields, bad email, short password)
 - [X] Duplicate email gives a clear error
 - [X] Duplicate username gives a clear error
 - [X] Successful registration redirects to the app
@@ -81,7 +81,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 2 — Admin Panel
+## Milestone 2 - Admin Panel
 
 ### Access control
 - [X] Non-admin users do NOT see the shield button in the top bar
@@ -92,7 +92,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 - [X] Shield button highlighted (brand colour, ring) when on `/admin`; neutral when not
 - [X] Clicking shield when NOT on `/admin` → navigates to `/admin`, center nav shows admin tabs
 - [X] Clicking shield when ON `/admin` → exits to `/kanban`
-- [X] Admin tabs: Ownership, Users, Projects, Email, Audit Logs, Stats — all load without error
+- [X] Admin tabs: Ownership, Users, Projects, Email, Audit Logs, Stats - all load without error
 - [X] URL search param `?tab=ownership` etc. drives the active tab
 
 ### Ownership tab
@@ -108,11 +108,11 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 - [X] Founding admin shows 👑, other admins show Admin badge
 - [X] Promote a regular user to admin → Admin badge appears
 - [X] Demote a regular admin → badge removed
-- [X] Cannot demote the last admin — clear error
-- [X] Cannot demote the founding admin — clear error
+- [X] Cannot demote the last admin - clear error
+- [X] Cannot demote the founding admin - clear error
 - [X] Force-verify an unverified user's email → badge updates
 - [X] Founding admin can delete a non-founding user → user removed from list
-- [X] Cannot delete yourself — clear error
+- [X] Cannot delete yourself - clear error
 
 ### Projects tab
 - [X] All server projects listed with owner, member count, task count
@@ -127,9 +127,9 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 - [X] "Require email verification" toggle only visible when email IS configured
 - [X] Turning on email verification:
   - [X] Sends a verification email to every user whose email has never been verified (`emailVerified = false`)
-  - [X] Already-verified users are unaffected — they keep access
+  - [X] Already-verified users are unaffected - they keep access
   - [X] Toast shows how many emails were sent (or "all existing users already verified")
-  - [X] If the admin's own email is unverified, the amber prompt appears: "Verify your email first — we sent a link to [email]"
+  - [X] If the admin's own email is unverified, the amber prompt appears: "Verify your email first - we sent a link to [email]"
   - [X] Any user who is logged in but unverified is kicked out on their next action
 - [X] Turning off email verification → unverified users can log in again immediately
 - [X] Re-enabling after some users have verified → only the still-unverified users receive a new email; previously verified users are untouched
@@ -169,7 +169,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 3 — Email Verification Enforcement
+## Milestone 3 - Email Verification Enforcement
 
 > Requires email to be configured and "Require email verification" turned on in Admin → Email Settings.
 
@@ -183,7 +183,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 4 — Whitelist Enforcement
+## Milestone 4 - Whitelist Enforcement
 
 > Requires "Enforce email whitelist" turned on and at least one pattern added.
 
@@ -193,12 +193,12 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 5 — Products & Teams
+## Milestone 5 - Products & Teams
 
 ### Creating products
 - [X] Create a product (name, emoji, description, deadline)
 - [X] Product appears in the project picker dropdown
-- [X] Create a second product — both appear, switching works
+- [X] Create a second product - both appear, switching works
 - [X] Active product shown in the project picker button
 
 ### Editing products
@@ -231,17 +231,17 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 6 — Kanban Board
+## Milestone 6 - Kanban Board
 
 ### Columns
 - [X] Create, rename, delete a column
-- [X] Drag columns to reorder — order persists after refresh
+- [X] Drag columns to reorder - order persists after refresh
 - [X] Deleting a column moves tasks to the first column
 
 ### Tasks
 - [X] Create a task (+ button / new task modal)
 - [X] Drag task to different column → status updates
-- [X] Drag tasks to reorder within a column — persists after refresh
+- [X] Drag tasks to reorder within a column - persists after refresh
 
 ### Per-column sort
 - [X] Click ⇅ → cycle through sort modes (Custom, Deadline, etc.)
@@ -249,7 +249,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 - [X] "Reset" returns to custom drag order
 
 ### Filters
-- [X] Filter by owner, colour dot, sprint — task count updates
+- [X] Filter by owner, colour dot, sprint - task count updates
 - [X] Multiple filters work together
 - [X] "↺ Reset" clears all filters
 
@@ -261,17 +261,17 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 7 — Task Detail Panel
+## Milestone 7 - Task Detail Panel
 
 - [X] Click a Kanban card → detail panel slides in
-- [X] Edit name, description, owner, deadline, colour, status — all save
+- [X] Edit name, description, owner, deadline, colour, status - all save
 - [X] Add, check, reorder, delete subtasks; progress count shown on card
 - [X] Unsaved change → close → "unsaved changes" prompt
 - [X] Delete task → removed from board, panel closes
 
 ---
 
-## Milestone 8 — Canvas (Plan view)
+## Milestone 8 - Canvas (Plan view)
 
 - [X] Double-click canvas → creates a new task node
 - [X] Drag to move; position persists after refresh
@@ -282,7 +282,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 9 — Gantt / Progress view
+## Milestone 9 - Gantt / Progress view
 
 - [X] Milestones appear as bars; colour reflects health (green / amber / red)
 - [X] Hover bar → popover with task list
@@ -291,7 +291,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 10 — Backlog
+## Milestone 10 - Backlog
 
 - [X] Tasks with no sprint appear; sprinted tasks do not
 - [X] Create task from backlog; assign to sprint
@@ -299,7 +299,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 11 — Chat & Messaging
+## Milestone 11 - Chat & Messaging
 
 - [X] Send, edit, delete messages in product chat
 - [X] Upload image → thumbnail; upload file → download link
@@ -309,7 +309,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 12 — Sprints
+## Milestone 12 - Sprints
 
 - [X] Create sprint (name, start, end dates)
 - [X] Sprint filter on Kanban works; edit sprint name/dates
@@ -318,7 +318,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 13 — Settings
+## Milestone 13 - Settings
 
 ### Team, Permissions, Colors, Ownership tabs
 - [ ] Members listed with correct roles; pending requests actionable
@@ -340,7 +340,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 14 — Integrations & Account
+## Milestone 14 - Integrations & Account
 
 - [ ] Create PAT, name it, set expiry → token shown once
 - [ ] Use PAT in curl → data returned; revoke → 401
@@ -349,7 +349,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 15 — Analytics
+## Milestone 15 - Analytics
 
 - [ ] Summary cards correct (active tasks, completed, cycle time, total)
 - [ ] Bar chart with period toggle 7d / 30d / 90d (90d = weekly buckets)
@@ -359,7 +359,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 16 — Notifications
+## Milestone 16 - Notifications
 
 - [ ] Assign task to another user → they get a notification
 - [ ] Bell shows unread badge; click → list; click notification → navigates to task
@@ -367,7 +367,7 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 17 — Search
+## Milestone 17 - Search
 
 - [ ] Open global search (Ctrl/Cmd+K or search button)
 - [ ] Type task name → results; type message snippet → results
@@ -375,26 +375,26 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ---
 
-## Milestone 18 — Account & Profile
+## Milestone 18 - Account & Profile
 
 - [ ] Edit display name, username, avatar emoji; upload profile photo
 - [ ] Change password (email/password accounts); SSO accounts cannot set a password
 
 ---
 
-## Milestone 19 — Export
+## Milestone 19 - Export
 
 - [ ] Export product data → download contains tasks, milestones, columns, sprints
 
 ---
 
-## Milestone 20 — Cross-cutting & Polish
+## Milestone 20 - Cross-cutting & Polish
 
 - [ ] Dark / light theme toggle; persists across refresh
 - [ ] Switching products resets board, canvas, and gantt correctly
 - [ ] All modals close on Escape and backdrop click
 - [ ] No JavaScript console errors during normal use
-- [ ] App usable at 1024 px width — no broken layouts
+- [ ] App usable at 1024 px width - no broken layouts
 - [ ] Long task names truncate cleanly
 - [ ] Empty states shown (no tasks / no products / no members)
 

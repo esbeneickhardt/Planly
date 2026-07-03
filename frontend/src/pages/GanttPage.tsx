@@ -23,7 +23,7 @@ function pct(date: Date, start: Date, end: Date): number {
   return Math.max(0, Math.min(1, (date.getTime() - start.getTime()) / total));
 }
 
-// Adaptive time markers — max ~15 labels regardless of zoom level
+// Adaptive time markers - max ~15 labels regardless of zoom level
 function getTimeMarkers(start: Date, end: Date): { date: Date; label: string }[] {
   const spanDays = (end.getTime() - start.getTime()) / 86_400_000;
   const MAX = 15;
@@ -76,7 +76,7 @@ export default function GanttPage() {
   const [viewStart, setViewStart] = useState<Date | null>(null);
   const [viewEnd, setViewEnd] = useState<Date | null>(null);
   const [hideDone, setHideDone] = useState(() => {
-    // no product id yet at init time — will be overwritten by the effect below
+    // no product id yet at init time - will be overwritten by the effect below
     return true;
   });
   const [isDragging, setIsDragging] = useState(false);
@@ -136,7 +136,7 @@ export default function GanttPage() {
         </p>
         {tasksWithoutDeadline > 0 && (
           <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
-            You have <strong style={{ color: 'var(--text-2)' }}>{tasksWithoutDeadline}</strong> task{tasksWithoutDeadline !== 1 ? 's' : ''} without a deadline — set one to create a milestone.
+            You have <strong style={{ color: 'var(--text-2)' }}>{tasksWithoutDeadline}</strong> task{tasksWithoutDeadline !== 1 ? 's' : ''} without a deadline - set one to create a milestone.
           </p>
         )}
         {tasks.length === 0 && (
@@ -297,7 +297,7 @@ export default function GanttPage() {
         </span>
       </div>
 
-      {/* Sticky column header — stays visible when the milestone list scrolls */}
+      {/* Sticky column header - stays visible when the milestone list scrolls */}
       <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         {/* Left: Milestone label + zoom controls */}
         <div className="flex-shrink-0 w-52 h-10 px-3 flex items-center justify-between" style={{ borderRight: '1px solid var(--border)' }}>
@@ -434,7 +434,7 @@ export default function GanttPage() {
                     {fillWidth > 0.5 && (
                       <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(fillWidth - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: color, opacity: 0.8 }} />
                     )}
-                    {/* Deadline marker — vertical line + diamond */}
+                    {/* Deadline marker - vertical line + diamond */}
                     {deadlinePct >= 0 && deadlinePct <= 100 && (
                       <div style={{ position: 'absolute', left: `${deadlinePct}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
                         <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: color, opacity: 0.6, transform: 'translateX(-50%)' }} />
@@ -442,7 +442,7 @@ export default function GanttPage() {
                       </div>
                     )}
 
-                    {/* Hover popover — flips above when near list bottom */}
+                    {/* Hover popover - flips above when near list bottom */}
                     {hoveredMilestone === m.id && m.dependencyList.length > 0 && (
                       <div
                         className="absolute z-30 rounded-xl shadow-xl p-3"
@@ -501,7 +501,7 @@ export default function GanttPage() {
                   </div>
                 )}
 
-                {/* Hover popover — milestone list (above the row) */}
+                {/* Hover popover - milestone list (above the row) */}
                 {hoveredProduct && milestones.length > 0 && (
                   <div
                     className="absolute z-30 rounded-xl shadow-xl p-3"

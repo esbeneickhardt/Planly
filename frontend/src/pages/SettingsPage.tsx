@@ -294,7 +294,7 @@ export default function SettingsPage() {
       <div className="px-6 pt-6 flex-shrink-0">
         <h1 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text)' }}>
           {activeProduct.emoji && <span className="mr-2">{activeProduct.emoji}</span>}
-          {activeProduct.name} — Settings
+          {activeProduct.name} - Settings
         </h1>
         {ownerMember && (
           <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
@@ -328,7 +328,7 @@ export default function SettingsPage() {
         {activeTab === 'team' && (
           <div className="max-w-2xl space-y-8">
 
-            {/* Project details — owner and co-owners only */}
+            {/* Project details - owner and co-owners only */}
             {canManage && (
               <div>
                 <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Project details</h2>
@@ -512,7 +512,7 @@ export default function SettingsPage() {
                   type="email"
                   value={newInviteEmail}
                   onChange={(e) => setNewInviteEmail(e.target.value)}
-                  placeholder="Email (optional — leave blank for a link only)"
+                  placeholder="Email (optional - leave blank for a link only)"
                   className="input text-sm flex-1 min-w-48"
                 />
                 <button
@@ -619,7 +619,7 @@ export default function SettingsPage() {
                 <div key={value} className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
                   <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-                    {label}{value === 'none' ? ' — hidden' : value === 'read' ? ' — view only' : ' — full access'}
+                    {label}{value === 'none' ? ' - hidden' : value === 'read' ? ' - view only' : ' - full access'}
                   </span>
                 </div>
               ))}
@@ -816,7 +816,7 @@ export default function SettingsPage() {
               {/* One-time reveal */}
               {revealedToken && (
                 <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Copy this token now — it will not be shown again.</p>
+                  <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Copy this token now - it will not be shown again.</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs break-all px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                       {revealedToken}
@@ -993,7 +993,7 @@ export default function SettingsPage() {
               {/* One-time secret reveal */}
               {revealedSecret && (
                 <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Save this secret — it will not be shown again.</p>
+                  <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Save this secret - it will not be shown again.</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs break-all px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                       {revealedSecret}

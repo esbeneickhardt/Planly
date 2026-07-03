@@ -88,7 +88,7 @@ export default function MembershipsModal({ onClose }: Props) {
   return (
     <Modal title="Memberships" onClose={onClose} width="max-w-md">
       <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-        Projects you belong to. Click "Leave" to exit a project — owners can transfer ownership or delete.
+        Projects you belong to. Click "Leave" to exit a project - owners can transfer ownership or delete.
       </p>
       {errorMsg && (
         <div className="mb-3 text-sm px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>

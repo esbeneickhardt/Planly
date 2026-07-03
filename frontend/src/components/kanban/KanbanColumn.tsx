@@ -121,7 +121,7 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
         className="rounded-xl overflow-hidden flex flex-col h-full"
         style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
       >
-        {/* Column header — drag handle for column reordering */}
+        {/* Column header - drag handle for column reordering */}
         <div
           className="px-3 pt-3 pb-2 flex-shrink-0"
           style={{ borderBottom: '1px solid var(--border)', cursor: isOverlay ? 'grabbing' : 'grab' }}
@@ -201,7 +201,7 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
               )}
             </div>
 
-            {/* Delete — only for non-completion columns */}
+            {/* Delete - only for non-completion columns */}
             {!column.isDone && (
               <button
                 onPointerDown={(e) => e.stopPropagation()}
@@ -238,7 +238,7 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
           className="group flex-1 p-2.5 space-y-2 min-h-28 rounded-b-xl transition-colors duration-150"
           style={{ background: isOver ? `${column.color}15` : 'transparent' }}
         >
-          {/* Quick-add form — pinned to top of column */}
+          {/* Quick-add form - pinned to top of column */}
           {!isOverlay && onAddTask && !readOnly && (
             addingTask ? (
               <div className="mb-1 rounded-lg overflow-hidden" style={{ border: `1px solid ${column.color}`, background: 'var(--surface)' }}>

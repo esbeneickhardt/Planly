@@ -21,7 +21,7 @@ export default function LoginPage() {
     // Show SSO error from callback redirect
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error');
-    if (err) setError(err === 'sso_state_mismatch' ? 'SSO session expired — please try again.' : 'SSO sign-in failed. Try again or use email/password.');
+    if (err) setError(err === 'sso_state_mismatch' ? 'SSO session expired - please try again.' : 'SSO sign-in failed. Try again or use email/password.');
   }, []);
 
   async function handleSubmit(e: FormEvent) {
@@ -101,7 +101,7 @@ export default function LoginPage() {
               <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
               {showResend && (
                 resendSent ? (
-                  <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>Verification email sent — check your inbox.</p>
+                  <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>Verification email sent - check your inbox.</p>
                 ) : (
                   <button
                     type="button"

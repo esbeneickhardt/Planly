@@ -90,7 +90,7 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
         style={{ width: 12, height: 12, background: 'var(--surface)', border: '2px solid var(--brand)', left: -7 }}
       />
 
-      {/* Sprint membership badge — shown read-only when a sprint is active */}
+      {/* Sprint membership badge - shown read-only when a sprint is active */}
       {inSprint && (
         <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, pointerEvents: 'none' }}>
           <div style={{
@@ -106,7 +106,7 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
       )}
 
       <div style={{ padding: '10px 12px', paddingRight: inSprint ? 34 : 12 }}>
-        {/* Status row — hidden in simple mode */}
+        {/* Status row - hidden in simple mode */}
         {!simpleMode && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
@@ -129,14 +129,14 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
           {data.name}
         </p>
 
-        {/* Milestone deadline — hidden in simple mode */}
+        {/* Milestone deadline - hidden in simple mode */}
         {!simpleMode && isMilestone && (
           <p style={{ fontSize: 10, marginTop: 4, color: isOverdue ? '#ef4444' : '#d97706', fontWeight: 600 }}>
             📅 {new Date(data.deadline!).toLocaleDateString()}
           </p>
         )}
 
-        {/* Owner — hidden in simple mode */}
+        {/* Owner - hidden in simple mode */}
         {!simpleMode && data.owner && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
             <span style={{ fontSize: 12 }}>{data.owner.avatarEmoji ?? '👤'}</span>

@@ -127,7 +127,7 @@ export interface ApiToken {
   lastUsedAt: string | null;
   expiresAt: string | null;
   createdAt: string;
-  /** Only present immediately after creation — never retrievable again */
+  /** Only present immediately after creation - never retrievable again */
   token?: string;
 }
 

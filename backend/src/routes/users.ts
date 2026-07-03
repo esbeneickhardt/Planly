@@ -7,12 +7,12 @@ import { config } from '../config/env';
 import { sendEmail } from '../utils/email';
 import { getServerConfig } from '../utils/server-config';
 
-// Public profile fields — never expose passwordHash
+// Public profile fields - never expose passwordHash
 const USER_SELF_SELECT = {
   id: true, username: true, email: true, realName: true,
   avatarEmoji: true, avatarUrl: true, phone: true, createdAt: true, emailVerified: true,
 };
-// Minimal fields for team member search — no email, phone, or createdAt
+// Minimal fields for team member search - no email, phone, or createdAt
 const USER_PUBLIC_SELECT = { id: true, username: true, avatarEmoji: true };
 
 export async function userRoutes(app: FastifyInstance) {
@@ -21,7 +21,7 @@ export async function userRoutes(app: FastifyInstance) {
     reply.send(await prisma.user.findMany({ select: USER_PUBLIC_SELECT, orderBy: { username: 'asc' } }));
   });
 
-  // Registration — public endpoint
+  // Registration - public endpoint
   app.post('/api/users', async (req, reply) => {
     const { username, email, password, realName, phone, avatarEmoji } = req.body as {
       username: string; email: string; password: string;
@@ -96,7 +96,7 @@ export async function userRoutes(app: FastifyInstance) {
           </div>`,
         });
       } catch {
-        // Non-fatal — user can request a new link later
+        // Non-fatal - user can request a new link later
       }
     }
 

@@ -19,7 +19,7 @@ export async function authRoutes(app: FastifyInstance) {
       where: { OR: [{ email: normalized }, { username: { equals: trimmed, mode: 'insensitive' } }] },
     });
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
-    if (!user.passwordHash) return reply.status(401).send({ error: 'This account uses SSO — please sign in via your identity provider.' });
+    if (!user.passwordHash) return reply.status(401).send({ error: 'This account uses SSO - please sign in via your identity provider.' });
 
     // Check lockout
     if (user.loginLockedUntil && user.loginLockedUntil > new Date()) {
@@ -47,7 +47,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.` });
     }
 
-    // Successful login — reset lockout state
+    // Successful login - reset lockout state
     if (user.failedLoginAttempts > 0 || user.loginLockedUntil) {
       await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, loginLockedUntil: null } });
     }

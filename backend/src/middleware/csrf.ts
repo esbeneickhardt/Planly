@@ -29,7 +29,7 @@ export async function csrfCheck(req: FastifyRequest, reply: FastifyReply) {
   if (!MUTATING_METHODS.has(req.method)) return;
 
   const origin = req.headers.origin;
-  if (!origin) return; // non-browser caller — allowed (API token auth)
+  if (!origin) return; // non-browser caller - allowed (API token auth)
 
   const allowed = normalizeOrigin(config.frontendOrigin);
   if (normalizeOrigin(origin) !== allowed) {

@@ -12,7 +12,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     reply.send({ enabled: emailEnabled });
   });
 
-  // Request password reset — sends email with link
+  // Request password reset - sends email with link
   app.post('/api/auth/forgot-password', async (req, reply) => {
     if (!emailEnabled) {
       return reply.status(503).send({ error: 'Email is not configured on this server. Ask your administrator to set up SMTP.' });
@@ -73,7 +73,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Public resend — for users who got logged out before they could verify (no auth required)
+  // Public resend - for users who got logged out before they could verify (no auth required)
   app.post('/api/auth/resend-verification', async (req, reply) => {
     const { email } = req.body as { email?: string };
     if (!email) return reply.status(400).send({ error: 'email required' });
@@ -129,7 +129,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     if (!newPassword || newPassword.length < 8) return reply.status(400).send({ error: 'New password must be at least 8 characters' });
     const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
     if (!user) return reply.status(404).send({ error: 'Not found' });
-    if (!user.passwordHash) return reply.status(400).send({ error: 'This account uses SSO — password cannot be changed here.' });
+    if (!user.passwordHash) return reply.status(400).send({ error: 'This account uses SSO - password cannot be changed here.' });
     // If mustChangePassword is set, skip current-password check (they can't know it)
     if (!user.mustChangePassword) {
       if (!currentPassword) return reply.status(400).send({ error: 'Current password required' });

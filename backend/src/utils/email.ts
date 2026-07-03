@@ -42,7 +42,7 @@ function buildTransporter(s: SmtpSettings) {
   });
 }
 
-// Legacy sync flag — still usable for startup-time checks (env vars only).
+// Legacy sync flag - still usable for startup-time checks (env vars only).
 export const emailEnabled = !!config.smtp.host;
 
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<boolean> {

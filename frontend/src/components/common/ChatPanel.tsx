@@ -380,7 +380,7 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
     return tasks.filter((t) => {
       if (q) return t.name.toLowerCase().includes(q);
       if (showAllTasks) return true;
-      // Default: show pinned, owned, mentioned — hide dismissed and done (unless pinned)
+      // Default: show pinned, owned, mentioned - hide dismissed and done (unless pinned)
       if (pinnedTaskIds.includes(t.id)) return true;
       if (dismissedTaskIds.includes(t.id)) return false;
       if (t.status === 'done') return false;
@@ -937,7 +937,7 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
       {!isExpanded && isSidebar && (
         <div onPointerDown={(e) => startResizeDir(e, 'w')} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }} />
       )}
-      {/* Header — drag handle */}
+      {/* Header - drag handle */}
       <div
         className="flex items-center justify-between px-4 py-3 flex-shrink-0 select-none"
         style={{ borderBottom: isMinimized ? 'none' : '1px solid var(--border)', cursor: isExpanded ? 'default' : 'grab' }}

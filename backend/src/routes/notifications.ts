@@ -23,7 +23,7 @@ export async function notificationRoutes(app: FastifyInstance) {
     });
   });
 
-  // Unread count — used for the notification bell badge
+  // Unread count - used for the notification bell badge
   app.get('/api/notifications/unread-count', { preHandler: requireAuth }, async (req, reply) => {
     const count = await prisma.notification.count({
       where: { userId: req.user.userId, read: false },

@@ -39,20 +39,20 @@ const PHASES = [
 ];
 
 const CONCEPTS = [
-  { term: 'Milestone', def: 'Any task with a deadline — visible on the canvas, Kanban progress bar, and Gantt timeline.' },
+  { term: 'Milestone', def: 'Any task with a deadline - visible on the canvas, Kanban progress bar, and Gantt timeline.' },
   { term: 'Final Product', def: 'The end goal at the bottom of all dependency chains. Milestone count tracks overall delivery.' },
   { term: 'Sprint', def: 'A time-boxed chunk of work. Pull tasks in from the Plan view and execute them on the board.' },
   { term: 'Dependencies', def: 'Arrows on the canvas that say "B can\'t start until A is done." Drives Gantt progress logic.' },
 ];
 
 const PRINCIPLES = [
-  { icon: '👤', heading: 'One owner per task', body: 'Accountability is unambiguous — no "the team owns it."' },
+  { icon: '👤', heading: 'One owner per task', body: 'Accountability is unambiguous - no "the team owns it."' },
   { icon: '💬', heading: 'Every task has its own chat', body: 'Discussions live with the task, not scattered across Slack.' },
   { icon: '→', heading: 'Tasks flow through states', body: 'Columns show work state, not org charts. The board shows reality.' },
   { icon: '⛓', heading: 'Dependencies are explicit', body: 'Blockers are visible before they become crises.' },
   { icon: '📌', heading: 'Milestones mark commitments', body: 'A milestone is a promise to a stakeholder, not just a grouping.' },
   { icon: '⚡', heading: 'Sprints are optional', body: 'Filter by "All sprints" if your team doesn\'t sprint.' },
-  { icon: '🔑', heading: 'Granular permissions', body: 'Per-tab, per-person access — external reviewers can view without editing.' },
+  { icon: '🔑', heading: 'Granular permissions', body: 'Per-tab, per-person access - external reviewers can view without editing.' },
   { icon: '📊', heading: 'Automation-friendly', body: 'Push tasks from spreadsheets, scripts, or CI via the REST API + tokens.' },
 ];
 
@@ -94,7 +94,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
         className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '92vh' }}
       >
-        {/* Header — fixed */}
+        {/* Header - fixed */}
         <div className="px-9 pt-7 pb-5 flex-shrink-0 flex items-start justify-between">
           <div className="flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
@@ -117,10 +117,10 @@ export default function PlanlyVisionModal({ onClose }: Props) {
         {/* Divider */}
         <div className="flex-shrink-0 mx-9" style={{ height: 1, background: 'var(--border)' }} />
 
-        {/* Content — scrollable on small screens */}
+        {/* Content - scrollable on small screens */}
         <div className="flex-1 overflow-y-auto px-9 py-6 min-h-0">
 
-          {/* Page 1 — The flow */}
+          {/* Page 1 - The flow */}
           {page === 0 && (
             <div className="space-y-0 relative">
               {/* Vertical connector */}
@@ -149,7 +149,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
             </div>
           )}
 
-          {/* Page 2 — Key concepts */}
+          {/* Page 2 - Key concepts */}
           {page === 1 && (
             <div className="space-y-3">
               {CONCEPTS.map(({ term, def }) => (
@@ -164,7 +164,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
             </div>
           )}
 
-          {/* Page 3 — Principles */}
+          {/* Page 3 - Principles */}
           {page === 2 && (
             <div className="grid grid-cols-2 gap-3">
               {PRINCIPLES.map(({ icon, heading, body }) => (
@@ -181,7 +181,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
 
         </div>
 
-        {/* Footer — fixed: dots + nav */}
+        {/* Footer - fixed: dots + nav */}
         <div className="flex-shrink-0 px-9 py-5 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
             {PAGES.map((_, i) => (

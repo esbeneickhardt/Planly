@@ -149,7 +149,7 @@ export default function AnalyticsPage() {
               {[
                 { label: 'Active tasks', value: data.totalActive, icon: '⚡', color: 'var(--brand)' },
                 { label: 'Completed', value: data.totalCompleted, icon: '✓', color: '#10b981' },
-                { label: 'Avg cycle time', value: data.cycleTimeAvgDays !== null ? `${data.cycleTimeAvgDays}d` : '—', icon: '⏱', color: '#f59e0b' },
+                { label: 'Avg cycle time', value: data.cycleTimeAvgDays !== null ? `${data.cycleTimeAvgDays}d` : '-', icon: '⏱', color: '#f59e0b' },
                 { label: 'Total tasks', value: data.totalActive + data.totalCompleted, icon: '☰', color: 'var(--text-3)' },
               ].map(({ label, value, icon, color }) => (
                 <div key={label} className="rounded-2xl p-4 flex flex-col gap-1" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>

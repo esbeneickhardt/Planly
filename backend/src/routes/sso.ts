@@ -112,7 +112,7 @@ export async function ssoRoutes(app: FastifyInstance) {
             ssoProvider: config.oidc.providerName,
             ssoSub: sub,
             emailVerified: true,
-            // passwordHash intentionally null — SSO users have no password
+            // passwordHash intentionally null - SSO users have no password
           },
         });
       } else if (!user.ssoSub) {

@@ -79,7 +79,7 @@ export default function BacklogPage() {
     await Promise.all(eligible.map((t) => api.tasks.update(activeProduct.id, t.id, { status: 'todo' })));
     await refreshTasks();
     setSelected(new Set());
-    if (skipped > 0) showToast(`${skipped} skipped — no owner assigned.`, 'info');
+    if (skipped > 0) showToast(`${skipped} skipped - no owner assigned.`, 'info');
     else showToast(`Moved ${eligible.length} task${eligible.length !== 1 ? 's' : ''} to To Do`, 'success');
   }
 
@@ -314,7 +314,7 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
         )}
       </td>
       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-3)' }}>
-        {task.subtasks.length > 0 ? `${done}/${task.subtasks.length}` : '—'}
+        {task.subtasks.length > 0 ? `${done}/${task.subtasks.length}` : '-'}
       </td>
       <td className="px-4 py-3 text-xs" style={{ color: isOverdue ? '#ef4444' : 'var(--text-3)' }}>
         {task.deadline ? (
@@ -322,7 +322,7 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
             {isOverdue && <span>⏰</span>}
             {new Date(task.deadline).toLocaleDateString()}
           </span>
-        ) : '—'}
+        ) : '-'}
       </td>
       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-3)' }}>
         {new Date(task.createdAt).toLocaleDateString()}

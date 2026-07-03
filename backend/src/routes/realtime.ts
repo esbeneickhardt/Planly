@@ -7,7 +7,7 @@ import { createHash } from 'crypto';
 import prisma from '../db/client';
 
 export async function realtimeRoutes(app: FastifyInstance) {
-  // WebSocket endpoint — clients subscribe to a product's event stream.
+  // WebSocket endpoint - clients subscribe to a product's event stream.
   // Auth: cookie JWT or Bearer token passed as ?token=<raw> query parameter.
   app.get('/api/products/:productId/ws', { websocket: true }, async (connection, req) => {
     const ws = connection.socket;

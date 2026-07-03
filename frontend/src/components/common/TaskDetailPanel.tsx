@@ -267,7 +267,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
                 : <code style={{ background: 'var(--surface-2)', padding: '1px 5px', borderRadius: 4, fontSize: 12 }}>{children}</code>,
             }}>{description}</ReactMarkdown>
           ) : (
-            <span className="text-xs italic" style={{ color: 'var(--text-3)' }}>No description — click to edit</span>
+            <span className="text-xs italic" style={{ color: 'var(--text-3)' }}>No description - click to edit</span>
           )}
         </div>
       ) : (
