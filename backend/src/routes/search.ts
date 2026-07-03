@@ -55,7 +55,7 @@ export async function searchRoutes(app: FastifyInstance) {
 
     reply.send({
       tasks: tasks.map((t) => ({ ...t, product: productMap[t.productId] })),
-      messages: messages.map((m) => ({ ...m, product: productMap[m.productId] })),
+      messages: messages.filter((m) => m.productId).map((m) => ({ ...m, product: productMap[m.productId!] })),
     });
   });
 }

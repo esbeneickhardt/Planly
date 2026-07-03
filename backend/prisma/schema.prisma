@@ -56,6 +56,7 @@ model User {
   canvasSnapshots     CanvasSnapshot[]
   tabPermissions      TabPermission[]
   messages            Message[]
+  messageReactions    MessageReaction[]
   ownedProducts       Product[]            @relation("ProductOwner")
   accessRequests      AccessRequest[]
   apiTokens           ApiToken[]           @relation("UserApiTokens")
@@ -245,20 +246,37 @@ model SprintTask {
 
 model Message {
   id          String    @id @default(uuid())
-  productId   String
+  productId   String?
   taskId      String?
   authorId    String
   content     String
   attachments Json      @default("[]")
+  isAdminChat Boolean   @default(false)
   createdAt   DateTime  @default(now())
   editedAt    DateTime?
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  task    Task?   @relation(fields: [taskId],    references: [id], onDelete: Cascade)
-  author  User    @relation(fields: [authorId],  references: [id], onDelete: Cascade)
+  product   Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  task      Task?             @relation(fields: [taskId],    references: [id], onDelete: Cascade)
+  author    User              @relation(fields: [authorId],  references: [id], onDelete: Cascade)
+  reactions MessageReaction[]
 
   @@index([productId])
   @@index([taskId])
+  @@index([isAdminChat])
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId],    references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 model TabPermission {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -15,6 +15,7 @@ interface Props {
   taskId?: string;
   taskName?: string;
   onClose: () => void;
+  isAdminChat?: boolean;
 }
 
 type Tab = 'messages' | 'tasks' | 'search' | 'files';
@@ -28,12 +29,17 @@ function formatTime(iso: string) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
+function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick, canEdit, onReact, currentUserId, reactionPickerOpen, onToggleReactionPicker }: {
   msg: Message;
   isOwn: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onImageClick: (url: string) => void;
+  canEdit: boolean;
+  onReact: (emoji: string) => void;
+  currentUserId: string | null;
+  reactionPickerOpen: boolean;
+  onToggleReactionPicker: () => void;
 }) {
   const renderContent = (content: string, isOwn: boolean) => (
     <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5 }}>
@@ -69,12 +75,19 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
     </div>
   );
 
+  const reactionGroups: Record<string, string[]> = {};
+  for (const r of (msg.reactions ?? [])) {
+    if (!reactionGroups[r.emoji]) reactionGroups[r.emoji] = [];
+    reactionGroups[r.emoji].push(r.userId);
+  }
+  const hasReactions = Object.keys(reactionGroups).length > 0;
+
   return (
     <div className={`flex gap-2.5 group ${isOwn ? 'flex-row-reverse' : ''}`}>
       <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-sm" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
         {msg.author.avatarEmoji ?? '👤'}
       </div>
-      <div className={`flex-1 min-w-0 ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
+      <div className={`flex-1 min-w-0 ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative`}>
         <div className={`flex items-baseline gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
           <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{msg.author.username}</span>
           <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
@@ -109,9 +122,53 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
             )}
           </div>
         )}
+
+        {/* Reactions row */}
+        <div className={`flex flex-wrap items-center gap-1 mt-1.5 ${isOwn ? 'justify-end' : ''}`}>
+          {Object.entries(reactionGroups).map(([emoji, userIds]) => {
+            const mine = currentUserId ? userIds.includes(currentUserId) : false;
+            return (
+              <button
+                key={emoji}
+                onClick={() => onReact(emoji)}
+                title={userIds.length > 3 ? userIds.join(', ') : undefined}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-colors"
+                style={{ background: mine ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${mine ? 'var(--brand)' : 'var(--border)'}`, color: mine ? 'var(--brand)' : 'var(--text-2)' }}
+              >
+                {emoji} <span>{userIds.length}</span>
+              </button>
+            );
+          })}
+          <button
+            onClick={onToggleReactionPicker}
+            className={`text-sm px-1.5 py-0.5 rounded-full transition-opacity ${hasReactions ? '' : 'opacity-0 group-hover:opacity-100'}`}
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)', lineHeight: 1 }}
+            title="Add reaction"
+          >😊+</button>
+        </div>
+
+        {/* Emoji picker for reactions */}
+        {reactionPickerOpen && (
+          <div
+            className="absolute z-50 p-2 rounded-xl shadow-xl"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', bottom: '100%', [isOwn ? 'right' : 'left']: 0, marginBottom: 2 }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 28px)', gap: 2 }}>
+              {EMOJI_SET.map((e) => (
+                <button key={e} onClick={() => { onReact(e); onToggleReactionPicker(); }}
+                  className="flex items-center justify-center rounded hover:bg-[--surface-2] transition-colors text-base"
+                  style={{ width: 28, height: 28 }}>
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Edit / delete actions */}
         {isOwn && (
           <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={onEdit} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-3)' }}>Edit</button>
+            {canEdit && <button onClick={onEdit} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-3)' }}>Edit</button>}
             <button onClick={onDelete} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#ef4444' }}>Delete</button>
           </div>
         )}
@@ -119,6 +176,15 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
     </div>
   );
 }
+
+const EDIT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+const EMOJI_SET = [
+  '👍','👎','❤️','😂','🎉','🔥','👀','💯','✅','⭐',
+  '😀','😊','😍','🥰','😎','🤔','😅','😮','😢','🤩',
+  '👋','🤝','👏','🙏','💪','🫡','✌️','👌','🤙','🤗',
+  '🚀','⚡','🎯','🏆','💎','📌','💡','⚠️','📝','🔍',
+];
 
 const PINS_KEY = (productId: string) => `planly_pinned_chats_${productId}`;
 const DISMISSED_KEY = (productId: string) => `planly_dismissed_chats_${productId}`;
@@ -136,7 +202,7 @@ function saveDismissed(productId: string, ids: string[]) {
   localStorage.setItem(DISMISSED_KEY(productId), JSON.stringify(ids));
 }
 
-export default function ChatPanel({ taskId, taskName, onClose }: Props) {
+export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = false }: Props) {
   const { activeProduct, tasks } = useProduct();
   const { user } = useAuth();
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -144,6 +210,28 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
   const [selectedTask, setSelectedTask] = useState<{ id: string; name: string } | null>(null);
   const [openedTask, setOpenedTask] = useState<Task | null>(null);
   const [openingTask, setOpeningTask] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isSidebar, setIsSidebar] = useState(() => { try { return localStorage.getItem('planly-chat-sidebar') === 'true'; } catch { return false; } });
+  const [panelWidth, setPanelWidth] = useState(() => { try { return parseInt(localStorage.getItem('planly-chat-width') ?? '380'); } catch { return 380; } });
+  const [panelHeight, setPanelHeight] = useState(() => { try { return parseInt(localStorage.getItem('planly-chat-height') ?? '560'); } catch { return 560; } });
+  const [chatPos, setChatPos] = useState<{ x: number; y: number }>(() => {
+    try { const s = localStorage.getItem('planly-chat-pos'); if (s) return JSON.parse(s); } catch {}
+    const w = parseInt(localStorage.getItem('planly-chat-width') ?? '380');
+    return { x: Math.max(8, window.innerWidth - w - 16), y: 64 };
+  });
+  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
+  const [showComposePicker, setShowComposePicker] = useState(false);
+  const [showMarkdownHelp, setShowMarkdownHelp] = useState(false);
+  const panelWidthRef = useRef(panelWidth);
+  panelWidthRef.current = panelWidth;
+  const panelHeightRef = useRef(panelHeight);
+  panelHeightRef.current = panelHeight;
+  const chatPosRef = useRef(chatPos);
+  chatPosRef.current = chatPos;
+  const isSidebarRef = useRef(isSidebar);
+  isSidebarRef.current = isSidebar;
+  const headerDragRef = useRef<{ startX: number; startY: number; px: number; py: number } | null>(null);
 
   // Compose state
   const [draft, setDraft] = useState('');
@@ -174,18 +262,19 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
   const textRef = useRef<HTMLTextAreaElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const panelRight = taskId ? 448 : 0;
+
   const productId = activeProduct?.id;
   const sendTaskId = taskId ?? (tab === 'tasks' && selectedTask ? selectedTask.id : undefined);
 
-  // Load team members for @ mentions
+  // Load team members for @ mentions (not applicable in admin chat)
   useEffect(() => {
+    if (isAdminChat) return;
     const teamId = activeProduct?.teamId;
     if (!teamId) return;
     api.teams.get(teamId)
       .then((team) => setTeamMembers(team.members.map((m) => m.user)))
       .catch(() => {});
-  }, [activeProduct?.teamId]);
+  }, [isAdminChat, activeProduct?.teamId]);
 
   // Clear messages immediately when product changes (prevents stale cross-product data)
   useEffect(() => {
@@ -225,14 +314,19 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
   }, [productId]);
 
   const load = useCallback(async () => {
-    if (!productId) return;
     try {
-      const msgs = taskId
-        ? await api.messages.list(productId, taskId)
-        : await api.messages.listAll(productId);
-      setAllMessages(msgs);
+      if (isAdminChat) {
+        const msgs = await api.adminChat.list();
+        setAllMessages(msgs);
+      } else {
+        if (!productId) return;
+        const msgs = taskId
+          ? await api.messages.list(productId, taskId)
+          : await api.messages.listAll(productId);
+        setAllMessages(msgs);
+      }
     } catch {}
-  }, [productId, taskId]);
+  }, [isAdminChat, productId, taskId]);
 
   useEffect(() => {
     load();
@@ -378,10 +472,13 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
   }
 
   async function send() {
-    if ((!draft.trim() && attachments.length === 0) || !productId) return;
+    if (!draft.trim() && attachments.length === 0) return;
+    if (!isAdminChat && !productId) return;
     setSending(true);
     try {
-      const msg = await api.messages.create(productId, { content: draft.trim(), taskId: sendTaskId, attachments });
+      const msg = isAdminChat
+        ? await api.adminChat.create({ content: draft.trim(), attachments })
+        : await api.messages.create(productId!, { content: draft.trim(), taskId: sendTaskId, attachments });
       setAllMessages((prev) => [...prev, msg]);
       setDraft('');
       setAttachments([]);
@@ -419,17 +516,122 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
   }
 
   async function saveEdit(id: string) {
-    if (!productId || !editDraft.trim()) return;
-    const updated = await api.messages.update(productId, id, editDraft.trim());
+    if (!editDraft.trim()) return;
+    if (!isAdminChat && !productId) return;
+    const updated = isAdminChat
+      ? await api.adminChat.update(id, editDraft.trim())
+      : await api.messages.update(productId!, id, editDraft.trim());
     setAllMessages((prev) => prev.map((m) => (m.id === id ? updated : m)));
     setEditingId(null);
   }
 
   async function deleteMsg(id: string) {
-    if (!productId || !confirm('Delete this message?')) return;
-    await api.messages.delete(productId, id);
+    if (!confirm('Delete this message?')) return;
+    if (!isAdminChat && !productId) return;
+    if (isAdminChat) {
+      await api.adminChat.delete(id);
+    } else {
+      await api.messages.delete(productId!, id);
+    }
     setAllMessages((prev) => prev.filter((m) => m.id !== id));
   }
+
+  const startResizeDir = useCallback((e: React.PointerEvent, dir: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sx = chatPosRef.current.x, sy = chatPosRef.current.y;
+    const sw = panelWidthRef.current, sh = panelHeightRef.current;
+    const startX = e.clientX, startY = e.clientY;
+    function onMove(ev: PointerEvent) {
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      let newW = sw, newH = sh, newX = sx, newY = sy;
+      if (dir.includes('e')) newW = Math.max(300, Math.min(1200, sw + dx));
+      if (dir.includes('w')) {
+        newW = Math.max(300, Math.min(1200, sw - dx));
+        if (!isSidebarRef.current) newX = sx + sw - newW;
+      }
+      if (dir.includes('s')) newH = Math.max(200, Math.min(window.innerHeight - 40, sh + dy));
+      if (dir.includes('n')) { newH = Math.max(200, Math.min(window.innerHeight - 40, sh - dy)); newY = sy + sh - newH; }
+      newX = Math.max(0, Math.min(window.innerWidth - newW, newX));
+      newY = Math.max(0, newY);
+      setPanelWidth(newW); panelWidthRef.current = newW;
+      setPanelHeight(newH); panelHeightRef.current = newH;
+      if (!isSidebarRef.current) setChatPos({ x: newX, y: newY });
+    }
+    function onUp() {
+      try {
+        localStorage.setItem('planly-chat-width', String(panelWidthRef.current));
+        localStorage.setItem('planly-chat-height', String(panelHeightRef.current));
+        localStorage.setItem('planly-chat-pos', JSON.stringify(chatPosRef.current));
+      } catch {}
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
+
+  const onHeaderDrag = useCallback((e: React.PointerEvent) => {
+    if ((e.target as Element).closest('button')) return;
+    e.preventDefault();
+    const startPX = isSidebarRef.current ? window.innerWidth - panelWidthRef.current : chatPosRef.current.x;
+    const startPY = isSidebarRef.current ? 0 : chatPosRef.current.y;
+    headerDragRef.current = { startX: e.clientX, startY: e.clientY, px: startPX, py: startPY };
+    function onMove(ev: PointerEvent) {
+      if (!headerDragRef.current) return;
+      const x = Math.max(0, Math.min(window.innerWidth - panelWidthRef.current, headerDragRef.current.px + (ev.clientX - headerDragRef.current.startX)));
+      const y = Math.max(0, Math.min(window.innerHeight - 56, headerDragRef.current.py + (ev.clientY - headerDragRef.current.startY)));
+      // Undock from sidebar if dragged away from right edge
+      if (isSidebarRef.current && x + panelWidthRef.current < window.innerWidth - 40) {
+        setIsSidebar(false); isSidebarRef.current = false;
+        try { localStorage.setItem('planly-chat-sidebar', 'false'); } catch {}
+      }
+      setChatPos({ x, y });
+    }
+    function onUp() {
+      // Snap to sidebar if released near right edge
+      const pos = chatPosRef.current;
+      if (!isSidebarRef.current && pos.x + panelWidthRef.current >= window.innerWidth - 40) {
+        setIsSidebar(true); isSidebarRef.current = true;
+        try { localStorage.setItem('planly-chat-sidebar', 'true'); } catch {}
+      }
+      try { localStorage.setItem('planly-chat-pos', JSON.stringify(chatPosRef.current)); } catch {}
+      headerDragRef.current = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
+
+  async function toggleReaction(messageId: string, emoji: string) {
+    if (!isAdminChat && !productId) return;
+    const userId = user?.id ?? '';
+    setAllMessages((prev) => prev.map((m) => {
+      if (m.id !== messageId) return m;
+      const mine = m.reactions.find((r) => r.emoji === emoji && r.userId === userId);
+      return { ...m, reactions: mine ? m.reactions.filter((r) => !(r.emoji === emoji && r.userId === userId)) : [...m.reactions, { emoji, userId, messageId }] };
+    }));
+    try {
+      const { reactions } = isAdminChat
+        ? await api.adminChat.toggleReaction(messageId, emoji)
+        : await api.messages.toggleReaction(productId!, messageId, emoji);
+      setAllMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, reactions } : m));
+    } catch { /* revert handled by next poll */ }
+  }
+
+  useEffect(() => {
+    if (!reactionPickerFor && !showComposePicker) return;
+    function onDown(e: MouseEvent) {
+      const el = e.target as Element;
+      if (!el.closest('[data-emoji-picker]')) {
+        setReactionPickerFor(null);
+        setShowComposePicker(false);
+      }
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [reactionPickerFor, showComposePicker]);
 
   async function handleDeleteFile(url: string) {
     if (!confirm('Delete this file? It will no longer be accessible from chat messages.')) return;
@@ -483,6 +685,81 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
           </div>
         )}
 
+        {/* Compose emoji picker */}
+        {showComposePicker && (
+          <div data-emoji-picker className="absolute left-4 bottom-full mb-1 z-50 p-2 rounded-xl shadow-xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 28px)', gap: 2 }}>
+              {EMOJI_SET.map((e) => (
+                <button key={e}
+                  onMouseDown={(ev) => {
+                    ev.preventDefault();
+                    const ta = textRef.current;
+                    if (ta) {
+                      const start = ta.selectionStart ?? draft.length;
+                      const end = ta.selectionEnd ?? draft.length;
+                      const next = draft.slice(0, start) + e + draft.slice(end);
+                      setDraft(next);
+                      requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(start + e.length, start + e.length); });
+                    } else {
+                      setDraft((d) => d + e);
+                    }
+                    setShowComposePicker(false);
+                  }}
+                  className="flex items-center justify-center rounded text-base"
+                  style={{ width: 28, height: 28 }}>
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Markdown cheatsheet */}
+        {showMarkdownHelp && (
+          <div
+            className="absolute left-0 right-0 bottom-full mb-1 z-50 rounded-xl shadow-xl overflow-y-auto"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: 380 }}
+          >
+            <div className="flex items-center justify-between px-4 py-2.5 sticky top-0" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>Markdown reference</span>
+              <button onClick={() => setShowMarkdownHelp(false)} className="text-xs" style={{ color: 'var(--text-3)' }}>✕</button>
+            </div>
+            <div className="p-4 space-y-4">
+              {([
+                ['Headings', '# H1\n## H2\n### H3'],
+                ['Bold / Italic / Strike', '**bold**   *italic*   ~~strike~~'],
+                ['Inline code', '`code here`'],
+                ['Code block', '```python\ndef hello():\n    return "world"\n```'],
+                ['Link', '[link text](https://example.com)'],
+                ['Image', '![alt text](https://example.com/img.png)'],
+                ['Unordered list', '- Item one\n- Item two\n  - Nested'],
+                ['Ordered list', '1. First\n2. Second\n3. Third'],
+                ['Blockquote', '> This is a quote\n> spanning two lines'],
+                ['Table', '| Name   | Value |\n|--------|-------|\n| Alpha  | 1     |\n| Beta   | 2     |'],
+                ['Horizontal rule', '---'],
+              ] as [string, string][]).map(([label, syntax]) => (
+                <div key={label}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-3)' }}>{label}</p>
+                  <pre
+                    className="text-xs rounded-lg px-3 py-2 select-all cursor-pointer"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)', fontFamily: 'monospace', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
+                    onClick={() => {
+                      const ta = textRef.current;
+                      if (!ta) return;
+                      const ins = '\n' + syntax;
+                      const pos = ta.selectionEnd ?? draft.length;
+                      setDraft((d) => d.slice(0, pos) + ins + d.slice(pos));
+                      setShowMarkdownHelp(false);
+                      requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(pos + ins.length, pos + ins.length); });
+                    }}
+                    title="Click to insert"
+                  >{syntax}</pre>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-1 mb-2">
           <button
             onClick={() => setPreview((v) => !v)}
@@ -490,11 +767,23 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
             style={{ background: preview ? 'var(--brand-subtle)' : 'var(--surface-2)', color: preview ? 'var(--brand)' : 'var(--text-3)' }}
           >MD preview</button>
           <button
+            data-emoji-picker
+            onClick={() => setShowComposePicker((v) => !v)}
+            className="text-xs px-2 py-0.5 rounded-md transition-colors"
+            style={{ background: showComposePicker ? 'var(--brand-subtle)' : 'var(--surface-2)', color: showComposePicker ? 'var(--brand)' : 'var(--text-2)' }}
+          >😊</button>
+          <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             className="text-xs px-2 py-0.5 rounded-md transition-colors"
             style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
           >{uploading ? '⏳' : '📎'} Attach</button>
+          <button
+            onClick={() => setShowMarkdownHelp((v) => !v)}
+            className="text-xs px-2 py-0.5 rounded-md transition-colors font-medium"
+            style={{ background: showMarkdownHelp ? 'var(--brand-subtle)' : 'var(--surface-2)', color: showMarkdownHelp ? 'var(--brand)' : 'var(--text-3)' }}
+            title="Markdown reference"
+          >ℹ</button>
         </div>
 
         {preview ? (
@@ -574,13 +863,20 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
                   </div>
                 </div>
               ) : (
+                <div data-emoji-picker>
                 <MessageBubble
                   msg={msg}
                   isOwn={isOwn}
                   onEdit={() => { setEditingId(msg.id); setEditDraft(msg.content); }}
                   onDelete={() => deleteMsg(msg.id)}
                   onImageClick={setLightboxUrl}
+                  canEdit={Date.now() - new Date(msg.createdAt).getTime() < EDIT_TIMEOUT_MS}
+                  onReact={(emoji) => toggleReaction(msg.id, emoji)}
+                  currentUserId={user?.id ?? null}
+                  reactionPickerOpen={reactionPickerFor === msg.id}
+                  onToggleReactionPicker={() => setReactionPickerFor((v) => v === msg.id ? null : msg.id)}
                 />
+              </div>
               )}
             </div>
           );
@@ -590,33 +886,84 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
     );
   }
 
-  const projectMsgCount = allMessages.filter((m) => !m.taskId).length;
   const taskThreadCount = taskMessageCounts.size;
+
+  const ExpandIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="8,1 12,1 12,5" /><polyline points="5,12 1,12 1,8" />
+      <line x1="12" y1="1" x2="7" y2="6" /><line x1="1" y1="12" x2="6" y2="7" />
+    </svg>
+  );
+  const CollapseIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="12,8 12,12 8,12" /><polyline points="1,5 1,1 5,1" />
+      <line x1="7" y1="7" x2="12" y2="12" /><line x1="1" y1="1" x2="6" y2="6" />
+    </svg>
+  );
+
+  const headerBtn = (title: string, onClick: () => void, icon: React.ReactNode) => (
+    <button title={title} onClick={onClick}
+      className="w-7 h-7 flex items-center justify-center rounded-lg text-sm flex-shrink-0"
+      style={{ color: 'var(--text-3)' }}
+      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}>
+      {icon}
+    </button>
+  );
 
   return (
     <div
-      className="fixed top-0 h-full z-[60] flex flex-col"
-      style={{ width: 420, right: panelRight, background: 'var(--surface)', borderLeft: '1px solid var(--border)', borderRight: panelRight > 0 ? '1px solid var(--border)' : 'none', boxShadow: '-12px 0 40px rgba(0,0,0,0.18)' }}
+      className="fixed flex flex-col"
+      style={isExpanded
+        ? { inset: 0, zIndex: 100, background: 'var(--surface)' }
+        : isSidebar
+        ? { top: 0, right: 0, bottom: 0, zIndex: 60, width: panelWidth, background: 'var(--surface)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 40px rgba(0,0,0,0.22)', overflow: 'hidden' }
+        : { left: chatPos.x, top: chatPos.y, zIndex: 60, width: panelWidth, height: isMinimized ? 'auto' : panelHeight, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.28)', overflow: 'hidden' }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+      {/* Resize handles */}
+      {!isExpanded && !isSidebar && (
+        <>
+          <div onPointerDown={(e) => startResizeDir(e, 'n')}  style={{ position: 'absolute', top: 0,    left: 12,   right: 12,  height: 5, cursor: 'n-resize',  zIndex: 10 }} />
+          <div onPointerDown={(e) => startResizeDir(e, 's')}  style={{ position: 'absolute', bottom: 0, left: 12,   right: 12,  height: 5, cursor: 's-resize',  zIndex: 10 }} />
+          <div onPointerDown={(e) => startResizeDir(e, 'e')}  style={{ position: 'absolute', top: 12,   right: 0,   bottom: 12, width: 5,  cursor: 'e-resize',  zIndex: 10 }} />
+          <div onPointerDown={(e) => startResizeDir(e, 'w')}  style={{ position: 'absolute', top: 12,   left: 0,    bottom: 12, width: 5,  cursor: 'w-resize',  zIndex: 10 }} />
+          <div onPointerDown={(e) => startResizeDir(e, 'nw')} style={{ position: 'absolute', top: 0,    left: 0,    width: 12,  height: 12, cursor: 'nw-resize', zIndex: 11 }} />
+          <div onPointerDown={(e) => startResizeDir(e, 'ne')} style={{ position: 'absolute', top: 0,    right: 0,   width: 12,  height: 12, cursor: 'ne-resize', zIndex: 11 }} />
+          <div onPointerDown={(e) => startResizeDir(e, 'sw')} style={{ position: 'absolute', bottom: 0, left: 0,    width: 12,  height: 12, cursor: 'sw-resize', zIndex: 11 }} />
+          <div onPointerDown={(e) => startResizeDir(e, 'se')} style={{ position: 'absolute', bottom: 0, right: 0,   width: 12,  height: 12, cursor: 'se-resize', zIndex: 11 }} />
+        </>
+      )}
+      {/* Sidebar mode: left-edge resize only */}
+      {!isExpanded && isSidebar && (
+        <div onPointerDown={(e) => startResizeDir(e, 'w')} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }} />
+      )}
+      {/* Header — drag handle */}
+      <div
+        className="flex items-center justify-between px-4 py-3 flex-shrink-0 select-none"
+        style={{ borderBottom: isMinimized ? 'none' : '1px solid var(--border)', cursor: isExpanded ? 'default' : 'grab' }}
+        onPointerDown={isExpanded ? undefined : onHeaderDrag}
+      >
         <div className="min-w-0">
           <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
-            💬 {taskName ? 'Task chat' : 'Project chat'}
+            💬 {isAdminChat ? 'Admin chat' : taskName ? 'Task chat' : 'Project chat'}
           </h2>
-          {taskName && <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-3)', maxWidth: 260 }}>{taskName}</p>}
+          {taskName && !isMinimized && <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-3)', maxWidth: 260 }}>{taskName}</p>}
         </div>
-        <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-sm flex-shrink-0" style={{ color: 'var(--text-3)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}>✕</button>
+        <div className="flex items-center gap-1">
+          {!isExpanded && headerBtn(isMinimized ? 'Restore' : 'Minimise', () => setIsMinimized((v) => !v), isMinimized ? '▲' : '−')}
+          {headerBtn(isExpanded ? 'Exit fullscreen' : 'Fullscreen', () => { setIsExpanded((v) => !v); setIsMinimized(false); }, isExpanded ? <CollapseIcon /> : <ExpandIcon />)}
+          {headerBtn('Close', onClose, '✕')}
+        </div>
       </div>
+
+      {!isMinimized && <>
 
       {/* Tabs */}
       <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
-        {tabBtn('messages', `Messages${projectMsgCount > 0 ? ` (${projectMsgCount})` : ''}`)}
-        {!taskId && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`)}
+        {tabBtn('messages', 'Messages')}
+        {!taskId && !isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`)}
         {tabBtn('search', 'Search')}
-        {tabBtn('files', `Files${allAttachments.length > 0 ? ` (${allAttachments.length})` : ''}`)}
+        {tabBtn('files', 'Files')}
       </div>
 
       {/* ── Messages tab ── */}
@@ -628,7 +975,7 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
       )}
 
       {/* ── Tasks tab ── */}
-      {tab === 'tasks' && !taskId && (
+      {tab === 'tasks' && !taskId && !isAdminChat && (
         selectedTask ? (
           <>
             <div className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -916,7 +1263,7 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
         </div>
       )}
 
-      <input ref={fileRef} type="file" multiple accept="image/*,.pdf,.txt,.csv,.zip" className="hidden" onChange={handleFileChange} />
+      <input ref={fileRef} type="file" multiple accept="image/*,.svg,.pdf,.txt,.md,.csv,.json,.zip,.docx,.xlsx,.pptx,.doc,.xls" className="hidden" onChange={handleFileChange} />
 
       {/* Task detail panel opened via "Open task →" */}
       {openedTask && (
@@ -960,6 +1307,8 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
           >↓ Download</a>
         </div>
       )}
+
+      </>}
     </div>
   );
 }

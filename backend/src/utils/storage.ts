@@ -34,9 +34,19 @@ const ALLOWED_MIME_TYPES: Record<string, string> = {
   'image/png': 'png',
   'image/gif': 'gif',
   'image/webp': 'webp',
+  'image/svg+xml': 'svg',
   'application/pdf': 'pdf',
   'text/plain': 'txt',
   'text/markdown': 'md',
+  'text/csv': 'csv',
+  'application/json': 'json',
+  'application/zip': 'zip',
+  'application/x-zip-compressed': 'zip',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'application/msword': 'doc',
+  'application/vnd.ms-excel': 'xls',
 };
 
 export { ALLOWED_MIME_TYPES };
@@ -98,8 +108,14 @@ export async function getFileBuffer(filename: string): Promise<Buffer> {
 
 const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-  gif: 'image/gif', webp: 'image/webp', pdf: 'application/pdf',
-  txt: 'text/plain', md: 'text/plain',
+  gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+  pdf: 'application/pdf',
+  txt: 'text/plain', md: 'text/plain', csv: 'text/csv', json: 'application/json',
+  zip: 'application/zip',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  doc: 'application/msword', xls: 'application/vnd.ms-excel',
 };
 
 export function mimeFromExt(ext: string): string {

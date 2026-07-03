@@ -148,7 +148,7 @@ interface NewProductForm { name: string; emoji: string; description: string; dea
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpen }: { onOpenSearch: () => void; onOpenChat: () => void; onOpenVision: () => void; chatOpen?: boolean }) {
+export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpen, chatIsAdmin }: { onOpenSearch: () => void; onOpenChat: () => void; onOpenVision: () => void; chatOpen?: boolean; chatIsAdmin?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -383,18 +383,21 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             </button>
           )}
 
-          {/* Project chat */}
+          {/* Chat — in admin mode always brand-colored and opens admin chat */}
           <button
             onClick={onOpenChat}
-            className="w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+            className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
             style={{
-              color: chatOpen ? 'var(--brand)' : 'var(--text-3)',
-              background: chatOpen ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              border: chatOpen ? '1px solid var(--brand)' : '1px solid transparent',
+              color: (chatIsAdmin || chatOpen) ? 'var(--brand)' : 'var(--text-3)',
+              background: (chatIsAdmin || chatOpen) ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              border: `1px solid ${(chatIsAdmin || chatOpen) ? 'var(--brand)' : 'transparent'}`,
             }}
-            title="Project chat"
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = chatOpen ? 'var(--brand)' : 'var(--text-3)')}
+            title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = (chatIsAdmin || chatOpen) ? 'var(--brand)' : 'var(--text-3)';
+              e.currentTarget.style.borderColor = (chatIsAdmin || chatOpen) ? 'var(--brand)' : 'transparent';
+            }}
           >
             <ChatIcon />
           </button>

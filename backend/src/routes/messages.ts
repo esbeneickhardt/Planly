@@ -6,22 +6,18 @@ import { requireProductMember } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { broadcast } from '../realtime/manager';
 import { logActivity } from '../utils/activity';
-import { storeFile, getFileBuffer, deleteFile, fileExtFromMime, generateFilename, mimeFromExt } from '../utils/storage';
+import { storeFile, getFileBuffer, deleteFile, fileExtFromMime, generateFilename, mimeFromExt, ALLOWED_MIME_TYPES } from '../utils/storage';
 
 const AUTHOR_SELECT = { id: true, username: true, avatarEmoji: true };
+const MSG_INCLUDE = {
+  author: { select: AUTHOR_SELECT },
+  task: { select: { id: true, name: true } },
+  reactions: { select: { emoji: true, userId: true } },
+} as const;
 
-const ALLOWED_MIME_TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/gif': 'gif',
-  'image/webp': 'webp',
-  'application/pdf': 'pdf',
-  'text/plain': 'txt',
-  'text/markdown': 'md',
-};
 
 export async function messageRoutes(app: FastifyInstance) {
-  await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+  await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
   // Upload file — returns a URL that can be embedded in messages
   app.post('/api/upload', { preHandler: requireAuth }, async (req, reply) => {
@@ -70,7 +66,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const where = all === 'true' ? { productId } : { productId, taskId: taskId ?? null };
     const messages = await prisma.message.findMany({
       where: { ...where, ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}) },
-      include: { author: { select: AUTHOR_SELECT }, task: { select: { id: true, name: true } } },
+      include: MSG_INCLUDE,
       orderBy: { createdAt: 'asc' },
       take,
     });
@@ -89,7 +85,7 @@ export async function messageRoutes(app: FastifyInstance) {
     if (content.length > 10000) return reply.status(400).send({ error: 'content too long (max 10000)' });
     const msg = await prisma.message.create({
       data: { productId, taskId: taskId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
-      include: { author: { select: AUTHOR_SELECT }, task: { select: { id: true, name: true } } },
+      include: MSG_INCLUDE,
     });
     dispatchWebhooks(productId, 'message.created', msg).catch(() => {});
     broadcast(productId, 'message.created', msg);
@@ -132,7 +128,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const updated = await prisma.message.update({
       where: { id: messageId },
       data: { content, editedAt: new Date() },
-      include: { author: { select: AUTHOR_SELECT } },
+      include: MSG_INCLUDE,
     });
     reply.send(updated);
   });
@@ -145,5 +141,25 @@ export async function messageRoutes(app: FastifyInstance) {
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
     await prisma.message.delete({ where: { id: messageId } });
     reply.send({ ok: true });
+  });
+
+  // Toggle emoji reaction (add if missing, remove if already present)
+  app.post('/api/products/:productId/messages/:messageId/reactions', { preHandler: requireAuth }, async (req, reply) => {
+    const { productId, messageId } = req.params as { productId: string; messageId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    const { emoji } = req.body as { emoji: string };
+    if (!emoji || typeof emoji !== 'string' || emoji.length > 12) return reply.status(400).send({ error: 'invalid emoji' });
+
+    const key = { messageId, userId: req.user.userId, emoji };
+    const existing = await prisma.messageReaction.findUnique({ where: { messageId_userId_emoji: key } });
+    if (existing) {
+      await prisma.messageReaction.delete({ where: { messageId_userId_emoji: key } });
+    } else {
+      await prisma.messageReaction.create({ data: key });
+    }
+
+    const reactions = await prisma.messageReaction.findMany({ where: { messageId }, select: { emoji: true, userId: true } });
+    broadcast(productId, 'message.reacted', { messageId, reactions });
+    reply.send({ reactions });
   });
 }

@@ -86,7 +86,7 @@ export interface ColorLegendEntryResult {
 
 export interface Message {
   id: string;
-  productId: string;
+  productId: string | null;
   taskId: string | null;
   authorId: string;
   content: string;
@@ -95,6 +95,7 @@ export interface Message {
   editedAt: string | null;
   author: { id: string; username: string; avatarEmoji: string | null };
   task?: { id: string; name: string } | null;
+  reactions: { emoji: string; userId: string }[];
 }
 
 export interface CanvasSnapshot {
@@ -257,6 +258,21 @@ export const api = {
       request<Message>(`/api/products/${productId}/messages/${messageId}`, { method: 'PATCH', body: json({ content }) }),
     delete: (productId: string, messageId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/messages/${messageId}`, { method: 'DELETE' }),
+    toggleReaction: (productId: string, messageId: string, emoji: string) =>
+      request<{ reactions: { emoji: string; userId: string }[] }>(`/api/products/${productId}/messages/${messageId}/reactions`, { method: 'POST', body: json({ emoji }) }),
+  },
+
+  adminChat: {
+    list: (cursor?: string) =>
+      request<Message[]>(`/api/admin/chat${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+    create: (data: { content: string; attachments?: { url: string; name: string; type: string }[] }) =>
+      request<Message>('/api/admin/chat', { method: 'POST', body: json(data) }),
+    update: (messageId: string, content: string) =>
+      request<Message>(`/api/admin/chat/${messageId}`, { method: 'PATCH', body: json({ content }) }),
+    delete: (messageId: string) =>
+      request<{ ok: boolean }>(`/api/admin/chat/${messageId}`, { method: 'DELETE' }),
+    toggleReaction: (messageId: string, emoji: string) =>
+      request<{ reactions: { emoji: string; userId: string }[] }>(`/api/admin/chat/${messageId}/reactions`, { method: 'POST', body: json({ emoji }) }),
   },
 
   accessRequests: {

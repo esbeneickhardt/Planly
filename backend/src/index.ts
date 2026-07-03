@@ -37,6 +37,7 @@ import { emailStatusRoutes } from './routes/email-status';
 import { ssoRoutes } from './routes/sso';
 import { analyticsRoutes } from './routes/analytics';
 import { adminRoutes } from './routes/admin';
+import { adminChatRoutes } from './routes/admin-chat';
 import { csrfCheck } from './middleware/csrf';
 
 import websocket from '@fastify/websocket';
@@ -171,6 +172,7 @@ async function main() {
   await app.register(ssoRoutes);
   await app.register(analyticsRoutes);
   await app.register(adminRoutes);
+  await app.register(adminChatRoutes);
 
   // Health check — verifies DB connection
   app.get('/api/health', async (_req, reply) => {
