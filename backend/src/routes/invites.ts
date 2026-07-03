@@ -36,7 +36,7 @@ export async function inviteRoutes(app: FastifyInstance) {
     })));
   });
 
-  // Create invite link (admins or members — anyone on the team can invite)
+  // Create invite link (admins or members - anyone on the team can invite)
   app.post('/api/teams/:teamId/invites', { preHandler: requireAuth }, async (req, reply) => {
     const { teamId } = req.params as { teamId: string };
     const { email } = req.body as { email?: string };
@@ -82,7 +82,7 @@ export async function inviteRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Get invite info (public — no auth required, used on the accept page)
+  // Get invite info (public - no auth required, used on the accept page)
   app.get('/api/invites/:token', async (req, reply) => {
     const { token } = req.params as { token: string };
     const invite = await prisma.teamInvite.findUnique({

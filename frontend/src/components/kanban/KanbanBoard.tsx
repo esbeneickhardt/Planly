@@ -225,18 +225,18 @@ export default function KanbanBoard() {
 
     let newColumnTasks: Task[];
     if (overTask && overTask.id !== taskId) {
-      // Dropped on a specific task — insert at its position
+      // Dropped on a specific task - insert at its position
       const peers = sorted(targetStatusKey);
       const insertAt = peers.findIndex((t) => t.id === overTask.id);
       peers.splice(insertAt === -1 ? peers.length : insertAt, 0, task);
       newColumnTasks = peers;
     } else if (!statusChanged) {
-      // Same-column drop on the column droppable — move to end
+      // Same-column drop on the column droppable - move to end
       const peers = sorted(targetStatusKey);
       peers.push(task);
       newColumnTasks = peers;
     } else {
-      // Cross-column drop on the column droppable — append at end
+      // Cross-column drop on the column droppable - append at end
       const peers = sorted(targetStatusKey);
       peers.push(task);
       newColumnTasks = peers;
@@ -598,7 +598,7 @@ export default function KanbanBoard() {
                             <span className="text-xs truncate" style={{ color: 'var(--text-2)' }}>{owner.username}</span>
                           </div>
                         ) : (
-                          <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>—</span>
+                          <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>-</span>
                         )}
                       </td>
                       {/* Deadline */}
@@ -609,7 +609,7 @@ export default function KanbanBoard() {
                             {new Date(task.deadline).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                           </span>
                         ) : (
-                          <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>—</span>
+                          <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>-</span>
                         )}
                       </td>
                       {/* Arrow */}
@@ -659,7 +659,7 @@ export default function KanbanBoard() {
                 </div>
               ))}
 
-              {/* Add column — hidden for read-only users */}
+              {/* Add column - hidden for read-only users */}
               {!readOnly && (
                 <button
                   onClick={() => setShowNewColumn(true)}

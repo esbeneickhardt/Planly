@@ -71,7 +71,7 @@ export async function emailStatusRoutes(app: FastifyInstance) {
     try {
       await sendEmail({
         to: user.email,
-        subject: 'Planly — email test',
+        subject: 'Planly - email test',
         html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
           <h2 style="margin:0 0 16px">Email is working ✓</h2>
           <p>Hi ${user.username},</p>

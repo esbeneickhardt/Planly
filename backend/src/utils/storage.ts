@@ -1,7 +1,7 @@
 /**
  * Storage abstraction: uses S3 when AWS_S3_BUCKET is configured, falls back to local disk.
  * All callers use `storeFile(buffer, filename)` and `getFileBuffer(filename)`.
- * The public URL returned is always `/api/uploads/<filename>` — the serve handler reads from S3 or disk.
+ * The public URL returned is always `/api/uploads/<filename>` - the serve handler reads from S3 or disk.
  */
 import { createHash } from 'crypto';
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises';

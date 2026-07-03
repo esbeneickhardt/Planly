@@ -51,7 +51,7 @@ async function ensureAdminAccount() {
   const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
 
   if (existing) {
-    // ADMIN_EMAIL guarantees admin access only — never touch isFoundingAdmin on an existing account.
+    // ADMIN_EMAIL guarantees admin access only - never touch isFoundingAdmin on an existing account.
     // The founding-admin seat belongs to whoever holds it in the DB (managed via Transfer Ownership).
     if (!existing.isAdmin) {
       await prisma.user.update({ where: { email: adminEmail }, data: { isAdmin: true } });
@@ -60,7 +60,7 @@ async function ensureAdminAccount() {
     return;
   }
 
-  // Account doesn't exist — create it now so no one else can claim the email
+  // Account doesn't exist - create it now so no one else can claim the email
   const useEnvPassword = !!config.admin.password;
   const initialPassword = useEnvPassword ? config.admin.password : randomBytes(12).toString('base64url');
   const passwordHash = await bcrypt.hash(initialPassword, 12);
@@ -121,7 +121,7 @@ async function main() {
   // CSRF protection via Origin header check (allows non-browser API token callers)
   app.addHook('preHandler', csrfCheck);
 
-  // Rate limiting — global defaults
+  // Rate limiting - global defaults
   await app.register(rateLimit, {
     global: true,
     max: 200,
@@ -174,7 +174,7 @@ async function main() {
   await app.register(adminRoutes);
   await app.register(adminChatRoutes);
 
-  // Health check — verifies DB connection
+  // Health check - verifies DB connection
   app.get('/api/health', async (_req, reply) => {
     try {
       await prisma.$queryRaw`SELECT 1`;

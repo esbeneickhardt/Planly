@@ -17,7 +17,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     const requests = await prisma.accessRequest.findMany({
       where: { userId: req.user.userId, productId: { in: products.map((p) => p.id) } },
     });
-    // Only surface 'pending' status — 'approved' is stale (user was removed) and 'rejected' should allow re-request
+    // Only surface 'pending' status - 'approved' is stale (user was removed) and 'rejected' should allow re-request
     const requestMap = Object.fromEntries(requests.filter((r) => r.status === 'pending').map((r) => [r.productId, r.status]));
     reply.send(products.map((p) => ({ ...p, requestStatus: requestMap[p.id] ?? null })));
   });

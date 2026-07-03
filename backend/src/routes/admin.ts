@@ -176,7 +176,7 @@ export async function adminRoutes(app: FastifyInstance) {
     });
 
     // When turning email verification ON: email everyone who has never verified
-    // Already-verified users are unaffected — verification is a permanent record of a confirmed address
+    // Already-verified users are unaffected - verification is a permanent record of a confirmed address
     let verificationEmailsSent = 0;
     if (requireEmailVerification === true && !prevConfig.requireEmailVerification) {
       const smtp = await getSmtpSettings();
@@ -194,7 +194,7 @@ export async function adminRoutes(app: FastifyInstance) {
         const failed = results.filter(r => r.status === 'rejected');
         if (failed.length > 0) console.error(`[email-verification] ${failed.length} failed:`, failed.map(r => (r as PromiseRejectedResult).reason));
       } else {
-        console.warn('[email-verification] Email not configured — skipping bulk verification send');
+        console.warn('[email-verification] Email not configured - skipping bulk verification send');
       }
     }
 

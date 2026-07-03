@@ -20,7 +20,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     reply.send(tokens);
   });
 
-  // Create a new token — the raw token value is returned exactly once
+  // Create a new token - the raw token value is returned exactly once
   app.post('/api/auth/tokens', { preHandler: requireAuth }, async (req, reply) => {
     const { name, expiresAt } = req.body as { name: string; expiresAt?: string };
     if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
@@ -39,7 +39,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
       select: TOKEN_SELECT,
     });
 
-    // Include raw token in response — never stored, never retrievable again
+    // Include raw token in response - never stored, never retrievable again
     reply.status(201).send({ ...token, token: rawToken });
   });
 

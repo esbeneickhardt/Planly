@@ -19,7 +19,7 @@ const MSG_INCLUDE = {
 export async function messageRoutes(app: FastifyInstance) {
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
-  // Upload file — returns a URL that can be embedded in messages
+  // Upload file - returns a URL that can be embedded in messages
   app.post('/api/upload', { preHandler: requireAuth }, async (req, reply) => {
     const data = await req.file();
     if (!data) return reply.status(400).send({ error: 'No file' });
@@ -33,7 +33,7 @@ export async function messageRoutes(app: FastifyInstance) {
     reply.send({ url: `/api/uploads/${filename}`, name: data.filename, type: data.mimetype });
   });
 
-  // Serve uploaded files — requires auth to prevent public URL enumeration
+  // Serve uploaded files - requires auth to prevent public URL enumeration
   app.get('/api/uploads/:filename', { preHandler: requireAuth }, async (req, reply) => {
     const { filename } = req.params as { filename: string };
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');

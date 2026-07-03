@@ -132,7 +132,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
           )}
           <div className="flex-1" />
 
-          {/* Admin icon — only shown when NOT already on admin page */}
+          {/* Admin icon - only shown when NOT already on admin page */}
           {user?.isAdmin && !isAdminPage && (
             <NavLink
               to="/admin"
@@ -327,7 +327,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
                 </NavLink>
               ))}
 
-              {/* Admin panel link — only shown when not already on admin page */}
+              {/* Admin panel link - only shown when not already on admin page */}
               {user?.isAdmin && (
                 <NavLink
                   to="/admin"

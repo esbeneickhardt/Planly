@@ -168,19 +168,19 @@ function LegendModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-2.5">
             <div className="flex items-center gap-3">
               <div style={{ width: 52, height: 30, borderRadius: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid #3b82f6', flexShrink: 0 }} />
-              <span>Regular task — left border shows status or custom colour</span>
+              <span>Regular task - left border shows status or custom colour</span>
             </div>
             <div className="flex items-center gap-3">
               <div style={{ width: 52, height: 30, borderRadius: 6, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderLeft: '3px solid #f59e0b', flexShrink: 0 }} />
-              <span>Milestone — task with a deadline (amber tint)</span>
+              <span>Milestone - task with a deadline (amber tint)</span>
             </div>
             <div className="flex items-center gap-3">
               <div style={{ width: 52, height: 30, borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderLeft: '3px solid #ef4444', flexShrink: 0 }} />
-              <span>Overdue milestone — deadline has passed</span>
+              <span>Overdue milestone - deadline has passed</span>
             </div>
             <div className="flex items-center gap-3">
               <div style={{ width: 52, height: 30, borderRadius: 8, background: 'var(--brand)', flexShrink: 0 }} />
-              <span>Product node — final deliverable all tasks lead to</span>
+              <span>Product node - final deliverable all tasks lead to</span>
             </div>
           </div>
         </div>
@@ -189,7 +189,7 @@ function LegendModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-2.5">
             <div className="flex items-center gap-3">
               <svg width="52" height="16" style={{ flexShrink: 0 }}><line x1="0" y1="8" x2="52" y2="8" stroke="var(--border-2)" strokeWidth="2" /></svg>
-              <span>Dependency — source must complete before target</span>
+              <span>Dependency - source must complete before target</span>
             </div>
             <div className="flex items-center gap-3">
               <svg width="52" height="16" style={{ flexShrink: 0 }}>
@@ -197,11 +197,11 @@ function LegendModal({ onClose }: { onClose: () => void }) {
                   <animate attributeName="stroke-dashoffset" from="0" to="-14" dur="0.6s" repeatCount="indefinite" />
                 </line>
               </svg>
-              <span>Animated — target task is currently In Progress</span>
+              <span>Animated - target task is currently In Progress</span>
             </div>
             <div className="flex items-center gap-3">
               <svg width="52" height="16" style={{ flexShrink: 0 }}><line x1="0" y1="8" x2="52" y2="8" stroke="var(--brand)" strokeWidth="2" strokeDasharray="5 3" /></svg>
-              <span>Dashed purple — task feeds directly into the product</span>
+              <span>Dashed purple - task feeds directly into the product</span>
             </div>
           </div>
         </div>
@@ -211,7 +211,7 @@ function LegendModal({ onClose }: { onClose: () => void }) {
             <li>Drag from a handle to another node to create a dependency</li>
             <li>Click an edge then press Delete / Backspace to remove it</li>
             <li>Right-click a task to quickly change its status</li>
-            <li>Click a task to select it — double-click to open its detail panel</li>
+            <li>Click a task to select it - double-click to open its detail panel</li>
             <li>Select a task and press Delete / Backspace to delete it</li>
             <li>When a sprint is selected the checkbox on each task adds / removes it</li>
             <li>Sprint map mode colours each task by which sprint(s) it belongs to</li>
@@ -269,7 +269,7 @@ function CanvasInner() {
   // Sprints
   const [sprints, setSprints] = useState<Sprint[]>([]);
 
-  // Optimistic sprint membership — updated synchronously on click, synced async to backend
+  // Optimistic sprint membership - updated synchronously on click, synced async to backend
   const [localSprintMemberIds, setLocalSprintMemberIds] = useState<Set<string>>(new Set());
   const sprintInitRef = useRef<string | null>(null);
 
@@ -356,7 +356,7 @@ function CanvasInner() {
     } else if (viewMode === 'milestones') {
       base = base.filter((t) => !!t.deadline);
     }
-    // sprint mode shows ALL tasks — checkboxes on each node handle assignment
+    // sprint mode shows ALL tasks - checkboxes on each node handle assignment
 
     if (statusFilter) base = base.filter((t) => t.status === statusFilter);
 
@@ -391,7 +391,7 @@ function CanvasInner() {
       // Wait until tasks have been fetched before locking in initialization.
       // Without this guard, the effect fires with an empty task list (tasks still
       // loading), locks initializedRef, and subsequent task arrivals hit the
-      // merge branch — leaving every node at position (0,0).
+      // merge branch - leaving every node at position (0,0).
       if (!tasksLoaded) {
         setNodes(n); // show the product node while loading
         return;
@@ -402,7 +402,7 @@ function CanvasInner() {
       const allUnpositioned = unpositioned.length === filteredTasks.length && filteredTasks.length > 0;
 
       if (allUnpositioned) {
-        // First time on a fresh board — auto-layout once and persist positions
+        // First time on a fresh board - auto-layout once and persist positions
         const laid = runAutoLayout(n, e);
         setNodes(laid);
         const allUpdates = laid
@@ -488,7 +488,7 @@ function CanvasInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredTasks, activeProduct, autoLayoutEnabled, sprints, selectedSprintFilter, showSprintAura, sprintColorsMap, localSprintMemberIds, tasksLoaded, connectionsVersion]);
 
-  // Sprint membership toggle — optimistic: updates local Set immediately, syncs to backend async
+  // Sprint membership toggle - optimistic: updates local Set immediately, syncs to backend async
   const toggleSprintMembership = useCallback(async (taskId: string) => {
     if (!activeProduct || !selectedSprintFilter) return;
     const isIn = localSprintMemberIds.has(taskId);
@@ -549,7 +549,7 @@ function CanvasInner() {
         });
       });
       // Fit the new layout and immediately save the resulting viewport to localStorage
-      // (fitView bypasses d3-zoom so onMoveEnd never fires — we must save manually)
+      // (fitView bypasses d3-zoom so onMoveEnd never fires - we must save manually)
       setTimeout(() => {
         fitView({ padding: 0.15 });
         save({ viewport: getViewport() });
@@ -720,7 +720,7 @@ function CanvasInner() {
     // In sprint-filter mode a click toggles membership; otherwise just select the node
     const { filter, toggle } = sprintClickRef.current;
     if (filter) toggle(node.id);
-  }, []); // stable reference — sprint state always fresh via sprintClickRef
+  }, []); // stable reference - sprint state always fresh via sprintClickRef
 
   const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
     if (node.id.startsWith('product-')) return;
@@ -862,7 +862,7 @@ function CanvasInner() {
           <Panel position="top-left">
             <div className="flex flex-col gap-2">
 
-              {/* Row 1 — view mode segmented control */}
+              {/* Row 1 - view mode segmented control */}
               <div className="flex items-center p-1 gap-0.5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
                 {(['all', 'active', 'milestones'] as ViewMode[]).map((key) => (
                   <button
@@ -875,7 +875,7 @@ function CanvasInner() {
                   </button>
                 ))}
 
-                {/* Sprint view mode — picker + management in one place */}
+                {/* Sprint view mode - picker + management in one place */}
                 <div className="relative">
                   <button
                     onClick={() => { setViewModeSave('sprint'); setShowSprintPicker((v) => !v); }}
@@ -918,7 +918,7 @@ function CanvasInner() {
 
                       {/* Sprint list with select + delete */}
                       {sortedSprints.length === 0 && (
-                        <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet — create one to start planning.</p>
+                        <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet - create one to start planning.</p>
                       )}
                       {sortedSprints.map((s) => {
                         const isActive = selectedSprintFilter === s.id;
@@ -963,10 +963,10 @@ function CanvasInner() {
                 </div>
               </div>
 
-              {/* Row 2 — grouped control dropdowns */}
+              {/* Row 2 - grouped control dropdowns */}
               <div className="flex items-center gap-1.5">
 
-                {/* Filters dropdown — status + milestone focus */}
+                {/* Filters dropdown - status + milestone focus */}
                 <div className="relative">
                   <button
                     onClick={() => { setShowFiltersDropdown((v) => !v); setShowDisplayDropdown(false); setShowLayoutDropdown(false); }}
@@ -1025,7 +1025,7 @@ function CanvasInner() {
                   )}
                 </div>
 
-                {/* Display dropdown — layout, sprint map, simple mode */}
+                {/* Display dropdown - layout, sprint map, simple mode */}
                 <div className="relative">
                   <button
                     onClick={() => { setShowDisplayDropdown((v) => !v); setShowFiltersDropdown(false); setShowLayoutDropdown(false); }}
@@ -1065,7 +1065,7 @@ function CanvasInner() {
                   )}
                 </div>
 
-                {/* Layouts dropdown — save / load snapshots */}
+                {/* Layouts dropdown - save / load snapshots */}
                 <div className="relative">
                   <button
                     onClick={() => { setShowLayoutDropdown((v) => !v); setShowFiltersDropdown(false); setShowDisplayDropdown(false); }}
@@ -1123,7 +1123,7 @@ function CanvasInner() {
           {/* ── Top-right ───────────────────────────────────────────────── */}
           <Panel position="top-right">
             <div className="flex flex-col items-end gap-2">
-              {/* New task — hidden for read-only users */}
+              {/* New task - hidden for read-only users */}
               {canWriteCanvas && (
                 <button
                   onClick={() => setShowNewTask(true)}
@@ -1134,7 +1134,7 @@ function CanvasInner() {
                 </button>
               )}
 
-              {/* Sprint map legend — only when sprint aura is on */}
+              {/* Sprint map legend - only when sprint aura is on */}
               {showSprintAura && sortedSprints.length > 0 && (
                 <div className="rounded-xl px-3 py-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
                   <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-3)' }}>Sprint map</p>
@@ -1270,7 +1270,7 @@ function CanvasInner() {
 
         {showLegend && <LegendModal onClose={() => setShowLegend(false)} />}
 
-        {/* Loading overlay — shown until initial layout is computed */}
+        {/* Loading overlay - shown until initial layout is computed */}
         {!layoutReady && (
           <div
             className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"

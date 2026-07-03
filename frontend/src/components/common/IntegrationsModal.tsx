@@ -150,13 +150,13 @@ export default function IntegrationsModal({ onClose }: Props) {
       {tab === 'tokens' && (<>
         <p className="text-xs mb-5" style={{ color: 'var(--text-3)' }}>
           Personal Access Tokens let you authenticate with the Planly API from scripts, CI pipelines, or third-party tools.
-          Tokens are only shown once — copy and store them safely.
+          Tokens are only shown once - copy and store them safely.
         </p>
 
         {/* Revealed token banner */}
         {revealed && (
           <div className="mb-5 rounded-xl p-3 space-y-2" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
-            <p className="text-xs font-semibold" style={{ color: '#10b981' }}>Token created — copy it now, it won't be shown again.</p>
+            <p className="text-xs font-semibold" style={{ color: '#10b981' }}>Token created - copy it now, it won't be shown again.</p>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-xs font-mono px-2 py-1.5 rounded-lg break-all" style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                 {revealed}

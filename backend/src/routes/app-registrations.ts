@@ -73,7 +73,7 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
     reply.send(tokens);
   });
 
-  // Create a token for an app — acts as the owning user's identity
+  // Create a token for an app - acts as the owning user's identity
   app.post('/api/apps/:appId/tokens', { preHandler: requireAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
     const appExists = await prisma.appRegistration.findUnique({ where: { id: appId, ownerId: req.user.userId } });

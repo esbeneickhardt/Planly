@@ -262,7 +262,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
         {/* ── CENTER: nav tabs ── */}
         <nav className="flex-1 flex items-stretch justify-center h-full">
           {isAdminPage ? (
-            // ── Admin section tabs — same style as project nav ──
+            // ── Admin section tabs - same style as project nav ──
             ADMIN_TABS.map(({ key, label, Icon }) => (
               <button
                 key={key}
@@ -320,7 +320,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 );
               })}
 
-              {/* Settings — only for owners/co-owners */}
+              {/* Settings - only for owners/co-owners */}
               {(!activeProduct || canManage) && (
                 <NavLink
                   to="/settings"
@@ -362,7 +362,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           {/* Notification bell */}
           <NotificationBell />
 
-          {/* Admin panel toggle — only for admins */}
+          {/* Admin panel toggle - only for admins */}
           {user?.isAdmin && (
             <button
               onClick={() => isAdminPage ? navigate('/kanban') : navigate('/admin')}
@@ -383,7 +383,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             </button>
           )}
 
-          {/* Chat — in admin mode always brand-colored and opens admin chat */}
+          {/* Chat - in admin mode always brand-colored and opens admin chat */}
           <button
             onClick={onOpenChat}
             className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
@@ -402,7 +402,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             <ChatIcon />
           </button>
 
-          {/* Project picker — shows "Admin" label when in admin mode */}
+          {/* Project picker - shows "Admin" label when in admin mode */}
           <div ref={projectRef} className="relative">
             <button
               onClick={() => { setShowProjectDd((v) => !v); setShowAccountDd(false); }}
@@ -522,7 +522,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 className="absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl overflow-hidden py-1.5"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
               >
-                {/* User info — click avatar to edit profile */}
+                {/* User info - click avatar to edit profile */}
                 <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
                     <button

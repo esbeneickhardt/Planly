@@ -97,14 +97,14 @@ export async function teamRoutes(app: FastifyInstance) {
     try {
       await prisma.teamMember.delete({ where: { teamId_userId: { teamId: id, userId } } });
     } catch (err) {
-      // P2025 = record not found — for self-removal this is fine (already gone)
+      // P2025 = record not found - for self-removal this is fine (already gone)
       if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025')) {
         return reply.status(500).send({ error: 'Failed to remove member' });
       }
       if (userId !== req.user.userId) {
         return reply.status(404).send({ error: 'Member not found' });
       }
-      // Self-removal when already not a member — treat as success
+      // Self-removal when already not a member - treat as success
     }
     reply.send({ ok: true });
   });

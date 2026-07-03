@@ -48,7 +48,7 @@ async function normalizeImageOrientation(file: File): Promise<{ url: string; img
   const orientation = await readJpegOrientation(file);
 
   if (orientation <= 1) {
-    // No rotation needed — use original
+    // No rotation needed - use original
     return { url: rawUrl, img: raw };
   }
 
@@ -90,7 +90,7 @@ async function normalizeImageOrientation(file: File): Promise<{ url: string; img
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const PREVIEW = 200; // px — the crop circle diameter
+const PREVIEW = 200; // px - the crop circle diameter
 
 interface Value { avatarEmoji?: string; avatarUrl?: string | null; }
 interface Props {

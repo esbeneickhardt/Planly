@@ -201,7 +201,7 @@ export default function AdminPage() {
             {tab === 'ownership' && (
               <div className="space-y-6 max-w-xl">
 
-                {/* 1 — Server Owner */}
+                {/* 1 - Server Owner */}
                 <div className="p-5 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Server owner</p>
                   {users.filter((u) => u.isFoundingAdmin).map((u) => (
@@ -218,7 +218,7 @@ export default function AdminPage() {
                   </p>
                 </div>
 
-                {/* 2 — Server Admins */}
+                {/* 2 - Server Admins */}
                 <div className="p-5 rounded-xl space-y-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Server admins</p>
                   {users.filter((u) => u.isAdmin).map((u) => (
@@ -234,12 +234,12 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                {/* 3 — Transfer Ownership (founding admin only) */}
+                {/* 3 - Transfer Ownership (founding admin only) */}
                 {isFoundingAdmin && (
                   <div className="p-5 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                     <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Transfer ownership</p>
                     <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                      Pass the server owner role to another admin — e.g. when leaving the organisation. You keep your admin status but lose the protected seat.
+                      Pass the server owner role to another admin - e.g. when leaving the organisation. You keep your admin status but lose the protected seat.
                     </p>
                     <div className="flex gap-2">
                       <select value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)} className="input flex-1 text-sm">
@@ -335,7 +335,7 @@ export default function AdminPage() {
                           if (u.failedLoginAttempts > 0) {
                             return <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#f59e0b22', color: '#f59e0b' }}>{u.failedLoginAttempts} fail{u.failedLoginAttempts === 1 ? '' : 's'}</span>;
                           }
-                          return <span className="text-xs" style={{ color: 'var(--text-3)' }}>—</span>;
+                          return <span className="text-xs" style={{ color: 'var(--text-3)' }}>-</span>;
                         })()}
                       </td>
                       <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(u.createdAt).toLocaleDateString()}</td>
@@ -405,7 +405,7 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-                        {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}{p.ownerUsername ?? '—'}
+                        {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}{p.ownerUsername ?? '-'}
                       </td>
                       <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.memberCount}</td>
                       <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.taskCount}</td>
@@ -438,7 +438,7 @@ export default function AdminPage() {
                   {emailStatus?.enabled && (
                     <button
                       disabled={testingEmail}
-                      onClick={() => { setTestingEmail(true); api.emailStatus.test().then(() => showToast('Test email sent — check your inbox', 'success')).catch((e) => showToast(e.message, 'error')).finally(() => setTestingEmail(false)); }}
+                      onClick={() => { setTestingEmail(true); api.emailStatus.test().then(() => showToast('Test email sent - check your inbox', 'success')).catch((e) => showToast(e.message, 'error')).finally(() => setTestingEmail(false)); }}
                       className="btn-secondary text-sm px-3"
                     >
                       {testingEmail ? '…' : 'Send test'}
@@ -446,7 +446,7 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                {/* SMTP configuration — collapsed summary when active, expandable form */}
+                {/* SMTP configuration - collapsed summary when active, expandable form */}
                 <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                   <div className="flex items-center justify-between px-5 py-4" style={{ background: 'var(--surface-2)' }}>
                     <div>
@@ -507,7 +507,7 @@ export default function AdminPage() {
                             Use SSL (port 465)
                           </label>
                           <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-                            — leave off for port 587 (STARTTLS), which most providers including Gmail use
+                            - leave off for port 587 (STARTTLS), which most providers including Gmail use
                           </span>
                         </div>
                       </div>
@@ -544,7 +544,7 @@ export default function AdminPage() {
                   <div className="space-y-3">
                     <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Access controls</p>
 
-                    {/* Email verification — only available when email is configured */}
+                    {/* Email verification - only available when email is configured */}
                     {emailStatus?.enabled ? (
                       <>
                         <Toggle
@@ -558,8 +558,8 @@ export default function AdminPage() {
                               await refreshUser();
                               const sent = res.verificationEmailsSent ?? 0;
                               const toastMsg = sent > 0
-                                ? `Email verification enabled — sent ${sent} verification email${sent === 1 ? '' : 's'}`
-                                : 'Email verification enabled — all existing users already verified';
+                                ? `Email verification enabled - sent ${sent} verification email${sent === 1 ? '' : 's'}`
+                                : 'Email verification enabled - all existing users already verified';
                               showToast(toastMsg, 'success');
                               // Show prompt only if the admin's own email is unverified
                               setVerifyEmailPrompt(!me?.emailVerified);
@@ -584,7 +584,7 @@ export default function AdminPage() {
                       </>
                     ) : (
                       <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
-                        Email not configured — set up SMTP above to enable email verification.
+                        Email not configured - set up SMTP above to enable email verification.
                       </div>
                     )}
 
@@ -601,7 +601,7 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {/* Whitelist — only shown when whitelist is enabled */}
+                {/* Whitelist - only shown when whitelist is enabled */}
                 {serverConfig?.requireWhitelist && (
                   <div className="space-y-3">
                     <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Email allowlist</p>
@@ -618,7 +618,7 @@ export default function AdminPage() {
                       </button>
                     </div>
                     {whitelist.length === 0 ? (
-                      <p className="text-xs" style={{ color: 'var(--text-3)' }}>No entries yet — all registrations are blocked while this is empty.</p>
+                      <p className="text-xs" style={{ color: 'var(--text-3)' }}>No entries yet - all registrations are blocked while this is empty.</p>
                     ) : (
                       <div className="space-y-1">
                         {whitelist.map((entry) => (
@@ -724,7 +724,7 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                {/* Prune — founding admin only */}
+                {/* Prune - founding admin only */}
                 {me?.isFoundingAdmin && (
                   <div className="mt-4 p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid #ef444433' }}>
                     <p className="text-sm font-semibold mb-1" style={{ color: '#ef4444' }}>Prune old logs</p>
