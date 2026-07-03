@@ -6,7 +6,7 @@ import { requireProductMember } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { broadcast } from '../realtime/manager';
 import { logActivity } from '../utils/activity';
-import { storeFile, getFileBuffer, fileExtFromMime, generateFilename, mimeFromExt } from '../utils/storage';
+import { storeFile, getFileBuffer, deleteFile, fileExtFromMime, generateFilename, mimeFromExt } from '../utils/storage';
 
 const AUTHOR_SELECT = { id: true, username: true, avatarEmoji: true };
 
@@ -45,6 +45,18 @@ export async function messageRoutes(app: FastifyInstance) {
       const buf = await getFileBuffer(safe);
       const ext = safe.split('.').pop()?.toLowerCase() ?? '';
       reply.header('Content-Type', mimeFromExt(ext) ?? 'application/octet-stream').send(buf);
+    } catch {
+      reply.status(404).send({ error: 'Not found' });
+    }
+  });
+
+  // Delete an uploaded file
+  app.delete('/api/uploads/:filename', { preHandler: requireAuth }, async (req, reply) => {
+    const { filename } = req.params as { filename: string };
+    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+    try {
+      await deleteFile(safe);
+      reply.send({ ok: true });
     } catch {
       reply.status(404).send({ error: 'Not found' });
     }

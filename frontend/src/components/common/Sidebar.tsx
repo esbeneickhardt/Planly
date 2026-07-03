@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { api } from '../../api/client';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
+import EmojiPicker from './EmojiPicker';
 import { ADMIN_TABS } from '../../pages/AdminPage';
 
 const NAV = [
@@ -41,6 +42,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   const [productError, setProductError] = useState('');
   const [profileForm, setProfileForm] = useState({ realName: user?.realName ?? '', avatarEmoji: user?.avatarEmoji ?? '' });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [showProductEmojiPicker, setShowProductEmojiPicker] = useState(false);
 
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < new Date()).length;
@@ -57,6 +59,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
     try {
       await createProduct({ name: productForm.name, emoji: productForm.emoji || undefined, description: productForm.description || undefined, deadline: productForm.deadline });
       setShowNewProduct(false);
+      setShowProductEmojiPicker(false);
       setProductForm({ name: '', emoji: '', description: '', deadline: '' });
     } catch (err) { setProductError((err as Error).message); }
     finally { setCreating(false); }
@@ -393,15 +396,41 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
         <Modal title="New product" onClose={() => setShowNewProduct(false)}>
           <form onSubmit={handleCreateProduct} className="space-y-4">
             <div className="flex gap-3">
-              <div className="w-20">
-                <label className="label">Emoji</label>
-                <input type="text" maxLength={2} value={productForm.emoji} onChange={setField('emoji')} className="input text-center text-xl" placeholder="🚀" />
+              <div className="flex-shrink-0">
+                <label className="label">Icon</label>
+                <button
+                  type="button"
+                  onClick={() => setShowProductEmojiPicker((v) => !v)}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors"
+                  style={{ background: showProductEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${showProductEmojiPicker ? 'var(--brand)' : 'var(--border)'}` }}
+                  title="Pick an icon"
+                >
+                  {productForm.emoji || '📋'}
+                </button>
               </div>
               <div className="flex-1">
                 <label className="label">Name</label>
                 <input type="text" required value={productForm.name} onChange={setField('name')} className="input" placeholder="My Product" autoFocus />
               </div>
             </div>
+
+            {showProductEmojiPicker && (
+              <div>
+                <EmojiPicker
+                  value={productForm.emoji}
+                  onChange={(e) => { setProductForm((f) => ({ ...f, emoji: e })); setShowProductEmojiPicker(false); }}
+                />
+                {productForm.emoji && (
+                  <button
+                    type="button"
+                    onClick={() => { setProductForm((f) => ({ ...f, emoji: '' })); setShowProductEmojiPicker(false); }}
+                    className="mt-1 w-full text-xs py-1 rounded-lg"
+                    style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
+                  >Remove icon</button>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="label">Description</label>
               <input type="text" value={productForm.description} onChange={setField('description')} className="input" placeholder="What's the vision?" />

@@ -75,11 +75,22 @@ export default function GanttPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewStart, setViewStart] = useState<Date | null>(null);
   const [viewEnd, setViewEnd] = useState<Date | null>(null);
-  const [hideDone, setHideDone] = useState(true);
+  const [hideDone, setHideDone] = useState(() => {
+    // no product id yet at init time — will be overwritten by the effect below
+    return true;
+  });
   const [isDragging, setIsDragging] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ vs: new Date(), ve: new Date(), fullStart: new Date(), fullEnd: new Date() });
   const dragState = useRef<{ startX: number; vs: Date; ve: Date } | null>(null);
+
+  useEffect(() => {
+    if (!activeProduct) return;
+    try {
+      const stored = localStorage.getItem(`planly-gantt-hideDone-${activeProduct.id}`);
+      setHideDone(stored === null ? true : stored === 'true');
+    } catch { /* ignore */ }
+  }, [activeProduct?.id]);
 
   useEffect(() => {
     if (!activeProduct) return;
@@ -245,21 +256,16 @@ export default function GanttPage() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Summary bar */}
       <div className="flex-shrink-0 px-4 py-2 flex items-center gap-4" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        {/* Progress */}
-        <div className="flex items-center gap-2 flex-1">
-          <span className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-            {doneCount}/{milestones.length} milestone{milestones.length !== 1 ? 's' : ''} complete
-          </span>
-          <div className="flex-1 max-w-48 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
-            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, background: allDone ? '#10b981' : 'var(--brand)' }} />
-          </div>
-          <span className="text-xs font-medium" style={{ color: allDone ? '#10b981' : 'var(--text-3)' }}>{progressPct}%</span>
-        </div>
+        <div className="flex-1" />
 
         {/* Hide done toggle */}
         {doneCount > 0 && (
           <button
-            onClick={() => setHideDone((v) => !v)}
+            onClick={() => setHideDone((v) => {
+              const next = !v;
+              try { if (activeProduct) localStorage.setItem(`planly-gantt-hideDone-${activeProduct.id}`, String(next)); } catch { /* ignore */ }
+              return next;
+            })}
             className="flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-medium transition-all flex-shrink-0"
             style={{
               background: hideDone ? 'var(--surface-2)' : 'rgba(16,185,129,0.12)',
@@ -276,21 +282,47 @@ export default function GanttPage() {
           Due {new Date(activeProduct.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
         </span>
       </div>
+
+      {/* Sticky column header — stays visible when the milestone list scrolls */}
+      <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+        {/* Left: Milestone label + zoom controls */}
+        <div className="flex-shrink-0 w-52 h-10 px-3 flex items-center justify-between" style={{ borderRight: '1px solid var(--border)' }}>
+          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Milestone</span>
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => applyZoom(0.5)} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom in">+</button>
+            <button onClick={() => applyZoom(2)} disabled={isFullView} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom out">−</button>
+            <button onClick={() => { setViewStart(fullStart); setViewEnd(fullEnd); }} disabled={isFullView} className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>Fit</button>
+          </div>
+        </div>
+        {/* Right: Time axis */}
+        <div className="flex-1 h-10 relative overflow-hidden" style={{ paddingRight: 24 }}>
+          {markers.map((marker) => {
+            const pos = pct(marker.date, vs, ve) * 100;
+            if (pos < 0 || pos > 97) return null;
+            return (
+              <div
+                key={marker.date.toISOString()}
+                className="absolute top-0 h-full flex items-end pb-2"
+                style={{ left: `${pos}%`, paddingLeft: 4, pointerEvents: 'none' }}
+              >
+                <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{marker.label}</span>
+              </div>
+            );
+          })}
+          {todayPct > 0 && todayPct < 1 && (
+            <div className="absolute top-0 h-full flex items-end pb-1.5" style={{ left: `${todayPct * 100}%`, zIndex: 2, pointerEvents: 'none' }}>
+              <span className="text-[10px] font-semibold px-1 rounded" style={{ background: 'var(--brand)', color: 'white' }}>Today</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="flex min-h-full">
 
-          {/* Left: names (sticky) */}
+          {/* Left: names (sticky left edge) */}
           <div className="flex-shrink-0 w-52 sticky left-0 z-10" style={{ borderRight: '1px solid var(--border)', background: 'var(--surface)' }}>
-            {/* Header with zoom controls */}
-            <div className="h-10 px-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Milestone</span>
-              <div className="flex items-center gap-0.5">
-                <button onClick={() => applyZoom(0.5)} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom in">+</button>
-                <button onClick={() => applyZoom(2)} disabled={isFullView} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom out">−</button>
-                <button onClick={() => { setViewStart(fullStart); setViewEnd(fullEnd); }} disabled={isFullView} className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>Fit</button>
-              </div>
-            </div>
-
             {visibleMilestones.map((m) => {
               const color = progressColor(m);
               const isDone = m.status === 'done';
@@ -348,7 +380,7 @@ export default function GanttPage() {
             </div>
           </div>
 
-          {/* Right: timeline */}
+          {/* Right: timeline bars */}
           <div
             className="flex-1 overflow-hidden select-none"
             style={{ paddingRight: 24, cursor: isDragging ? 'grabbing' : 'grab' }}
@@ -358,181 +390,155 @@ export default function GanttPage() {
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
           >
-            <div style={{ position: 'relative', height: '100%' }}>
+            <div style={{ position: 'relative' }}>
+              {/* Today line through all rows */}
+              {todayPct > 0 && todayPct < 1 && (
+                <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPct * 100}%`, width: 1, background: 'var(--brand)', zIndex: 3, opacity: 0.5, pointerEvents: 'none' }} />
+              )}
 
-              {/* Time axis */}
-              <div className="h-10 relative overflow-hidden" style={{ borderBottom: '1px solid var(--border)' }}>
-                {markers.map((marker) => {
-                  const pos = pct(marker.date, vs, ve) * 100;
-                  if (pos < 0 || pos > 97) return null;
-                  return (
+              {visibleMilestones.map((m) => {
+                const deadlinePct = pct(new Date(m.deadline), vs, ve) * 100;
+                const fillWidth = m.progress * deadlinePct;
+                const color = progressColor(m);
+                const isOverdue = new Date(m.deadline) < today && m.status !== 'done';
+
+                // Sort: active tasks first, done tasks at bottom
+                const sortedDeps = [...m.dependencyList].sort((a, b) => {
+                  if (a.status === 'done' && b.status !== 'done') return 1;
+                  if (a.status !== 'done' && b.status === 'done') return -1;
+                  return 0;
+                });
+
+                return (
+                  <div
+                    key={m.id}
+                    className="relative flex items-center"
+                    style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredMilestone === m.id ? 'var(--surface-2)' : 'transparent' }}
+                    onMouseEnter={() => setHoveredMilestone(m.id)}
+                    onMouseLeave={() => setHoveredMilestone(null)}
+                  >
+                    {/* Bar track */}
                     <div
-                      key={marker.date.toISOString()}
-                      className="absolute top-0 h-full flex items-end pb-2"
-                      style={{ left: `${pos}%`, paddingLeft: 4, pointerEvents: 'none' }}
-                    >
-                      <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{marker.label}</span>
-                    </div>
-                  );
-                })}
-                {todayPct > 0 && todayPct < 1 && (
-                  <div className="absolute top-0 h-full flex items-end pb-1.5" style={{ left: `${todayPct * 100}%`, zIndex: 2, pointerEvents: 'none' }}>
-                    <span className="text-[10px] font-semibold px-1 rounded" style={{ background: 'var(--brand)', color: 'white' }}>Today</span>
-                  </div>
-                )}
-              </div>
+                      className="absolute rounded-full"
+                      style={{ left: '0.5%', width: `${Math.max(deadlinePct - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: `${color}25`, border: `1px solid ${color}40` }}
+                    />
+                    {/* Progress fill */}
+                    {fillWidth > 0.5 && (
+                      <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(fillWidth - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: color, opacity: 0.8 }} />
+                    )}
+                    {/* Deadline marker — vertical line + diamond */}
+                    {deadlinePct >= 0 && deadlinePct <= 100 && (
+                      <div style={{ position: 'absolute', left: `${deadlinePct}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
+                        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: color, opacity: 0.6, transform: 'translateX(-50%)' }} />
+                        <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: isOverdue ? '#ef4444' : color, transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
+                      </div>
+                    )}
 
-              {/* Rows */}
-              <div style={{ position: 'relative' }}>
-                {/* Today line */}
-                {todayPct > 0 && todayPct < 1 && (
-                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPct * 100}%`, width: 1, background: 'var(--brand)', zIndex: 3, opacity: 0.5, pointerEvents: 'none' }} />
-                )}
-
-                {visibleMilestones.map((m) => {
-                  const deadlinePct = pct(new Date(m.deadline), vs, ve) * 100;
-                  const fillWidth = m.progress * deadlinePct;
-                  const color = progressColor(m);
-                  const isOverdue = new Date(m.deadline) < today && m.status !== 'done';
-
-                  // Sort: active tasks first, done tasks at bottom
-                  const sortedDeps = [...m.dependencyList].sort((a, b) => {
-                    if (a.status === 'done' && b.status !== 'done') return 1;
-                    if (a.status !== 'done' && b.status === 'done') return -1;
-                    return 0;
-                  });
-
-                  return (
-                    <div
-                      key={m.id}
-                      className="relative flex items-center"
-                      style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredMilestone === m.id ? 'var(--surface-2)' : 'transparent' }}
-                      onMouseEnter={() => setHoveredMilestone(m.id)}
-                      onMouseLeave={() => setHoveredMilestone(null)}
-                    >
-                      {/* Bar track */}
+                    {/* Hover popover — flips above when near list bottom */}
+                    {hoveredMilestone === m.id && m.dependencyList.length > 0 && (
                       <div
-                        className="absolute rounded-full"
-                        style={{ left: '0.5%', width: `${Math.max(deadlinePct - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: `${color}25`, border: `1px solid ${color}40` }}
-                      />
-                      {/* Progress fill */}
-                      {fillWidth > 0.5 && (
-                        <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(fillWidth - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: color, opacity: 0.8 }} />
-                      )}
-                      {/* Deadline marker — vertical line + diamond */}
-                      {deadlinePct >= 0 && deadlinePct <= 100 && (
-                        <div style={{ position: 'absolute', left: `${deadlinePct}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
-                          <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: color, opacity: 0.6, transform: 'translateX(-50%)' }} />
-                          <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: isOverdue ? '#ef4444' : color, transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
-                        </div>
-                      )}
-
-                      {/* Hover popover */}
-                      {hoveredMilestone === m.id && m.dependencyList.length > 0 && (
-                        <div
-                          className="absolute z-20 rounded-xl shadow-xl p-3"
-                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', top: '100%', left: '2%', minWidth: 220, maxWidth: 300 }}
-                          onMouseEnter={() => setHoveredMilestone(m.id)}
-                        >
-                          <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
-                            {m.doneDependencies}/{m.totalDependencies} tasks done
-                          </p>
-                          <div className="space-y-1 max-h-48 overflow-auto">
-                            {sortedDeps.map((d, i) => {
-                              const isDone = d.status === 'done';
-                              const isFirstDone = isDone && (i === 0 || sortedDeps[i - 1].status !== 'done');
-                              return (
-                                <div key={d.id}>
-                                  {isFirstDone && m.doneDependencies > 0 && m.doneDependencies < m.totalDependencies && (
-                                    <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>Completed</div>
-                                  )}
-                                  <div className="flex items-center gap-2 text-xs">
-                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: STATUS_COLOR[d.status] ?? '#64748b' }} />
-                                    <span className="flex-1 truncate" style={{ color: 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.45 : 1 }}>{d.name}</span>
-                                    {!d.ownerId && !isDone && <span className="text-[10px] px-1 rounded flex-shrink-0" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>unassigned</span>}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {m.unassignedDeps > 0 && (
-                            <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
-                              ⚠ {m.unassignedDeps} unassigned blocking
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Product deadline row */}
-                <div
-                  className="relative flex items-center"
-                  style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredProduct ? 'var(--surface-2)' : 'transparent' }}
-                  onMouseEnter={() => setHoveredProduct(true)}
-                  onMouseLeave={() => setHoveredProduct(false)}
-                >
-                  {/* Track */}
-                  <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? 'rgba(16,185,129,0.15)' : 'rgba(124,58,237,0.15)', border: `1px solid ${allDone ? 'rgba(16,185,129,0.3)' : 'rgba(124,58,237,0.3)'}` }} />
-                  {/* Progress fill */}
-                  {progressPct > 0 && (
-                    <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 * (progressPct / 100) - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.75 }} />
-                  )}
-                  {pct(fullEnd, vs, ve) >= 0 && pct(fullEnd, vs, ve) <= 1 && (
-                    <div style={{ position: 'absolute', left: `${pct(fullEnd, vs, ve) * 100}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
-                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.6, transform: 'translateX(-50%)' }} />
-                      <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: allDone ? '#10b981' : 'var(--brand)', transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
-                    </div>
-                  )}
-
-                  {/* Hover popover — milestone list (above the row, no gap) */}
-                  {hoveredProduct && milestones.length > 0 && (
-                    <div
-                      className="absolute z-20 rounded-xl shadow-xl p-3"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', bottom: '100%', left: '2%', minWidth: 220, maxWidth: 320 }}
-                      onMouseEnter={() => setHoveredProduct(true)}
-                    >
-                      <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
-                        {doneCount}/{milestones.length} milestones complete
-                      </p>
-                      <div className="space-y-1 max-h-48 overflow-auto">
-                        {[...milestones]
-                          .sort((a, b) => {
-                            if (a.status === 'done' && b.status !== 'done') return 1;
-                            if (a.status !== 'done' && b.status === 'done') return -1;
-                            return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-                          })
-                          .map((m, i, arr) => {
-                            const isDone = m.status === 'done';
-                            const isFirstDone = isDone && (i === 0 || arr[i - 1].status !== 'done');
+                        className="absolute z-30 rounded-xl shadow-xl p-3"
+                        style={{ background: 'var(--surface)', border: '1px solid var(--border)', top: '100%', left: '2%', minWidth: 220, maxWidth: 300 }}
+                        onMouseEnter={() => setHoveredMilestone(m.id)}
+                      >
+                        <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
+                          {m.doneDependencies}/{m.totalDependencies} tasks done
+                        </p>
+                        <div className="space-y-1 max-h-48 overflow-auto">
+                          {sortedDeps.map((d, i) => {
+                            const isDone = d.status === 'done';
+                            const isFirstDone = isDone && (i === 0 || sortedDeps[i - 1].status !== 'done');
                             return (
-                              <div key={m.id}>
-                                {isFirstDone && doneCount > 0 && doneCount < milestones.length && (
+                              <div key={d.id}>
+                                {isFirstDone && m.doneDependencies > 0 && m.doneDependencies < m.totalDependencies && (
                                   <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>Completed</div>
                                 )}
                                 <div className="flex items-center gap-2 text-xs">
-                                  {isDone
-                                    ? <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{ background: '#10b981', color: 'white' }}>✓</span>
-                                    : <span className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0" style={{ borderColor: progressColor(m) }} />
-                                  }
-                                  <span className="flex-1 truncate" style={{ color: isDone ? 'var(--text-3)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.55 : 1 }}>{m.name}</span>
-                                  <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
-                                    {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
-                                  </span>
+                                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: STATUS_COLOR[d.status] ?? '#64748b' }} />
+                                  <span className="flex-1 truncate" style={{ color: 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.45 : 1 }}>{d.name}</span>
+                                  {!d.ownerId && !isDone && <span className="text-[10px] px-1 rounded flex-shrink-0" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>unassigned</span>}
                                 </div>
                               </div>
                             );
                           })}
+                        </div>
+                        {m.unassignedDeps > 0 && (
+                          <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
+                            ⚠ {m.unassignedDeps} unassigned blocking
+                          </p>
+                        )}
                       </div>
-                      {milestones.some((m) => m.status !== 'done' && m.doneDependencies < m.totalDependencies && m.totalDependencies > 0) && (
-                        <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
-                          ⚠ Some milestones have incomplete tasks
-                        </p>
-                      )}
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Product deadline row */}
+              <div
+                className="relative flex items-center"
+                style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredProduct ? 'var(--surface-2)' : 'transparent' }}
+                onMouseEnter={() => setHoveredProduct(true)}
+                onMouseLeave={() => setHoveredProduct(false)}
+              >
+                {/* Track */}
+                <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? 'rgba(16,185,129,0.15)' : 'rgba(124,58,237,0.15)', border: `1px solid ${allDone ? 'rgba(16,185,129,0.3)' : 'rgba(124,58,237,0.3)'}` }} />
+                {/* Progress fill */}
+                {progressPct > 0 && (
+                  <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 * (progressPct / 100) - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.75 }} />
+                )}
+                {pct(fullEnd, vs, ve) >= 0 && pct(fullEnd, vs, ve) <= 1 && (
+                  <div style={{ position: 'absolute', left: `${pct(fullEnd, vs, ve) * 100}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.6, transform: 'translateX(-50%)' }} />
+                    <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: allDone ? '#10b981' : 'var(--brand)', transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
+                  </div>
+                )}
+
+                {/* Hover popover — milestone list (above the row) */}
+                {hoveredProduct && milestones.length > 0 && (
+                  <div
+                    className="absolute z-30 rounded-xl shadow-xl p-3"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border)', top: '100%', left: '2%', minWidth: 220, maxWidth: 320 }}
+                    onMouseEnter={() => setHoveredProduct(true)}
+                  >
+                    <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
+                      {doneCount}/{milestones.length} milestones complete
+                    </p>
+                    <div className="space-y-1 max-h-48 overflow-auto">
+                      {[...milestones]
+                        .sort((a, b) => {
+                          if (a.status === 'done' && b.status !== 'done') return 1;
+                          if (a.status !== 'done' && b.status === 'done') return -1;
+                          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+                        })
+                        .map((m, i, arr) => {
+                          const isDone = m.status === 'done';
+                          const isFirstDone = isDone && (i === 0 || arr[i - 1].status !== 'done');
+                          return (
+                            <div key={m.id}>
+                              {isFirstDone && doneCount > 0 && doneCount < milestones.length && (
+                                <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>Completed</div>
+                              )}
+                              <div className="flex items-center gap-2 text-xs">
+                                {isDone
+                                  ? <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{ background: '#10b981', color: 'white' }}>✓</span>
+                                  : <span className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0" style={{ borderColor: progressColor(m) }} />
+                                }
+                                <span className="flex-1 truncate" style={{ color: isDone ? 'var(--text-3)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.55 : 1 }}>{m.name}</span>
+                                <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
+                                  {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
-                  )}
-                </div>
+                    {milestones.some((m) => m.status !== 'done' && m.doneDependencies < m.totalDependencies && m.totalDependencies > 0) && (
+                      <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
+                        ⚠ Some milestones have incomplete tasks
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

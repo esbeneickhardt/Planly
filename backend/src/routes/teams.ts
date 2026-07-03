@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { Prisma } from '@prisma/client';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 
@@ -95,10 +96,17 @@ export async function teamRoutes(app: FastifyInstance) {
     }
     try {
       await prisma.teamMember.delete({ where: { teamId_userId: { teamId: id, userId } } });
-      reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
+    } catch (err) {
+      // P2025 = record not found — for self-removal this is fine (already gone)
+      if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025')) {
+        return reply.status(500).send({ error: 'Failed to remove member' });
+      }
+      if (userId !== req.user.userId) {
+        return reply.status(404).send({ error: 'Member not found' });
+      }
+      // Self-removal when already not a member — treat as success
     }
+    reply.send({ ok: true });
   });
 
   app.patch('/api/teams/:id/members/:userId/role', { preHandler: requireAuth }, async (req, reply) => {

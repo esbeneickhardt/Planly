@@ -20,6 +20,7 @@
     "react-router-dom": "^6.23.1",
     "reactflow": "^11.11.4",
     "rehype-highlight": "^7.0.2",
+    "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {

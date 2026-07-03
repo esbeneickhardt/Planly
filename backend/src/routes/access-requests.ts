@@ -17,7 +17,8 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     const requests = await prisma.accessRequest.findMany({
       where: { userId: req.user.userId, productId: { in: products.map((p) => p.id) } },
     });
-    const requestMap = Object.fromEntries(requests.map((r) => [r.productId, r.status]));
+    // Only surface 'pending' status — 'approved' is stale (user was removed) and 'rejected' should allow re-request
+    const requestMap = Object.fromEntries(requests.filter((r) => r.status === 'pending').map((r) => [r.productId, r.status]));
     reply.send(products.map((p) => ({ ...p, requestStatus: requestMap[p.id] ?? null })));
   });
 
@@ -25,16 +26,27 @@ export async function accessRequestRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/access-requests', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     const { note } = req.body as { note?: string };
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: { team: { include: { members: { where: { role: 'co_owner' } } } } },
+    });
+    if (!product) return reply.status(404).send({ error: 'Not found' });
+
     const existing = await prisma.accessRequest.findUnique({
       where: { productId_userId: { productId, userId: req.user.userId } },
     });
     if (existing) {
-      if (existing.status === 'rejected') {
-        // Allow re-request after rejection
+      // Allow re-request after rejection, or after approval if the user was subsequently removed
+      const canReapply = existing.status === 'rejected' || (existing.status === 'approved' && !(await prisma.teamMember.findFirst({
+        where: { userId: req.user.userId, team: { products: { some: { id: productId } } } },
+      })));
+      if (canReapply) {
         const updated = await prisma.accessRequest.update({
           where: { id: existing.id },
           data: { status: 'pending', note: note ?? null },
         });
+        if (product.ownerId) await notifyAdmins(product.id, product.name, product.ownerId, product.team.members.map((m) => m.userId), req.user.userId, req.user.username ?? 'Someone');
         return reply.send(updated);
       }
       return reply.status(409).send({ error: 'Request already exists' });
@@ -42,8 +54,22 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     const req2 = await prisma.accessRequest.create({
       data: { productId, userId: req.user.userId, note: note ?? null },
     });
+    if (product.ownerId) await notifyAdmins(product.id, product.name, product.ownerId, product.team.members.map((m) => m.userId), req.user.userId, req.user.username ?? 'Someone');
     reply.status(201).send(req2);
   });
+
+  async function notifyAdmins(productId: string, productName: string, ownerId: string, coOwnerIds: string[], requesterId: string, requesterName: string) {
+    const adminIds = new Set([ownerId, ...coOwnerIds]);
+    adminIds.delete(requesterId);
+    await Promise.all([...adminIds].map((userId) =>
+      createNotification({
+        userId,
+        type: 'access_requested',
+        title: `${requesterName} requested access to "${productName}"`,
+        productId,
+      })
+    ));
+  }
 
   // List access requests for a product (owner or co-owner only)
   app.get('/api/products/:productId/access-requests', { preHandler: requireAuth }, async (req, reply) => {

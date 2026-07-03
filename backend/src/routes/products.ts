@@ -68,6 +68,9 @@ export async function productRoutes(app: FastifyInstance) {
     }
 
     try {
+      if (name !== undefined) {
+        await prisma.team.update({ where: { id: product.teamId }, data: { name } });
+      }
       const updated = await prisma.product.update({
         where: { id },
         data: {

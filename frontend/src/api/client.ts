@@ -177,7 +177,7 @@ export const api = {
 
   tasks: {
     list: (productId: string) => request<Task[]>(`/api/products/${productId}/tasks`),
-    create: (productId: string, data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string; canvasX?: number; canvasY?: number }) =>
+    create: (productId: string, data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string; canvasX?: number; canvasY?: number; status?: string }) =>
       request<Task>(`/api/products/${productId}/tasks`, { method: 'POST', body: json(data) }),
     get: (productId: string, taskId: string) => request<Task>(`/api/products/${productId}/tasks/${taskId}`),
     update: (productId: string, taskId: string, data: Partial<Pick<Task, 'name' | 'description' | 'ownerId' | 'color' | 'deadline'> & { status: Status }>) =>
@@ -284,6 +284,9 @@ export const api = {
         return r.json() as Promise<{ url: string; name: string; type: string }>;
       });
   },
+
+  deleteUpload: (filename: string) =>
+    request<{ ok: boolean }>(`/api/uploads/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
 
   permissions: {
     list: (productId: string) =>
