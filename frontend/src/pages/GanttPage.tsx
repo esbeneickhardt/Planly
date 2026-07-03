@@ -174,11 +174,14 @@ export default function GanttPage() {
     const span = ve.getTime() - vs.getTime();
     const newSpan = span * factor;
     const minSpan = 3 * 86_400_000;
+    const maxSpan = fullEnd.getTime() - fullStart.getTime();
     if (newSpan < minSpan) return;
+    if (newSpan >= maxSpan) { setViewStart(fullStart); setViewEnd(fullEnd); return; }
     const anchor = vs.getTime() + anchorRatio * span;
     let newStart = anchor - anchorRatio * newSpan;
-    const newEnd = anchor + (1 - anchorRatio) * newSpan;
-    if (newStart < fullStart.getTime()) newStart = fullStart.getTime();
+    let newEnd = anchor + (1 - anchorRatio) * newSpan;
+    if (newStart < fullStart.getTime()) { newStart = fullStart.getTime(); newEnd = fullStart.getTime() + newSpan; }
+    if (newEnd > fullEnd.getTime()) { newEnd = fullEnd.getTime(); newStart = Math.max(fullStart.getTime(), fullEnd.getTime() - newSpan); }
     setViewStart(new Date(newStart));
     setViewEnd(new Date(newEnd));
   }
@@ -190,16 +193,18 @@ export default function GanttPage() {
     (el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached = true;
     el.addEventListener('wheel', (e: WheelEvent) => {
       e.preventDefault();
-      const { vs, ve, fullStart } = viewRef.current;
+      const { vs, ve, fullStart, fullEnd } = viewRef.current;
       const rect = el.getBoundingClientRect();
       const span = ve.getTime() - vs.getTime();
+      const maxSpan = fullEnd.getTime() - fullStart.getTime();
 
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         // Horizontal scroll → pan
         const deltaMs = (e.deltaX / rect.width) * span * 1.5;
         let newStart = vs.getTime() + deltaMs;
-        const newEnd = ve.getTime() + deltaMs;
-        if (newStart < fullStart.getTime()) newStart = fullStart.getTime();
+        let newEnd = ve.getTime() + deltaMs;
+        if (newStart < fullStart.getTime()) { newStart = fullStart.getTime(); newEnd = fullStart.getTime() + span; }
+        if (newEnd > fullEnd.getTime()) { newEnd = fullEnd.getTime(); newStart = Math.max(fullStart.getTime(), fullEnd.getTime() - span); }
         viewRef.current.vs = new Date(newStart);
         viewRef.current.ve = new Date(newEnd);
         setViewStart(new Date(newStart));
@@ -208,15 +213,23 @@ export default function GanttPage() {
       }
 
       // Vertical scroll → zoom
-      const mouseRatio = (e.clientX - rect.left) / rect.width;
+      const mouseRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const factor = e.deltaY > 0 ? 1.25 : 0.8;
       const newSpan = span * factor;
       const minSpan = 3 * 86_400_000;
       if (newSpan < minSpan) return;
+      if (newSpan >= maxSpan) {
+        viewRef.current.vs = fullStart;
+        viewRef.current.ve = fullEnd;
+        setViewStart(new Date(fullStart));
+        setViewEnd(new Date(fullEnd));
+        return;
+      }
       const anchor = vs.getTime() + mouseRatio * span;
       let newStart = anchor - mouseRatio * newSpan;
-      const newEnd = anchor + (1 - mouseRatio) * newSpan;
-      if (newStart < fullStart.getTime()) newStart = fullStart.getTime();
+      let newEnd = anchor + (1 - mouseRatio) * newSpan;
+      if (newStart < fullStart.getTime()) { newStart = fullStart.getTime(); newEnd = fullStart.getTime() + newSpan; }
+      if (newEnd > fullEnd.getTime()) { newEnd = fullEnd.getTime(); newStart = Math.max(fullStart.getTime(), fullEnd.getTime() - newSpan); }
       viewRef.current.vs = new Date(newStart);
       viewRef.current.ve = new Date(newEnd);
       setViewStart(new Date(newStart));
@@ -238,8 +251,9 @@ export default function GanttPage() {
     const span = dragState.current.ve.getTime() - dragState.current.vs.getTime();
     const deltaMs = -(dx / rect.width) * span;
     let newStart = dragState.current.vs.getTime() + deltaMs;
-    const newEnd = dragState.current.ve.getTime() + deltaMs;
-    if (newStart < fullStart.getTime()) newStart = fullStart.getTime();
+    let newEnd = dragState.current.ve.getTime() + deltaMs;
+    if (newStart < fullStart.getTime()) { newStart = fullStart.getTime(); newEnd = fullStart.getTime() + span; }
+    if (newEnd > fullEnd.getTime()) { newEnd = fullEnd.getTime(); newStart = Math.max(fullStart.getTime(), fullEnd.getTime() - span); }
     setViewStart(new Date(newStart));
     setViewEnd(new Date(newEnd));
   }
@@ -367,16 +381,10 @@ export default function GanttPage() {
             <div
               className="px-3 flex flex-col justify-center gap-1 cursor-default"
               style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredProduct ? 'var(--surface-2)' : 'transparent' }}
+              onMouseEnter={() => setHoveredProduct(true)}
+              onMouseLeave={() => setHoveredProduct(false)}
             >
               <p className="text-xs font-semibold leading-tight" title={`${activeProduct.emoji ?? ''} ${activeProduct.name}`} style={{ color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{activeProduct.emoji} {activeProduct.name}</p>
-              <div className="flex items-center gap-1.5">
-                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: allDone ? '#10b981' : 'var(--brand)' }} />
-                </div>
-                <span className="text-[11px] flex-shrink-0" style={{ color: allDone ? '#10b981' : 'var(--text-3)' }}>
-                  {doneCount}/{milestones.length}
-                </span>
-              </div>
             </div>
           </div>
 
