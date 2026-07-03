@@ -6,6 +6,7 @@ import ChatPanel from './ChatPanel';
 import PlanlyVisionModal, { shouldShowWelcome } from './PlanlyVisionModal';
 import { usePermission } from '../../context/PermissionContext';
 import { useProduct } from '../../context/ProductContext';
+import { useAuth } from '../../context/AuthContext';
 
 const TAB_ROUTES: { path: string; tab: string }[] = [
   { path: '/canvas',  tab: 'canvas' },
@@ -36,8 +37,11 @@ function PermissionGuard({ children }: { children: ReactNode }) {
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [showSearch, setShowSearch] = useState(false);
   const [showProductChat, setShowProductChat] = useState(false);
+  const [showAdminChat, setShowAdminChat] = useState(false);
   const [showVision, setShowVision] = useState(false);
   const { products } = useProduct();
+  const { user } = useAuth();
+  const location = useLocation();
 
   // Auto-show vision modal for first-time users with no projects
   useEffect(() => {
@@ -55,26 +59,29 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const isAdminPage = location.pathname === '/admin';
+  const adminChatMode = isAdminPage && !!user?.isAdmin;
+
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
       <TopBar
         onOpenSearch={() => setShowSearch(true)}
-        onOpenChat={() => setShowProductChat((v) => !v)}
+        onOpenChat={adminChatMode
+          ? () => setShowAdminChat((v) => !v)
+          : () => setShowProductChat((v) => !v)}
         onOpenVision={() => setShowVision(true)}
-        chatOpen={showProductChat}
+        chatOpen={adminChatMode ? showAdminChat : showProductChat}
+        chatIsAdmin={adminChatMode}
       />
       <PermissionGuard>
         <main className="flex-1 overflow-auto min-w-0">{children}</main>
       </PermissionGuard>
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
       {showProductChat && (
-        <>
-          <div
-            className="fixed inset-0 z-[59]"
-            onClick={() => setShowProductChat(false)}
-          />
-          <ChatPanel onClose={() => setShowProductChat(false)} />
-        </>
+        <ChatPanel onClose={() => setShowProductChat(false)} />
+      )}
+      {showAdminChat && (
+        <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />
       )}
       {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
     </div>

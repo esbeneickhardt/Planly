@@ -263,49 +263,49 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 ## Milestone 7 — Task Detail Panel
 
-- [ ] Click a Kanban card → detail panel slides in
-- [ ] Edit name, description, owner, deadline, colour, status — all save
-- [ ] Add, check, reorder, delete subtasks; progress count shown on card
-- [ ] Unsaved change → close → "unsaved changes" prompt
-- [ ] Delete task → removed from board, panel closes
+- [X] Click a Kanban card → detail panel slides in
+- [X] Edit name, description, owner, deadline, colour, status — all save
+- [X] Add, check, reorder, delete subtasks; progress count shown on card
+- [X] Unsaved change → close → "unsaved changes" prompt
+- [X] Delete task → removed from board, panel closes
 
 ---
 
 ## Milestone 8 — Canvas (Plan view)
 
-- [ ] Double-click canvas → creates a new task node
-- [ ] Drag to move; position persists after refresh
-- [ ] Draw dependency arrow A → B; delete arrow
-- [ ] Cycle detection: A → B → A → error shown
-- [ ] Tasks with deadline show milestone badge
-- [ ] Save/restore/delete named canvas snapshots
+- [X] Double-click canvas → creates a new task node
+- [X] Drag to move; position persists after refresh
+- [X] Draw dependency arrow A → B; delete arrow
+- [X] Cycle detection: A → B → A → error shown
+- [X] Tasks with deadline show milestone badge
+- [X] Save/restore/delete named canvas snapshots
 
 ---
 
 ## Milestone 9 — Gantt / Progress view
 
-- [ ] Milestones appear as bars; colour reflects health (green / amber / red)
-- [ ] Hover bar → popover with task list
-- [ ] Overdue milestones shown in red
-- [ ] "Milestones X/Y" counter NOT shown on other views
+- [X] Milestones appear as bars; colour reflects health (green / amber / red)
+- [X] Hover bar → popover with task list
+- [X] Overdue milestones shown in red
+- [X] "Milestones X/Y" counter NOT shown on other views
 
 ---
 
 ## Milestone 10 — Backlog
 
-- [ ] Tasks with no sprint appear; sprinted tasks do not
-- [ ] Create task from backlog; assign to sprint
-- [ ] Unassigned badge count in sidebar is correct
+- [X] Tasks with no sprint appear; sprinted tasks do not
+- [X] Create task from backlog; assign to sprint
+- [X] Unassigned badge count in sidebar is correct
 
 ---
 
 ## Milestone 11 — Chat & Messaging
 
-- [ ] Send, edit, delete messages in product chat
-- [ ] Upload image → thumbnail; upload file → download link
-- [ ] Task chat thread separate from product chat
-- [ ] Switch Messages / Tasks tabs in chat panel; pin and unpin tasks
-- [ ] Real-time: two tabs → message/task update appears without refresh
+- [X] Send, edit, delete messages in product chat
+- [X] Upload image → thumbnail; upload file → download link
+- [X] Task chat thread separate from product chat
+- [X] Switch Messages / Tasks tabs in chat panel; pin and unpin tasks
+- [X] Real-time: two tabs → message/task update appears without refresh
 
 ---
 
