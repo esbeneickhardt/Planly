@@ -1,11 +1,13 @@
 import { useState, FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get('next') ?? '/kanban';
   const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '', realName: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ export default function RegisterPage() {
     try {
       await api.users.create({ username: form.username, email: form.email, password: form.password, realName: form.realName || undefined });
       await login(form.email, form.password);
-      navigate('/kanban', { replace: true });
+      navigate(next, { replace: true });
     } catch (err) {
       setError((err as Error).message);
     } finally {

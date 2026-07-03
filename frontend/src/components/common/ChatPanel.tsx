@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import { api } from '../../api/client';
@@ -37,7 +38,7 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick }: {
   const renderContent = (content: string, isOwn: boolean) => (
     <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5 }}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
         components={{
           pre: ({ children }) => (
@@ -154,6 +155,7 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [deletingFile, setDeletingFile] = useState<string | null>(null);
 
   // @ mention state
   const [mentionSearch, setMentionSearch] = useState<string | null>(null);
@@ -429,6 +431,21 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
     setAllMessages((prev) => prev.filter((m) => m.id !== id));
   }
 
+  async function handleDeleteFile(url: string) {
+    if (!confirm('Delete this file? It will no longer be accessible from chat messages.')) return;
+    const filename = url.split('/').pop() ?? '';
+    setDeletingFile(url);
+    try {
+      await api.deleteUpload(filename);
+      // Remove from messages in local state so Files tab updates immediately
+      setAllMessages((prev) => prev.map((m) => ({
+        ...m,
+        attachments: m.attachments.filter((a) => a.url !== url),
+      })));
+    } catch { /* file may already be gone */ }
+    finally { setDeletingFile(null); }
+  }
+
   const tabBtn = (t: Tab, label: string) => (
     <button
       onClick={() => { setTab(t); if (t !== 'tasks') setSelectedTask(null); if (t !== 'search') setSearch(''); }}
@@ -483,7 +500,7 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
         {preview ? (
           <div className="min-h-[80px] max-h-40 overflow-y-auto px-3 py-2 rounded-lg mb-2 text-sm"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}>
               {draft || '*Nothing to preview*'}
             </ReactMarkdown>
           </div>
@@ -846,6 +863,17 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
                             <span className="text-white text-[10px] px-2 py-1 rounded font-medium" style={{ background: 'rgba(255,255,255,0.15)' }}>Click to view</span>
                             <a href={att.url} download={att.name} onClick={(e) => e.stopPropagation()} className="text-white text-[10px] px-2 py-1 rounded font-medium pointer-events-auto" style={{ background: 'rgba(255,255,255,0.15)' }}>Download</a>
                           </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteFile(att.url); }}
+                            disabled={deletingFile === att.url}
+                            title="Delete file"
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-auto"
+                            style={{ background: 'rgba(239,68,68,0.9)', color: 'white' }}
+                          >
+                            <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <line x1="2" y1="2" x2="8" y2="8" /><line x1="8" y1="2" x2="2" y2="8" />
+                            </svg>
+                          </button>
                           <div className="absolute bottom-1 left-1 right-1 text-[9px] truncate text-white opacity-0 group-hover/img:opacity-70 px-1">
                             {formatTime(msg.createdAt)} · {msg.author.username}
                           </div>
@@ -865,7 +893,18 @@ export default function ChatPanel({ taskId, taskName, onClose }: Props) {
                             <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{att.name}</p>
                             <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>{msg.author.username} · {formatTime(msg.createdAt)}</p>
                           </div>
-                          <a href={att.url} download={att.name} className="text-xs px-2 py-1 rounded-lg flex-shrink-0 opacity-0 group-hover/doc:opacity-100 transition-opacity" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>↓ Download</a>
+                          <div className="flex items-center gap-1.5 opacity-0 group-hover/doc:opacity-100 transition-opacity flex-shrink-0">
+                            <a href={att.url} download={att.name} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>↓</a>
+                            <button
+                              onClick={() => handleDeleteFile(att.url)}
+                              disabled={deletingFile === att.url}
+                              title="Delete file"
+                              className="text-xs px-2 py-1 rounded-lg transition-colors"
+                              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.2)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
+                            >{deletingFile === att.url ? '…' : '🗑'}</button>
+                          </div>
                         </div>
                       ))}
                     </div>

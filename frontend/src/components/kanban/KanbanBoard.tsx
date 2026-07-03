@@ -262,6 +262,20 @@ export default function KanbanBoard() {
     finally { setCreating(false); }
   }
 
+  async function handleQuickAddTask(statusKey: string, name: string) {
+    if (!activeProduct) return;
+    const task = await api.tasks.create(activeProduct.id, { name, status: statusKey });
+    if (sprintFilter) {
+      await api.sprints.addTasks(activeProduct.id, sprintFilter, [task.id]);
+    }
+    await refreshTasks();
+    if (sprintFilter) {
+      // Refresh sprint list so taskIds is up to date for filtering
+      const updated = await api.sprints.list(activeProduct.id);
+      setSprints(updated);
+    }
+  }
+
   async function handleCreateColumn(e: React.FormEvent) {
     e.preventDefault();
     if (!newColLabel.trim() || !activeProduct) return;
@@ -639,6 +653,7 @@ export default function KanbanBoard() {
                     onOpenDetail={setSelectedTask}
                     onRename={handleRenameColumn}
                     onDeleteRequest={setPendingDeleteCol}
+                    onAddTask={readOnly ? undefined : (name) => handleQuickAddTask(col.statusKey, name)}
                   />
                 </div>
               ))}

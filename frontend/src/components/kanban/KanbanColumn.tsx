@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
 import KanbanCard from './KanbanCard';
+import { usePermission } from '../../context/PermissionContext';
 
 type SortMode = 'default' | 'alpha-asc' | 'alpha-desc' | 'deadline' | 'oldest' | 'newest';
 
@@ -14,6 +15,7 @@ interface Props {
   onOpenDetail: (task: Task) => void;
   onRename: (columnId: string, label: string) => void;
   onDeleteRequest: (column: KanbanColumnType) => void;
+  onAddTask?: (name: string) => Promise<void>;
   isOverlay?: boolean;
 }
 
@@ -43,7 +45,7 @@ function sortTasks(tasks: Task[], mode: SortMode): Task[] {
   });
 }
 
-export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, onDeleteRequest, isOverlay = false }: Props) {
+export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, onDeleteRequest, onAddTask, isOverlay = false }: Props) {
   // Sortable (for column reordering)
   const {
     setNodeRef: setSortableRef,
@@ -57,11 +59,41 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
   // Droppable (for task drops)
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: column.statusKey, data: { type: 'column-drop' } });
 
+  const { canWrite } = usePermission();
+  const readOnly = !canWrite('kanban');
+
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(column.label);
   const [sortMode, setSortMode] = useState<SortMode>('default');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [addingTask, setAddingTask] = useState(false);
+  const [newTaskName, setNewTaskName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const addInputRef = useRef<HTMLInputElement>(null);
+
+  async function submitQuickAdd() {
+    const name = newTaskName.trim();
+    if (!name || !onAddTask) return;
+    setSubmitting(true);
+    try {
+      await onAddTask(name);
+      setNewTaskName('');
+      setAddingTask(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function openQuickAdd() {
+    setAddingTask(true);
+    setTimeout(() => addInputRef.current?.focus(), 0);
+  }
+
+  function cancelQuickAdd() {
+    setAddingTask(false);
+    setNewTaskName('');
+  }
 
   const sortedTasks = sortTasks(tasks, sortMode);
 
@@ -203,15 +235,67 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
         {/* Task drop zone */}
         <div
           ref={setDropRef}
-          className="flex-1 p-2.5 space-y-2 min-h-28 rounded-b-xl transition-colors duration-150"
+          className="group flex-1 p-2.5 space-y-2 min-h-28 rounded-b-xl transition-colors duration-150"
           style={{ background: isOver ? `${column.color}15` : 'transparent' }}
         >
+          {/* Quick-add form — pinned to top of column */}
+          {!isOverlay && onAddTask && !readOnly && (
+            addingTask ? (
+              <div className="mb-1 rounded-lg overflow-hidden" style={{ border: `1px solid ${column.color}`, background: 'var(--surface)' }}>
+                <input
+                  ref={addInputRef}
+                  value={newTaskName}
+                  onChange={(e) => setNewTaskName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); }
+                    if (e.key === 'Escape') cancelQuickAdd();
+                  }}
+                  onBlur={() => { if (!newTaskName.trim()) cancelQuickAdd(); }}
+                  placeholder="Task name…"
+                  className="w-full px-2.5 py-2 text-xs bg-transparent outline-none"
+                  style={{ color: 'var(--text)' }}
+                />
+                <div className="flex gap-1 px-2 pb-2">
+                  <button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={submitQuickAdd}
+                    disabled={submitting || !newTaskName.trim()}
+                    className="text-xs px-2.5 py-1 rounded font-medium transition-colors"
+                    style={{ background: column.color, color: 'white', opacity: submitting || !newTaskName.trim() ? 0.5 : 1 }}
+                  >
+                    {submitting ? '…' : 'Add'}
+                  </button>
+                  <button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={cancelQuickAdd}
+                    className="text-xs px-2 py-1 rounded transition-colors"
+                    style={{ color: 'var(--text-3)' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={openQuickAdd}
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-all mb-1"
+                style={{ color: 'var(--text-3)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.color = column.color; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}
+              >
+                <span className="text-sm leading-none">+</span>
+                New task
+              </button>
+            )
+          )}
+
           <SortableContext items={sortedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             {sortedTasks.map((task) => (
               <KanbanCard key={task.id} task={task} onOpenDetail={onOpenDetail} />
             ))}
           </SortableContext>
-          {tasks.length === 0 && (
+          {tasks.length === 0 && !addingTask && (
             <div className="flex items-center justify-center h-16 rounded-lg border-2 border-dashed" style={{ borderColor: 'var(--border)', color: 'var(--text-3)' }}>
               <span className="text-xs">Drop here</span>
             </div>

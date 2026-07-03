@@ -94,7 +94,6 @@ function buildGraph(
         inActiveSprint: sprintCheckbox ? sprintCheckbox.taskIds.has(t.id) : false,
         sprintColors: sprintColorsMap.get(t.id) ?? [],
       },
-      deletable: false,
     });
     t.dependsOn.forEach((dep) => {
       if (!nodeIds.has(dep.prerequisiteId)) return; // source not in visible set
@@ -236,6 +235,7 @@ function CanvasInner() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
+  const [newTaskPos, setNewTaskPos] = useState<{ x: number; y: number } | null>(null);
   const [creating, setCreating] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [showLegend, setShowLegend] = useState(false);
@@ -272,6 +272,7 @@ function CanvasInner() {
   const sprintInitRef = useRef<string | null>(null);
 
   const [layoutReady, setLayoutReady] = useState(false);
+  const [connectionsVersion, setConnectionsVersion] = useState(0);
   const initializedRef = useRef<string | null>(null);
   const productConnectionsRef = useRef<Set<string>>(new Set());
   const activeProductRef = useRef(activeProduct);
@@ -288,6 +289,7 @@ function CanvasInner() {
     initializedRef.current = null;
     sprintInitRef.current = null;
     setLayoutReady(false);
+    productConnectionsRef.current = new Set();
     const s = loadState(activeProduct.id);
     setViewMode(s.viewMode ?? 'all');
     setStatusFilter(s.statusFilter ?? null);
@@ -322,6 +324,7 @@ function CanvasInner() {
   async function loadConnections() {
     if (!activeProduct) return;
     productConnectionsRef.current = new Set(await api.connections.list(activeProduct.id).catch(() => []));
+    setConnectionsVersion((v) => v + 1);
   }
   useEffect(() => {
     if (activeProduct) { loadSprints(); loadConnections(); }
@@ -482,7 +485,7 @@ function CanvasInner() {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTasks, activeProduct, autoLayoutEnabled, sprints, selectedSprintFilter, showSprintAura, sprintColorsMap, localSprintMemberIds, tasksLoaded]);
+  }, [filteredTasks, activeProduct, autoLayoutEnabled, sprints, selectedSprintFilter, showSprintAura, sprintColorsMap, localSprintMemberIds, tasksLoaded, connectionsVersion]);
 
   // Sprint membership toggle — optimistic: updates local Set immediately, syncs to backend async
   const toggleSprintMembership = useCallback(async (taskId: string) => {
@@ -622,6 +625,18 @@ function CanvasInner() {
     setShowSprintPicker(false);
   }, []);
 
+  const onCanvasDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (!canWriteCanvas) return;
+    const target = e.target as HTMLElement;
+    if (!target.classList.contains('react-flow__pane')) return;
+    const vp = getViewport();
+    const canvasX = Math.round((e.clientX - vp.x) / vp.zoom) - 100;
+    const canvasY = Math.round((e.clientY - vp.y) / vp.zoom) - 40;
+    setNewTaskPos({ x: canvasX, y: canvasY });
+    setShowNewTask(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canWriteCanvas]);
+
   const onConnect = useCallback(async (connection: Connection) => {
     setCtxMenu(null);
     if (!activeProduct || !connection.source || !connection.target) return;
@@ -745,12 +760,18 @@ function CanvasInner() {
     if (!newTaskName.trim() || !activeProduct) return;
     setCreating(true);
     try {
-      const vp = getViewport();
-      const canvasX = Math.round((-vp.x + window.innerWidth / 2) / vp.zoom) - 100;
-      const canvasY = Math.round((-vp.y + window.innerHeight / 2) / vp.zoom) - 40;
+      let canvasX: number, canvasY: number;
+      if (newTaskPos) {
+        canvasX = newTaskPos.x;
+        canvasY = newTaskPos.y;
+      } else {
+        const vp = getViewport();
+        canvasX = Math.round((-vp.x + window.innerWidth / 2) / vp.zoom) - 100;
+        canvasY = Math.round((-vp.y + window.innerHeight / 2) / vp.zoom) - 40;
+      }
       await api.tasks.create(activeProduct.id, { name: newTaskName.trim(), canvasX, canvasY });
       await refreshTasks();
-      setNewTaskName(''); setShowNewTask(false);
+      setNewTaskName(''); setNewTaskPos(null); setShowNewTask(false);
     } finally { setCreating(false); }
   }
 
@@ -804,7 +825,7 @@ function CanvasInner() {
   return (
     <CanvasContext.Provider value={{ showSprintAura, simpleMode }}>
       <style>{`.react-flow__edge.selected .react-flow__edge-path { stroke: var(--brand) !important; stroke-width: 3px !important; } .react-flow__edge.selected .react-flow__edge-interaction { stroke: var(--brand) !important; }`}</style>
-      <div style={{ width: '100%', height: '100%', position: 'relative' }} onClick={() => setCtxMenu(null)}>
+      <div style={{ width: '100%', height: '100%', position: 'relative' }} onClick={() => setCtxMenu(null)} onDoubleClick={onCanvasDoubleClick}>
         <ReactFlow
           nodes={nodes} edges={edges}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
@@ -814,7 +835,7 @@ function CanvasInner() {
           onMoveEnd={onMoveEnd} nodeTypes={nodeTypes}
           defaultViewport={activeProduct ? loadState(activeProduct.id).viewport ?? undefined : undefined}
           defaultEdgeOptions={{ type: 'smoothstep', style: { stroke: 'var(--border-2)', strokeWidth: 2 } }}
-          deleteKeyCode={['Delete', 'Backspace']} onEdgesDelete={onEdgesDelete} onNodesDelete={onNodesDelete}
+          zoomOnDoubleClick={false} deleteKeyCode={['Delete', 'Backspace']} onEdgesDelete={onEdgesDelete} onNodesDelete={onNodesDelete}
           multiSelectionKeyCode="Shift"
         >
           <Background variant={BackgroundVariant.Dots} color="var(--border)" gap={24} size={1.5} />

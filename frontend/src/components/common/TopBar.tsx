@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import AvatarPicker from './AvatarPicker';
+import EmojiPicker from './EmojiPicker';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
@@ -167,6 +168,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
   const [productForm, setProductForm] = useState<NewProductForm>({ name: '', emoji: '', description: '', deadline: '' });
   const [creating, setCreating] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [showProductEmojiPicker, setShowProductEmojiPicker] = useState(false);
   const [productError, setProductError] = useState('');
   const [profileForm, setProfileForm] = useState({ realName: user?.realName ?? '', avatarEmoji: user?.avatarEmoji ?? '', avatarUrl: user?.avatarUrl ?? null as string | null });
   const [savingProfile, setSavingProfile] = useState(false);
@@ -199,6 +201,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
     try {
       await createProduct({ name: productForm.name, emoji: productForm.emoji || undefined, description: productForm.description || undefined, deadline: productForm.deadline });
       setShowNewProduct(false);
+      setShowProductEmojiPicker(false);
       setProductForm({ name: '', emoji: '', description: '', deadline: '' });
     } catch (err) { setProductError((err as Error).message); }
     finally { setCreating(false); }
@@ -597,18 +600,42 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
       {/* ── Modals ── */}
 
       {showNewProduct && (
-        <Modal title="New project" onClose={() => setShowNewProduct(false)}>
+        <Modal title="New project" onClose={() => { setShowNewProduct(false); setShowProductEmojiPicker(false); }}>
           <form onSubmit={handleCreateProduct} className="space-y-4">
             <div className="flex gap-3">
-              <div className="w-20">
-                <label className="label">Emoji</label>
-                <input type="text" maxLength={2} value={productForm.emoji} onChange={setField('emoji')} className="input text-center text-xl" placeholder="🚀" />
+              <div className="flex-shrink-0">
+                <label className="label">Icon</label>
+                <button
+                  type="button"
+                  onClick={() => setShowProductEmojiPicker((v) => !v)}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors"
+                  style={{ background: showProductEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${showProductEmojiPicker ? 'var(--brand)' : 'var(--border)'}` }}
+                >
+                  {productForm.emoji || '📋'}
+                </button>
               </div>
               <div className="flex-1">
                 <label className="label">Name</label>
                 <input type="text" required value={productForm.name} onChange={setField('name')} className="input" placeholder="My Project" autoFocus />
               </div>
             </div>
+
+            {showProductEmojiPicker && (
+              <div>
+                <EmojiPicker
+                  value={productForm.emoji}
+                  onChange={(e) => { setProductForm((f) => ({ ...f, emoji: e })); setShowProductEmojiPicker(false); }}
+                />
+                {productForm.emoji && (
+                  <button
+                    type="button"
+                    onClick={() => { setProductForm((f) => ({ ...f, emoji: '' })); setShowProductEmojiPicker(false); }}
+                    className="mt-1 w-full text-xs py-1 rounded-lg"
+                    style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
+                  >Remove icon</button>
+                )}
+              </div>
+            )}
             <div>
               <label className="label">Description</label>
               <input type="text" value={productForm.description} onChange={setField('description')} className="input" placeholder="What's the vision?" />

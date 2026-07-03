@@ -59,16 +59,6 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
         </span>
       );
     }
-    if (status === 'approved') {
-      return (
-        <span
-          className="text-xs px-2.5 py-1 rounded-full font-medium"
-          style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
-        >
-          Approved
-        </span>
-      );
-    }
     return null;
   }
 

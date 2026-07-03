@@ -4,7 +4,7 @@
  * The public URL returned is always `/api/uploads/<filename>` — the serve handler reads from S3 or disk.
  */
 import { createHash } from 'crypto';
-import { writeFile, readFile, mkdir } from 'fs/promises';
+import { writeFile, readFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { config } from '../config/env';
 
@@ -65,6 +65,17 @@ export async function storeFile(buffer: Buffer, filename: string, mimeType: stri
   // Local fallback
   await mkdir(config.uploadsDir, { recursive: true });
   await writeFile(join(config.uploadsDir, filename), buffer);
+}
+
+export async function deleteFile(filename: string): Promise<void> {
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+  const s3 = await getS3();
+  if (s3) {
+    const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+    await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `${S3_PREFIX}/${safe}` }));
+    return;
+  }
+  await unlink(join(config.uploadsDir, safe));
 }
 
 export async function getFileBuffer(filename: string): Promise<Buffer> {

@@ -53,9 +53,9 @@ export async function taskRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const { name, description, ownerId, color, deadline, canvasX, canvasY } = req.body as {
+    const { name, description, ownerId, color, deadline, canvasX, canvasY, status } = req.body as {
       name: string; description?: string; ownerId?: string; color?: string;
-      deadline?: string; canvasX?: number; canvasY?: number;
+      deadline?: string; canvasX?: number; canvasY?: number; status?: string;
     };
     if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
     if (name.length > 200) return reply.status(400).send({ error: 'name too long (max 200)' });
@@ -64,6 +64,7 @@ export async function taskRoutes(app: FastifyInstance) {
     const task = await prisma.task.create({
       data: {
         productId, name: name.trim(), description, ownerId, color, canvasX, canvasY,
+        status: status || undefined,
         deadline: deadline ? new Date(deadline) : undefined,
         createdBy: req.user.userId,
       },

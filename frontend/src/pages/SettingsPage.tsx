@@ -7,6 +7,7 @@ import { useColorLegend } from '../hooks/useColorLegend';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { Team } from '../types';
+import EmojiPicker from '../components/common/EmojiPicker';
 
 type AccessRequestRow = {
   id: string;
@@ -19,21 +20,11 @@ type AccessRequestRow = {
 
 type SettingsTab = 'team' | 'permissions' | 'colors' | 'ownership' | 'apps' | 'webhooks' | 'danger';
 
-const PROJECT_EMOJIS = [
-  '📋','📌','📍','🗂️','📁','📂','📊','📈','📉','🗃️','🗄️','📝',
-  '✅','☑️','🎯','🏆','🥇','🎖️','🚀','⚡','🔥','💡','🔑','⚙️',
-  '🛠️','🔧','🔨','🪛','🧩','🎮','🕹️','🖥️','💻','📱','🖨️','⌨️',
-  '🌐','🌍','🗺️','🧭','🏗️','🏢','🏭','🏠','🌆','🌇','🎪','🎨',
-  '🧪','🔬','🔭','📡','🛸','🤖','🦾','🧠','💎','🪙','💰','💳',
-  '🌟','⭐','✨','💫','🌈','🎉','🎊','🪄','🎭','🎬','🎥','📸',
-  '🌱','🌿','🍀','🌸','🦋','🐝','🦁','🐯','🦊','🐺','🦅','🦉',
-];
-
 const PAGE_TABS: { key: SettingsTab; label: string; ownerOnly?: boolean; danger?: boolean }[] = [
+  { key: 'ownership',   label: 'Ownership', ownerOnly: true },
   { key: 'team',        label: 'Team' },
   { key: 'permissions', label: 'Permissions' },
   { key: 'colors',      label: 'Color labels' },
-  { key: 'ownership',   label: 'Ownership', ownerOnly: true },
   { key: 'apps',        label: 'Apps' },
   { key: 'webhooks',    label: 'Webhooks' },
   { key: 'danger',      label: 'Danger zone', danger: true },
@@ -83,7 +74,7 @@ export default function SettingsPage() {
   const { showToast } = useToast();
   const { legend, update: updateLegend, toggleEnabled, enabledColors } = useColorLegend(activeProduct?.id ?? '');
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('team');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(isOwner ? 'ownership' : 'team');
   const [team, setTeam] = useState<Team | null>(null);
   const [matrix, setMatrix] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -345,44 +336,15 @@ export default function SettingsPage() {
                 <div className="space-y-3">
                   {/* Icon + Name row */}
                   <div className="flex gap-2 items-start">
-                    {/* Emoji picker button */}
-                    <div className="relative flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setShowEmojiPicker((v) => !v)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors"
-                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-                        title="Pick an icon"
-                      >
-                        {projEmoji || '📋'}
-                      </button>
-                      {showEmojiPicker && (
-                        <div
-                          className="absolute top-12 left-0 z-20 rounded-xl p-2 shadow-xl"
-                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 280 }}
-                        >
-                          <div className="grid grid-cols-10 gap-0.5 max-h-52 overflow-y-auto">
-                            {PROJECT_EMOJIS.map((e) => (
-                              <button
-                                key={e}
-                                type="button"
-                                onClick={() => { setProjEmoji(e); setProjDirty(true); setShowEmojiPicker(false); }}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-base hover:scale-110 transition-all"
-                                style={{ background: projEmoji === e ? 'var(--brand-subtle)' : 'transparent' }}
-                              >{e}</button>
-                            ))}
-                          </div>
-                          {projEmoji && (
-                            <button
-                              type="button"
-                              onClick={() => { setProjEmoji(''); setProjDirty(true); setShowEmojiPicker(false); }}
-                              className="mt-1.5 w-full text-xs py-1 rounded-lg transition-colors"
-                              style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
-                            >Remove icon</button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowEmojiPicker((v) => !v)}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors flex-shrink-0"
+                      style={{ background: showEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${showEmojiPicker ? 'var(--brand)' : 'var(--border)'}` }}
+                      title="Pick an icon"
+                    >
+                      {projEmoji || '📋'}
+                    </button>
                     <input
                       className="input text-sm flex-1"
                       value={projName}
@@ -390,6 +352,22 @@ export default function SettingsPage() {
                       placeholder="Project name"
                     />
                   </div>
+                  {showEmojiPicker && (
+                    <div>
+                      <EmojiPicker
+                        value={projEmoji}
+                        onChange={(e) => { setProjEmoji(e); setProjDirty(true); setShowEmojiPicker(false); }}
+                      />
+                      {projEmoji && (
+                        <button
+                          type="button"
+                          onClick={() => { setProjEmoji(''); setProjDirty(true); setShowEmojiPicker(false); }}
+                          className="mt-1 w-full text-xs py-1 rounded-lg transition-colors"
+                          style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
+                        >Remove icon</button>
+                      )}
+                    </div>
+                  )}
                   {/* Description */}
                   <textarea
                     className="input text-sm w-full resize-none"

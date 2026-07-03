@@ -157,9 +157,9 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 - [X] Cancel → nothing deleted
 
 ### Statistics tab
-- [ ] Total users, projects, tasks, messages counts shown
-- [ ] "+N last 30 days" sub-labels shown for users and projects
-- [ ] Admin count and unverified user count correct
+- [X] Total users, projects, tasks, messages counts shown
+- [X] "+N last 30 days" sub-labels shown for users and projects
+- [X] Admin count and unverified user count correct
 
 ### Admin API access (for deployers)
 - [ ] Create an API token in Settings → Apps
@@ -173,13 +173,13 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 > Requires email to be configured and "Require email verification" turned on in Admin → Email Settings.
 
-- [ ] New user registers → receives verification email immediately
-- [ ] Trying to log in before verifying → clear "verify your email" error message
-- [ ] Login page shows **"Resend verification email"** link when login is blocked; clicking it sends a new link (enter email address in the identifier field first)
-- [ ] Logged-in unverified user is automatically signed out on their next action
-- [ ] Click verify link in email → lands on verification success page
-- [ ] Log in after verification → works
-- [ ] Users who were already verified before the toggle was turned on are unaffected throughout
+- [X] New user registers → receives verification email immediately
+- [X] Trying to log in before verifying → clear "verify your email" error message
+- [X] Login page shows **"Resend verification email"** link when login is blocked; clicking it sends a new link (enter email address in the identifier field first)
+- [X] Logged-in unverified user is automatically signed out on their next action
+- [X] Click verify link in email → lands on verification success page
+- [X] Log in after verification → works
+- [X] Users who were already verified before the toggle was turned on are unaffected throughout
 
 ---
 
@@ -187,77 +187,77 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 
 > Requires "Enforce email whitelist" turned on and at least one pattern added.
 
-- [ ] Register with an email NOT on the whitelist → clear error
-- [ ] Register with an email ON the whitelist → succeeds
-- [ ] ADMIN_EMAIL is always allowed regardless of whitelist
+- [X] Register with an email NOT on the whitelist → clear error
+- [X] Register with an email ON the whitelist → succeeds
+- [X] ADMIN_EMAIL is always allowed regardless of whitelist
 
 ---
 
 ## Milestone 5 — Products & Teams
 
 ### Creating products
-- [ ] Create a product (name, emoji, description, deadline)
-- [ ] Product appears in the project picker dropdown
-- [ ] Create a second product — both appear, switching works
-- [ ] Active product shown in the project picker button
+- [X] Create a product (name, emoji, description, deadline)
+- [X] Product appears in the project picker dropdown
+- [X] Create a second product — both appear, switching works
+- [X] Active product shown in the project picker button
 
 ### Editing products
-- [ ] Edit product name → updates in project picker
-- [ ] Edit emoji, description, deadline → saves correctly
+- [X] Edit product name → updates in project picker
+- [X] Edit emoji, description, deadline → saves correctly
 
 ### Inviting members
-- [ ] Invite by link → copy link → open in incognito → new user can register and join
-- [ ] Invite by email → email arrives → link works → new user joins team
-- [ ] Invited user appears in Settings → Team
+- [X] Invite by link → copy link → open in incognito → new user can register and join
+- [X] Invite by email → email arrives → link works → new user joins team
+- [X] Invited user appears in Settings → Team
 
 ### Member management
-- [ ] Remove a team member → they lose access
-- [ ] Promote a member to co-owner → they can manage settings
-- [ ] Demote co-owner back to member
+- [X] Remove a team member → they lose access
+- [X] Promote a member to co-owner → they can manage settings
+- [X] Demote co-owner back to member
 
 ### Access requests
-- [ ] Non-member visits a product link and requests access
-- [ ] Owner sees the request in Settings → Team
-- [ ] Owner approves → user gets access
-- [ ] Owner rejects → user sees rejection
+- [X] Non-member visits a product link and requests access
+- [X] Owner sees the request in Settings → Team
+- [X] Owner approves → user gets access
+- [X] Owner rejects → user sees rejection
 
 ### Memberships modal
-- [ ] All products listed with correct role badge
-- [ ] "Leave" button shown for non-owners
-- [ ] Clicking "Leave" as non-owner → confirm → user removed
-- [ ] Clicking "Leave" as owner → dialog offers Transfer or Delete
-- [ ] Transfer ownership → select member → confirm → new owner shown
-- [ ] Delete project from ownership dialog → product removed everywhere
+- [X] All products listed with correct role badge
+- [X] "Leave" button shown for non-owners
+- [X] Clicking "Leave" as non-owner → confirm → user removed
+- [X] Clicking "Leave" as owner → dialog offers Transfer or Delete
+- [X] Transfer ownership → select member → confirm → new owner shown
+- [X] Delete project from ownership dialog → product removed everywhere
 
 ---
 
 ## Milestone 6 — Kanban Board
 
 ### Columns
-- [ ] Create, rename, delete a column
-- [ ] Drag columns to reorder — order persists after refresh
-- [ ] Deleting a column moves tasks to the first column
+- [X] Create, rename, delete a column
+- [X] Drag columns to reorder — order persists after refresh
+- [X] Deleting a column moves tasks to the first column
 
 ### Tasks
-- [ ] Create a task (+ button / new task modal)
-- [ ] Drag task to different column → status updates
-- [ ] Drag tasks to reorder within a column — persists after refresh
+- [X] Create a task (+ button / new task modal)
+- [X] Drag task to different column → status updates
+- [X] Drag tasks to reorder within a column — persists after refresh
 
 ### Per-column sort
-- [ ] Click ⇅ → cycle through sort modes (Custom, Deadline, etc.)
-- [ ] Deadline sort: tasks with deadline sorted correctly, no-deadline last
-- [ ] "Reset" returns to custom drag order
+- [X] Click ⇅ → cycle through sort modes (Custom, Deadline, etc.)
+- [X] Deadline sort: tasks with deadline sorted correctly, no-deadline last
+- [X] "Reset" returns to custom drag order
 
 ### Filters
-- [ ] Filter by owner, colour dot, sprint — task count updates
-- [ ] Multiple filters work together
-- [ ] "↺ Reset" clears all filters
+- [X] Filter by owner, colour dot, sprint — task count updates
+- [X] Multiple filters work together
+- [X] "↺ Reset" clears all filters
 
 ### Compact view
-- [ ] Toggle "☰ Compact" → table view renders
-- [ ] Status dropdown per row → change status → moves on board view
-- [ ] Sort by column headers; click row → task detail panel opens
-- [ ] Toggle "▦ Board" → returns to board; preference persists across refresh
+- [X] Toggle "☰ Compact" → table view renders
+- [X] Status dropdown per row → change status → moves on board view
+- [X] Sort by column headers; click row → task detail panel opens
+- [X] Toggle "▦ Board" → returns to board; preference persists across refresh
 
 ---
 

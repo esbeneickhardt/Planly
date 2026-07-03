@@ -14,6 +14,7 @@ export default function MembershipsModal({ onClose }: Props) {
   const { products, activeProduct, setActiveProduct, refreshProducts } = useProduct();
 
   const [busy, setBusy] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
   // When an owner clicks Leave, we expand the row with an owner action panel
   const [ownerAction, setOwnerAction] = useState<OwnerAction | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -21,7 +22,8 @@ export default function MembershipsModal({ onClose }: Props) {
   function switchAway(p: Product) {
     if (activeProduct?.id === p.id) {
       const next = products.find((x) => x.id !== p.id);
-      setActiveProduct(next ?? null as unknown as Product);
+      if (next) setActiveProduct(next);
+      // If no other product, refreshProducts() will clear activeProduct
     }
   }
 
@@ -35,7 +37,7 @@ export default function MembershipsModal({ onClose }: Props) {
         await api.teams.removeMember(p.teamId, user.id);
         switchAway(p);
         await refreshProducts();
-      } catch (err) { alert((err as Error).message); }
+      } catch (err) { setErrorMsg((err as Error).message); }
       finally { setBusy(null); }
       return;
     }
@@ -52,13 +54,13 @@ export default function MembershipsModal({ onClose }: Props) {
         .map((m) => m.user)
         .filter((u) => u.id !== user.id);
       setOwnerAction({ productId: p.id, members: others, transferTo: others[0]?.id ?? '' });
-    } catch { alert('Could not load team members.'); }
+    } catch { setErrorMsg('Could not load team members.'); }
     finally { setLoadingMembers(false); }
   }
 
   async function handleTransferAndLeave(p: Product) {
     if (!ownerAction || !user) return;
-    if (!ownerAction.transferTo) { alert('Select a member to transfer to.'); return; }
+    if (!ownerAction.transferTo) { setErrorMsg('Select a member to transfer to.'); return; }
     if (!confirm(`Transfer ownership of "${p.name}" to the selected member and leave?`)) return;
     setBusy(p.id);
     try {
@@ -67,7 +69,7 @@ export default function MembershipsModal({ onClose }: Props) {
       switchAway(p);
       await refreshProducts();
       setOwnerAction(null);
-    } catch (err) { alert((err as Error).message); }
+    } catch (err) { setErrorMsg((err as Error).message); }
     finally { setBusy(null); }
   }
 
@@ -79,7 +81,7 @@ export default function MembershipsModal({ onClose }: Props) {
       switchAway(p);
       await refreshProducts();
       setOwnerAction(null);
-    } catch (err) { alert((err as Error).message); }
+    } catch (err) { setErrorMsg((err as Error).message); }
     finally { setBusy(null); }
   }
 
@@ -88,6 +90,11 @@ export default function MembershipsModal({ onClose }: Props) {
       <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
         Projects you belong to. Click "Leave" to exit a project — owners can transfer ownership or delete.
       </p>
+      {errorMsg && (
+        <div className="mb-3 text-sm px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+          {errorMsg}
+        </div>
+      )}
 
       {products.length === 0 ? (
         <div className="text-center py-8 text-sm" style={{ color: 'var(--text-3)' }}>

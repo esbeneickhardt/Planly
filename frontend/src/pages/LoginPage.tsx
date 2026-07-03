@@ -1,11 +1,13 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get('next') ?? '/kanban';
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +30,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(identifier, password);
-      navigate('/kanban', { replace: true });
+      navigate(next, { replace: true });
     } catch (err) {
       const msg = (err as Error).message;
       setError(msg);
