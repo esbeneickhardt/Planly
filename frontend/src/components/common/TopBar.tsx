@@ -124,6 +124,14 @@ const BarChartIcon = ({ size = 20 }: { size?: number }) => (
   </svg>
 );
 
+const AboutIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <line x1="12" y1="10" x2="12" y2="16" />
+    <circle cx="12" cy="7.5" r="0.75" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 // ── Admin tab definitions ──────────────────────────────────────────────────
 
 const ADMIN_TABS: { key: string; label: string; Icon: (p: { size?: number }) => JSX.Element }[] = [
@@ -138,10 +146,12 @@ const ADMIN_TABS: { key: string; label: string; Icon: (p: { size?: number }) => 
 // ── Nav config ─────────────────────────────────────────────────────────────
 
 const NAV = [
-  { to: '/canvas',  label: 'Plan',     Icon: PlanIcon,     tab: 'canvas' },
-  { to: '/kanban',  label: 'Execute',  Icon: ExecuteIcon,  tab: 'kanban' },
-  { to: '/gantt',   label: 'Progress', Icon: ProgressIcon, tab: 'gantt' },
-  { to: '/backlog', label: 'Tasks',    Icon: TasksIcon,    tab: 'backlog' },
+  { to: '/canvas',    label: 'Plan',      Icon: PlanIcon,      tab: 'canvas' },
+  { to: '/kanban',    label: 'Execute',   Icon: ExecuteIcon,   tab: 'kanban' },
+  { to: '/gantt',     label: 'Progress',  Icon: ProgressIcon,  tab: 'gantt' },
+  { to: '/backlog',   label: 'Tasks',     Icon: TasksIcon,     tab: 'backlog' },
+  { to: '/analytics', label: 'Analytics', Icon: BarChartIcon,  tab: 'analytics' },
+  { to: '/about',     label: 'About',     Icon: AboutIcon,     tab: 'about' },
 ];
 
 interface NewProductForm { name: string; emoji: string; description: string; deadline: string; }
@@ -283,7 +293,11 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           ) : (
             // ── Normal project tabs ──
             <>
-              {NAV.filter(({ tab }) => !activeProduct || canRead(tab)).map(({ to, label, Icon }) => {
+              {NAV.filter(({ tab }) => {
+                if (!activeProduct) return true;
+                if (tab === 'analytics' && !activeProduct.analyticsEnabled) return false;
+                return canRead(tab);
+              }).map(({ to, label, Icon }) => {
                 const badge = label === 'Tasks' ? unassignedCount : label === 'Progress' ? overdueCount : 0;
                 return (
                   <NavLink

@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, requireTabWrite } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { createNotification } from '../utils/notifications';
 import { logActivity } from '../utils/activity';
@@ -9,6 +9,7 @@ import { broadcast } from '../realtime/manager';
 
 const TASK_INCLUDE = {
   owner: { select: { id: true, username: true, avatarEmoji: true } },
+  reviewer: { select: { id: true, username: true, avatarEmoji: true } },
   creator: { select: { id: true, username: true } },
   subtasks: { orderBy: { order: 'asc' as const } },
   dependsOn: { select: { prerequisiteId: true } },
@@ -41,6 +42,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/tasks/reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const { updates } = req.body as { updates: { taskId: string; order: number }[] };
     await prisma.$transaction(
       updates.map(({ taskId, order }) =>
@@ -53,8 +55,9 @@ export async function taskRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const { name, description, ownerId, color, deadline, canvasX, canvasY, status } = req.body as {
-      name: string; description?: string; ownerId?: string; color?: string;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
+    const { name, description, ownerId, reviewerId, color, deadline, canvasX, canvasY, status } = req.body as {
+      name: string; description?: string; ownerId?: string; reviewerId?: string; color?: string;
       deadline?: string; canvasX?: number; canvasY?: number; status?: string;
     };
     if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
@@ -63,7 +66,7 @@ export async function taskRoutes(app: FastifyInstance) {
 
     const task = await prisma.task.create({
       data: {
-        productId, name: name.trim(), description, ownerId, color, canvasX, canvasY,
+        productId, name: name.trim(), description, ownerId, reviewerId, color, canvasX, canvasY,
         status: status || undefined,
         deadline: deadline ? new Date(deadline) : undefined,
         createdBy: req.user.userId,
@@ -77,6 +80,12 @@ export async function taskRoutes(app: FastifyInstance) {
     if (ownerId && ownerId !== req.user.userId) {
       createNotification({
         userId: ownerId, type: 'task_assigned', title: `You were assigned to "${task.name}"`,
+        productId, taskId: task.id,
+      });
+    }
+    if (reviewerId && reviewerId !== req.user.userId && reviewerId !== ownerId) {
+      createNotification({
+        userId: reviewerId, type: 'task_assigned', title: `You were set as reviewer for "${task.name}"`,
         productId, taskId: task.id,
       });
     }
@@ -95,8 +104,9 @@ export async function taskRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const body = req.body as {
-      name?: string; description?: string; ownerId?: string; color?: string;
+      name?: string; description?: string; ownerId?: string; reviewerId?: string | null; color?: string;
       deadline?: string | null; status?: string; canvasX?: number; canvasY?: number;
     };
 
@@ -116,6 +126,7 @@ export async function taskRoutes(app: FastifyInstance) {
         name: body.name?.trim(),
         description: body.description,
         ownerId: body.ownerId,
+        reviewerId: body.reviewerId === null ? null : body.reviewerId,
         color: body.color,
         status: body.status,
         canvasX: body.canvasX,
@@ -138,6 +149,13 @@ export async function taskRoutes(app: FastifyInstance) {
         productId, taskId: task.id,
       });
     }
+    // Notify new reviewer
+    if (body.reviewerId && body.reviewerId !== task.reviewerId && body.reviewerId !== req.user.userId) {
+      createNotification({
+        userId: body.reviewerId, type: 'task_assigned', title: `You were set as reviewer for "${updated.name}"`,
+        productId, taskId: task.id,
+      });
+    }
 
     reply.send(updated);
   });
@@ -145,6 +163,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.delete('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });
     // Soft delete
@@ -158,6 +177,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/tasks/:taskId/position', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
     const { x, y } = req.body as { x: number; y: number };
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });
@@ -170,6 +190,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/tasks/:taskId/subtasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const { name } = req.body as { name: string };
     if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
 
@@ -184,6 +205,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/tasks/:taskId/subtasks/:subtaskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const { name, completed, order } = req.body as { name?: string; completed?: boolean; order?: number };
 
     const completedFields =
@@ -207,6 +229,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.delete('/api/products/:productId/tasks/:taskId/subtasks/:subtaskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     try {
       await prisma.subtask.delete({ where: { id: subtaskId, taskId } });
       reply.send({ ok: true });
@@ -220,6 +243,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/tasks/:taskId/dependencies', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
     const { prerequisiteId } = req.body as { prerequisiteId: string };
 
     const [task, prereq] = await Promise.all([
@@ -250,6 +274,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.delete('/api/products/:productId/tasks/:taskId/dependencies/:prerequisiteId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId, prerequisiteId } = req.params as { productId: string; taskId: string; prerequisiteId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
     try {
       await prisma.taskDependency.delete({ where: { dependentId_prerequisiteId: { dependentId: taskId, prerequisiteId } } });
       reply.send({ ok: true });

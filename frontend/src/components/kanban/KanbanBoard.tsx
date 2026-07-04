@@ -67,7 +67,12 @@ export default function KanbanBoard() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
-  useEffect(() => { api.users.list().then(setUsers).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!activeProduct?.teamId) return;
+    api.teams.get(activeProduct.teamId)
+      .then((team) => setUsers(team.members.map((m) => m.user)))
+      .catch(() => {});
+  }, [activeProduct?.teamId]);
 
   useEffect(() => {
     if (!activeProduct) return;
@@ -435,7 +440,7 @@ export default function KanbanBoard() {
         {sprints.length > 0 && (
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sprint</span>
-            {sprintFilter && (() => { const s = sprints.find((s) => s.id === sprintFilter); return s ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} /> : null; })()}
+            {sprintFilter && (() => { const s = sprints.find((s) => s.id === sprintFilter); return s ? <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} /> : null; })()}
             <select
               value={sprintFilter ?? ''}
               onChange={(e) => setSprintFilterAndSave(e.target.value === '' ? null : e.target.value)}
@@ -650,7 +655,7 @@ export default function KanbanBoard() {
                 <div key={col.id} className="kanban-col">
                   <KanbanColumn
                     column={col}
-                    tasks={filteredTasks.filter((t) => t.status === col.statusKey)}
+                    tasks={filteredTasks.filter((t) => t.status === col.statusKey).sort((a, b) => a.kanbanOrder - b.kanbanOrder)}
                     onOpenDetail={setSelectedTask}
                     onRename={handleRenameColumn}
                     onDeleteRequest={setPendingDeleteCol}

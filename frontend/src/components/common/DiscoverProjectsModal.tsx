@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import Modal from './Modal';
 import { api } from '../../api/client';
 import type { Product } from '../../types';
@@ -11,6 +13,7 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
   const [loading, setLoading] = useState(true);
   const [noteMap, setNoteMap] = useState<Record<string, string>>({});
   const [showNoteFor, setShowNoteFor] = useState<string | null>(null);
+  const [expandedDesc, setExpandedDesc] = useState<string | null>(null);
   const [requesting, setRequesting] = useState<string | null>(null);
   const [statusMap, setStatusMap] = useState<Record<string, string | null>>({});
 
@@ -94,11 +97,20 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                   className="rounded-xl px-4 py-3"
                   style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl flex-shrink-0">{p.emoji ?? '📦'}</span>
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl flex-shrink-0 mt-0.5">{p.emoji ?? '📦'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{p.name}</p>
                       <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>{p.team?.name}</p>
+                      {p.description && (
+                        <button
+                          onClick={() => setExpandedDesc(expandedDesc === p.id ? null : p.id)}
+                          className="text-xs mt-1 transition-colors"
+                          style={{ color: 'var(--brand)' }}
+                        >
+                          {expandedDesc === p.id ? 'Hide description ▴' : 'Show description ▾'}
+                        </button>
+                      )}
                     </div>
                     <div className="flex-shrink-0">
                       {status ? (
@@ -114,6 +126,20 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                       )}
                     </div>
                   </div>
+
+                  {expandedDesc === p.id && p.description && (
+                    <div className="mt-3 rounded-lg p-3 overflow-y-auto" style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: 240, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                        p: ({ children }) => <p style={{ margin: '0 0 6px' }}>{children}</p>,
+                        a: ({ children, href }) => <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>{children}</a>,
+                        ul: ({ children }) => <ul style={{ paddingLeft: 16, margin: '0 0 6px' }}>{children}</ul>,
+                        ol: ({ children }) => <ol style={{ paddingLeft: 16, margin: '0 0 6px' }}>{children}</ol>,
+                        li: ({ children }) => <li style={{ marginBottom: 2 }}>{children}</li>,
+                        strong: ({ children }) => <strong style={{ color: 'var(--text)' }}>{children}</strong>,
+                        code: ({ children }) => <code style={{ background: 'var(--surface-2)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>{children}</code>,
+                      }}>{p.description}</ReactMarkdown>
+                    </div>
+                  )}
 
                   {isShowingNote && !status && (
                     <div className="mt-3 space-y-2">

@@ -70,6 +70,7 @@ function buildGraph(
   sprintCheckbox: { sprintId: string; taskIds: Set<string> } | null,
   sprintColorsMap: Map<string, string[]>,
   productNodePos?: { x: number; y: number },
+  columnLabelMap?: Map<string, string>,
 ) {
   const nodeIds = new Set(tasks.map((t) => t.id));
   const nodes: Node[] = [];
@@ -93,6 +94,7 @@ function buildGraph(
         selectedSprintId: sprintCheckbox?.sprintId ?? null,
         inActiveSprint: sprintCheckbox ? sprintCheckbox.taskIds.has(t.id) : false,
         sprintColors: sprintColorsMap.get(t.id) ?? [],
+        statusLabel: columnLabelMap?.get(t.status),
       },
     });
     t.dependsOn.forEach((dep) => {
@@ -266,6 +268,9 @@ function CanvasInner() {
   const [editingSprint, setEditingSprint] = useState<import('../../api/client').Sprint | null>(null);
   const [editSprintForm, setEditSprintForm] = useState({ name: '', color: SPRINT_PALETTE[0] });
 
+  // Columns (for label resolution of custom statusKeys)
+  const [columnLabelMap, setColumnLabelMap] = useState<Map<string, string>>(new Map());
+
   // Sprints
   const [sprints, setSprints] = useState<Sprint[]>([]);
 
@@ -329,7 +334,12 @@ function CanvasInner() {
     setConnectionsVersion((v) => v + 1);
   }
   useEffect(() => {
-    if (activeProduct) { loadSprints(); loadConnections(); }
+    if (!activeProduct) return;
+    loadSprints();
+    loadConnections();
+    api.columns.list(activeProduct.id)
+      .then((cols) => setColumnLabelMap(new Map(cols.map((c) => [c.statusKey, c.label]))))
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
@@ -384,7 +394,7 @@ function CanvasInner() {
     const auraCols = showSprintAura ? sprintColorsMap : new Map<string, string[]>();
 
     const savedProductPos = loadState(activeProduct.id).productNodePosition;
-    const { nodes: n, edges: e } = buildGraph(filteredTasks, activeProduct, productConnectionsRef.current, sprintCheckbox, auraCols, savedProductPos);
+    const { nodes: n, edges: e } = buildGraph(filteredTasks, activeProduct, productConnectionsRef.current, sprintCheckbox, auraCols, savedProductPos, columnLabelMap);
     setEdges(e);
 
     if (initializedRef.current !== activeProduct.id) {
@@ -486,11 +496,11 @@ function CanvasInner() {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTasks, activeProduct, autoLayoutEnabled, sprints, selectedSprintFilter, showSprintAura, sprintColorsMap, localSprintMemberIds, tasksLoaded, connectionsVersion]);
+  }, [filteredTasks, activeProduct, autoLayoutEnabled, sprints, selectedSprintFilter, showSprintAura, sprintColorsMap, localSprintMemberIds, tasksLoaded, connectionsVersion, columnLabelMap]);
 
   // Sprint membership toggle - optimistic: updates local Set immediately, syncs to backend async
   const toggleSprintMembership = useCallback(async (taskId: string) => {
-    if (!activeProduct || !selectedSprintFilter) return;
+    if (!activeProduct || !selectedSprintFilter || !canWriteCanvas) return;
     const isIn = localSprintMemberIds.has(taskId);
     // Synchronous optimistic update
     setLocalSprintMemberIds((prev) => {
@@ -578,10 +588,11 @@ function CanvasInner() {
     try {
       const positions: Record<string, { x: number; y: number }> = {};
       nodes.forEach((n) => { positions[n.id] = { x: n.position.x, y: n.position.y }; });
+      const vp = getViewport();
       await api.canvasSnapshots.create(activeProduct.id, {
         name: snapshotName.trim(),
         positions,
-        viewport: getViewport(),
+        viewport: { ...vp, viewMode, simpleMode },
       });
       showToast('Layout saved', 'success');
       setShowShareModal(false);
@@ -604,9 +615,14 @@ function CanvasInner() {
       .filter(([id]) => !id.startsWith('product-'))
       .map(([taskId, { x, y }]) => ({ taskId, canvasX: x, canvasY: y }));
     patchTaskPositions(updates);
-    // Apply viewport
-    setViewport(snap.viewport);
-    save({ viewport: snap.viewport });
+    // Apply viewport (x/y/zoom)
+    const { x, y, zoom } = snap.viewport as { x: number; y: number; zoom: number; viewMode?: ViewMode; simpleMode?: boolean };
+    setViewport({ x, y, zoom });
+    // Apply display mode and simple mode if saved with snapshot
+    const snapVp = snap.viewport as { viewMode?: ViewMode; simpleMode?: boolean };
+    if (snapVp.viewMode) { setViewMode(snapVp.viewMode); save({ viewport: { x, y, zoom }, viewMode: snapVp.viewMode }); }
+    else { save({ viewport: { x, y, zoom } }); }
+    if (snapVp.simpleMode !== undefined) setSimpleMode(snapVp.simpleMode);
     setShowLoadModal(false);
     showToast(`Layout "${snap.name}" applied`, 'success');
   }
@@ -640,7 +656,7 @@ function CanvasInner() {
 
   const onConnect = useCallback(async (connection: Connection) => {
     setCtxMenu(null);
-    if (!activeProduct || !connection.source || !connection.target) return;
+    if (!activeProduct || !connection.source || !connection.target || !canWriteCanvas) return;
     const src = connection.source, tgt = connection.target;
     if (src.startsWith('product-') || tgt.startsWith('product-')) {
       const taskId = src.startsWith('product-') ? tgt : src;
@@ -675,6 +691,7 @@ function CanvasInner() {
 
   async function deleteEdge(srcId: string, tgtId: string, edgeId: string) {
     setCtxMenu(null);
+    if (!canWriteCanvas) return;
     if (tgtId.startsWith('product-') || srcId.startsWith('product-')) {
       const taskId = tgtId.startsWith('product-') ? srcId : tgtId;
       await api.connections.remove(activeProduct?.id ?? '', taskId).catch(() => {});
@@ -692,6 +709,7 @@ function CanvasInner() {
   }
 
   const onEdgesDelete = useCallback(async (del: Edge[]) => {
+    if (!canWriteCanvas) return;
     for (const edge of del) {
       const parts = edge.id.split('->');
       const srcId = parts[0], tgtId = parts.slice(1).join('->');
@@ -708,7 +726,7 @@ function CanvasInner() {
   }, [activeProduct, refreshTasks]);
 
   async function quickSetStatus(taskId: string, status: string) {
-    if (!activeProduct) return;
+    if (!activeProduct || !canWriteCanvas) return;
     setCtxMenu(null);
     try { await api.tasks.update(activeProduct.id, taskId, { status }); await refreshTasks(); showToast('Status updated', 'success'); }
     catch (err) { showToast((err as Error).message, 'error'); }
@@ -742,7 +760,7 @@ function CanvasInner() {
   }, [activeProduct, refreshTasks, showToast]);
 
   const onNodeDragStop = useCallback(async (_: React.MouseEvent, node: Node) => {
-    if (!activeProduct) return;
+    if (!activeProduct || (!canWriteCanvas && !node.id.startsWith('product-'))) return;
     if (node.id.startsWith('product-')) {
       save({ productNodePosition: { x: node.position.x, y: node.position.y } });
       return;
@@ -849,9 +867,11 @@ function CanvasInner() {
           onNodeDragStop={onNodeDragStop} onEdgeContextMenu={onEdgeContextMenu}
           onNodeContextMenu={onNodeContextMenu} onPaneClick={onPaneClick}
           onMoveEnd={onMoveEnd} nodeTypes={nodeTypes}
+          nodesDraggable={canWriteCanvas}
+          nodesConnectable={canWriteCanvas}
           defaultViewport={activeProduct ? loadState(activeProduct.id).viewport ?? undefined : undefined}
           defaultEdgeOptions={{ type: 'smoothstep', style: { stroke: 'var(--border-2)', strokeWidth: 2 } }}
-          zoomOnDoubleClick={false} deleteKeyCode={['Delete', 'Backspace']} onEdgesDelete={onEdgesDelete} onNodesDelete={onNodesDelete}
+          zoomOnDoubleClick={false} deleteKeyCode={canWriteCanvas ? ['Delete', 'Backspace'] : []} onEdgesDelete={onEdgesDelete} onNodesDelete={onNodesDelete}
           multiSelectionKeyCode="Shift"
         >
           <Background variant={BackgroundVariant.Dots} color="var(--border)" gap={24} size={1.5} />
@@ -894,13 +914,15 @@ function CanvasInner() {
                       {/* Header */}
                       <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
                         <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Sprints</span>
-                        <button
-                          onClick={() => { setShowSprintPicker(false); setShowNewSprint(true); }}
-                          className="text-xs font-medium px-2 py-0.5 rounded-lg transition-colors"
-                          style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-                        >+ New</button>
+                        {canWriteCanvas && (
+                          <button
+                            onClick={() => { setShowSprintPicker(false); setShowNewSprint(true); }}
+                            className="text-xs font-medium px-2 py-0.5 rounded-lg transition-colors"
+                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                          >+ New</button>
+                        )}
                       </div>
 
                       {/* No sprint option */}
@@ -939,22 +961,26 @@ function CanvasInner() {
                               </p>
                             </div>
                             {isActive && <span style={{ color: 'var(--brand)', fontSize: 11, flexShrink: 0 }}>✓</span>}
-                            <button
-                              className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
-                              style={{ color: 'var(--text-3)' }}
-                              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
-                              onClick={(e) => { e.stopPropagation(); setEditingSprint(s); setEditSprintForm({ name: s.name, color: s.color }); setShowSprintPicker(false); }}
-                              title="Edit sprint"
-                            >✎</button>
-                            <button
-                              className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
-                              style={{ color: 'var(--text-3)' }}
-                              onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
-                              onClick={(e) => { e.stopPropagation(); deleteSprint(s.id); }}
-                              title="Delete sprint"
-                            >✕</button>
+                            {canWriteCanvas && (
+                              <>
+                                <button
+                                  className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
+                                  style={{ color: 'var(--text-3)' }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
+                                  onClick={(e) => { e.stopPropagation(); setEditingSprint(s); setEditSprintForm({ name: s.name, color: s.color }); setShowSprintPicker(false); }}
+                                  title="Edit sprint"
+                                >✎</button>
+                                <button
+                                  className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
+                                  style={{ color: 'var(--text-3)' }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
+                                  onClick={(e) => { e.stopPropagation(); deleteSprint(s.id); }}
+                                  title="Delete sprint"
+                                >✕</button>
+                              </>
+                            )}
                           </div>
                         );
                       })}
@@ -1076,13 +1102,15 @@ function CanvasInner() {
                   </button>
                   {showLayoutDropdown && (
                     <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }} onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => { openShareModal(); setShowLayoutDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                        <span style={{ fontSize: 15 }}>↑</span>
-                        <div>
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Save layout</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Share current positions with team</p>
-                        </div>
-                      </button>
+                      {canWriteCanvas && (
+                        <button onClick={() => { openShareModal(); setShowLayoutDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                          <span style={{ fontSize: 15 }}>↑</span>
+                          <div>
+                            <p style={{ color: 'var(--text)', fontWeight: 500 }}>Save layout</p>
+                            <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Share current positions with team</p>
+                          </div>
+                        </button>
+                      )}
                       <button onClick={() => { openLoadModal(); setShowLayoutDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                         <span style={{ fontSize: 15 }}>↓</span>
                         <div>
@@ -1153,7 +1181,7 @@ function CanvasInner() {
         {/* Context menu */}
         {ctxMenu && (
           <div className="fixed rounded-xl shadow-xl z-50 py-1 overflow-hidden" style={{ left: ctxMenu.x, top: ctxMenu.y, background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }} onClick={(e) => e.stopPropagation()}>
-            {ctxMenu.type === 'edge' && (
+            {ctxMenu.type === 'edge' && canWriteCanvas && (
               <>
                 <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
                   {isProductEdge(ctxMenu.srcId!, ctxMenu.tgtId!) ? 'Product link' : 'Dependency'}
@@ -1165,14 +1193,18 @@ function CanvasInner() {
             )}
             {ctxMenu.type === 'node' && ctxTask && (
               <>
-                <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>Set status</div>
-                {STATUS_OPTIONS.map((s) => (
-                  <button key={s.key} onClick={() => quickSetStatus(ctxTask.id, s.key)} className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors" style={{ color: ctxTask.status === s.key ? 'var(--brand)' : 'var(--text)' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />{s.label}
-                    {ctxTask.status === s.key && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
-                  </button>
-                ))}
-                <div style={{ borderTop: '1px solid var(--border)' }}>
+                {canWriteCanvas && (
+                  <>
+                    <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>Set status</div>
+                    {STATUS_OPTIONS.map((s) => (
+                      <button key={s.key} onClick={() => quickSetStatus(ctxTask.id, s.key)} className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors" style={{ color: ctxTask.status === s.key ? 'var(--brand)' : 'var(--text)' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />{s.label}
+                        {ctxTask.status === s.key && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
+                      </button>
+                    ))}
+                  </>
+                )}
+                <div style={{ borderTop: canWriteCanvas ? '1px solid var(--border)' : undefined }}>
                   <button className="w-full text-left px-3 py-2 text-sm transition-colors" style={{ color: 'var(--text-2)' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')} onClick={() => { setCtxMenu(null); const t = tasks.find((x) => x.id === ctxTask.id); if (t) setSelectedTask(t); }}>Open detail…</button>
                 </div>
               </>
@@ -1184,6 +1216,7 @@ function CanvasInner() {
         {selectedTask && (
           <TaskDetailPanel
             task={selectedTask}
+            readOnly={!canWriteCanvas}
             onClose={() => setSelectedTask(null)}
             onUpdated={async (u) => { setSelectedTask(u); await refreshTasks(); }}
             onDeleted={async () => { setSelectedTask(null); await refreshTasks(); }}

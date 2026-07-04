@@ -13,6 +13,7 @@ interface PermissionContextValue {
   isOwner: boolean;
   isCoOwner: boolean;
   canManage: boolean; // isOwner || isCoOwner
+  permissionsLoaded: boolean;
 }
 
 const PermissionContext = createContext<PermissionContextValue>({
@@ -23,6 +24,7 @@ const PermissionContext = createContext<PermissionContextValue>({
   isOwner: false,
   isCoOwner: false,
   canManage: false,
+  permissionsLoaded: false,
 });
 
 export function PermissionProvider({ children }: { children: ReactNode }) {
@@ -30,9 +32,10 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [myPerms, setMyPerms] = useState<Record<string, Level>>({});
   const [myRole, setMyRole] = useState<string>('member');
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!activeProduct || !user) { setMyPerms({}); setMyRole('member'); return; }
+    if (!activeProduct || !user) { setMyPerms({}); setMyRole('member'); setPermissionsLoaded(true); return; }
     try {
       const [rows, team] = await Promise.all([
         api.permissions.list(activeProduct.id),
@@ -43,14 +46,15 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
       setMyPerms(mine);
       const member = team.members.find(m => m.userId === user.id);
       setMyRole(member?.role ?? 'member');
-
     } catch {
       setMyPerms({});
       setMyRole('member');
+    } finally {
+      setPermissionsLoaded(true);
     }
   }, [activeProduct?.id, user?.id]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { setPermissionsLoaded(false); refresh(); }, [refresh]);
 
   const levelFor = (tab: string): Level => myPerms[tab] ?? 'write';
   const canRead  = (tab: string) => levelFor(tab) !== 'none';
@@ -61,7 +65,7 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
   const canManage = isOwner || isCoOwner;
 
   return (
-    <PermissionContext.Provider value={{ canRead, canWrite, levelFor, refresh, isOwner, isCoOwner, canManage }}>
+    <PermissionContext.Provider value={{ canRead, canWrite, levelFor, refresh, isOwner, isCoOwner, canManage, permissionsLoaded }}>
       {children}
     </PermissionContext.Provider>
   );

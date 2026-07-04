@@ -52,6 +52,7 @@ model User {
   ownedTasks          Task[]               @relation("TaskOwner")
   completedTasks      Task[]               @relation("TaskCompleter")
   createdTasks        Task[]               @relation("TaskCreator")
+  reviewedTasks       Task[]               @relation("TaskReviewer")
   completedSubtasks   Subtask[]            @relation("SubtaskCompleter")
   canvasSnapshots     CanvasSnapshot[]
   tabPermissions      TabPermission[]
@@ -90,16 +91,17 @@ model TeamMember {
 }
 
 model Product {
-  id          String    @id @default(uuid())
-  name        String
-  emoji       String?
-  description String?
-  deadline    DateTime
-  teamId      String
-  ownerId     String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
-  deletedAt   DateTime?
+  id               String    @id @default(uuid())
+  name             String
+  emoji            String?
+  description      String?
+  deadline         DateTime
+  teamId           String
+  ownerId          String?
+  analyticsEnabled Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+  deletedAt        DateTime?
 
   team               Team                @relation(fields: [teamId], references: [id])
   ownerUser          User?               @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -141,6 +143,7 @@ model Task {
   description String?
   status      String    @default("backlog")
   ownerId     String?
+  reviewerId  String?
   color       String?
   deadline    DateTime?
   canvasX     Float?
@@ -155,6 +158,7 @@ model Task {
 
   product            Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
   owner              User?             @relation("TaskOwner", fields: [ownerId], references: [id])
+  reviewer           User?             @relation("TaskReviewer", fields: [reviewerId], references: [id])
   completer          User?             @relation("TaskCompleter", fields: [completedBy], references: [id])
   creator            User              @relation("TaskCreator", fields: [createdBy], references: [id])
   subtasks           Subtask[]
@@ -166,6 +170,7 @@ model Task {
 
   @@index([productId])
   @@index([ownerId])
+  @@index([reviewerId])
   @@index([status])
   @@index([productId, status])
   @@index([deletedAt])

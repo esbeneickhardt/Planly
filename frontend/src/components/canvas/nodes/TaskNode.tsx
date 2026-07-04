@@ -7,6 +7,7 @@ interface TaskNodeData extends Task {
   selectedSprintId?: string | null;
   inActiveSprint?: boolean;
   sprintColors?: string[];
+  statusLabel?: string;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -111,7 +112,7 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
             <span style={{ fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>
-              {STATUS_LABEL[data.status] ?? data.status}
+              {data.statusLabel ?? STATUS_LABEL[data.status] ?? data.status}
             </span>
             {isMilestone && (
               <span style={{ fontSize: 11, flexShrink: 0 }}>{isOverdue ? '⚠️' : '⭐'}</span>
@@ -136,11 +137,22 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
           </p>
         )}
 
-        {/* Owner - hidden in simple mode */}
-        {!simpleMode && data.owner && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
-            <span style={{ fontSize: 12 }}>{data.owner.avatarEmoji ?? '👤'}</span>
-            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{data.owner.username}</span>
+        {/* Owner + Reviewer - hidden in simple mode */}
+        {!simpleMode && (data.owner || data.reviewer) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+            {data.owner && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: 12 }}>{data.owner.avatarEmoji ?? '👤'}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{data.owner.username}</span>
+              </div>
+            )}
+            {data.reviewer && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }} title="Reviewer">
+                <span style={{ fontSize: 10, color: 'var(--text-3)', opacity: 0.7 }}>→</span>
+                <span style={{ fontSize: 12 }}>{data.reviewer.avatarEmoji ?? '👤'}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', opacity: 0.8 }}>{data.reviewer.username}</span>
+              </div>
+            )}
           </div>
         )}
 

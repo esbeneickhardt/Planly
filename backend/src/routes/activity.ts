@@ -8,6 +8,24 @@ export async function activityRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
 
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { analyticsEnabled: true, ownerId: true, teamId: true },
+    });
+    if (!product) return reply.status(404).send({ error: 'Product not found' });
+    if (!product.analyticsEnabled) {
+      const isOwner = product.ownerId === req.user.userId;
+      if (!isOwner) {
+        const membership = await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId: product.teamId, userId: req.user.userId } },
+          select: { role: true },
+        });
+        if (membership?.role !== 'co_owner') {
+          return reply.status(403).send({ error: 'Analytics is disabled for this project' });
+        }
+      }
+    }
+
     const { cursor, limit = '50' } = req.query as { cursor?: string; limit?: string };
     const take = Math.min(parseInt(limit), 100);
 
