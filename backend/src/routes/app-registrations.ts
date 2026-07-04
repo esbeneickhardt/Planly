@@ -101,11 +101,8 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   // Revoke a specific app token
   app.delete('/api/apps/:appId/tokens/:tokenId', { preHandler: requireAuth }, async (req, reply) => {
     const { appId, tokenId } = req.params as { appId: string; tokenId: string };
-    try {
-      await prisma.apiToken.delete({ where: { id: tokenId, appId, userId: req.user.userId } });
-      reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    const { count } = await prisma.apiToken.deleteMany({ where: { id: tokenId, appId, userId: req.user.userId } });
+    if (count === 0) return reply.status(404).send({ error: 'Not found' });
+    reply.send({ ok: true });
   });
 }

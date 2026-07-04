@@ -321,9 +321,9 @@ Work through each milestone in order. Check off items as you verify them. Add bu
 ## Milestone 13 - Settings
 
 ### Team, Permissions, Colors, Ownership tabs
-- [ ] Members listed with correct roles; pending requests actionable
-- [ ] Permission changes take effect for the affected user (read-only tab, hidden tab)
-- [ ] Toggle / rename colours; transfer project ownership
+- [X] Members listed with correct roles; pending requests actionable
+- [X] Permission changes take effect for the affected user (read-only tab, hidden tab)
+- [X] Toggle / rename colours; transfer project ownership
 
 ### Apps tab
 - [ ] Create app, generate token → shown once

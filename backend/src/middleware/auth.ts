@@ -40,18 +40,10 @@ async function enforceEmailVerification(req: FastifyRequest, reply: FastifyReply
 }
 
 async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  // 1. Cookie-based auth (web app sessions)
-  const cookieToken = req.cookies?.token;
-  if (cookieToken) {
-    try {
-      req.user = jwt.verify(cookieToken, process.env.JWT_SECRET!) as AuthPayload;
-      return true;
-    } catch {
-      // invalid/expired - fall through to Bearer check
-    }
-  }
-
-  // 2. Bearer token auth (API access tokens)
+  // 1. Bearer token auth — checked first so an explicit token is never shadowed by a browser cookie.
+  //    When a Bearer header is present, we validate it exclusively; if it fails we return 401
+  //    immediately rather than falling through to the cookie. This ensures revoked/expired tokens
+  //    are correctly rejected even on the same origin as the web app.
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     const rawToken = authHeader.slice(7);
@@ -67,7 +59,20 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
         return true;
       }
     } catch {
-      // DB error - fall through
+      // DB error — fall through to 401
+    }
+    reply.status(401).send({ error: 'Unauthorized' });
+    return false;
+  }
+
+  // 2. Cookie-based auth (web app sessions)
+  const cookieToken = req.cookies?.token;
+  if (cookieToken) {
+    try {
+      req.user = jwt.verify(cookieToken, process.env.JWT_SECRET!) as AuthPayload;
+      return true;
+    } catch {
+      // invalid/expired
     }
   }
 

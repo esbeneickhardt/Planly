@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from './TopBar';
 import SearchModal from './SearchModal';
@@ -7,6 +7,7 @@ import PlanlyVisionModal, { shouldShowWelcome } from './PlanlyVisionModal';
 import { usePermission } from '../../context/PermissionContext';
 import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
+import { ChatContext } from '../../context/ChatContext';
 
 const TAB_ROUTES: { path: string; tab: string }[] = [
   { path: '/canvas',  tab: 'canvas' },
@@ -37,8 +38,14 @@ function PermissionGuard({ children }: { children: ReactNode }) {
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [showSearch, setShowSearch] = useState(false);
   const [showProductChat, setShowProductChat] = useState(false);
+  const [chatInitialTask, setChatInitialTask] = useState<{ id: string; name: string } | undefined>();
   const [showAdminChat, setShowAdminChat] = useState(false);
   const [showVision, setShowVision] = useState(false);
+
+  const openProductChat = useCallback((taskId?: string, taskName?: string) => {
+    setChatInitialTask(taskId ? { id: taskId, name: taskName! } : undefined);
+    setShowProductChat(true);
+  }, []);
   const { products } = useProduct();
   const { user } = useAuth();
   const location = useLocation();
@@ -63,27 +70,36 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const adminChatMode = isAdminPage && !!user?.isAdmin;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
-      <TopBar
-        onOpenSearch={() => setShowSearch(true)}
-        onOpenChat={adminChatMode
-          ? () => setShowAdminChat((v) => !v)
-          : () => setShowProductChat((v) => !v)}
-        onOpenVision={() => setShowVision(true)}
-        chatOpen={adminChatMode ? showAdminChat : showProductChat}
-        chatIsAdmin={adminChatMode}
-      />
-      <PermissionGuard>
-        <main className="flex-1 overflow-auto min-w-0">{children}</main>
-      </PermissionGuard>
-      {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
-      {showProductChat && (
-        <ChatPanel onClose={() => setShowProductChat(false)} />
-      )}
-      {showAdminChat && (
-        <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />
-      )}
-      {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
-    </div>
+    <ChatContext.Provider value={{
+      openChat: adminChatMode ? () => setShowAdminChat((v) => !v) : openProductChat,
+      chatOpen: adminChatMode ? showAdminChat : showProductChat,
+      chatTaskId: chatInitialTask?.id,
+    }}>
+      <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+        <TopBar
+          onOpenSearch={() => setShowSearch(true)}
+          onOpenChat={adminChatMode
+            ? () => setShowAdminChat((v) => !v)
+            : () => openProductChat()}
+          onOpenVision={() => setShowVision(true)}
+          chatOpen={adminChatMode ? showAdminChat : showProductChat}
+          chatIsAdmin={adminChatMode}
+        />
+        <PermissionGuard>
+          <main className="flex-1 overflow-auto min-w-0">{children}</main>
+        </PermissionGuard>
+        {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
+        {showProductChat && (
+          <ChatPanel
+            initialTask={chatInitialTask}
+            onClose={() => { setShowProductChat(false); setChatInitialTask(undefined); }}
+          />
+        )}
+        {showAdminChat && (
+          <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />
+        )}
+        {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
+      </div>
+    </ChatContext.Provider>
   );
 }

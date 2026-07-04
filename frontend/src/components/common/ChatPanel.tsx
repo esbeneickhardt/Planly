@@ -13,8 +13,7 @@ import TaskDetailPanel from './TaskDetailPanel';
 import { EMOJI_SET } from './MarkdownEditor';
 
 interface Props {
-  taskId?: string;
-  taskName?: string;
+  initialTask?: { id: string; name: string };
   onClose: () => void;
   isAdminChat?: boolean;
 }
@@ -197,7 +196,7 @@ function saveDismissed(productId: string, ids: string[]) {
   localStorage.setItem(DISMISSED_KEY(productId), JSON.stringify(ids));
 }
 
-export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = false }: Props) {
+export default function ChatPanel({ initialTask, onClose, isAdminChat = false }: Props) {
   const { activeProduct, tasks } = useProduct();
   const { user } = useAuth();
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -259,7 +258,15 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
 
 
   const productId = activeProduct?.id;
-  const sendTaskId = taskId ?? (tab === 'tasks' && selectedTask ? selectedTask.id : undefined);
+  const sendTaskId = tab === 'tasks' && selectedTask ? selectedTask.id : undefined;
+
+  // When opened from a task's chat button, jump directly to that task's thread
+  useEffect(() => {
+    if (initialTask) {
+      setTab('tasks');
+      setSelectedTask({ id: initialTask.id, name: initialTask.name });
+    }
+  }, [initialTask?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load team members for @ mentions (not applicable in admin chat)
   useEffect(() => {
@@ -315,13 +322,11 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
         setAllMessages(msgs);
       } else {
         if (!productId) return;
-        const msgs = taskId
-          ? await api.messages.list(productId, taskId)
-          : await api.messages.listAll(productId);
+        const msgs = await api.messages.listAll(productId);
         setAllMessages(msgs);
       }
     } catch {}
-  }, [isAdminChat, productId, taskId]);
+  }, [isAdminChat, productId]);
 
   useEffect(() => {
     load();
@@ -336,11 +341,10 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
   }, []);
 
   const displayMessages = useMemo(() => {
-    if (taskId) return allMessages;
     if (tab === 'tasks' && selectedTask) return allMessages.filter((m) => m.taskId === selectedTask.id);
     if (tab === 'search' || tab === 'files') return allMessages;
     return allMessages.filter((m) => !m.taskId);
-  }, [allMessages, taskId, tab, selectedTask]);
+  }, [allMessages, tab, selectedTask]);
 
   // Build task groups with message counts
   const taskMessageCounts = useMemo(() => {
@@ -396,7 +400,7 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
     return [...pinned, ...withMsg, ...withoutMsg];
   }, [filteredTasks, pinnedTaskIds, taskMessageCounts]);
 
-  const showingMessages = tab === 'messages' || (tab === 'tasks' && selectedTask != null) || !!taskId;
+  const showingMessages = tab === 'messages' || (tab === 'tasks' && selectedTask != null);
   useEffect(() => {
     if (showingMessages) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [displayMessages.length, showingMessages]);
@@ -941,10 +945,21 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
         onPointerDown={isExpanded ? undefined : onHeaderDrag}
       >
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
-            💬 {isAdminChat ? 'Admin chat' : taskName ? 'Task chat' : 'Project chat'}
-          </h2>
-          {taskName && !isMinimized && <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-3)', maxWidth: 260 }}>{taskName}</p>}
+          {!isAdminChat && tab === 'tasks' && selectedTask && !isMinimized ? (
+            <div className="flex items-center gap-1 min-w-0">
+              <button
+                onClick={() => { setTab('messages'); setSelectedTask(null); }}
+                className="text-xs font-medium flex-shrink-0 transition-colors"
+                style={{ color: 'var(--brand)' }}
+              >💬 Project chat</button>
+              <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>›</span>
+              <span className="text-xs truncate" style={{ color: 'var(--text-2)' }}>{selectedTask.name}</span>
+            </div>
+          ) : (
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+              💬 {isAdminChat ? 'Admin chat' : 'Project chat'}
+            </h2>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {!isExpanded && headerBtn(isMinimized ? 'Restore' : 'Minimise', () => setIsMinimized((v) => !v), isMinimized ? '▲' : '−')}
@@ -958,7 +973,7 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
       {/* Tabs */}
       <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
         {tabBtn('messages', 'Messages')}
-        {!taskId && !isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`)}
+        {!isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`)}
         {tabBtn('search', 'Search')}
         {tabBtn('files', 'Files')}
       </div>
@@ -972,7 +987,7 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
       )}
 
       {/* ── Tasks tab ── */}
-      {tab === 'tasks' && !taskId && !isAdminChat && (
+      {tab === 'tasks' && !isAdminChat && (
         selectedTask ? (
           <>
             <div className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
