@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, MilestoneResult } from '../api/client';
 import { useProduct } from '../context/ProductContext';
+import { usePermission } from '../context/PermissionContext';
 import type { Product } from '../types';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
 import type { Task } from '../types';
@@ -67,6 +68,8 @@ function getTimeMarkers(start: Date, end: Date): { date: Date; label: string }[]
 
 export default function GanttPage() {
   const { activeProduct, tasks } = useProduct();
+  const { canWrite } = usePermission();
+  const readOnly = !canWrite('gantt');
   const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
@@ -268,45 +271,32 @@ export default function GanttPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Summary bar */}
-      <div className="flex-shrink-0 px-4 py-2 flex items-center gap-4" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div className="flex-1" />
-
-        {/* Hide done toggle */}
-        {doneCount > 0 && (
-          <button
-            onClick={() => setHideDone((v) => {
-              const next = !v;
-              try { if (activeProduct) localStorage.setItem(`planly-gantt-hideDone-${activeProduct.id}`, String(next)); } catch { /* ignore */ }
-              return next;
-            })}
-            className="flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-medium transition-all flex-shrink-0"
-            style={{
-              background: hideDone ? 'var(--surface-2)' : 'rgba(16,185,129,0.12)',
-              color: hideDone ? 'var(--text-3)' : '#10b981',
-              border: `1px solid ${hideDone ? 'var(--border)' : 'rgba(16,185,129,0.3)'}`,
-            }}
-          >
-            <span style={{ fontSize: 10 }}>{hideDone ? '○' : '✓'}</span>
-            {hideDone ? `Show ${doneCount} done` : `${doneCount} done`}
-          </button>
-        )}
-
-        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
-          Due {new Date(activeProduct.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
-        </span>
-      </div>
-
       {/* Sticky column header - stays visible when the milestone list scrolls */}
       <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        {/* Left: Milestone label + zoom controls */}
-        <div className="flex-shrink-0 w-52 h-10 px-3 flex items-center justify-between" style={{ borderRight: '1px solid var(--border)' }}>
-          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Milestone</span>
-          <div className="flex items-center gap-0.5">
-            <button onClick={() => applyZoom(0.5)} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom in">+</button>
-            <button onClick={() => applyZoom(2)} disabled={isFullView} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom out">−</button>
-            <button onClick={() => { setViewStart(fullStart); setViewEnd(fullEnd); }} disabled={isFullView} className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>Fit</button>
+        {/* Left: Milestone label + zoom + hide-done toggle */}
+        <div className="flex-shrink-0 w-52 px-3 flex flex-col justify-center gap-1" style={{ borderRight: '1px solid var(--border)', minHeight: 44 }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Milestone</span>
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => applyZoom(0.5)} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom in">+</button>
+              <button onClick={() => applyZoom(2)} disabled={isFullView} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom out">−</button>
+              <button onClick={() => { setViewStart(fullStart); setViewEnd(fullEnd); }} disabled={isFullView} className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>Fit</button>
+            </div>
           </div>
+          {doneCount > 0 && (
+            <button
+              onClick={() => setHideDone((v) => {
+                const next = !v;
+                try { if (activeProduct) localStorage.setItem(`planly-gantt-hideDone-${activeProduct.id}`, String(next)); } catch { /* ignore */ }
+                return next;
+              })}
+              className="flex items-center gap-1 text-[10px] font-medium transition-all self-start"
+              style={{ color: hideDone ? 'var(--text-3)' : '#10b981' }}
+            >
+              <span>{hideDone ? '○' : '✓'}</span>
+              {hideDone ? `Show ${doneCount} done` : `${doneCount} done`}
+            </button>
+          )}
         </div>
         {/* Right: Time axis */}
         <div className="flex-1 h-10 relative overflow-hidden" style={{ paddingRight: 24 }}>
@@ -556,6 +546,7 @@ export default function GanttPage() {
       {selectedTask && (
         <TaskDetailPanel
           task={selectedTask}
+          readOnly={readOnly}
           onClose={() => setSelectedTask(null)}
           onUpdated={async () => {
             setSelectedTask(null);

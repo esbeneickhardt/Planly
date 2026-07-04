@@ -215,6 +215,7 @@ export default function BacklogPage() {
                   task={task}
                   selected={selected.has(task.id)}
                   isOverdue={!!task.deadline && task.status !== 'done' && new Date(task.deadline) < now}
+                  readOnly={readOnly}
                   onToggle={() => toggleSelect(task.id)}
                   onOpen={() => setSelectedTask(task)}
                   onMoveTodo={async () => {
@@ -271,8 +272,8 @@ const STATUS_LABEL: Record<string, string> = {
   backlog: 'Backlog', todo: 'To Do', in_progress: 'In Progress', done: 'Done', blocked: 'Blocked',
 };
 
-function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, onDelete }: {
-  task: Task; selected: boolean; isOverdue: boolean;
+function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, onDelete, readOnly }: {
+  task: Task; selected: boolean; isOverdue: boolean; readOnly?: boolean;
   onToggle: () => void; onOpen: () => void; onMoveTodo: () => void; onDelete: () => void;
 }) {
   const done = task.subtasks.filter((s) => s.completed).length;
@@ -329,17 +330,19 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3 justify-end">
-          {task.status !== 'todo' && task.status !== 'done' && (
+          {!readOnly && task.status !== 'todo' && task.status !== 'done' && (
             <button onClick={onMoveTodo} className="text-xs font-medium whitespace-nowrap transition-colors" style={{ color: 'var(--brand)' }}>
               {task.ownerId ? 'Move to To Do →' : 'Assign owner'}
             </button>
           )}
-          <button onClick={onDelete} className="text-xs transition-colors" style={{ color: 'var(--text-3)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-          >
-            Delete
-          </button>
+          {!readOnly && (
+            <button onClick={onDelete} className="text-xs transition-colors" style={{ color: 'var(--text-3)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+            >
+              Delete
+            </button>
+          )}
         </div>
       </td>
     </tr>

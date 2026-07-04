@@ -58,6 +58,7 @@ export interface Product {
   deadline: string;
   teamId: string;
   ownerId?: string | null;
+  analyticsEnabled: boolean;
   createdAt: string;
   team?: Team;
 }
@@ -80,6 +81,8 @@ export interface Task {
   status: Status;
   ownerId?: string;
   owner?: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+  reviewerId?: string;
+  reviewer?: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
   color?: string;
   deadline?: string;
   kanbanOrder: number;

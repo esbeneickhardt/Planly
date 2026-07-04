@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProductProvider, useProduct } from './context/ProductContext';
-import { PermissionProvider } from './context/PermissionContext';
+import { PermissionProvider, usePermission } from './context/PermissionContext';
 import { ToastProvider } from './context/ToastContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
@@ -17,6 +17,7 @@ import CanvasPage from './pages/CanvasPage';
 import GanttPage from './pages/GanttPage';
 import SettingsPage from './pages/SettingsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import AboutPage from './pages/AboutPage';
 import AdminPage from './pages/AdminPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
@@ -32,6 +33,28 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   }
   if (!user) return <Navigate to="/login" replace />;
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
+  return children;
+}
+
+function PermSpinner() {
+  return (
+    <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
+    </div>
+  );
+}
+
+function RequireTab({ tab, children }: { tab: string; children: JSX.Element }) {
+  const { canRead, canManage, permissionsLoaded } = usePermission();
+  if (!permissionsLoaded) return <PermSpinner />;
+  if (!canManage && !canRead(tab)) return <Navigate to="/about" replace />;
+  return children;
+}
+
+function RequireManage({ children }: { children: JSX.Element }) {
+  const { canManage, permissionsLoaded } = usePermission();
+  if (!permissionsLoaded) return <PermSpinner />;
+  if (!canManage) return <Navigate to="/about" replace />;
   return children;
 }
 
@@ -67,14 +90,15 @@ export default function App() {
                           <AppLayout>
                             <Routes>
                               <Route path="/" element={<DefaultRoute />} />
-                              <Route path="/kanban" element={<KanbanPage />} />
-                              <Route path="/backlog" element={<BacklogPage />} />
-                              <Route path="/canvas" element={<CanvasPage />} />
-                              <Route path="/gantt" element={<GanttPage />} />
+                              <Route path="/kanban" element={<RequireTab tab="kanban"><KanbanPage /></RequireTab>} />
+                              <Route path="/backlog" element={<RequireTab tab="backlog"><BacklogPage /></RequireTab>} />
+                              <Route path="/canvas" element={<RequireTab tab="canvas"><CanvasPage /></RequireTab>} />
+                              <Route path="/gantt" element={<RequireTab tab="gantt"><GanttPage /></RequireTab>} />
                               <Route path="/analytics" element={<AnalyticsPage />} />
+                              <Route path="/about" element={<AboutPage />} />
                               <Route path="/admin" element={<AdminPage />} />
                               <Route path="/categories" element={<Navigate to="/settings" replace />} />
-                              <Route path="/settings" element={<SettingsPage />} />
+                              <Route path="/settings" element={<RequireManage><SettingsPage /></RequireManage>} />
                             </Routes>
                           </AppLayout>
                         </PermissionProvider>

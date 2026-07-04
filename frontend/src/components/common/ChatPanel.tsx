@@ -10,6 +10,7 @@ import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
 import type { User, Task } from '../../types';
 import TaskDetailPanel from './TaskDetailPanel';
+import { EMOJI_SET } from './MarkdownEditor';
 
 interface Props {
   taskId?: string;
@@ -179,12 +180,6 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick, canEdit, on
 
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
-const EMOJI_SET = [
-  '👍','👎','❤️','😂','🎉','🔥','👀','💯','✅','⭐',
-  '😀','😊','😍','🥰','😎','🤔','😅','😮','😢','🤩',
-  '👋','🤝','👏','🙏','💪','🫡','✌️','👌','🤙','🤗',
-  '🚀','⚡','🎯','🏆','💎','📌','💡','⚠️','📝','🔍',
-];
 
 const PINS_KEY = (productId: string) => `planly_pinned_chats_${productId}`;
 const DISMISSED_KEY = (productId: string) => `planly_dismissed_chats_${productId}`;
@@ -760,17 +755,14 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
           </div>
         )}
 
+        {/* Toolbar — order: 😊 Emoji | 📎 Attach | ℹ Markdown | Preview */}
         <div className="flex items-center gap-1 mb-2">
-          <button
-            onClick={() => setPreview((v) => !v)}
-            className="text-xs px-2 py-0.5 rounded-md transition-colors"
-            style={{ background: preview ? 'var(--brand-subtle)' : 'var(--surface-2)', color: preview ? 'var(--brand)' : 'var(--text-3)' }}
-          >MD preview</button>
           <button
             data-emoji-picker
             onClick={() => setShowComposePicker((v) => !v)}
             className="text-xs px-2 py-0.5 rounded-md transition-colors"
             style={{ background: showComposePicker ? 'var(--brand-subtle)' : 'var(--surface-2)', color: showComposePicker ? 'var(--brand)' : 'var(--text-2)' }}
+            title="Insert emoji"
           >😊</button>
           <button
             onClick={() => fileRef.current?.click()}
@@ -783,7 +775,12 @@ export default function ChatPanel({ taskId, taskName, onClose, isAdminChat = fal
             className="text-xs px-2 py-0.5 rounded-md transition-colors font-medium"
             style={{ background: showMarkdownHelp ? 'var(--brand-subtle)' : 'var(--surface-2)', color: showMarkdownHelp ? 'var(--brand)' : 'var(--text-3)' }}
             title="Markdown reference"
-          >ℹ</button>
+          >ℹ Markdown</button>
+          <button
+            onClick={() => setPreview((v) => !v)}
+            className="text-xs px-2 py-0.5 rounded-md transition-colors"
+            style={{ background: preview ? 'var(--brand-subtle)' : 'var(--surface-2)', color: preview ? 'var(--brand)' : 'var(--text-3)' }}
+          >{preview ? 'Edit' : 'Preview'}</button>
         </div>
 
         {preview ? (

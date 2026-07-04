@@ -45,8 +45,8 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.patch('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { name, emoji, description, deadline, ownerId } = req.body as {
-      name?: string; emoji?: string; description?: string; deadline?: string; ownerId?: string;
+    const { name, emoji, description, deadline, ownerId, analyticsEnabled } = req.body as {
+      name?: string; emoji?: string; description?: string; deadline?: string; ownerId?: string; analyticsEnabled?: boolean;
     };
 
     const product = await prisma.product.findUnique({
@@ -66,6 +66,9 @@ export async function productRoutes(app: FastifyInstance) {
     if (ownerId !== undefined && !isProductOwner) {
       return reply.status(403).send({ error: 'Only the owner can transfer ownership' });
     }
+    if (analyticsEnabled !== undefined && !isProductOwner) {
+      return reply.status(403).send({ error: 'Only the owner can change analytics visibility' });
+    }
 
     try {
       if (name !== undefined) {
@@ -77,6 +80,7 @@ export async function productRoutes(app: FastifyInstance) {
           name, emoji, description,
           ...(deadline ? { deadline: new Date(deadline) } : {}),
           ...(ownerId !== undefined ? { ownerId } : {}),
+          ...(analyticsEnabled !== undefined ? { analyticsEnabled } : {}),
         },
         include: { team: { select: { id: true, name: true } } },
       });

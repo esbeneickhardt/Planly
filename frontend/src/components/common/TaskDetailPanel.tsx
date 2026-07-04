@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -36,6 +36,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const [name, setName] = useState(task.name);
   const [description, setDescription] = useState(task.description ?? '');
   const [ownerId, setOwnerId] = useState(task.ownerId ?? '');
+  const [reviewerId, setReviewerId] = useState(task.reviewerId ?? '');
   const [status, setStatus] = useState(task.status);
   const [color, setColor] = useState(task.color ?? '');
   const [deadline, setDeadline] = useState(task.deadline ? task.deadline.split('T')[0] : '');
@@ -47,6 +48,20 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const [descPreview, setDescPreview] = useState(false);
   const [uploading, setUploading] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
+
+  // Floating / sidebar panel state (mirrors ChatPanel behaviour)
+  const [isSidebar, setIsSidebar] = useState(() => { try { return localStorage.getItem('planly-task-sidebar') !== 'false'; } catch { return true; } });
+  const [panelWidth, setPanelWidth] = useState(() => { try { return parseInt(localStorage.getItem('planly-task-width') ?? '480'); } catch { return 480; } });
+  const [panelHeight, setPanelHeight] = useState(() => { try { return parseInt(localStorage.getItem('planly-task-height') ?? '650'); } catch { return 650; } });
+  const [panelPos, setPanelPos] = useState<{ x: number; y: number }>(() => {
+    try { const s = localStorage.getItem('planly-task-pos'); if (s) return JSON.parse(s); } catch {}
+    return { x: Math.max(0, window.innerWidth - 520), y: 40 };
+  });
+  const panelWidthRef  = useRef(panelWidth);
+  const panelHeightRef = useRef(panelHeight);
+  const panelPosRef    = useRef(panelPos);
+  const isSidebarRef   = useRef(isSidebar);
+  const headerDragRef  = useRef<{ startX: number; startY: number; px: number; py: number } | null>(null);
 
   const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks);
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -69,12 +84,18 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     name !== task.name ||
     description !== (task.description ?? '') ||
     ownerId !== (task.ownerId ?? '') ||
+    reviewerId !== (task.reviewerId ?? '') ||
     status !== task.status ||
     color !== (task.color ?? '') ||
     deadline !== (task.deadline ? task.deadline.split('T')[0] : '') ||
     sprintsDirty;
 
-  useEffect(() => { api.users.list().then(setUsers).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!activeProduct?.teamId) return;
+    api.teams.get(activeProduct.teamId)
+      .then((team) => setUsers(team.members.map((m) => m.user)))
+      .catch(() => {});
+  }, [activeProduct?.teamId]);
 
   useEffect(() => {
     if (!activeProduct) return;
@@ -107,6 +128,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     try {
       const updated = await api.tasks.update(activeProduct.id, task.id, {
         name, description: description || undefined, ownerId: ownerId || undefined,
+        reviewerId: reviewerId || null,
         status, color: color || undefined, deadline: deadline || undefined,
       });
 
@@ -196,6 +218,68 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     const file = image.getAsFile();
     if (file) await insertUploadedImage(file);
   }
+
+  const startResizeDir = useCallback((e: React.PointerEvent, dir: string) => {
+    e.preventDefault(); e.stopPropagation();
+    const sx = panelPosRef.current.x, sy = panelPosRef.current.y;
+    const sw = panelWidthRef.current, sh = panelHeightRef.current;
+    const startX = e.clientX, startY = e.clientY;
+    function onMove(ev: PointerEvent) {
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      let newW = sw, newH = sh, newX = sx, newY = sy;
+      if (dir.includes('e')) newW = Math.max(360, Math.min(1200, sw + dx));
+      if (dir.includes('w')) { newW = Math.max(360, Math.min(1200, sw - dx)); if (!isSidebarRef.current) newX = sx + sw - newW; }
+      if (dir.includes('s')) newH = Math.max(300, Math.min(window.innerHeight - 40, sh + dy));
+      if (dir.includes('n')) { newH = Math.max(300, Math.min(window.innerHeight - 40, sh - dy)); newY = sy + sh - newH; }
+      newX = Math.max(0, Math.min(window.innerWidth - newW, newX));
+      newY = Math.max(0, newY);
+      setPanelWidth(newW); panelWidthRef.current = newW;
+      setPanelHeight(newH); panelHeightRef.current = newH;
+      if (!isSidebarRef.current) { setPanelPos({ x: newX, y: newY }); panelPosRef.current = { x: newX, y: newY }; }
+    }
+    function onUp() {
+      try {
+        localStorage.setItem('planly-task-width', String(panelWidthRef.current));
+        localStorage.setItem('planly-task-height', String(panelHeightRef.current));
+        localStorage.setItem('planly-task-pos', JSON.stringify(panelPosRef.current));
+      } catch {}
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
+
+  const onHeaderDrag = useCallback((e: React.PointerEvent) => {
+    if ((e.target as Element).closest('button')) return;
+    e.preventDefault();
+    const startPX = isSidebarRef.current ? window.innerWidth - panelWidthRef.current : panelPosRef.current.x;
+    const startPY = isSidebarRef.current ? 0 : panelPosRef.current.y;
+    headerDragRef.current = { startX: e.clientX, startY: e.clientY, px: startPX, py: startPY };
+    function onMove(ev: PointerEvent) {
+      if (!headerDragRef.current) return;
+      const x = Math.max(0, Math.min(window.innerWidth - panelWidthRef.current, headerDragRef.current.px + (ev.clientX - headerDragRef.current.startX)));
+      const y = Math.max(0, Math.min(window.innerHeight - 56, headerDragRef.current.py + (ev.clientY - headerDragRef.current.startY)));
+      if (isSidebarRef.current && x + panelWidthRef.current < window.innerWidth - 40) {
+        setIsSidebar(false); isSidebarRef.current = false;
+        try { localStorage.setItem('planly-task-sidebar', 'false'); } catch {}
+      }
+      setPanelPos({ x, y }); panelPosRef.current = { x, y };
+    }
+    function onUp() {
+      const pos = panelPosRef.current;
+      if (!isSidebarRef.current && pos.x + panelWidthRef.current >= window.innerWidth - 40) {
+        setIsSidebar(true); isSidebarRef.current = true;
+        try { localStorage.setItem('planly-task-sidebar', 'true'); } catch {}
+      }
+      try { localStorage.setItem('planly-task-pos', JSON.stringify(panelPosRef.current)); } catch {}
+      headerDragRef.current = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
 
   if (minimized) {
     return (
@@ -303,14 +387,21 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="label">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="input" disabled={readOnly}>
             {statusOptions.map((o) => <option key={o.statusKey} value={o.statusKey}>{o.label}</option>)}
           </select>
         </div>
         <div>
           <label className="label">Owner</label>
-          <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="input">
+          <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="input" disabled={readOnly}>
             <option value="">Unassigned</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.avatarEmoji ? `${u.avatarEmoji} ` : ''}{u.username}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Reviewer</label>
+          <select value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} className="input" disabled={readOnly}>
+            <option value="">None</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.avatarEmoji ? `${u.avatarEmoji} ` : ''}{u.username}</option>)}
           </select>
         </div>
@@ -324,12 +415,15 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
               const active = sprintIds.has(s.id);
               return (
                 <button key={s.id} type="button"
+                  disabled={readOnly}
                   onClick={() => setSprintIds((prev) => { const next = new Set(prev); if (next.has(s.id)) next.delete(s.id); else next.add(s.id); return next; })}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                   style={{
                     background: active ? `${s.color}22` : 'var(--surface-2)',
                     color: active ? s.color : 'var(--text-2)',
                     border: `1px solid ${active ? s.color : 'var(--border)'}`,
+                    opacity: readOnly ? 0.6 : 1,
+                    cursor: readOnly ? 'default' : 'pointer',
                   }}
                 >
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
@@ -344,29 +438,29 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
       <div>
         <label className="label">Deadline <span className="normal-case font-normal" style={{ color: 'var(--text-3)' }}>(makes this a Milestone)</span></label>
-        <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="input" />
+        <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="input" disabled={readOnly} />
       </div>
 
       <div>
         <label className="label">Color tag</label>
         <div className="flex items-center gap-2 flex-wrap">
           {enabledColors.map((c) => (
-            <button key={c} onClick={() => setColor(color === c ? '' : c)} title={legend[c] || c}
+            <button key={c} onClick={() => !readOnly && setColor(color === c ? '' : c)} title={legend[c] || c}
               className="w-6 h-6 rounded-full transition-transform relative group"
-              style={{ background: c, transform: color === c ? 'scale(1.25)' : 'scale(1)', boxShadow: color === c ? `0 0 0 2px var(--surface), 0 0 0 4px ${c}` : 'none' }}
+              style={{ background: c, transform: color === c ? 'scale(1.25)' : 'scale(1)', boxShadow: color === c ? `0 0 0 2px var(--surface), 0 0 0 4px ${c}` : 'none', cursor: readOnly ? 'default' : 'pointer' }}
             >
               {legend[c] && <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10" style={{ background: 'var(--text)', color: 'var(--bg)' }}>{legend[c]}</span>}
             </button>
           ))}
           {color && !enabledColors.includes(color) && (
-            <button onClick={() => setColor('')} title={legend[color] || color}
+            <button onClick={() => !readOnly && setColor('')} title={legend[color] || color}
               className="w-6 h-6 rounded-full transition-transform relative group"
-              style={{ background: color, transform: 'scale(1.25)', boxShadow: `0 0 0 2px var(--surface), 0 0 0 4px ${color}` }}
+              style={{ background: color, transform: 'scale(1.25)', boxShadow: `0 0 0 2px var(--surface), 0 0 0 4px ${color}`, cursor: readOnly ? 'default' : 'pointer' }}
             >
               {legend[color] && <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10" style={{ background: 'var(--text)', color: 'var(--bg)' }}>{legend[color]}</span>}
             </button>
           )}
-          <button onClick={() => setColor('')} className="text-xs px-2 py-1 rounded" style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}>Clear</button>
+          {!readOnly && <button onClick={() => setColor('')} className="text-xs px-2 py-1 rounded" style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}>Clear</button>}
         </div>
       </div>
 
@@ -381,16 +475,18 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             : <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
                 {subtasks.map((s) => (
                   <div key={s.id} className="flex items-center gap-2.5 px-3 py-2 group">
-                    <input type="checkbox" checked={s.completed} disabled={subtaskLoading === s.id} onChange={() => toggleSubtask(s)} className="rounded flex-shrink-0" style={{ accentColor: 'var(--brand)' }} />
+                    <input type="checkbox" checked={s.completed} disabled={readOnly || subtaskLoading === s.id} onChange={() => toggleSubtask(s)} className="rounded flex-shrink-0" style={{ accentColor: 'var(--brand)' }} />
                     <span className="flex-1 text-sm" style={{ color: s.completed ? 'var(--text-3)' : 'var(--text-2)', textDecoration: s.completed ? 'line-through' : 'none' }}>{s.name}</span>
-                    <button onClick={() => deleteSubtask(s)} className="opacity-0 group-hover:opacity-100 text-xs transition-opacity" style={{ color: 'var(--text-3)' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                    >✕</button>
+                    {!readOnly && (
+                      <button onClick={() => deleteSubtask(s)} className="opacity-0 group-hover:opacity-100 text-xs transition-opacity" style={{ color: 'var(--text-3)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+                      >✕</button>
+                    )}
                   </div>
                 ))}
               </div>
           }
-          {addingSubtask ? (
+          {!readOnly && (addingSubtask ? (
             <div className="flex gap-1.5 px-3 py-2" style={{ borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none' }}>
               <input autoFocus type="text" value={newSubtaskName} onChange={(e) => setNewSubtaskName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') addSubtask(); if (e.key === 'Escape') { setAddingSubtask(false); setNewSubtaskName(''); } }}
@@ -403,7 +499,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
               style={{ color: 'var(--text-3)', borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
             >+ Add subtask</button>
-          )}
+          ))}
         </div>
       </div>
 
@@ -507,20 +603,48 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     );
   }
 
-  // ── Side panel layout ────────────────────────────────────────────
+  // ── Side panel / floating layout ────────────────────────────────
   return (
     <>
       {showChat && <ChatPanel taskId={task.id} taskName={task.name} onClose={() => setShowChat(false)} />}
-      <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={handleClose} />
-      <div className="fixed right-0 top-0 h-full w-full max-w-md z-50 flex flex-col" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)', boxShadow: '-20px 0 60px rgba(0,0,0,0.3)' }}>
-        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+      {isSidebar && <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={handleClose} />}
+      <div
+        className="fixed flex flex-col"
+        style={isSidebar
+          ? { top: 0, right: 0, bottom: 0, zIndex: 50, width: panelWidth, background: 'var(--surface)', borderLeft: '1px solid var(--border)', boxShadow: '-20px 0 60px rgba(0,0,0,0.3)', overflow: 'hidden' }
+          : { left: panelPos.x, top: panelPos.y, zIndex: 50, width: panelWidth, height: panelHeight, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.28)', overflow: 'hidden' }
+        }
+      >
+        {/* Resize handles — floating only */}
+        {!isSidebar && (
+          <>
+            <div onPointerDown={(e) => startResizeDir(e, 'n')}  style={{ position: 'absolute', top: 0,    left: 12,   right: 12,  height: 5,  cursor: 'n-resize',  zIndex: 10 }} />
+            <div onPointerDown={(e) => startResizeDir(e, 's')}  style={{ position: 'absolute', bottom: 0, left: 12,   right: 12,  height: 5,  cursor: 's-resize',  zIndex: 10 }} />
+            <div onPointerDown={(e) => startResizeDir(e, 'e')}  style={{ position: 'absolute', top: 12,   right: 0,   bottom: 12, width: 5,   cursor: 'e-resize',  zIndex: 10 }} />
+            <div onPointerDown={(e) => startResizeDir(e, 'w')}  style={{ position: 'absolute', top: 12,   left: 0,    bottom: 12, width: 5,   cursor: 'w-resize',  zIndex: 10 }} />
+            <div onPointerDown={(e) => startResizeDir(e, 'nw')} style={{ position: 'absolute', top: 0,    left: 0,    width: 12,  height: 12, cursor: 'nw-resize', zIndex: 11 }} />
+            <div onPointerDown={(e) => startResizeDir(e, 'ne')} style={{ position: 'absolute', top: 0,    right: 0,   width: 12,  height: 12, cursor: 'ne-resize', zIndex: 11 }} />
+            <div onPointerDown={(e) => startResizeDir(e, 'sw')} style={{ position: 'absolute', bottom: 0, left: 0,    width: 12,  height: 12, cursor: 'sw-resize', zIndex: 11 }} />
+            <div onPointerDown={(e) => startResizeDir(e, 'se')} style={{ position: 'absolute', bottom: 0, right: 0,   width: 12,  height: 12, cursor: 'se-resize', zIndex: 11 }} />
+          </>
+        )}
+        {/* Sidebar left-edge resize */}
+        {isSidebar && (
+          <div onPointerDown={(e) => startResizeDir(e, 'w')} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }} />
+        )}
+        {/* Header — drag to detach / move */}
+        <div
+          className="flex items-center justify-between px-6 py-4 flex-shrink-0 select-none"
+          style={{ borderBottom: '1px solid var(--border)', cursor: 'grab' }}
+          onPointerDown={onHeaderDrag}
+        >
           {headerLeft}
           <div className="flex items-center gap-1">{chatBtn}{minimizeBtn}{expandBtn}{closeBtn}</div>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           <div>
             <label className="label">Name</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input font-medium" />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input font-medium" disabled={readOnly} />
           </div>
           {descField(4)}
           {metaFields}

@@ -8,72 +8,85 @@ export async function analyticsRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
 
-    const now = new Date();
-    const since = new Date(now);
-    since.setDate(since.getDate() - 89); // 90 days inclusive
-    since.setHours(0, 0, 0, 0);
+    // If analytics is disabled, only the product owner or team co-owner may view it
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { analyticsEnabled: true, ownerId: true, teamId: true },
+    });
+    if (!product) return reply.status(404).send({ error: 'Product not found' });
+    if (!product.analyticsEnabled) {
+      const isOwner = product.ownerId === req.user.userId;
+      if (!isOwner) {
+        const membership = await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId: product.teamId, userId: req.user.userId } },
+          select: { role: true },
+        });
+        if (membership?.role !== 'co_owner') {
+          return reply.status(403).send({ error: 'Analytics is disabled for this project' });
+        }
+      }
+    }
 
-    // Tasks completed in last 90 days, grouped by day
-    const completedTasks = await prisma.task.findMany({
-      where: {
-        productId,
-        deletedAt: null,
-        completedAt: { gte: since },
-      },
+    const now = new Date();
+    const since90 = new Date(now);
+    since90.setDate(since90.getDate() - 89);
+    since90.setHours(0, 0, 0, 0);
+
+    // Tasks completed in last 90 days
+    const completedRecent = await prisma.task.findMany({
+      where: { productId, deletedAt: null, completedAt: { gte: since90 } },
       select: { completedAt: true, completedBy: true },
     });
 
-    // Build day buckets (last 90 days)
+    // Day buckets
     const dayMap = new Map<string, number>();
     for (let i = 89; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       dayMap.set(d.toISOString().slice(0, 10), 0);
     }
-    for (const t of completedTasks) {
+    for (const t of completedRecent) {
       if (!t.completedAt) continue;
       const key = t.completedAt.toISOString().slice(0, 10);
       dayMap.set(key, (dayMap.get(key) ?? 0) + 1);
     }
     const tasksByDay = Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }));
 
-    // Top contributors by tasks completed (all time)
-    const allCompleted = await prisma.task.findMany({
-      where: { productId, deletedAt: null, completedBy: { not: null } },
-      select: { completedBy: true },
-    });
-    const contributorMap = new Map<string, number>();
-    for (const t of allCompleted) {
-      if (!t.completedBy) continue;
-      contributorMap.set(t.completedBy, (contributorMap.get(t.completedBy) ?? 0) + 1);
-    }
-    const topUserIds = [...contributorMap.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([id]) => id);
-    const contributorUsers = await prisma.user.findMany({
-      where: { id: { in: topUserIds } },
-      select: { id: true, username: true, avatarEmoji: true },
-    });
-    const topContributors = topUserIds
-      .map((id) => {
-        const u = contributorUsers.find((u) => u.id === id);
-        return u ? { userId: u.id, username: u.username, avatarEmoji: u.avatarEmoji, count: contributorMap.get(id) ?? 0 } : null;
-      })
-      .filter(Boolean);
-
-    // Average cycle time: createdAt → completedAt in days
+    // Average cycle time
     const cycleTimeTasks = await prisma.task.findMany({
       where: { productId, deletedAt: null, completedAt: { not: null } },
       select: { createdAt: true, completedAt: true },
     });
     let cycleTimeAvgDays: number | null = null;
     if (cycleTimeTasks.length > 0) {
-      const totalMs = cycleTimeTasks.reduce((sum, t) => {
-        return sum + (t.completedAt!.getTime() - t.createdAt.getTime());
-      }, 0);
+      const totalMs = cycleTimeTasks.reduce((sum, t) => sum + (t.completedAt!.getTime() - t.createdAt.getTime()), 0);
       cycleTimeAvgDays = Math.round((totalMs / cycleTimeTasks.length / 86400000) * 10) / 10;
     }
+
+    // Status breakdown (active tasks only)
+    const statusGroups = await prisma.task.groupBy({
+      by: ['status'],
+      where: { productId, deletedAt: null, completedAt: null },
+      _count: { _all: true },
+    });
+    const statusBreakdown = statusGroups.map((g) => ({ status: g.status, count: g._count._all }));
+
+    // Sprint velocity: tasks completed per sprint
+    const sprints = await prisma.sprint.findMany({
+      where: { productId },
+      select: { id: true, name: true, startDate: true, endDate: true, color: true },
+      orderBy: { startDate: 'asc' },
+    });
+    const sprintVelocity = await Promise.all(sprints.map(async (s) => {
+      const count = await prisma.task.count({
+        where: {
+          productId,
+          deletedAt: null,
+          completedAt: { gte: s.startDate, lte: s.endDate },
+        },
+      });
+      return { sprintId: s.id, name: s.name, startDate: s.startDate, endDate: s.endDate, color: s.color, completed: count };
+    }));
 
     // Totals
     const [totalCompleted, totalActive] = await Promise.all([
@@ -81,6 +94,6 @@ export async function analyticsRoutes(app: FastifyInstance) {
       prisma.task.count({ where: { productId, deletedAt: null, completedAt: null } }),
     ]);
 
-    reply.send({ tasksByDay, topContributors, cycleTimeAvgDays, totalCompleted, totalActive });
+    reply.send({ tasksByDay, cycleTimeAvgDays, totalCompleted, totalActive, statusBreakdown, sprintVelocity });
   });
 }

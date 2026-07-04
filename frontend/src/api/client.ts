@@ -104,7 +104,7 @@ export interface CanvasSnapshot {
   userId: string;
   name: string;
   positions: Record<string, { x: number; y: number }>;
-  viewport: { x: number; y: number; zoom: number };
+  viewport: { x: number; y: number; zoom: number; viewMode?: string; simpleMode?: boolean };
   createdAt: string;
   user: { id: string; username: string; avatarEmoji: string | null };
 }
@@ -172,7 +172,7 @@ export const api = {
     create: (data: { name: string; deadline: string; teamId: string; emoji?: string; description?: string }) =>
       request<Product>('/api/products', { method: 'POST', body: json(data) }),
     get: (id: string) => request<Product>(`/api/products/${id}`),
-    update: (id: string, data: Partial<Pick<Product, 'name' | 'emoji' | 'description' | 'deadline' | 'ownerId'>>) =>
+    update: (id: string, data: Partial<Pick<Product, 'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled'>>) =>
       request<Product>(`/api/products/${id}`, { method: 'PATCH', body: json(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/products/${id}`, { method: 'DELETE' }),
   },
@@ -182,7 +182,7 @@ export const api = {
     create: (productId: string, data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string; canvasX?: number; canvasY?: number; status?: string }) =>
       request<Task>(`/api/products/${productId}/tasks`, { method: 'POST', body: json(data) }),
     get: (productId: string, taskId: string) => request<Task>(`/api/products/${productId}/tasks/${taskId}`),
-    update: (productId: string, taskId: string, data: Partial<Pick<Task, 'name' | 'description' | 'ownerId' | 'color' | 'deadline'> & { status: Status }>) =>
+    update: (productId: string, taskId: string, data: Partial<Pick<Task, 'name' | 'description' | 'ownerId' | 'color' | 'deadline'> & { status: Status; reviewerId: string | null }>) =>
       request<Task>(`/api/products/${productId}/tasks/${taskId}`, { method: 'PATCH', body: json(data) }),
     delete: (productId: string, taskId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}`, { method: 'DELETE' }),
@@ -315,7 +315,7 @@ export const api = {
   canvasSnapshots: {
     list: (productId: string) =>
       request<CanvasSnapshot[]>(`/api/products/${productId}/canvas-snapshots`),
-    create: (productId: string, data: { name: string; positions: Record<string, { x: number; y: number }>; viewport: { x: number; y: number; zoom: number } }) =>
+    create: (productId: string, data: { name: string; positions: Record<string, { x: number; y: number }>; viewport: { x: number; y: number; zoom: number; viewMode?: string; simpleMode?: boolean } }) =>
       request<CanvasSnapshot>(`/api/products/${productId}/canvas-snapshots`, { method: 'POST', body: json(data) }),
     delete: (productId: string, snapshotId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/canvas-snapshots/${snapshotId}`, { method: 'DELETE' }),
@@ -480,10 +480,11 @@ export const api = {
   analytics: {
     get: (productId: string) => request<{
       tasksByDay: { date: string; count: number }[];
-      topContributors: { userId: string; username: string; avatarEmoji: string | null; count: number }[];
       cycleTimeAvgDays: number | null;
       totalCompleted: number;
       totalActive: number;
+      statusBreakdown: { status: string; count: number }[];
+      sprintVelocity: { sprintId: string; name: string; startDate: string; endDate: string; color: string; completed: number }[];
     }>(`/api/products/${productId}/analytics`),
     activity: (productId: string, cursor?: string) => request<{
       events: { id: string; actorId: string; action: string; entityType: string; entityId: string | null; entityName: string | null; metadata: unknown; createdAt: string }[];

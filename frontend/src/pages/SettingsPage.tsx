@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { Team } from '../types';
 import EmojiPicker from '../components/common/EmojiPicker';
+import MarkdownEditor from '../components/common/MarkdownEditor';
 
 type AccessRequestRow = {
   id: string;
@@ -18,10 +19,10 @@ type AccessRequestRow = {
   user: { id: string; username: string; avatarEmoji: string | null; realName: string | null };
 };
 
-type SettingsTab = 'team' | 'permissions' | 'colors' | 'ownership' | 'apps' | 'webhooks' | 'danger';
+type SettingsTab = 'project' | 'team' | 'permissions' | 'colors' | 'apps' | 'webhooks' | 'danger';
 
-const PAGE_TABS: { key: SettingsTab; label: string; ownerOnly?: boolean; danger?: boolean }[] = [
-  { key: 'ownership',   label: 'Ownership', ownerOnly: true },
+const PAGE_TABS: { key: SettingsTab; label: string; danger?: boolean }[] = [
+  { key: 'project',     label: 'Project' },
   { key: 'team',        label: 'Team' },
   { key: 'permissions', label: 'Permissions' },
   { key: 'colors',      label: 'Color labels' },
@@ -43,11 +44,10 @@ const WEBHOOK_EVENTS = [
 ];
 
 const FEATURE_TABS = [
-  { key: 'kanban',     label: 'Kanban' },
-  { key: 'backlog',    label: 'Backlog' },
-  { key: 'canvas',     label: 'Plan' },
-  { key: 'gantt',      label: 'Gantt' },
-  { key: 'categories', label: 'Settings' },
+  { key: 'kanban',  label: 'Kanban' },
+  { key: 'backlog', label: 'Backlog' },
+  { key: 'canvas',  label: 'Plan' },
+  { key: 'gantt',   label: 'Gantt' },
 ];
 
 const LEVELS = [
@@ -74,7 +74,7 @@ export default function SettingsPage() {
   const { showToast } = useToast();
   const { legend, update: updateLegend, toggleEnabled, enabledColors } = useColorLegend(activeProduct?.id ?? '');
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>(isOwner ? 'ownership' : 'team');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('project');
   const [team, setTeam] = useState<Team | null>(null);
   const [matrix, setMatrix] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -115,6 +115,18 @@ export default function SettingsPage() {
   const [projDirty, setProjDirty] = useState(false);
   const [savingProj, setSavingProj] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Analytics toggle
+  const [togglingAnalytics, setTogglingAnalytics] = useState(false);
+  async function toggleAnalytics() {
+    if (!activeProduct) return;
+    setTogglingAnalytics(true);
+    try {
+      await api.products.update(activeProduct.id, { analyticsEnabled: !activeProduct.analyticsEnabled });
+      await refreshProducts();
+    } catch (err) { showToast((err as Error).message, 'error'); }
+    finally { setTogglingAnalytics(false); }
+  }
 
   useEffect(() => {
     if (activeProduct) {
@@ -303,7 +315,7 @@ export default function SettingsPage() {
           </p>
         )}
         <div className="flex gap-0 border-b overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
-          {PAGE_TABS.filter(t => !t.ownerOnly || isOwner).map(({ key, label, danger }) => (
+          {PAGE_TABS.map(({ key, label, danger }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
@@ -324,8 +336,8 @@ export default function SettingsPage() {
 
       <div className="flex-1 overflow-y-auto px-6 py-6">
 
-        {/* ── Team tab ── */}
-        {activeTab === 'team' && (
+        {/* ── Project tab ── */}
+        {activeTab === 'project' && (
           <div className="max-w-2xl space-y-8">
 
             {/* Project details - owner and co-owners only */}
@@ -369,12 +381,11 @@ export default function SettingsPage() {
                     </div>
                   )}
                   {/* Description */}
-                  <textarea
-                    className="input text-sm w-full resize-none"
-                    rows={2}
+                  <MarkdownEditor
                     value={projDesc}
-                    onChange={(e) => { setProjDesc(e.target.value); setProjDirty(true); }}
-                    placeholder="Short description (optional)"
+                    onChange={(v) => { setProjDesc(v); setProjDirty(true); }}
+                    rows={6}
+                    placeholder="Describe the project… (markdown supported, images can be pasted or attached)"
                   />
                   <button
                     disabled={savingProj || !projDirty || !projName.trim()}
@@ -398,6 +409,74 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* Ownership section — owner only */}
+            {isOwner && (
+              <>
+                <div>
+                  <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Analytics</h2>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
+                    When enabled, all team members can see the Analytics tab. Disable it if your team prefers to work without visible metrics.
+                  </p>
+                  <button
+                    onClick={toggleAnalytics}
+                    disabled={togglingAnalytics}
+                    className="flex items-center gap-2 h-8 px-4 rounded-lg text-sm font-medium transition-all"
+                    style={{
+                      background: activeProduct?.analyticsEnabled ? 'rgba(16,185,129,0.12)' : 'var(--surface-2)',
+                      color: activeProduct?.analyticsEnabled ? '#10b981' : 'var(--text-3)',
+                      border: `1px solid ${activeProduct?.analyticsEnabled ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
+                    }}
+                  >
+                    <span>{activeProduct?.analyticsEnabled ? '✓' : '○'}</span>
+                    {togglingAnalytics ? 'Saving…' : activeProduct?.analyticsEnabled ? 'Analytics enabled (visible to all members)' : 'Analytics disabled (hidden from team)'}
+                  </button>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Export project data</h2>
+                  <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+                    Download a complete JSON export of this project including all tasks, sprints, messages, and settings.
+                  </p>
+                  <a
+                    href={activeProduct?.id ? api.export.product(activeProduct.id) : '#'}
+                    download
+                    className="btn-secondary text-sm inline-flex items-center gap-2"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <span>⬇</span> Export as JSON
+                  </a>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Transfer ownership</h2>
+                  <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+                    Hand over ownership to another team member. You will become a regular member after this action.
+                  </p>
+                  <div className="flex gap-3 items-center">
+                    <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} className="input text-sm flex-1 max-w-xs">
+                      <option value="">Select new owner…</option>
+                      {members.filter(({ userId }) => userId !== currentUser?.id).map(({ userId, user }) => (
+                        <option key={userId} value={userId}>{user.avatarEmoji} {user.username}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={transferOwnership}
+                      disabled={!transferTo || transferring}
+                      className="btn-secondary text-sm"
+                      style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                    >
+                      {transferring ? 'Transferring…' : 'Transfer'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Team tab ── */}
+        {activeTab === 'team' && (
+          <div className="max-w-2xl space-y-8">
             <div>
               <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Add member</h2>
               <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>Search for a registered user and add them directly to the project.</p>
@@ -612,7 +691,7 @@ export default function SettingsPage() {
         {activeTab === 'permissions' && (
           <div className="max-w-4xl">
             <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Tab access</h2>
-            <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>Control which tabs each member can view or edit. Owner and co-owners always have full write access.</p>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>Control which tabs each member can view or edit. Settings access is determined by role (owner / co-owner) — it cannot be granted via this matrix.</p>
 
             <div className="flex items-center gap-4 mb-4 flex-wrap">
               {LEVELS.map(({ value, label, color }) => (
@@ -631,6 +710,7 @@ export default function SettingsPage() {
                 {FEATURE_TABS.map(({ key, label }) => (
                   <div key={key} className="flex-1 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{label}</div>
                 ))}
+                <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Settings</div>
               </div>
               {members.length === 0 && (
                 <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-3)' }}>No members yet.</div>
@@ -683,6 +763,14 @@ export default function SettingsPage() {
                         </div>
                       );
                     })}
+                    {/* Settings — locked, role-based */}
+                    <div className="flex-1 flex justify-center" title={isPrivileged ? 'Access granted by role' : 'Requires co-owner role'}>
+                      {isPrivileged ? (
+                        <span className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>Write 🔒</span>
+                      ) : (
+                        <span className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>No access 🔒</span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -729,49 +817,6 @@ export default function SettingsPage() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Ownership tab (owner only) ── */}
-        {activeTab === 'ownership' && isOwner && (
-          <div className="max-w-lg space-y-8">
-            <div>
-              <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Export project data</h2>
-              <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-                Download a complete JSON export of this project including all tasks, sprints, messages, and settings.
-              </p>
-              <a
-                href={activeProduct ? api.export.product(activeProduct.id) : '#'}
-                download
-                className="btn-secondary text-sm inline-flex items-center gap-2"
-                style={{ textDecoration: 'none' }}
-              >
-                <span>⬇</span> Export as JSON
-              </a>
-            </div>
-
-            <div>
-              <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Transfer ownership</h2>
-              <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-                Hand over ownership to another team member. You will become a regular member after this action.
-              </p>
-              <div className="flex gap-3 items-center">
-                <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} className="input text-sm flex-1 max-w-xs">
-                  <option value="">Select new owner…</option>
-                  {members.filter(({ userId }) => userId !== currentUser?.id).map(({ userId, user }) => (
-                    <option key={userId} value={userId}>{user.avatarEmoji} {user.username}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={transferOwnership}
-                  disabled={!transferTo || transferring}
-                  className="btn-secondary text-sm"
-                  style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
-                >
-                  {transferring ? 'Transferring…' : 'Transfer'}
-                </button>
-              </div>
             </div>
           </div>
         )}
