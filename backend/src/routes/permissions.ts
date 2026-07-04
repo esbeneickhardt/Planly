@@ -21,13 +21,16 @@ export async function permissionRoutes(app: FastifyInstance) {
       },
     });
     const result = memberships.flatMap((m) =>
-      m.team.products.map((p) => ({
-        productId: p.id,
-        productName: p.name,
-        productEmoji: p.emoji,
-        role: p.ownerId === userId ? 'owner' : m.role,
-        permissions: Object.fromEntries(p.tabPermissions.map((tp) => [tp.tab, tp.level])),
-      })),
+      m.team.products.map((p) => {
+        const role = p.ownerId === userId ? 'owner' : m.role;
+        // Owners and co-owners bypass tab permissions entirely — don't expose potentially
+        // stale rows that would make the display inconsistent across projects.
+        const permissions =
+          role === 'owner' || role === 'co_owner'
+            ? {}
+            : Object.fromEntries(p.tabPermissions.map((tp) => [tp.tab, tp.level]));
+        return { productId: p.id, productName: p.name, productEmoji: p.emoji, role, permissions };
+      }),
     );
     reply.send(result);
   });

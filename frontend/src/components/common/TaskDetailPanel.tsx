@@ -8,7 +8,7 @@ import { api } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useColorLegend } from '../../hooks/useColorLegend';
 import { useToast } from '../../context/ToastContext';
-import ChatPanel from './ChatPanel';
+import { useChat } from '../../context/ChatContext';
 
 interface Props {
   task: Task;
@@ -31,6 +31,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const { activeProduct } = useProduct();
   const { legend, enabledColors } = useColorLegend(activeProduct?.id ?? '');
   const { showToast } = useToast();
+  const { openChat, chatOpen, chatTaskId } = useChat();
   const [minimized, setMinimized] = useState(false);
   const [users, setUsers] = useState<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>([]);
   const [name, setName] = useState(task.name);
@@ -42,7 +43,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const [deadline, setDeadline] = useState(task.deadline ? task.deadline.split('T')[0] : '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [showChat, setShowChat] = useState(false);
+  const showChat = chatOpen && chatTaskId === task.id;
 
   const [fullscreen, setFullscreen] = useState(false);
   const [descPreview, setDescPreview] = useState(false);
@@ -568,7 +569,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     </svg>
   );
 
-  const chatBtn = iconBtn('Open chat', () => setShowChat((v) => !v), '💬', showChat);
+  const chatBtn = iconBtn('Open chat', () => openChat(task.id, task.name), '💬', showChat);
   const minimizeBtn = iconBtn('Minimise', () => setMinimized(true), '−');
   const expandBtn = iconBtn(fullscreen ? 'Exit fullscreen' : 'Fullscreen', () => setFullscreen((v) => !v), fullscreen ? <CollapseIcon /> : <ExpandIcon />);
   const closeBtn = iconBtn('Close', handleClose, '✕');
@@ -577,7 +578,6 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   if (fullscreen) {
     return (
       <>
-        {showChat && <ChatPanel taskId={task.id} taskName={task.name} onClose={() => setShowChat(false)} />}
         <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface)' }}>
           <div className="flex items-center justify-between px-8 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
             {headerLeft}
@@ -606,7 +606,6 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   // ── Side panel / floating layout ────────────────────────────────
   return (
     <>
-      {showChat && <ChatPanel taskId={task.id} taskName={task.name} onClose={() => setShowChat(false)} />}
       {isSidebar && <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={handleClose} />}
       <div
         className="fixed flex flex-col"

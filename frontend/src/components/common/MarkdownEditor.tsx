@@ -84,7 +84,7 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
       <div className="flex items-center gap-1.5 flex-wrap relative">
 
         {/* Emoji */}
-        <div className="relative">
+        <div className="relative flex items-center">
           <button
             type="button"
             onClick={() => { setShowEmoji((v) => !v); setShowHelp(false); }}
@@ -123,7 +123,7 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
         >{uploading ? '⏳ Uploading…' : '📎 Attach'}</button>
 
         {/* Markdown reference */}
-        <div className="relative">
+        <div className="relative flex items-center">
           <button
             type="button"
             onClick={() => { setShowHelp((v) => !v); setShowEmoji(false); }}
