@@ -827,7 +827,20 @@ export default function SettingsPage() {
 
             {/* ── App registrations ── */}
             <div>
-              <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>App registrations</h2>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>App registrations</h2>
+                <a
+                  href="/api/docs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium flex-shrink-0 transition-colors"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                >
+                  API docs ↗
+                </a>
+              </div>
               <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
                 Create named apps (bots, integrations, CI pipelines) and issue tokens for each.
                 App tokens act with your permissions. Useful for separating automation from personal access.

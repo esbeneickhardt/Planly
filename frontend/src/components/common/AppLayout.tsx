@@ -27,7 +27,6 @@ function PermissionGuard({ children }: { children: ReactNode }) {
     const current = TAB_ROUTES.find((r) => location.pathname.startsWith(r.path));
     if (!current) return;
     if (canRead(current.tab)) return;
-    // Redirect to the first tab they can access
     const fallback = TAB_ROUTES.find((r) => canRead(r.tab));
     if (fallback) navigate(fallback.path, { replace: true });
   }, [location.pathname, activeProduct?.id, canRead]);
@@ -41,6 +40,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [chatInitialTask, setChatInitialTask] = useState<{ id: string; name: string } | undefined>();
   const [showAdminChat, setShowAdminChat] = useState(false);
   const [showVision, setShowVision] = useState(false);
+  // Persistent admin mode: survives navigation away from /admin
+  const [adminMode, setAdminMode] = useState(false);
 
   const openProductChat = useCallback((taskId?: string, taskName?: string) => {
     setChatInitialTask(taskId ? { id: taskId, name: taskName! } : undefined);
@@ -49,6 +50,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const { products } = useProduct();
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Auto-activate when user lands on /admin via direct URL or browser history
+  const isAdminPage = location.pathname === '/admin';
+  useEffect(() => {
+    if (isAdminPage && user?.isAdmin) setAdminMode(true);
+  }, [isAdminPage, user?.isAdmin]);
 
   // Auto-show vision modal for first-time users with no projects
   useEffect(() => {
@@ -66,24 +74,35 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const isAdminPage = location.pathname === '/admin';
-  const adminChatMode = isAdminPage && !!user?.isAdmin;
+  const activeAdminMode = adminMode && !!user?.isAdmin;
+
+  function handleToggleAdmin() {
+    if (activeAdminMode) {
+      setAdminMode(false);
+      navigate('/kanban');
+    } else {
+      setAdminMode(true);
+      navigate('/admin');
+    }
+  }
 
   return (
     <ChatContext.Provider value={{
-      openChat: adminChatMode ? () => setShowAdminChat((v) => !v) : openProductChat,
-      chatOpen: adminChatMode ? showAdminChat : showProductChat,
+      openChat: activeAdminMode ? () => setShowAdminChat((v) => !v) : openProductChat,
+      chatOpen: activeAdminMode ? showAdminChat : showProductChat,
       chatTaskId: chatInitialTask?.id,
+      adminMode: activeAdminMode,
     }}>
       <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
         <TopBar
           onOpenSearch={() => setShowSearch(true)}
-          onOpenChat={adminChatMode
+          onOpenChat={activeAdminMode
             ? () => setShowAdminChat((v) => !v)
             : () => openProductChat()}
           onOpenVision={() => setShowVision(true)}
-          chatOpen={adminChatMode ? showAdminChat : showProductChat}
-          chatIsAdmin={adminChatMode}
+          chatOpen={activeAdminMode ? showAdminChat : showProductChat}
+          chatIsAdmin={activeAdminMode}
+          onToggleAdmin={handleToggleAdmin}
         />
         <PermissionGuard>
           <main className="flex-1 overflow-auto min-w-0">{children}</main>

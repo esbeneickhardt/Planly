@@ -38,6 +38,7 @@ import { ssoRoutes } from './routes/sso';
 import { analyticsRoutes } from './routes/analytics';
 import { adminRoutes } from './routes/admin';
 import { adminChatRoutes } from './routes/admin-chat';
+import { announcementRoutes } from './routes/announcements';
 import { csrfCheck } from './middleware/csrf';
 
 import websocket from '@fastify/websocket';
@@ -97,7 +98,34 @@ async function ensureAdminAccount() {
   }
 }
 
+async function emergencyRecrown() {
+  const email = (process.env.RECROWN_EMAIL ?? '').toLowerCase().trim();
+  if (!email) return;
+
+  const target = await prisma.user.findUnique({ where: { email } });
+  if (!target) {
+    console.error(`[recrown] RECROWN_EMAIL is set but no user with email "${email}" was found — skipping.`);
+    return;
+  }
+
+  await prisma.$transaction([
+    prisma.user.updateMany({ where: { isFoundingAdmin: true }, data: { isFoundingAdmin: false } }),
+    prisma.user.update({ where: { email }, data: { isAdmin: true, isFoundingAdmin: true } }),
+    prisma.adminLog.create({ data: { action: 'CROWN_TRANSFERRED', actorName: 'SYSTEM (RECROWN_EMAIL)', targetName: target.username, metadata: { reason: 'Emergency recovery via RECROWN_EMAIL env var' } } }),
+  ]);
+
+  console.log('');
+  console.log('[recrown] ╔══════════════════════════════════════════╗');
+  console.log('[recrown] ║   EMERGENCY CROWN TRANSFER COMPLETE      ║');
+  console.log(`[recrown] ║   New founding admin: ${email.padEnd(19)}║`);
+  console.log('[recrown] ║   Remove RECROWN_EMAIL from your env     ║');
+  console.log('[recrown] ║   and restart to clear this message.     ║');
+  console.log('[recrown] ╚══════════════════════════════════════════╝');
+  console.log('');
+}
+
 async function main() {
+  await emergencyRecrown();
   await ensureAdminAccount();
 
   const app = Fastify({
@@ -173,6 +201,7 @@ async function main() {
   await app.register(analyticsRoutes);
   await app.register(adminRoutes);
   await app.register(adminChatRoutes);
+  await app.register(announcementRoutes);
 
   // Health check - verifies DB connection
   app.get('/api/health', async (_req, reply) => {
