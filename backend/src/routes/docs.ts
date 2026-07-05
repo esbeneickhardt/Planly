@@ -273,7 +273,7 @@ const HTML = `<!DOCTYPE html>
 
   <div class="endpoint" data-method="POST" data-path="/api/auth/tokens" data-body='{"name":"My token","expiresAt":""}'>
     <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/auth/tokens</span></div>
-    <div class="endpoint-desc"><span class="role role-any">AUTH</span> Create a new personal token. The raw token value is returned once — store it securely.
+    <div class="endpoint-desc"><span class="role role-any">AUTH</span> Create a new personal token. The raw token value is returned once - store it securely.
 <pre>{ "name": "string", "expiresAt": "ISO8601?" }</pre>
     </div>
   </div>
@@ -294,7 +294,7 @@ const HTML = `<!DOCTYPE html>
 
   <div class="endpoint" data-method="GET" data-path="/api/notifications/unread-count">
     <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/notifications/unread-count</span></div>
-    <div class="endpoint-desc"><span class="role role-any">AUTH</span> Returns <code>{ count: number }</code> — useful for badge indicators.</div>
+    <div class="endpoint-desc"><span class="role role-any">AUTH</span> Returns <code>{ count: number }</code> - useful for badge indicators.</div>
   </div>
 
   <div class="endpoint" data-method="PATCH" data-path="/api/notifications/read" data-body='{"ids":[]}'>
@@ -391,7 +391,7 @@ const HTML = `<!DOCTYPE html>
 
   <div class="endpoint" data-method="GET" data-path="/api/invites/:token">
     <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/invites/:token</span></div>
-    <div class="endpoint-desc"><em>Public</em> — Look up an invite by token to display team name and expiry before accepting.</div>
+    <div class="endpoint-desc"><em>Public</em> - Look up an invite by token to display team name and expiry before accepting.</div>
   </div>
 
   <div class="endpoint" data-method="POST" data-path="/api/invites/:token/accept">
@@ -533,7 +533,7 @@ const HTML = `<!DOCTYPE html>
 
   <div class="endpoint" data-method="POST" data-path="/api/products/:productId/webhooks" data-body='{"url":"https://example.com/hook","events":["task.created","task.updated"]}'>
     <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/products/:productId/webhooks</span></div>
-    <div class="endpoint-desc"><span class="role role-coowner">CO-OWNER</span> Create a webhook. The secret is returned once — store it to verify signatures.
+    <div class="endpoint-desc"><span class="role role-coowner">CO-OWNER</span> Create a webhook. The secret is returned once - store it to verify signatures.
 <pre>{
   "url": "string",
   "events": ["task.created", "task.updated", "task.deleted", "sprint.created", "sprint.updated"]
@@ -550,7 +550,7 @@ const HTML = `<!DOCTYPE html>
 
   <div class="endpoint" data-method="POST" data-path="/api/products/:productId/webhooks/:webhookId/rotate-secret">
     <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/products/:productId/webhooks/:webhookId/rotate-secret</span></div>
-    <div class="endpoint-desc"><span class="role role-coowner">CO-OWNER</span> Rotate the webhook secret. Returns the new secret once — update your receiver immediately.</div>
+    <div class="endpoint-desc"><span class="role role-coowner">CO-OWNER</span> Rotate the webhook secret. Returns the new secret once - update your receiver immediately.</div>
   </div>
 
   <div class="endpoint" data-method="GET" data-path="/api/products/:productId/webhooks/:webhookId/deliveries">
@@ -566,7 +566,7 @@ const HTML = `<!DOCTYPE html>
   <!-- ── App Registrations ──────────────────────────────────────────────── -->
   <hr id="apps" />
   <h2>App Registrations</h2>
-  <p>App registrations let you create named integrations with their own token sets — useful for CI pipelines, bots, and external tools. App tokens act as personal tokens on behalf of the registering user.</p>
+  <p>App registrations let you create named integrations with their own token sets - useful for CI pipelines, bots, and external tools. App tokens act as personal tokens on behalf of the registering user.</p>
 
   <div class="endpoint" data-method="GET" data-path="/api/apps">
     <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/apps</span></div>
@@ -827,7 +827,7 @@ const HTML = `<!DOCTYPE html>
 
   <div class="endpoint" data-method="PUT" data-path="/api/admin/users/:id/demote">
     <div class="endpoint-header"><span class="method PUT">PUT</span><span class="path">/api/admin/users/:id/demote</span></div>
-    <div class="endpoint-desc"><span class="role role-superadmin">SUPERADMIN</span> Revoke admin role from a user. Only the founding admin can demote other admins. The founding admin themselves cannot be demoted — use transfer-crown first.</div>
+    <div class="endpoint-desc"><span class="role role-superadmin">SUPERADMIN</span> Revoke admin role from a user. Only the founding admin can demote other admins. The founding admin themselves cannot be demoted - use transfer-crown first.</div>
   </div>
 
   <div class="endpoint" data-method="PUT" data-path="/api/admin/users/:id/unlock">
@@ -863,13 +863,13 @@ const HTML = `<!DOCTYPE html>
 
   <div class="endpoint" data-method="PUT" data-path="/api/admin/server-config" data-body='{"requireEmailVerification":false,"requireWhitelist":false,"allowProjectCreation":true,"announcementsEnabled":true,"announcementPostRole":"admin_and_owners"}'>
     <div class="endpoint-header"><span class="method PUT">PUT</span><span class="path">/api/admin/server-config</span></div>
-    <div class="endpoint-desc"><span class="role role-admin">ADMIN</span> Update server configuration. All fields are optional — only provided fields are changed. Enabling <code>requireEmailVerification</code> for the first time automatically sends verification emails to all unverified users (requires SMTP to be configured).
+    <div class="endpoint-desc"><span class="role role-admin">ADMIN</span> Update server configuration. All fields are optional - only provided fields are changed. Enabling <code>requireEmailVerification</code> for the first time automatically sends verification emails to all unverified users (requires SMTP to be configured).
 <pre>{
-  "requireEmailVerification": "boolean? — force users to verify email before accessing the app",
-  "requireWhitelist": "boolean? — restrict registration to email whitelist patterns",
-  "allowProjectCreation": "boolean? — allow non-admin users to create projects",
-  "announcementsEnabled": "boolean? — enable the announcements feature",
-  "announcementPostRole": "admin | admin_and_owners | all — who can post announcements"
+  "requireEmailVerification": "boolean? - force users to verify email before accessing the app",
+  "requireWhitelist": "boolean? - restrict registration to email whitelist patterns",
+  "allowProjectCreation": "boolean? - allow non-admin users to create projects",
+  "announcementsEnabled": "boolean? - enable the announcements feature",
+  "announcementPostRole": "admin | admin_and_owners | all - who can post announcements"
 }</pre>
     </div>
   </div>

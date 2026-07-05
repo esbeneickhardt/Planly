@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task, Subtask } from '../../types';
-import { api } from '../../api/client';
+import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 
 interface Props {
@@ -40,7 +40,7 @@ function CardContent({ task, onOpenDetail, expanded, setExpanded, addingSubtask,
         {task.owner && (
           <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
             <span>{task.owner.avatarEmoji ?? '👤'}</span>
-            <span className="max-w-[90px] truncate">{task.owner.username}</span>
+            <span className="max-w-[90px] truncate">{displayName(task.owner)}</span>
           </span>
         )}
 

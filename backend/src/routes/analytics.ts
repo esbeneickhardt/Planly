@@ -96,4 +96,48 @@ export async function analyticsRoutes(app: FastifyInstance) {
 
     reply.send({ tasksByDay, cycleTimeAvgDays, totalCompleted, totalActive, statusBreakdown, sprintVelocity });
   });
+
+  // Personal workload - returns only the requesting user's own tasks, nobody else's
+  app.get('/api/products/:productId/analytics/workload', { preHandler: requireAuth }, async (req, reply) => {
+    const { productId } = req.params as { productId: string };
+    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+
+    const userId = req.user.userId;
+
+    const [activeGroups, completedRecent, totalCompleted] = await Promise.all([
+      prisma.task.groupBy({
+        by: ['status'],
+        where: { productId, ownerId: userId, deletedAt: null, completedAt: null },
+        _count: { _all: true },
+      }),
+      prisma.task.findMany({
+        where: {
+          productId, ownerId: userId, deletedAt: null,
+          completedAt: { gte: new Date(Date.now() - 30 * 86400000) },
+        },
+        select: { completedAt: true },
+      }),
+      prisma.task.count({ where: { productId, ownerId: userId, deletedAt: null, completedAt: { not: null } } }),
+    ]);
+
+    const statusBreakdown = activeGroups.map((g) => ({ status: g.status, count: g._count._all }));
+    const totalActive = activeGroups.reduce((s, g) => s + g._count._all, 0);
+
+    // 30-day completion trend
+    const now = new Date();
+    const dayMap = new Map<string, number>();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      dayMap.set(d.toISOString().slice(0, 10), 0);
+    }
+    for (const t of completedRecent) {
+      if (!t.completedAt) continue;
+      const key = t.completedAt.toISOString().slice(0, 10);
+      dayMap.set(key, (dayMap.get(key) ?? 0) + 1);
+    }
+    const completionsByDay = Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }));
+
+    reply.send({ statusBreakdown, totalActive, totalCompleted, completionsByDay });
+  });
 }

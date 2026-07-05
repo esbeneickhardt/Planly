@@ -19,6 +19,7 @@ const EMAIL_VERIFY_EXEMPT = new Set([
 export interface AuthPayload {
   userId: string;
   username: string;
+  scopedProductId?: string; // set when the Bearer token is locked to a specific project
 }
 
 declare module 'fastify' {
@@ -40,7 +41,7 @@ async function enforceEmailVerification(req: FastifyRequest, reply: FastifyReply
 }
 
 async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  // 1. Bearer token auth — checked first so an explicit token is never shadowed by a browser cookie.
+  // 1. Bearer token auth - checked first so an explicit token is never shadowed by a browser cookie.
   //    When a Bearer header is present, we validate it exclusively; if it fails we return 401
   //    immediately rather than falling through to the cookie. This ensures revoked/expired tokens
   //    are correctly rejected even on the same origin as the web app.
@@ -51,15 +52,19 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
     try {
       const apiToken = await prisma.apiToken.findUnique({
         where: { tokenHash },
-        select: { id: true, userId: true, expiresAt: true, user: { select: { username: true } } },
+        select: { id: true, userId: true, productId: true, expiresAt: true, user: { select: { username: true } } },
       });
       if (apiToken && (!apiToken.expiresAt || apiToken.expiresAt > new Date())) {
-        req.user = { userId: apiToken.userId, username: apiToken.user.username };
+        req.user = {
+          userId: apiToken.userId,
+          username: apiToken.user.username,
+          ...(apiToken.productId ? { scopedProductId: apiToken.productId } : {}),
+        };
         prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
         return true;
       }
     } catch {
-      // DB error — fall through to 401
+      // DB error - fall through to 401
     }
     reply.status(401).send({ error: 'Unauthorized' });
     return false;

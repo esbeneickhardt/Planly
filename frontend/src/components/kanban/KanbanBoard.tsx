@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import {
   DndContext, DragEndEvent, DragStartEvent, DragOverlay,
   MouseSensor, TouchSensor, useSensor, useSensors,
@@ -10,17 +10,30 @@ import type { Sprint } from '../../api/client';
 import { api } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
+import { useAuth } from '../../context/AuthContext';
 import { useColorLegend } from '../../hooks/useColorLegend';
 import KanbanColumn from './KanbanColumn';
 import KanbanCard from './KanbanCard';
 import TaskDetailPanel from '../common/TaskDetailPanel';
+import SprintBacklogPanel from './SprintBacklogPanel';
 import Modal from '../common/Modal';
 
 const FILTER_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
 
+const KANBAN_BACKGROUNDS: { id: string; label: string; gradient: string }[] = [
+  { id: 'misty-forest',   label: 'Misty Forest',   gradient: 'linear-gradient(135deg,#0d2b1a 0%,#1a4a2e 50%,#2d6b45 100%)' },
+  { id: 'tokyo-night',    label: 'Tokyo Night',    gradient: 'linear-gradient(135deg,#0a0a2e 0%,#1a1a5e 40%,#2a0a4a 100%)' },
+  { id: 'miami-dusk',     label: 'Miami Dusk',     gradient: 'linear-gradient(135deg,#0d0821 0%,#4a0a3a 50%,#7a1050 100%)' },
+  { id: 'arctic-void',    label: 'Arctic Void',    gradient: 'linear-gradient(135deg,#030508 0%,#070e1a 50%,#142030 100%)' },
+  { id: 'cyber-city',     label: 'Cyber City',     gradient: 'linear-gradient(135deg,#0a0a18 0%,#1a0a2e 40%,#0a1a2e 100%)' },
+  { id: 'sakura-rain',    label: 'Sakura Rain',    gradient: 'linear-gradient(135deg,#0a0f10 0%,#111a1c 50%,#1a3020 100%)' },
+  { id: 'mountain-peaks', label: 'Mountain Peaks', gradient: 'linear-gradient(135deg,#0a0a14 0%,#141428 40%,#1e2840 100%)' },
+];
+
 export default function KanbanBoard() {
   const { activeProduct, tasks, refreshTasks, createTask } = useProduct();
   const { canWrite } = usePermission();
+  const { user } = useAuth();
   const readOnly = !canWrite('kanban');
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -39,6 +52,7 @@ export default function KanbanBoard() {
   const [ownerFilters, setOwnerFilters] = useState<Set<string>>(new Set());
   const [colorFilters, setColorFilters] = useState<Set<string>>(new Set());
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
+  const [mineOnly, setMineOnly] = useState(false);
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const [users, setUsers] = useState<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
@@ -46,8 +60,26 @@ export default function KanbanBoard() {
   const [compact, setCompact] = useState(() => localStorage.getItem('planly_kanban_compact') === '1');
   const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>({ key: 'status', dir: 1 });
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [showSprintPanel, setShowSprintPanel] = useState(false);
+  const [bgImage, setBgImage] = useState<string | null>(null);
+  const [showBgPicker, setShowBgPicker] = useState(false);
+  const bgPickerRef = useRef<HTMLDivElement>(null);
 
   const { legend: colorLegend } = useColorLegend(activeProduct?.id ?? '');
+
+  useLayoutEffect(() => {
+    if (!activeProduct) { setBgImage(null); return; }
+    const saved = localStorage.getItem(`planly-kanban-bg-${activeProduct.id}`);
+    setBgImage(saved && KANBAN_BACKGROUNDS.some((b) => b.id === saved) ? saved : null);
+  }, [activeProduct?.id]);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (bgPickerRef.current && !bgPickerRef.current.contains(e.target as Node)) setShowBgPicker(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
 
   function setSprintFilterAndSave(val: string | null) {
     setSprintFilter(val);
@@ -114,8 +146,7 @@ export default function KanbanBoard() {
 
   const visibleStatusKeys = useMemo(() => new Set(columns.map((c) => c.statusKey)), [columns]);
 
-  const hasFilters = ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null;
-
+  const hasFilters = ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null || mineOnly;
 
   const filteredTasks = useMemo(() => {
     const sprintTaskIds = sprintFilter
@@ -123,14 +154,23 @@ export default function KanbanBoard() {
       : null;
     return tasks.filter((t) => {
       if (!visibleStatusKeys.has(t.status)) return false;
+      if (mineOnly && t.ownerId !== user?.id) return false;
       if (ownerFilters.size > 0 && (!t.ownerId || !ownerFilters.has(t.ownerId))) return false;
       if (colorFilters.size > 0 && (!t.color || !colorFilters.has(t.color))) return false;
       if (sprintFilter && !sprintTaskIds?.has(t.id)) return false;
       return true;
     });
-  }, [tasks, visibleStatusKeys, ownerFilters, colorFilters, sprintFilter, sprints]);
+  }, [tasks, visibleStatusKeys, mineOnly, ownerFilters, colorFilters, sprintFilter, sprints, user?.id]);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+
+  function selectBg(id: string | null) {
+    setBgImage(id);
+    setShowBgPicker(false);
+    if (!activeProduct) return;
+    if (id) localStorage.setItem(`planly-kanban-bg-${activeProduct.id}`, id);
+    else localStorage.removeItem(`planly-kanban-bg-${activeProduct.id}`);
+  }
 
   function toggleOwner(id: string) {
     setOwnerFilters((prev) => {
@@ -333,8 +373,15 @@ export default function KanbanBoard() {
     ? tasks.filter((t) => t.status === pendingDeleteCol.statusKey).length
     : 0;
 
+  const boardBgStyle = bgImage ? {
+    backgroundImage: `linear-gradient(rgba(0,0,0,0.38),rgba(0,0,0,0.38)),url(/backgrounds/${bgImage}.jpg)`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+  } : {};
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" style={boardBgStyle}>
       {/* ── Filters ── */}
       <div className="px-6 pt-4 pb-3 flex-shrink-0 flex items-center gap-3 flex-wrap">
         {/* Task count */}
@@ -344,9 +391,23 @@ export default function KanbanBoard() {
 
         <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
 
+        {/* Mine toggle */}
+        <button
+          onClick={() => setMineOnly((v) => !v)}
+          className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+          style={{
+            color: mineOnly ? 'var(--brand)' : 'var(--text-3)',
+            background: mineOnly ? 'var(--brand-subtle)' : 'transparent',
+            border: `1px solid ${mineOnly ? 'var(--brand)' : 'var(--border)'}`,
+          }}
+          title="Show only my tasks"
+        >
+          {user?.avatarEmoji ?? '👤'} Mine
+        </button>
+
         {/* Reset */}
         <button
-          onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); setSprintFilterAndSave(null); }}
+          onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); setSprintFilterAndSave(null); setMineOnly(false); }}
           className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
           style={{
             color: hasFilters ? 'var(--brand)' : 'var(--text-3)',
@@ -439,7 +500,7 @@ export default function KanbanBoard() {
         {/* Sprint filter */}
         {sprints.length > 0 && (
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sprint</span>
+            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sub-plan</span>
             {sprintFilter && (() => { const s = sprints.find((s) => s.id === sprintFilter); return s ? <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} /> : null; })()}
             <select
               value={sprintFilter ?? ''}
@@ -451,9 +512,21 @@ export default function KanbanBoard() {
                 border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
               }}
             >
-              <option value="">All sprints</option>
+              <option value="">All sub-plans</option>
               {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
+            {sprintFilter && (
+              <button
+                onClick={() => setShowSprintPanel(true)}
+                className="text-xs px-2 py-0.5 rounded transition-all flex-shrink-0"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-2)'; }}
+                title="Manage sub-plan tasks"
+              >
+                Manage
+              </button>
+            )}
           </div>
         )}
 
@@ -463,7 +536,60 @@ export default function KanbanBoard() {
           </div>
         )}
 
-        <div className="ml-auto flex-shrink-0">
+        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+          {/* Background picker */}
+          {!compact && (
+            <div ref={bgPickerRef} className="relative">
+              <button
+                onClick={() => setShowBgPicker((v) => !v)}
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
+                title="Board background"
+                style={{
+                  background: bgImage ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  color: bgImage ? 'var(--brand)' : 'var(--text-3)',
+                  border: `1px solid ${bgImage ? 'var(--brand)' : 'var(--border)'}`,
+                }}
+              >
+                <span>🖼</span> Background
+              </button>
+              {showBgPicker && (
+                <div
+                  className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl overflow-hidden py-1.5 z-50"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }}
+                >
+                  <button
+                    onClick={() => selectBg(null)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
+                    style={{ background: !bgImage ? 'var(--brand-subtle)' : 'transparent', color: !bgImage ? 'var(--brand)' : 'var(--text-2)' }}
+                    onMouseEnter={(e) => { if (bgImage) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={(e) => { if (bgImage) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <span className="w-8 h-6 rounded flex-shrink-0" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }} />
+                    <span>None</span>
+                    {!bgImage && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
+                  </button>
+                  {KANBAN_BACKGROUNDS.map((b) => {
+                    const active = bgImage === b.id;
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => selectBg(b.id)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
+                        style={{ background: active ? 'var(--brand-subtle)' : 'transparent', color: active ? 'var(--brand)' : 'var(--text)' }}
+                        onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <span className="w-8 h-6 rounded flex-shrink-0" style={{ background: b.gradient }} />
+                        <span>{b.label}</span>
+                        {active && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          {/* Compact toggle */}
           <button
             onClick={() => {
               const next = !compact;
@@ -751,6 +877,22 @@ export default function KanbanBoard() {
       )}
 
       {/* Delete column confirmation modal */}
+      {showSprintPanel && sprintFilter && activeProduct && (() => {
+        const s = sprints.find((sp) => sp.id === sprintFilter);
+        return s ? (
+          <SprintBacklogPanel
+            sprint={s}
+            productId={activeProduct.id}
+            tasks={tasks}
+            onClose={() => setShowSprintPanel(false)}
+            onUpdated={(updated) => {
+              setSprints((prev) => prev.map((sp) => sp.id === updated.id ? updated : sp));
+              refreshTasks();
+            }}
+          />
+        ) : null;
+      })()}
+
       {pendingDeleteCol && (
         <Modal title="Delete column" onClose={() => setPendingDeleteCol(null)} width="max-w-sm">
           <div className="space-y-4">

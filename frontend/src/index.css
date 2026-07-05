@@ -1,24 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --bg: #f4f4f8;
-    --surface: #ffffff;
-    --surface-2: #f0f0f6;
-    --border: #e2e2ec;
-    --border-2: #d0d0de;
-    --text: #111128;
-    --text-2: #5a5a7a;
-    --text-3: #9090b0;
-    --brand: #7c3aed;
-    --brand-hover: #6d28d9;
-    --brand-subtle: #ede9fe;
-  }
 
-  .dark {
+  /* ── Default (Midnight, matches [data-theme="dark"]) ── */
+  :root {
     --bg: #0c0c18;
     --surface: #131320;
     --surface-2: #1a1a2e;
@@ -30,6 +17,171 @@
     --brand: #8b5cf6;
     --brand-hover: #7c3aed;
     --brand-subtle: #1e1040;
+  }
+
+  /* ── Midnight (default dark) ── */
+  [data-theme="dark"] {
+    --bg: #0c0c18;
+    --surface: #131320;
+    --surface-2: #1a1a2e;
+    --border: #252538;
+    --border-2: #333350;
+    --text: #f0f0ff;
+    --text-2: #9090b8;
+    --text-3: #5a5a78;
+    --brand: #8b5cf6;
+    --brand-hover: #7c3aed;
+    --brand-subtle: #1e1040;
+  }
+
+  /* ── Night Lair (Dracula-inspired) ── */
+  [data-theme="night-lair"] {
+    --bg: #191920;
+    --surface: #21222c;
+    --surface-2: #282a36;
+    --border: #3d3f51;
+    --border-2: #50526a;
+    --text: #f8f8f2;
+    --text-2: #a0a0c0;
+    --text-3: #6272a4;
+    --brand: #bd93f9;
+    --brand-hover: #a975f5;
+    --brand-subtle: #2d2044;
+  }
+
+  /* ── Ember (Monokai Pro-inspired) ── */
+  [data-theme="ember"] {
+    --bg: #1e1c1e;
+    --surface: #2d2a2e;
+    --surface-2: #3a3640;
+    --border: #4a4550;
+    --border-2: #5a5560;
+    --text: #fcfcfa;
+    --text-2: #c0bccc;
+    --text-3: #7c7887;
+    --brand: #fc9867;
+    --brand-hover: #fb8347;
+    --brand-subtle: #3d2515;
+  }
+
+  /* ── Deep Sea (Night Owl-inspired) ── */
+  [data-theme="deep-sea"] {
+    --bg: #011627;
+    --surface: #0b2942;
+    --surface-2: #0e3050;
+    --border: #0e4166;
+    --border-2: #1d5a80;
+    --text: #d6deeb;
+    --text-2: #8badc1;
+    --text-3: #4d6a7a;
+    --brand: #82aaff;
+    --brand-hover: #6699ff;
+    --brand-subtle: #0a2040;
+  }
+
+  /* ── Neon Tokyo (Tokyo Night-inspired) ── */
+  [data-theme="neon-tokyo"] {
+    --bg: #13141f;
+    --surface: #1a1b2e;
+    --surface-2: #24253a;
+    --border: #333456;
+    --border-2: #44456a;
+    --text: #c0caf5;
+    --text-2: #9aa5ce;
+    --text-3: #565f89;
+    --brand: #7aa2f7;
+    --brand-hover: #5b86f5;
+    --brand-subtle: #1a2040;
+  }
+
+  /* ── Carbon (Atom One Dark-inspired) ── */
+  [data-theme="carbon"] {
+    --bg: #1b2028;
+    --surface: #222932;
+    --surface-2: #2a333d;
+    --border: #333d4a;
+    --border-2: #3f4d5c;
+    --text: #abb2bf;
+    --text-2: #7f8ba0;
+    --text-3: #4b5563;
+    --brand: #61afef;
+    --brand-hover: #4a9de0;
+    --brand-subtle: #1a2d40;
+  }
+
+  /* ── Antique (Gruvbox-inspired) ── */
+  [data-theme="antique"] {
+    --bg: #1d2021;
+    --surface: #282828;
+    --surface-2: #32302f;
+    --border: #3c3836;
+    --border-2: #504945;
+    --text: #ebdbb2;
+    --text-2: #d5c4a1;
+    --text-3: #928374;
+    --brand: #d79921;
+    --brand-hover: #c88710;
+    --brand-subtle: #3c2d0a;
+  }
+
+  /* ── Vice City (80s Miami) ── */
+  [data-theme="vice-city"] {
+    --bg: #0d0821;
+    --surface: #16102e;
+    --surface-2: #201848;
+    --border: #362660;
+    --border-2: #4d388a;
+    --text: #ffd6f8;
+    --text-2: #c070d8;
+    --text-3: #7840a0;
+    --brand: #ff2d9a;
+    --brand-hover: #e0107a;
+    --brand-subtle: #400830;
+  }
+
+  /* ── Sakura (Japanese misty forest) ── */
+  [data-theme="sakura"] {
+    --bg: #0a0f10;
+    --surface: #111a1c;
+    --surface-2: #182426;
+    --border: #233436;
+    --border-2: #2e4446;
+    --text: #d4ead8;
+    --text-2: #a0c8b0;
+    --text-3: #507060;
+    --brand: #6abf88;
+    --brand-hover: #58af78;
+    --brand-subtle: #0e2818;
+  }
+
+  /* ── Arctic (The Thing / cold horror) ── */
+  [data-theme="arctic"] {
+    --bg: #030508;
+    --surface: #070e1a;
+    --surface-2: #0e1828;
+    --border: #142030;
+    --border-2: #1e3044;
+    --text: #c8dff0;
+    --text-2: #7aabcc;
+    --text-3: #3a6888;
+    --brand: #88c8f0;
+    --brand-hover: #6ab8e8;
+    --brand-subtle: #0a1e30;
+  }
+
+  /* ── Daylight (light) ── */
+  [data-theme="light"] {
+    --bg: #f4f4f8;
+    --surface: #ffffff;
+    --surface-2: #f0f0f6;
+    --border: #e2e2ec;
+    --border-2: #d0d0de;
+    --text: #111128;
+    --text-2: #5a5a7a;
+    --text-3: #9090b0;
+    --brand: #7c3aed;
+    --brand-hover: #6d28d9;
+    --brand-subtle: #ede9fe;
   }
 
   body {

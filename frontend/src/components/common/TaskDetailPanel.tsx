@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import type { Task, KanbanColumn, User, Subtask } from '../../types';
 import type { Sprint } from '../../api/client';
-import { api } from '../../api/client';
+import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useColorLegend } from '../../hooks/useColorLegend';
 import { useToast } from '../../context/ToastContext';
@@ -20,7 +20,7 @@ interface Props {
 }
 
 const DEFAULT_STATUSES = [
-  { statusKey: 'backlog',     label: 'Backlog',      color: '#64748b' },
+  { statusKey: 'backlog',     label: 'Not started',  color: '#64748b' },
   { statusKey: 'todo',        label: 'To Do',        color: '#3b82f6' },
   { statusKey: 'in_progress', label: 'In Progress',  color: '#f59e0b' },
   { statusKey: 'blocked',     label: 'Blocked',      color: '#ef4444' },
@@ -64,7 +64,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const isSidebarRef   = useRef(isSidebar);
   const headerDragRef  = useRef<{ startX: number; startY: number; px: number; py: number } | null>(null);
 
-  const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks);
+  const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks ?? []);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtaskName, setNewSubtaskName] = useState('');
   const [subtaskLoading, setSubtaskLoading] = useState<string | null>(null);
@@ -110,7 +110,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
   const statusOptions = columns && columns.length > 0
     ? [
-        { statusKey: 'backlog', label: 'Backlog', color: '#64748b' },
+        { statusKey: 'backlog', label: 'Not started', color: '#64748b' },
         ...columns.map((c) => ({ statusKey: c.statusKey, label: c.label, color: c.color })),
       ]
     : DEFAULT_STATUSES;
@@ -396,21 +396,21 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           <label className="label">Owner</label>
           <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="input" disabled={readOnly}>
             <option value="">Unassigned</option>
-            {users.map((u) => <option key={u.id} value={u.id}>{u.avatarEmoji ? `${u.avatarEmoji} ` : ''}{u.username}</option>)}
+            {users.map((u) => <option key={u.id} value={u.id}>{u.avatarEmoji ? `${u.avatarEmoji} ` : ''}{displayName(u)}</option>)}
           </select>
         </div>
         <div>
           <label className="label">Reviewer</label>
           <select value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} className="input" disabled={readOnly}>
             <option value="">None</option>
-            {users.map((u) => <option key={u.id} value={u.id}>{u.avatarEmoji ? `${u.avatarEmoji} ` : ''}{u.username}</option>)}
+            {users.map((u) => <option key={u.id} value={u.id}>{u.avatarEmoji ? `${u.avatarEmoji} ` : ''}{displayName(u)}</option>)}
           </select>
         </div>
       </div>
 
       {sprints.length > 0 && (
         <div>
-          <label className="label">Sprint</label>
+          <label className="label">Sub-plan</label>
           <div className="flex flex-wrap gap-2">
             {sprints.map((s) => {
               const active = sprintIds.has(s.id);
@@ -614,7 +614,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           : { left: panelPos.x, top: panelPos.y, zIndex: 50, width: panelWidth, height: panelHeight, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.28)', overflow: 'hidden' }
         }
       >
-        {/* Resize handles — floating only */}
+        {/* Resize handles - floating only */}
         {!isSidebar && (
           <>
             <div onPointerDown={(e) => startResizeDir(e, 'n')}  style={{ position: 'absolute', top: 0,    left: 12,   right: 12,  height: 5,  cursor: 'n-resize',  zIndex: 10 }} />
@@ -631,7 +631,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
         {isSidebar && (
           <div onPointerDown={(e) => startResizeDir(e, 'w')} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }} />
         )}
-        {/* Header — drag to detach / move */}
+        {/* Header - drag to detach / move */}
         <div
           className="flex items-center justify-between px-6 py-4 flex-shrink-0 select-none"
           style={{ borderBottom: '1px solid var(--border)', cursor: 'grab' }}

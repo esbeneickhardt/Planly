@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../api/client';
 import type { Task } from '../types';
@@ -12,7 +13,7 @@ type StatusTab = 'all' | 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'done'
 
 const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
   { key: 'all',         label: 'All',         color: 'var(--text-3)' },
-  { key: 'backlog',     label: 'Backlog',      color: '#64748b' },
+  { key: 'backlog',     label: 'Not started',  color: '#64748b' },
   { key: 'todo',        label: 'To Do',        color: '#3b82f6' },
   { key: 'in_progress', label: 'In Progress',  color: '#f59e0b' },
   { key: 'blocked',     label: 'Blocked',      color: '#ef4444' },
@@ -22,12 +23,14 @@ const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
 export default function BacklogPage() {
   const { activeProduct, tasks, refreshTasks, createTask } = useProduct();
   const { canWrite } = usePermission();
+  const { user } = useAuth();
   const readOnly = !canWrite('backlog');
   const { showToast } = useToast();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>('oldest');
   const [statusTab, setStatusTab] = useState<StatusTab>('backlog');
+  const [mineOnly, setMineOnly] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -36,14 +39,16 @@ export default function BacklogPage() {
   const now = new Date();
 
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: tasks.length };
-    tasks.forEach((t) => { counts[t.status] = (counts[t.status] ?? 0) + 1; });
+    const base = mineOnly ? tasks.filter((t) => t.ownerId === user?.id) : tasks;
+    const counts: Record<string, number> = { all: base.length };
+    base.forEach((t) => { counts[t.status] = (counts[t.status] ?? 0) + 1; });
     return counts;
-  }, [tasks]);
+  }, [tasks, mineOnly, user?.id]);
 
   const filteredTasks = useMemo(() => {
     let bt = tasks.filter((t) => {
       if (statusTab !== 'all' && t.status !== statusTab) return false;
+      if (mineOnly && t.ownerId !== user?.id) return false;
       if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -59,7 +64,7 @@ export default function BacklogPage() {
       }
       return (a.ownerId ? 1 : 0) - (b.ownerId ? 1 : 0);
     });
-  }, [tasks, statusTab, sortKey, search]);
+  }, [tasks, statusTab, mineOnly, sortKey, search, user?.id]);
 
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < now).length;
@@ -157,6 +162,20 @@ export default function BacklogPage() {
               </button>
             );
           })}
+
+          {/* Mine toggle */}
+          <button
+            onClick={() => setMineOnly((v) => !v)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
+            style={{
+              background: mineOnly ? 'var(--brand-subtle)' : 'transparent',
+              color: mineOnly ? 'var(--brand)' : 'var(--text-3)',
+              border: `1px solid ${mineOnly ? 'var(--brand)' : 'transparent'}`,
+            }}
+            title="Show only my tasks"
+          >
+            {user?.avatarEmoji ?? '👤'} Mine
+          </button>
 
           <div className="flex-1" />
 
@@ -269,7 +288,7 @@ const STATUS_COLOR: Record<string, string> = {
   backlog: '#64748b', todo: '#3b82f6', in_progress: '#f59e0b', done: '#10b981', blocked: '#ef4444',
 };
 const STATUS_LABEL: Record<string, string> = {
-  backlog: 'Backlog', todo: 'To Do', in_progress: 'In Progress', done: 'Done', blocked: 'Blocked',
+  backlog: 'Not started', todo: 'To Do', in_progress: 'In Progress', done: 'Done', blocked: 'Blocked',
 };
 
 function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, onDelete, readOnly }: {

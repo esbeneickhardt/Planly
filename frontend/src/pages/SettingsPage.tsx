@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ApiToken, AppRegistration, Webhook, TeamInvite } from '../api/client';
 import { useProduct } from '../context/ProductContext';
@@ -45,7 +46,7 @@ const WEBHOOK_EVENTS = [
 
 const FEATURE_TABS = [
   { key: 'kanban',  label: 'Kanban' },
-  { key: 'backlog', label: 'Backlog' },
+  { key: 'backlog', label: 'Tasks' },
   { key: 'canvas',  label: 'Plan' },
   { key: 'gantt',   label: 'Gantt' },
 ];
@@ -73,8 +74,17 @@ export default function SettingsPage() {
   const { refresh: refreshPerms, canManage, isOwner } = usePermission();
   const { showToast } = useToast();
   const { legend, update: updateLegend, toggleEnabled, enabledColors } = useColorLegend(activeProduct?.id ?? '');
+  const [searchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('project');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    const t = searchParams.get('tab') as SettingsTab | null;
+    return PAGE_TABS.some((p) => p.key === t) ? t! : 'project';
+  });
+
+  useEffect(() => {
+    const t = searchParams.get('tab') as SettingsTab | null;
+    if (t && PAGE_TABS.some((p) => p.key === t)) setActiveTab(t);
+  }, [searchParams]);
   const [team, setTeam] = useState<Team | null>(null);
   const [matrix, setMatrix] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -187,6 +197,24 @@ export default function SettingsPage() {
 
   function setLevel(userId: string, tab: string, level: string) {
     setMatrix((prev) => ({ ...prev, [userId]: { ...prev[userId], [tab]: level } }));
+  }
+
+  function applyPreset(preset: 'open' | 'standard' | 'locked') {
+    const levelMap: Record<string, Record<string, string>> = {
+      open:     { kanban: 'write', backlog: 'write', canvas: 'write', gantt: 'write' },
+      standard: { kanban: 'write', backlog: 'write', canvas: 'read',  gantt: 'read'  },
+      locked:   { kanban: 'read',  backlog: 'read',  canvas: 'read',  gantt: 'read'  },
+    };
+    const levels = levelMap[preset];
+    setMatrix((prev) => {
+      const next = { ...prev };
+      members.forEach(({ userId, role }) => {
+        const isPrivileged = userId === activeProduct?.ownerId || role === 'co_owner';
+        if (isPrivileged) return;
+        next[userId] = { ...next[userId], ...levels };
+      });
+      return next;
+    });
   }
 
   async function savePermissions() {
@@ -355,7 +383,7 @@ export default function SettingsPage() {
                       style={{ background: showEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${showEmojiPicker ? 'var(--brand)' : 'var(--border)'}` }}
                       title="Pick an icon"
                     >
-                      {projEmoji || '📋'}
+                      {projEmoji || '🎯'}
                     </button>
                     <input
                       className="input text-sm flex-1"
@@ -409,7 +437,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Ownership section — owner only */}
+            {/* Ownership section - owner only */}
             {isOwner && (
               <>
                 <div>
@@ -691,7 +719,32 @@ export default function SettingsPage() {
         {activeTab === 'permissions' && (
           <div className="max-w-4xl">
             <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Tab access</h2>
-            <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>Control which tabs each member can view or edit. Settings access is determined by role (owner / co-owner) — it cannot be granted via this matrix.</p>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>Control which tabs each member can view or edit. Settings access is determined by role (owner / co-owner) - it cannot be granted via this matrix.</p>
+
+            {/* Preset mode cards */}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {([
+                { key: 'open',     label: 'Open',     icon: '🌐', desc: 'Full write access on all tabs',              detail: 'Kanban · Tasks · Plan · Gantt → Write' },
+                { key: 'standard', label: 'Standard', icon: '🛡️', desc: 'Write for tasks, view-only for planning',    detail: 'Kanban · Tasks → Write · Plan · Gantt → Read' },
+                { key: 'locked',   label: 'Locked',   icon: '🔒', desc: 'View-only access everywhere',                detail: 'All tabs → Read' },
+              ] as { key: 'open' | 'standard' | 'locked'; label: string; icon: string; desc: string; detail: string }[]).map(({ key, label, icon, desc, detail }) => (
+                <button
+                  key={key}
+                  onClick={() => applyPreset(key)}
+                  className="flex flex-col items-start gap-1.5 p-3.5 rounded-xl text-left transition-all"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-subtle)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{icon}</span>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{label}</span>
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>{desc}</p>
+                  <p className="text-[10px] font-mono" style={{ color: 'var(--text-3)', opacity: 0.7 }}>{detail}</p>
+                </button>
+              ))}
+            </div>
 
             <div className="flex items-center gap-4 mb-4 flex-wrap">
               {LEVELS.map(({ value, label, color }) => (
@@ -763,7 +816,7 @@ export default function SettingsPage() {
                         </div>
                       );
                     })}
-                    {/* Settings — locked, role-based */}
+                    {/* Settings - locked, role-based */}
                     <div className="flex-1 flex justify-center" title={isPrivileged ? 'Access granted by role' : 'Requires co-owner role'}>
                       {isPrivileged ? (
                         <span className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>Write 🔒</span>

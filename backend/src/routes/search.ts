@@ -25,7 +25,7 @@ export async function searchRoutes(app: FastifyInstance) {
 
     if (productIds.length === 0) return reply.send({ tasks: [], messages: [] });
 
-    const [tasks, messages] = await Promise.all([
+    const [tasks, subtaskParents, messages] = await Promise.all([
       prisma.task.findMany({
         where: {
           productId: { in: productIds },
@@ -35,9 +35,24 @@ export async function searchRoutes(app: FastifyInstance) {
             { description: { contains: query, mode: 'insensitive' } },
           ],
         },
-        include: { owner: { select: { id: true, username: true, avatarEmoji: true } } },
+        include: { owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } } },
         orderBy: { updatedAt: 'desc' },
         take,
+      }),
+      // Find tasks whose subtasks match the query
+      prisma.task.findMany({
+        where: {
+          productId: { in: productIds },
+          deletedAt: null,
+          subtasks: {
+            some: {
+              name: { contains: query, mode: 'insensitive' },
+            },
+          },
+        },
+        include: { owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } } },
+        orderBy: { updatedAt: 'desc' },
+        take: Math.floor(take / 2),
       }),
       prisma.message.findMany({
         where: {
@@ -45,7 +60,7 @@ export async function searchRoutes(app: FastifyInstance) {
           content: { contains: query, mode: 'insensitive' },
         },
         include: {
-          author: { select: { id: true, username: true, avatarEmoji: true } },
+          author: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
           task: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -53,8 +68,15 @@ export async function searchRoutes(app: FastifyInstance) {
       }),
     ]);
 
+    // Merge top-level tasks and parents-of-matching-subtasks (deduplicate by id)
+    const taskMap = new Map(tasks.map((t) => [t.id, t]));
+    for (const t of subtaskParents) {
+      if (!taskMap.has(t.id)) taskMap.set(t.id, t);
+    }
+    const allTasks = [...taskMap.values()];
+
     reply.send({
-      tasks: tasks.map((t) => ({ ...t, product: productMap[t.productId] })),
+      tasks: allTasks.map((t) => ({ ...t, product: productMap[t.productId] })),
       messages: messages.filter((m) => m.productId).map((m) => ({ ...m, product: productMap[m.productId!] })),
     });
   });

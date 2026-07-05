@@ -1,4 +1,5 @@
 import { memo, useContext } from 'react';
+import { displayName } from '../../../api/client';
 import { Handle, Position, NodeProps } from 'reactflow';
 import type { Task } from '../../../types';
 import { CanvasContext } from '../CanvasView';
@@ -72,7 +73,7 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
 
   return (
     <div
-      title={inSprint ? `In sprint` : undefined}
+      title={inSprint ? `In sub-plan` : undefined}
       style={{
         background: bgColor,
         border: `1.5px solid ${outerBorder}`,
@@ -143,14 +144,14 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
             {data.owner && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <span style={{ fontSize: 12 }}>{data.owner.avatarEmoji ?? '👤'}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{data.owner.username}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{displayName(data.owner)}</span>
               </div>
             )}
             {data.reviewer && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 3 }} title="Reviewer">
                 <span style={{ fontSize: 10, color: 'var(--text-3)', opacity: 0.7 }}>→</span>
                 <span style={{ fontSize: 12 }}>{data.reviewer.avatarEmoji ?? '👤'}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-3)', opacity: 0.8 }}>{data.reviewer.username}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', opacity: 0.8 }}>{displayName(data.reviewer)}</span>
               </div>
             )}
           </div>

@@ -6,6 +6,7 @@ export interface ServerConfigValues {
   allowProjectCreation: boolean;
   announcementsEnabled: boolean;
   announcementPostRole: string;
+  ipRestrictionMode: string;
 }
 
 // Reads from DB; falls back to false defaults. Cached per-request by callers.
@@ -17,5 +18,6 @@ export async function getServerConfig(): Promise<ServerConfigValues> {
     allowProjectCreation: row?.allowProjectCreation ?? false,
     announcementsEnabled: row?.announcementsEnabled ?? false,
     announcementPostRole: row?.announcementPostRole ?? 'admin',
+    ipRestrictionMode: row?.ipRestrictionMode ?? 'disabled',
   };
 }

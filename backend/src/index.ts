@@ -39,6 +39,7 @@ import { analyticsRoutes } from './routes/analytics';
 import { adminRoutes } from './routes/admin';
 import { adminChatRoutes } from './routes/admin-chat';
 import { announcementRoutes } from './routes/announcements';
+import { ipRestrictionRoutes, matchesCidr, getClientIp } from './routes/ip-restrictions';
 import { csrfCheck } from './middleware/csrf';
 
 import websocket from '@fastify/websocket';
@@ -104,7 +105,7 @@ async function emergencyRecrown() {
 
   const target = await prisma.user.findUnique({ where: { email } });
   if (!target) {
-    console.error(`[recrown] RECROWN_EMAIL is set but no user with email "${email}" was found — skipping.`);
+    console.error(`[recrown] RECROWN_EMAIL is set but no user with email "${email}" was found - skipping.`);
     return;
   }
 
@@ -148,6 +149,47 @@ async function main() {
 
   // CSRF protection via Origin header check (allows non-browser API token callers)
   app.addHook('preHandler', csrfCheck);
+
+  // Token project-scope enforcement - scoped tokens can only access their own project
+  app.addHook('preHandler', async (req, reply) => {
+    const scopedProductId = req.user?.scopedProductId;
+    if (!scopedProductId) return; // NULL-scope or cookie session - unrestricted
+
+    // Scoped tokens never access admin endpoints
+    if (req.url.startsWith('/api/admin')) {
+      return reply.status(403).send({ error: 'Scoped tokens cannot access admin endpoints' });
+    }
+
+    // For product-level routes, verify the token's project matches
+    const match = req.url.match(/\/api\/products\/([^/?]+)/);
+    if (match && match[1] !== scopedProductId) {
+      return reply.status(403).send({ error: 'Token is not authorized for this project' });
+    }
+  });
+
+  // IP restriction check - runs before every request
+  app.addHook('preHandler', async (req, reply) => {
+    // Never block the management endpoint itself (so admins can always fix config)
+    if (req.url.startsWith('/api/admin/ip-restrictions')) return;
+
+    const config = await prisma.serverConfig.findUnique({ where: { id: 'main' }, select: { ipRestrictionMode: true } });
+    const mode = config?.ipRestrictionMode ?? 'disabled';
+    if (mode === 'disabled') return;
+
+    const ip = getClientIp(req as never);
+    // Always allow localhost / container-internal traffic
+    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return;
+
+    const rules = await prisma.ipRestriction.findMany({ select: { cidr: true } });
+    const matches = rules.some((r) => matchesCidr(ip, r.cidr));
+
+    if (mode === 'allowlist' && !matches) {
+      return reply.status(403).send({ error: 'Access denied: your IP address is not on the allowlist.', code: 'IP_BLOCKED' });
+    }
+    if (mode === 'blocklist' && matches) {
+      return reply.status(403).send({ error: 'Access denied: your IP address has been blocked.', code: 'IP_BLOCKED' });
+    }
+  });
 
   // Rate limiting - global defaults
   await app.register(rateLimit, {
@@ -202,6 +244,7 @@ async function main() {
   await app.register(adminRoutes);
   await app.register(adminChatRoutes);
   await app.register(announcementRoutes);
+  await app.register(ipRestrictionRoutes);
 
   // Health check - verifies DB connection
   app.get('/api/health', async (_req, reply) => {

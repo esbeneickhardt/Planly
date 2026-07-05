@@ -11,6 +11,7 @@ import { getServerConfig } from '../utils/server-config';
 const USER_SELF_SELECT = {
   id: true, username: true, email: true, realName: true,
   avatarEmoji: true, avatarUrl: true, phone: true, createdAt: true, emailVerified: true,
+  notificationPreferences: true,
 };
 // Minimal fields for team member search - no email, phone, or createdAt
 const USER_PUBLIC_SELECT = { id: true, username: true, avatarEmoji: true };
@@ -128,6 +129,24 @@ export async function userRoutes(app: FastifyInstance) {
         where: { id },
         data: { realName, phone, avatarEmoji, avatarUrl },
         select: USER_SELF_SELECT,
+      });
+      reply.send(user);
+    } catch {
+      reply.status(404).send({ error: 'Not found' });
+    }
+  });
+
+  // Update notification preferences
+  app.patch('/api/users/:id/notification-preferences', { preHandler: requireAuth }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (id !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
+    const { preferences } = req.body as { preferences: Record<string, boolean> };
+    if (!preferences || typeof preferences !== 'object') return reply.status(400).send({ error: 'preferences required' });
+    try {
+      const user = await prisma.user.update({
+        where: { id },
+        data: { notificationPreferences: preferences },
+        select: { notificationPreferences: true },
       });
       reply.send(user);
     } catch {

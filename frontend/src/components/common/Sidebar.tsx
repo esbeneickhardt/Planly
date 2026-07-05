@@ -3,16 +3,16 @@ import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
-import { useTheme } from '../../context/ThemeContext';
 import { api } from '../../api/client';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
 import EmojiPicker from './EmojiPicker';
+import ThemePickerModal from './ThemePickerModal';
 import { ADMIN_TABS } from '../../pages/AdminPage';
 
 const NAV = [
   { to: '/kanban',    label: 'Kanban',    icon: '▦',  tab: 'kanban' },
-  { to: '/backlog',   label: 'Backlog',   icon: '☰',  tab: 'backlog' },
+  { to: '/backlog',   label: 'Tasks',     icon: '☰',  tab: 'backlog' },
   { to: '/canvas',    label: 'Plan',      icon: '◈',  tab: 'canvas' },
   { to: '/gantt',     label: 'Gantt',     icon: '📅', tab: 'gantt' },
   { to: '/analytics', label: 'Analytics', icon: '📊', tab: 'analytics' },
@@ -25,7 +25,6 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   const { user, logout } = useAuth();
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
   const { canRead, levelFor, canManage } = usePermission();
-  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,6 +42,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   const [profileForm, setProfileForm] = useState({ realName: user?.realName ?? '', avatarEmoji: user?.avatarEmoji ?? '' });
   const [savingProfile, setSavingProfile] = useState(false);
   const [showProductEmojiPicker, setShowProductEmojiPicker] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
 
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < new Date()).length;
@@ -132,18 +132,20 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
           )}
           <div className="flex-1" />
 
-          <NavLink
-            to="/announcements"
-            state={{ adminContext: isAdminPage }}
-            title="Announcements"
-            className={({ isActive }) =>
-              `w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all ${
-                isActive ? 'bg-[var(--surface-2)] text-[var(--text)]' : 'text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-              }`
-            }
-          >
-            📢
-          </NavLink>
+          {user?.announcementsEnabled && (
+            <NavLink
+              to="/announcements"
+              state={{ adminContext: isAdminPage }}
+              title="Announcements"
+              className={({ isActive }) =>
+                `w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all ${
+                  isActive ? 'bg-[var(--surface-2)] text-[var(--text)]' : 'text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                }`
+              }
+            >
+              📢
+            </NavLink>
+          )}
 
           {/* Admin icon - only shown when NOT already on admin page */}
           {user?.isAdmin && !isAdminPage && (
@@ -169,6 +171,15 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
             🔭
           </button>
 
+          {/* Appearance */}
+          <button
+            onClick={() => setShowThemePicker(true)}
+            title="Appearance"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+          >
+            🎨
+          </button>
+
           {/* Avatar */}
           <button
             onClick={() => { setCollapsed(false); setShowProfile(true); }}
@@ -180,6 +191,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
           </button>
         </aside>
         {showDiscover && <DiscoverProjectsModal onClose={() => setShowDiscover(false)} />}
+        {showThemePicker && <ThemePickerModal onClose={() => setShowThemePicker(false)} />}
       </>
     );
   }
@@ -196,8 +208,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
             <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Planly</span>
           </button>
           <div className="ml-auto flex items-center gap-1">
-            <button onClick={toggle} className="text-base opacity-50 hover:opacity-100 transition-opacity" title="Toggle theme">
-              {theme === 'dark' ? '☀️' : '🌙'}
+            <button onClick={() => setShowThemePicker(true)} className="text-base opacity-50 hover:opacity-100 transition-opacity" title="Appearance">
+              🎨
             </button>
             <button
               onClick={() => setCollapsed(true)}
@@ -340,20 +352,22 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
                 </NavLink>
               ))}
 
-              <NavLink
-                to="/announcements"
-                state={{ adminContext: isAdminPage }}
-                className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-all ${
-                    isActive
-                      ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
-                      : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-                  }`
-                }
-              >
-                <span className="text-sm opacity-60">📢</span>
-                Announcements
-              </NavLink>
+              {user?.announcementsEnabled && (
+                <NavLink
+                  to="/announcements"
+                  state={{ adminContext: isAdminPage }}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-all ${
+                      isActive
+                        ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
+                        : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                    }`
+                  }
+                >
+                  <span className="text-sm opacity-60">📢</span>
+                  Announcements
+                </NavLink>
+              )}
 
               {/* Admin panel link - only shown when not already on admin page */}
               {user?.isAdmin && (
@@ -433,7 +447,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
                   style={{ background: showProductEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${showProductEmojiPicker ? 'var(--brand)' : 'var(--border)'}` }}
                   title="Pick an icon"
                 >
-                  {productForm.emoji || '📋'}
+                  {productForm.emoji || '🎯'}
                 </button>
               </div>
               <div className="flex-1">
@@ -515,6 +529,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
 
       {/* Discover projects modal */}
       {showDiscover && <DiscoverProjectsModal onClose={() => setShowDiscover(false)} />}
+      {showThemePicker && <ThemePickerModal onClose={() => setShowThemePicker(false)} />}
     </>
   );
 }

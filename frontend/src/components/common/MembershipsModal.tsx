@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
-import { api } from '../../api/client';
+import { api, displayName as dn } from '../../api/client';
 import Modal from './Modal';
 import type { Product } from '../../types';
 
@@ -111,7 +111,7 @@ export default function MembershipsModal({ onClose }: Props) {
               <div key={p.id} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${expanded ? 'var(--brand)' : 'var(--border)'}`, background: 'var(--surface-2)' }}>
                 {/* Main row */}
                 <div className="flex items-center gap-3 px-3 py-2.5">
-                  <span className="text-xl flex-shrink-0">{p.emoji ?? '📁'}</span>
+                  <span className="text-xl flex-shrink-0">{p.emoji ?? '🎯'}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{p.name}</p>
@@ -159,7 +159,7 @@ export default function MembershipsModal({ onClose }: Props) {
                           className="input text-sm w-full"
                         >
                           {ownerAction.members.map((m) => (
-                            <option key={m.id} value={m.id}>{m.avatarEmoji ?? '👤'} {m.username}</option>
+                            <option key={m.id} value={m.id}>{m.avatarEmoji ?? '👤'} {dn(m)}</option>
                           ))}
                         </select>
                         <button

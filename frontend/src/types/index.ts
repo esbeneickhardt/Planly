@@ -35,11 +35,13 @@ export interface User {
   isAdmin?: boolean;
   isFoundingAdmin?: boolean;
   mustChangePassword?: boolean;
+  notificationPreferences?: Record<string, boolean>;
+  announcementsEnabled?: boolean;
 }
 
 export interface TeamMember {
   userId: string;
-  user: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+  user: Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>;
   role?: string;
 }
 
@@ -80,9 +82,9 @@ export interface Task {
   description?: string;
   status: Status;
   ownerId?: string;
-  owner?: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+  owner?: Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>;
   reviewerId?: string;
-  reviewer?: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+  reviewer?: Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>;
   color?: string;
   deadline?: string;
   kanbanOrder: number;

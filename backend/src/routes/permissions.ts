@@ -23,7 +23,7 @@ export async function permissionRoutes(app: FastifyInstance) {
     const result = memberships.flatMap((m) =>
       m.team.products.map((p) => {
         const role = p.ownerId === userId ? 'owner' : m.role;
-        // Owners and co-owners bypass tab permissions entirely — don't expose potentially
+        // Owners and co-owners bypass tab permissions entirely - don't expose potentially
         // stale rows that would make the display inconsistent across projects.
         const permissions =
           role === 'owner' || role === 'co_owner'

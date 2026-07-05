@@ -75,12 +75,15 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true, mustChangePassword: true },
-    });
+    const [user, cfg] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true, mustChangePassword: true, notificationPreferences: true },
+      }),
+      getServerConfig(),
+    ]);
     if (!user) return reply.status(404).send({ error: 'Not found' });
-    reply.send(user);
+    reply.send({ ...user, announcementsEnabled: cfg.announcementsEnabled });
   });
 
 }

@@ -8,7 +8,7 @@ import { broadcast } from '../realtime/manager';
 import { logActivity } from '../utils/activity';
 import { storeFile, getFileBuffer, deleteFile, fileExtFromMime, generateFilename, mimeFromExt, ALLOWED_MIME_TYPES } from '../utils/storage';
 
-const AUTHOR_SELECT = { id: true, username: true, avatarEmoji: true };
+const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true };
 const MSG_INCLUDE = {
   author: { select: AUTHOR_SELECT },
   task: { select: { id: true, name: true } },

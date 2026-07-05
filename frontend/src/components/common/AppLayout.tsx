@@ -103,6 +103,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           chatOpen={activeAdminMode ? showAdminChat : showProductChat}
           chatIsAdmin={activeAdminMode}
           onToggleAdmin={handleToggleAdmin}
+          onExitAdmin={() => setAdminMode(false)}
         />
         <PermissionGuard>
           <main className="flex-1 overflow-auto min-w-0">{children}</main>

@@ -47,12 +47,15 @@ export interface InviteInfo {
   expiresAt: string;
 }
 
+export type MinUser = { id: string; username: string; realName: string | null; avatarEmoji: string | null };
+export const displayName = (u: { realName?: string | null; username: string }): string => u.realName?.trim() || u.username;
+
 export interface SearchResults {
   tasks: (Task & { product: { id: string; name: string; emoji: string | null } })[];
   messages: {
     id: string; content: string; createdAt: string;
     product: { id: string; name: string; emoji: string | null };
-    author: { id: string; username: string; avatarEmoji: string | null };
+    author: MinUser;
     task?: { id: string; name: string } | null;
   }[];
 }
@@ -93,7 +96,7 @@ export interface Message {
   attachments: { url: string; name: string; type: string }[];
   createdAt: string;
   editedAt: string | null;
-  author: { id: string; username: string; avatarEmoji: string | null };
+  author: MinUser;
   task?: { id: string; name: string } | null;
   reactions: { emoji: string; userId: string }[];
 }
@@ -106,7 +109,7 @@ export interface CanvasSnapshot {
   positions: Record<string, { x: number; y: number }>;
   viewport: { x: number; y: number; zoom: number; viewMode?: string; simpleMode?: boolean };
   createdAt: string;
-  user: { id: string; username: string; avatarEmoji: string | null };
+  user: MinUser;
 }
 
 export interface Sprint {
@@ -139,7 +142,7 @@ export interface AppRegistration {
   createdAt: string;
 }
 
-export type AnnAuthor = { id: string; username: string; avatarEmoji: string | null; isAdmin: boolean };
+export type AnnAuthor = { id: string; username: string; realName: string | null; avatarEmoji: string | null; isAdmin: boolean };
 export type AnnTeam   = { id: string; name: string } | null;
 export type AnnItem   = {
   id: string; title: string; content: string; pinned: boolean;
@@ -155,12 +158,14 @@ export type AnnComment = {
 export const api = {
 
   users: {
-    list: () => request<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>('/api/users'),
+    list: () => request<Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>[]>('/api/users'),
     create: (data: { username: string; email: string; password: string; realName?: string; avatarEmoji?: string }) =>
       request<User>('/api/users', { method: 'POST', body: json(data) }),
     get: (id: string) => request<User>(`/api/users/${id}`),
     update: (id: string, data: Partial<Pick<User, 'realName' | 'phone' | 'avatarEmoji' | 'avatarUrl'>>) =>
       request<User>(`/api/users/${id}`, { method: 'PATCH', body: json(data) }),
+    updateNotificationPreferences: (id: string, preferences: Record<string, boolean>) =>
+      request<{ notificationPreferences: Record<string, boolean> }>(`/api/users/${id}/notification-preferences`, { method: 'PATCH', body: json({ preferences }) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/users/${id}`, { method: 'DELETE' }),
   },
 
@@ -339,12 +344,19 @@ export const api = {
   },
 
   notifications: {
-    list: (cursor?: string) =>
-      request<{ notifications: Notification[]; nextCursor: string | null }>(`/api/notifications${cursor ? `?cursor=${cursor}` : ''}`),
-    unreadCount: () => request<{ count: number }>('/api/notifications/unread-count'),
+    list: (cursor?: string, productId?: string) => {
+      const params = new URLSearchParams();
+      if (cursor) params.set('cursor', cursor);
+      if (productId) params.set('productId', productId);
+      const qs = params.toString();
+      return request<{ notifications: Notification[]; nextCursor: string | null }>(`/api/notifications${qs ? `?${qs}` : ''}`);
+    },
+    unreadCount: (productId?: string) =>
+      request<{ count: number }>(`/api/notifications/unread-count${productId ? `?productId=${encodeURIComponent(productId)}` : ''}`),
     markRead: (ids: string[]) => request<{ ok: boolean }>('/api/notifications/read', { method: 'PATCH', body: json({ ids }) }),
     markAllRead: () => request<{ ok: boolean }>('/api/notifications/read-all', { method: 'POST', body: json({}) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/notifications/${id}`, { method: 'DELETE' }),
+    clearAll: () => request<{ ok: boolean }>('/api/notifications', { method: 'DELETE' }),
   },
 
   webhooks: {
@@ -457,9 +469,15 @@ export const api = {
     whitelist: () => request<{ id: string; pattern: string; createdAt: string }[]>('/api/admin/whitelist'),
     addWhitelist: (pattern: string) => request<{ id: string; pattern: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern }) }),
     removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
-    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string }>('/api/admin/server-config'),
+    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string; ipRestrictionMode: string }>('/api/admin/server-config'),
     updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean; allowProjectCreation?: boolean; announcementsEnabled?: boolean; announcementPostRole?: string }) =>
       request<{ ok: boolean; verificationEmailsSent?: number }>('/api/admin/server-config', { method: 'PUT', body: json(data) }),
+    ipRestrictions: () => request<{ mode: string; rules: { id: string; cidr: string; description: string | null; createdAt: string }[]; yourIp: string }>('/api/admin/ip-restrictions'),
+    setIpMode: (mode: string) => request<{ ok: boolean }>('/api/admin/ip-restrictions/mode', { method: 'PUT', body: json({ mode }) }),
+    addIpRule: (cidr: string, description?: string) => request<{ id: string; cidr: string; description: string | null; createdAt: string }>('/api/admin/ip-restrictions', { method: 'POST', body: json({ cidr, description }) }),
+    removeIpRule: (id: string) => request<{ ok: boolean }>(`/api/admin/ip-restrictions/${id}`, { method: 'DELETE' }),
+    adminNotifications: () => request<{ entries: { id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string }[] }>('/api/admin/notifications'),
+    adminNotificationCount: (since: string) => request<{ count: number }>(`/api/admin/notifications/unread-count?since=${encodeURIComponent(since)}`),
     logs: (params?: { cursor?: string; action?: string; from?: string; to?: string }) => {
       const qs = new URLSearchParams();
       if (params?.cursor) qs.set('cursor', params.cursor);
@@ -523,5 +541,11 @@ export const api = {
       events: { id: string; actorId: string; action: string; entityType: string; entityId: string | null; entityName: string | null; metadata: unknown; createdAt: string }[];
       nextCursor: string | null;
     }>(`/api/products/${productId}/activity${cursor ? `?cursor=${cursor}` : ''}`),
+    workload: (productId: string) => request<{
+      statusBreakdown: { status: string; count: number }[];
+      totalActive: number;
+      totalCompleted: number;
+      completionsByDay: { date: string; count: number }[];
+    }>(`/api/products/${productId}/analytics/workload`),
   },
 };
