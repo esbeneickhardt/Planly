@@ -4,14 +4,17 @@ import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
+import { validate } from '../utils/validate';
+import { loginSchema } from '../schemas/auth';
 
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_LOCK_MINUTES = 15;
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (req, reply) => {
-    const { identifier, password } = req.body as { identifier: string; password: string };
-    if (!identifier || !password) return reply.status(400).send({ error: 'Email/username and password required' });
+    const body = validate(loginSchema, req.body, reply);
+    if (!body) return;
+    const { identifier, password } = body;
 
     const trimmed = identifier.trim();
     const normalized = trimmed.toLowerCase();
@@ -58,7 +61,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const token = jwt.sign(
-      { userId: user.id, username: user.username },
+      { userId: user.id, username: user.username, tv: user.tokenVersion },
       process.env.JWT_SECRET!,
       { expiresIn: '7d' }
     );
@@ -66,7 +69,7 @@ export async function authRoutes(app: FastifyInstance) {
     await prisma.adminLog.create({ data: { action: 'LOGIN', actorName: user.username, targetName: user.email } }).catch(() => {});
 
     reply
-      .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7 })
+      .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7, secure: process.env.NODE_ENV === 'production' })
       .send({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified });
   });
 

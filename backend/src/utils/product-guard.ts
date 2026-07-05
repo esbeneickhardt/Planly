@@ -93,3 +93,38 @@ export async function requireTabWrite(
 
   return true;
 }
+
+/**
+ * Verifies that `userId` is the owner or a co-owner of `productId`.
+ * Regular members are rejected. Sends 404/403 and returns false on deny.
+ */
+export async function requireProductCoOwner(
+  productId: string,
+  userId: string,
+  reply: FastifyReply,
+): Promise<boolean> {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: {
+      ownerId: true,
+      team: {
+        select: {
+          members: { where: { userId }, select: { role: true } },
+        },
+      },
+    },
+  });
+
+  if (!product) {
+    reply.status(404).send({ error: 'Not found' });
+    return false;
+  }
+
+  if (product.ownerId === userId) return true;
+
+  const member = product.team.members[0];
+  if (member?.role === 'co_owner') return true;
+
+  reply.status(403).send({ error: 'Forbidden' });
+  return false;
+}

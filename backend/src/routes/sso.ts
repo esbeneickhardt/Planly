@@ -121,12 +121,12 @@ export async function ssoRoutes(app: FastifyInstance) {
       }
 
       const token = jwt.sign(
-        { userId: user.id, username: user.username },
+        { userId: user.id, username: user.username, tv: user.tokenVersion },
         config.jwtSecret,
         { expiresIn: '7d' },
       );
       reply
-        .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 7 * 24 * 3600 })
+        .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 7 * 24 * 3600, secure: process.env.NODE_ENV === 'production' })
         .redirect(`${config.frontendOrigin}/kanban`);
     } catch (err) {
       app.log.error(err, 'SSO callback error');

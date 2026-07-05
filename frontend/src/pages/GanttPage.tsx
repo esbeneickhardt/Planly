@@ -4,6 +4,7 @@ import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import type { Product } from '../types';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
+import Tooltip from '../components/common/Tooltip';
 import type { Task } from '../types';
 
 type GanttView = 'milestones' | 'sprints';
@@ -88,9 +89,11 @@ export default function GanttPage() {
     return true;
   });
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ vs: new Date(), ve: new Date(), fullStart: new Date(), fullEnd: new Date() });
   const dragState = useRef<{ startX: number; vs: Date; ve: Date } | null>(null);
+  const resizeState = useRef<{ type: 'milestone' | 'sprint' | 'sprint-start' | 'product'; id: string } | null>(null);
 
   useEffect(() => {
     if (!activeProduct) return;
@@ -140,22 +143,25 @@ export default function GanttPage() {
   if (milestones.length === 0) {
     const tasksWithoutDeadline = tasks.filter((t) => !t.deadline && t.status !== 'done').length;
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-3" style={{ color: 'var(--text-3)' }}>
-        <div className="text-5xl opacity-30">📅</div>
-        <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No milestones yet</p>
-        <p className="text-xs text-center max-w-xs" style={{ color: 'var(--text-3)' }}>
-          In Planly, a milestone is any task with a deadline. Open a task and set its deadline to make it appear here with progress tracking.
-        </p>
-        {tasksWithoutDeadline > 0 && (
-          <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
-            You have <strong style={{ color: 'var(--text-2)' }}>{tasksWithoutDeadline}</strong> task{tasksWithoutDeadline !== 1 ? 's' : ''} without a deadline - set one to create a milestone.
-          </p>
-        )}
-        {tasks.length === 0 && (
-          <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
-            This project has no tasks yet. Add tasks in the Execute or Tasks view first.
-          </p>
-        )}
+      <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
+        <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>📅</div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>No milestones yet</p>
+            <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-3)' }}>
+              A milestone is any task with a deadline — it shows here as a progress bar against the timeline.
+            </p>
+          </div>
+          {tasks.length === 0 ? (
+            <div className="rounded-xl px-4 py-3 text-xs leading-relaxed w-full" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
+              Start by adding tasks in <strong style={{ color: 'var(--text-2)' }}>Execute</strong> or <strong style={{ color: 'var(--text-2)' }}>Tasks</strong>, then set a deadline to create a milestone.
+            </div>
+          ) : tasksWithoutDeadline > 0 ? (
+            <div className="rounded-xl px-4 py-3 text-xs leading-relaxed w-full" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
+              You have <strong style={{ color: 'var(--text-2)' }}>{tasksWithoutDeadline} task{tasksWithoutDeadline !== 1 ? 's' : ''}</strong> without a deadline. Open any task and set a deadline to add it here.
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -251,6 +257,16 @@ export default function GanttPage() {
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
+    // Check for resize handle
+    const handle = (e.target as HTMLElement).closest('[data-resize]') as HTMLElement | null;
+    if (handle) {
+      const id = handle.getAttribute('data-resize')!;
+      const type = handle.getAttribute('data-resize-type') as 'milestone' | 'sprint' | 'sprint-start' | 'product';
+      resizeState.current = { type, id };
+      setIsResizing(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
     if ((e.target as HTMLElement).closest('button, a')) return;
     dragState.current = { startX: e.clientX, vs, ve };
     setIsDragging(true);
@@ -258,6 +274,22 @@ export default function GanttPage() {
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (resizeState.current) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pctX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const newDate = new Date(vs.getTime() + pctX * (ve.getTime() - vs.getTime()));
+      const { type, id } = resizeState.current;
+      if (type === 'milestone') {
+        setMilestones((prev) => prev.map((m) => m.id === id ? { ...m, deadline: newDate.toISOString() } : m));
+      } else if (type === 'sprint') {
+        setSprints((prev) => prev.map((s) => s.id === id ? { ...s, endDate: newDate.toISOString() } : s));
+      } else if (type === 'sprint-start') {
+        setSprints((prev) => prev.map((s) => s.id === id ? { ...s, startDate: newDate.toISOString() } : s));
+      } else if (type === 'product') {
+        setProduct((p) => p ? { ...p, deadline: newDate.toISOString() } : p);
+      }
+      return;
+    }
     if (!dragState.current) return;
     const dx = e.clientX - dragState.current.startX;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -271,57 +303,144 @@ export default function GanttPage() {
     setViewEnd(new Date(newEnd));
   }
 
-  function handlePointerUp() { dragState.current = null; setIsDragging(false); }
+  function handlePointerUp() {
+    if (resizeState.current && activeProduct) {
+      const { type, id } = resizeState.current;
+      if (type === 'milestone') {
+        const m = milestones.find((m) => m.id === id);
+        if (m) api.tasks.update(activeProduct.id, id, { deadline: m.deadline }).catch(() => {});
+      } else if (type === 'sprint') {
+        const s = sprints.find((s) => s.id === id);
+        if (s) api.sprints.update(activeProduct.id, id, { endDate: s.endDate }).catch(() => {});
+      } else if (type === 'sprint-start') {
+        const s = sprints.find((s) => s.id === id);
+        if (s) api.sprints.update(activeProduct.id, id, { startDate: s.startDate }).catch(() => {});
+      } else if (type === 'product') {
+        if (product) api.products.update(activeProduct.id, { deadline: product.deadline }).catch(() => {});
+      }
+      resizeState.current = null;
+      setIsResizing(false);
+      return;
+    }
+    dragState.current = null;
+    setIsDragging(false);
+  }
 
   const isFullView = vs.getTime() <= fullStart.getTime() && ve.getTime() >= fullEnd.getTime();
   const ROW_H = 52;
+
+  // ── Mobile milestone list ────────────────────────────────────────────────────
+  const mobileMilestoneList = (
+    <div className="md:hidden h-full overflow-y-auto px-4 py-3 space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-3)' }}>
+        Milestones — {doneCount}/{milestones.length} done
+      </p>
+      {visibleMilestones.map((m) => {
+        const color = progressColor(m);
+        const isDone = m.status === 'done';
+        const isOverdue = new Date(m.deadline) < new Date() && !isDone;
+        return (
+          <button
+            key={m.id}
+            className="w-full text-left rounded-xl px-4 py-3 transition-colors"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            onClick={() => { const t = tasks.find((t) => t.id === m.id); if (t) setSelectedTask(t); }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-medium leading-tight" style={{ color: isDone ? 'var(--text-3)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none' }}>
+                {isDone && <span className="mr-1">✓</span>}{m.name}
+              </p>
+              <span
+                className="text-xs font-semibold flex-shrink-0 px-2 py-0.5 rounded-full"
+                style={{ background: isOverdue ? 'rgba(239,68,68,0.12)' : 'rgba(100,116,139,0.12)', color: isOverdue ? '#ef4444' : 'var(--text-3)' }}
+              >
+                {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+              </span>
+            </div>
+            {!isDone && (
+              <div className="mt-2">
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${m.progress * 100}%`, background: color }} />
+                </div>
+                <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>{m.doneDependencies}/{m.totalDependencies} tasks done</p>
+              </div>
+            )}
+          </button>
+        );
+      })}
+      {doneCount > 0 && hideDone && (
+        <button
+          onClick={() => setHideDone(false)}
+          className="w-full text-center text-xs py-2"
+          style={{ color: 'var(--text-3)' }}
+        >
+          Show {doneCount} completed milestone{doneCount !== 1 ? 's' : ''}
+        </button>
+      )}
+    </div>
+  );
 
   const allDone = doneCount === milestones.length;
   const progressPct = milestones.length > 0 ? Math.round((doneCount / milestones.length) * 100) : 0;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {/* Mobile view — simple list */}
+      {mobileMilestoneList}
+
+      {/* Desktop view */}
       {/* Sticky column header - stays visible when the milestone list scrolls */}
-      <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        {/* Left: view label + zoom + hide-done toggle */}
+      <div className="hidden md:flex flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+        {/* Left: view toggle + hide-done */}
         <div className="flex-shrink-0 w-56 px-3 flex flex-col justify-center gap-1" style={{ borderRight: '1px solid var(--border)', minHeight: 44 }}>
-          <div className="flex items-center justify-between">
-            {/* View toggle */}
+          <div className="flex items-center gap-1.5">
             <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--surface-2)' }}>
-              <button
-                onClick={() => setGanttView('milestones')}
-                className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
-                style={{ background: ganttView === 'milestones' ? 'var(--surface)' : 'transparent', color: ganttView === 'milestones' ? 'var(--text)' : 'var(--text-3)', boxShadow: ganttView === 'milestones' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
-              >Milestones</button>
-              <button
-                onClick={() => setGanttView('sprints')}
-                className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
-                style={{ background: ganttView === 'sprints' ? 'var(--surface)' : 'transparent', color: ganttView === 'sprints' ? 'var(--text)' : 'var(--text-3)', boxShadow: ganttView === 'sprints' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
-              >Sub-plans</button>
+              <Tooltip content="Tasks with deadlines plotted as progress markers" side="bottom">
+                <button
+                  onClick={() => setGanttView('milestones')}
+                  className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
+                  style={{ background: ganttView === 'milestones' ? 'var(--surface)' : 'transparent', color: ganttView === 'milestones' ? 'var(--text)' : 'var(--text-3)', boxShadow: ganttView === 'milestones' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
+                >Milestones</button>
+              </Tooltip>
+              <Tooltip content="Sprint windows plotted as time bars" side="bottom">
+                <button
+                  onClick={() => setGanttView('sprints')}
+                  className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
+                  style={{ background: ganttView === 'sprints' ? 'var(--surface)' : 'transparent', color: ganttView === 'sprints' ? 'var(--text)' : 'var(--text-3)', boxShadow: ganttView === 'sprints' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
+                >Sub-plans</button>
+              </Tooltip>
             </div>
-            <div className="flex items-center gap-0.5">
-              <button onClick={() => applyZoom(0.5)} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom in">+</button>
-              <button onClick={() => applyZoom(2)} disabled={isFullView} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom out">−</button>
-              <button onClick={() => { setViewStart(fullStart); setViewEnd(fullEnd); }} disabled={isFullView} className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>Fit</button>
-            </div>
+            {ganttView === 'milestones' && doneCount > 0 && (
+              <Tooltip content={hideDone ? 'Show completed milestones' : 'Hide completed milestones'} side="bottom">
+                <button
+                  onClick={() => setHideDone((v) => {
+                    const next = !v;
+                    try { if (activeProduct) localStorage.setItem(`planly-gantt-hideDone-${activeProduct.id}`, String(next)); } catch { /* ignore */ }
+                    return next;
+                  })}
+                  className="flex items-center gap-1 text-[10px] font-medium transition-all"
+                  style={{ color: hideDone ? 'var(--text-3)' : '#10b981' }}
+                >
+                  <span>{hideDone ? '○' : '✓'}</span>
+                  {hideDone ? `${doneCount} hidden` : `${doneCount} done`}
+                </button>
+              </Tooltip>
+            )}
           </div>
-          {ganttView === 'milestones' && doneCount > 0 && (
-            <button
-              onClick={() => setHideDone((v) => {
-                const next = !v;
-                try { if (activeProduct) localStorage.setItem(`planly-gantt-hideDone-${activeProduct.id}`, String(next)); } catch { /* ignore */ }
-                return next;
-              })}
-              className="flex items-center gap-1 text-[10px] font-medium transition-all self-start"
-              style={{ color: hideDone ? 'var(--text-3)' : '#10b981' }}
-            >
-              <span>{hideDone ? '○' : '✓'}</span>
-              {hideDone ? `Show ${doneCount} done` : `${doneCount} done`}
-            </button>
-          )}
         </div>
-        {/* Right: Time axis */}
-        <div className="flex-1 h-10 relative overflow-hidden" style={{ paddingRight: 24 }}>
+        {/* Right: Time axis + zoom controls */}
+        <div className="flex-1 relative overflow-hidden" style={{ paddingLeft: 8, paddingRight: 24 }}>
+          <div className="absolute top-0 right-0 h-full flex items-center gap-0.5 pr-2" style={{ zIndex: 3 }}>
+            <Tooltip content="Zoom in" side="bottom">
+              <button onClick={() => applyZoom(0.5)} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>+</button>
+            </Tooltip>
+            <Tooltip content="Zoom out" side="bottom">
+              <button onClick={() => applyZoom(2)} disabled={isFullView} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>−</button>
+            </Tooltip>
+            <Tooltip content="Fit full project timeline" side="bottom">
+              <button onClick={() => { setViewStart(fullStart); setViewEnd(fullEnd); }} disabled={isFullView} className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>Fit</button>
+            </Tooltip>
+          </div>
           {markers.map((marker) => {
             const pos = pct(marker.date, vs, ve) * 100;
             if (pos < 0 || pos > 97) return null;
@@ -343,8 +462,8 @@ export default function GanttPage() {
         </div>
       </div>
 
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      {/* Scrollable body (desktop only) */}
+      <div className="hidden md:block flex-1 overflow-y-auto overflow-x-hidden">
         <div className="flex min-h-full">
 
           {/* Left: names (sticky left edge) */}
@@ -364,17 +483,23 @@ export default function GanttPage() {
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
                     <p className="text-xs font-medium leading-tight min-w-0" title={s.name} style={{ color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.name}</p>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1 mt-0.5">
                     <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
                       {new Date(s.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} – {new Date(s.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                     </span>
+                    <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>·</span>
+                    <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{doneTasks.length}/{sprintTasks.length} done</span>
                   </div>
-                  <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-3)' }}>{doneTasks.length}/{sprintTasks.length} done</div>
                 </div>
               );
             })}
             {ganttView === 'sprints' && sprints.length === 0 && (
-              <div className="px-3 py-4 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet</div>
+              <div className="px-3 py-5 flex flex-col gap-1.5">
+                <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>No sub-plans yet</p>
+                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+                  Create sprints in the <strong style={{ color: 'var(--text-2)' }}>Execute</strong> view to see them plotted as windows on the timeline.
+                </p>
+              </div>
             )}
             {ganttView === 'milestones' && visibleMilestones.map((m) => {
               const color = progressColor(m);
@@ -432,7 +557,7 @@ export default function GanttPage() {
           {/* Right: timeline bars */}
           <div
             className="flex-1 overflow-hidden select-none"
-            style={{ paddingRight: 24, cursor: isDragging ? 'grabbing' : 'grab' }}
+            style={{ paddingLeft: 8, paddingRight: 24, cursor: isResizing ? 'ew-resize' : isDragging ? 'grabbing' : 'grab' }}
             ref={attachWheel}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -453,7 +578,6 @@ export default function GanttPage() {
                 const sprintTasks = tasks.filter((t) => s.taskIds.includes(t.id));
                 const doneTasks = sprintTasks.filter((t) => t.status === 'done' || !!t.completedAt);
                 const progress = sprintTasks.length > 0 ? doneTasks.length / sprintTasks.length : 0;
-                const isActive = new Date(s.startDate) <= today && new Date(s.endDate) >= today;
                 return (
                   <div
                     key={s.id}
@@ -463,22 +587,30 @@ export default function GanttPage() {
                     onMouseLeave={() => setHoveredSprint(null)}
                   >
                     {/* Bar track */}
-                    <div className="absolute rounded-md"
-                      style={{ left: `${startPct}%`, width: `${barWidth}%`, height: 16, top: '50%', marginTop: -8, background: `${s.color}22`, border: `1px solid ${s.color}55` }} />
+                    <div className="absolute rounded-full"
+                      style={{ left: `${startPct}%`, width: `${barWidth}%`, height: 8, top: '50%', marginTop: -4, background: `${s.color}22`, border: `1px solid ${s.color}55` }} />
                     {/* Progress fill */}
                     {progress > 0 && (
-                      <div className="absolute rounded-md"
-                        style={{ left: `${startPct}%`, width: `${barWidth * progress}%`, height: 16, top: '50%', marginTop: -8, background: s.color, opacity: 0.7 }} />
+                      <div className="absolute rounded-full"
+                        style={{ left: `${startPct}%`, width: `${barWidth * progress}%`, height: 8, top: '50%', marginTop: -4, background: s.color, opacity: 0.7 }} />
                     )}
-                    {/* Sub-plan name label inside bar */}
-                    {barWidth > 4 && (
-                      <div className="absolute flex items-center px-1.5" style={{ left: `${startPct}%`, width: `${barWidth}%`, height: 16, top: '50%', marginTop: -8, zIndex: 2, overflow: 'hidden', pointerEvents: 'none' }}>
-                        <span className="text-[9px] font-semibold truncate" style={{ color: progress > 0.5 ? 'white' : s.color, mixBlendMode: 'unset' }}>{s.name}</span>
-                      </div>
+                    {/* Sprint start-date resize handle */}
+                    {!readOnly && startPct >= 0 && startPct <= 100 && (
+                      <div
+                        data-resize={s.id}
+                        data-resize-type="sprint-start"
+                        title={`Drag to change start date · ${new Date(s.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                        style={{ position: 'absolute', left: `${startPct}%`, top: 0, bottom: 0, width: 16, transform: 'translateX(-50%)', zIndex: 6, cursor: 'ew-resize' }}
+                      />
                     )}
-                    {/* Active sprint indicator */}
-                    {isActive && todayPct > startPct / 100 && todayPct < endPct / 100 && (
-                      <div className="absolute -top-0.5 text-[8px] font-bold px-1 rounded-sm" style={{ left: `${startPct}%`, background: s.color, color: 'white' }}>active</div>
+                    {/* Sprint end-date resize handle */}
+                    {!readOnly && endPct >= 0 && endPct <= 100 && (
+                      <div
+                        data-resize={s.id}
+                        data-resize-type="sprint"
+                        title={`Drag to change end date · ${new Date(s.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                        style={{ position: 'absolute', left: `${endPct}%`, top: 0, bottom: 0, width: 16, transform: 'translateX(-50%)', zIndex: 6, cursor: 'ew-resize' }}
+                      />
                     )}
                     {/* Hover popover */}
                     {hoveredSprint === s.id && sprintTasks.length > 0 && (
@@ -506,7 +638,15 @@ export default function GanttPage() {
                 );
               })}
               {ganttView === 'sprints' && sprints.length === 0 && (
-                <div className="flex items-center justify-center py-12 text-xs" style={{ color: 'var(--text-3)' }}>No sprints to display</div>
+                <div className="flex flex-col items-center justify-center h-full gap-3 px-8 text-center">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>🗓</div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No sub-plans on the timeline</p>
+                    <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-3)' }}>
+                      Sub-plans (sprints) appear as time windows here once created. Go to <strong style={{ color: 'var(--text-2)' }}>Execute</strong> and create a sprint to get started.
+                    </p>
+                  </div>
+                </div>
               )}
 
               {/* Milestone bars */}
@@ -534,11 +674,11 @@ export default function GanttPage() {
                     {/* Bar track */}
                     <div
                       className="absolute rounded-full"
-                      style={{ left: '0.5%', width: `${Math.max(deadlinePct - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: `${color}25`, border: `1px solid ${color}40` }}
+                      style={{ left: 0, width: `${Math.max(deadlinePct, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: `${color}25`, border: `1px solid ${color}40` }}
                     />
                     {/* Progress fill */}
-                    {fillWidth > 0.5 && (
-                      <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(fillWidth - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: color, opacity: 0.8 }} />
+                    {fillWidth > 0 && (
+                      <div className="absolute rounded-full" style={{ left: 0, width: `${fillWidth}%`, height: 8, top: '50%', marginTop: -4, background: color, opacity: 0.8 }} />
                     )}
                     {/* Deadline marker - vertical line + diamond */}
                     {deadlinePct >= 0 && deadlinePct <= 100 && (
@@ -546,6 +686,15 @@ export default function GanttPage() {
                         <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: color, opacity: 0.6, transform: 'translateX(-50%)' }} />
                         <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: isOverdue ? '#ef4444' : color, transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
                       </div>
+                    )}
+                    {/* Resize handle — wide transparent hit target on the deadline */}
+                    {!readOnly && deadlinePct >= 0 && deadlinePct <= 100 && (
+                      <div
+                        data-resize={m.id}
+                        data-resize-type="milestone"
+                        title={`Drag to change deadline · ${new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                        style={{ position: 'absolute', left: `${deadlinePct}%`, top: 0, bottom: 0, width: 20, transform: 'translateX(-50%)', zIndex: 6, cursor: 'ew-resize' }}
+                      />
                     )}
 
                     {/* Hover popover - flips above when near list bottom */}
@@ -596,16 +745,24 @@ export default function GanttPage() {
                 onMouseLeave={() => setHoveredProduct(false)}
               >
                 {/* Track */}
-                <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 - 0.5, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? 'rgba(16,185,129,0.15)' : 'rgba(124,58,237,0.15)', border: `1px solid ${allDone ? 'rgba(16,185,129,0.3)' : 'rgba(124,58,237,0.3)'}` }} />
+                <div className="absolute rounded-full" style={{ left: 0, width: `${Math.max(pct(fullEnd, vs, ve) * 100, 1.5)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? 'rgba(16,185,129,0.15)' : 'rgba(124,58,237,0.15)', border: `1px solid ${allDone ? 'rgba(16,185,129,0.3)' : 'rgba(124,58,237,0.3)'}` }} />
                 {/* Progress fill */}
                 {progressPct > 0 && (
-                  <div className="absolute rounded-full" style={{ left: '0.5%', width: `${Math.max(pct(fullEnd, vs, ve) * 100 * (progressPct / 100) - 0.5, 0)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.75 }} />
+                  <div className="absolute rounded-full" style={{ left: 0, width: `${Math.max(pct(fullEnd, vs, ve) * 100 * (progressPct / 100), 0)}%`, height: 8, top: '50%', marginTop: -4, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.75 }} />
                 )}
                 {pct(fullEnd, vs, ve) >= 0 && pct(fullEnd, vs, ve) <= 1 && (
                   <div style={{ position: 'absolute', left: `${pct(fullEnd, vs, ve) * 100}%`, top: 6, bottom: 6, width: 0, zIndex: 2, pointerEvents: 'none' }}>
                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: allDone ? '#10b981' : 'var(--brand)', opacity: 0.6, transform: 'translateX(-50%)' }} />
                     <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: allDone ? '#10b981' : 'var(--brand)', transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
                   </div>
+                )}
+                {!readOnly && pct(fullEnd, vs, ve) >= 0 && pct(fullEnd, vs, ve) <= 1 && (
+                  <div
+                    data-resize="product"
+                    data-resize-type="product"
+                    title={`Drag to change project deadline · ${new Date(product?.deadline ?? activeProduct.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                    style={{ position: 'absolute', left: `${pct(fullEnd, vs, ve) * 100}%`, top: 0, bottom: 0, width: 20, transform: 'translateX(-50%)', zIndex: 6, cursor: 'ew-resize' }}
+                  />
                 )}
 
                 {/* Hover popover - milestone list (above the row) */}
@@ -633,7 +790,10 @@ export default function GanttPage() {
                               {isFirstDone && doneCount > 0 && doneCount < milestones.length && (
                                 <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>Completed</div>
                               )}
-                              <div className="flex items-center gap-2 text-xs">
+                              <button
+                                className="flex items-center gap-2 text-xs w-full text-left rounded px-0.5 hover:opacity-80 transition-opacity"
+                                onClick={(e) => { e.stopPropagation(); const t = tasks.find((t) => t.id === m.id); if (t) setSelectedTask(t); }}
+                              >
                                 {isDone
                                   ? <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{ background: '#10b981', color: 'white' }}>✓</span>
                                   : <span className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0" style={{ borderColor: progressColor(m) }} />
@@ -642,7 +802,7 @@ export default function GanttPage() {
                                 <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
                                   {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                                 </span>
-                              </div>
+                              </button>
                             </div>
                           );
                         })}

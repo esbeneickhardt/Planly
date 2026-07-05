@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config/env';
+import { decryptValue } from './crypto';
 import prisma from '../db/client';
 
 export interface SmtpSettings {
@@ -16,7 +17,7 @@ export async function getSmtpSettings(): Promise<SmtpSettings | null> {
   try {
     const row = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
     if (row?.host) {
-      return { host: row.host, port: row.port, secure: row.secure, user: row.user, pass: row.pass, from: row.from };
+      return { host: row.host, port: row.port, secure: row.secure, user: row.user, pass: decryptValue(row.pass), from: row.from };
     }
   } catch { /* table may not exist yet */ }
 
@@ -83,6 +84,22 @@ export function verifyEmailTemplate(verifyUrl: string, username: string) {
         Verify email
       </a>
       <p style="color:#aaa;font-size:12px">Or copy this link: ${verifyUrl}</p>
+    </div>
+  `;
+}
+
+export function mentionEmail(mentionerUsername: string, context: string, snippet: string, appUrl: string) {
+  return `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+      <h2 style="margin:0 0 16px">You were mentioned in Planly</h2>
+      <p><strong>@${mentionerUsername}</strong> mentioned you${context ? ` in <em>${context}</em>` : ''}:</p>
+      <blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid #7c3aed;background:#f5f3ff;border-radius:4px;color:#444;font-size:14px">
+        ${snippet.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}
+      </blockquote>
+      <a href="${appUrl}" style="display:inline-block;margin:16px 0;padding:10px 20px;background:#7c3aed;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">
+        View in Planly
+      </a>
+      <p style="color:#aaa;font-size:12px">You can turn off email mention notifications in your Planly notification preferences.</p>
     </div>
   `;
 }

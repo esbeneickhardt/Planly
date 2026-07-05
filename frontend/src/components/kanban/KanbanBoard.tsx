@@ -15,7 +15,6 @@ import { useColorLegend } from '../../hooks/useColorLegend';
 import KanbanColumn from './KanbanColumn';
 import KanbanCard from './KanbanCard';
 import TaskDetailPanel from '../common/TaskDetailPanel';
-import SprintBacklogPanel from './SprintBacklogPanel';
 import Modal from '../common/Modal';
 
 const FILTER_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
@@ -60,7 +59,6 @@ export default function KanbanBoard() {
   const [compact, setCompact] = useState(() => localStorage.getItem('planly_kanban_compact') === '1');
   const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>({ key: 'status', dir: 1 });
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  const [showSprintPanel, setShowSprintPanel] = useState(false);
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const bgPickerRef = useRef<HTMLDivElement>(null);
@@ -515,18 +513,6 @@ export default function KanbanBoard() {
               <option value="">All sub-plans</option>
               {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            {sprintFilter && (
-              <button
-                onClick={() => setShowSprintPanel(true)}
-                className="text-xs px-2 py-0.5 rounded transition-all flex-shrink-0"
-                style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-2)'; }}
-                title="Manage sub-plan tasks"
-              >
-                Manage
-              </button>
-            )}
           </div>
         )}
 
@@ -877,21 +863,6 @@ export default function KanbanBoard() {
       )}
 
       {/* Delete column confirmation modal */}
-      {showSprintPanel && sprintFilter && activeProduct && (() => {
-        const s = sprints.find((sp) => sp.id === sprintFilter);
-        return s ? (
-          <SprintBacklogPanel
-            sprint={s}
-            productId={activeProduct.id}
-            tasks={tasks}
-            onClose={() => setShowSprintPanel(false)}
-            onUpdated={(updated) => {
-              setSprints((prev) => prev.map((sp) => sp.id === updated.id ? updated : sp));
-              refreshTasks();
-            }}
-          />
-        ) : null;
-      })()}
 
       {pendingDeleteCol && (
         <Modal title="Delete column" onClose={() => setPendingDeleteCol(null)} width="max-w-sm">

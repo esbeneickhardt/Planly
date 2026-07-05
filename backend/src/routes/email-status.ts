@@ -1,12 +1,19 @@
 import { FastifyInstance } from 'fastify';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getSmtpSettings, sendEmail } from '../utils/email';
+import { encryptValue } from '../utils/crypto';
 import prisma from '../db/client';
 
 export async function emailStatusRoutes(app: FastifyInstance) {
-  // Returns current SMTP status + active config (password masked)
-  app.get('/api/email-status', { preHandler: requireAuth }, async (_req, reply) => {
-    const settings = await getSmtpSettings();
+  // Returns SMTP enabled status; admins also get the full config (password never returned)
+  app.get('/api/email-status', { preHandler: requireAuth }, async (req, reply) => {
+    const [settings, user] = await Promise.all([
+      getSmtpSettings(),
+      prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } }),
+    ]);
+    if (!user?.isAdmin) {
+      return reply.send({ enabled: !!settings });
+    }
     reply.send({
       enabled: !!settings,
       from: settings?.from ?? null,
@@ -17,7 +24,7 @@ export async function emailStatusRoutes(app: FastifyInstance) {
   });
 
   // Returns the raw saved DB config (for pre-filling the form)
-  app.get('/api/email-config', { preHandler: requireAuth }, async (_req, reply) => {
+  app.get('/api/email-config', { preHandler: requireAdmin }, async (_req, reply) => {
     const row = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
     if (!row) return reply.send(null);
     // Never return the password
@@ -25,7 +32,7 @@ export async function emailStatusRoutes(app: FastifyInstance) {
   });
 
   // Save (upsert) SMTP config
-  app.put('/api/email-config', { preHandler: requireAuth }, async (req, reply) => {
+  app.put('/api/email-config', { preHandler: requireAdmin }, async (req, reply) => {
     const { host, port, secure, user, pass, from } = req.body as {
       host: string; port: number; secure: boolean; user: string; pass?: string; from: string;
     };
@@ -42,22 +49,22 @@ export async function emailStatusRoutes(app: FastifyInstance) {
           port: port ?? 587,
           secure: secure ?? false,
           user: user ?? '',
-          // Only update password if a new one was provided
-          ...(pass ? { pass } : {}),
+          // Only update password if a new one was provided; encrypt before storing
+          ...(pass ? { pass: encryptValue(pass) } : {}),
           from: from.trim(),
         },
       });
     } else {
       if (!pass) return reply.status(400).send({ error: 'password required for initial setup' });
       await prisma.smtpConfig.create({
-        data: { id: 'default', host: host.trim(), port: port ?? 587, secure: secure ?? false, user: user ?? '', pass, from: from.trim() },
+        data: { id: 'default', host: host.trim(), port: port ?? 587, secure: secure ?? false, user: user ?? '', pass: encryptValue(pass), from: from.trim() },
       });
     }
     reply.send({ ok: true });
   });
 
   // Clear saved SMTP config (revert to env vars)
-  app.delete('/api/email-config', { preHandler: requireAuth }, async (_req, reply) => {
+  app.delete('/api/email-config', { preHandler: requireAdmin }, async (_req, reply) => {
     await prisma.smtpConfig.deleteMany({ where: { id: 'default' } });
     reply.send({ ok: true });
   });
@@ -81,7 +88,8 @@ export async function emailStatusRoutes(app: FastifyInstance) {
       });
       reply.send({ ok: true });
     } catch (err) {
-      reply.status(500).send({ error: (err as Error).message });
+      app.log.error(err, 'SMTP test email failed');
+      reply.status(500).send({ error: 'Failed to send test email. Check server logs.' });
     }
   });
 }

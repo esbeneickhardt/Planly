@@ -47,7 +47,7 @@ export async function announcementRoutes(app: FastifyInstance) {
 
   // Create an announcement
   app.post('/api/announcements', { preHandler: requireAuth }, async (req, reply) => {
-    const { canPost } = await resolvePermissions(req.user.userId);
+    const { canPost, isAdmin } = await resolvePermissions(req.user.userId);
     if (!canPost) return reply.status(403).send({ error: 'You do not have permission to post announcements.' });
 
     const { title, content, pinned, teamId, commentsEnabled } = req.body as {
@@ -55,6 +55,7 @@ export async function announcementRoutes(app: FastifyInstance) {
     };
     if (!title?.trim()) return reply.status(400).send({ error: 'title required' });
     if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
+    if (pinned && !isAdmin) return reply.status(403).send({ error: 'Only admins can pin announcements.' });
     if (pinned && teamId) return reply.status(400).send({ error: 'Team announcements cannot be pinned.' });
 
     // Verify teamId belongs to requester if provided
@@ -96,7 +97,8 @@ export async function announcementRoutes(app: FastifyInstance) {
     const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
     if (!user?.isAdmin && existing.authorId !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
 
-    // Cannot pin a team announcement
+    // Only admins can pin; team announcements cannot be pinned at all
+    if (pinned && !user?.isAdmin) return reply.status(403).send({ error: 'Only admins can pin announcements.' });
     if (pinned && existing.teamId) return reply.status(400).send({ error: 'Team announcements cannot be pinned.' });
 
     const updated = await prisma.announcement.update({

@@ -6,6 +6,8 @@ import { requireAuth } from '../middleware/auth';
 import { config } from '../config/env';
 import { sendEmail } from '../utils/email';
 import { getServerConfig } from '../utils/server-config';
+import { validate } from '../utils/validate';
+import { registerSchema } from '../schemas/auth';
 
 // Public profile fields - never expose passwordHash
 const USER_SELF_SELECT = {
@@ -22,29 +24,11 @@ export async function userRoutes(app: FastifyInstance) {
     reply.send(await prisma.user.findMany({ select: USER_PUBLIC_SELECT, orderBy: { username: 'asc' } }));
   });
 
-  // Registration - public endpoint
-  app.post('/api/users', async (req, reply) => {
-    const { username, email, password, realName, phone, avatarEmoji } = req.body as {
-      username: string; email: string; password: string;
-      realName?: string; phone?: string; avatarEmoji?: string;
-    };
-    if (!username?.trim() || !email?.trim() || !password) {
-      return reply.status(400).send({ error: 'username, email and password required' });
-    }
-    if (!/^[a-zA-Z0-9_-]{2,32}$/.test(username.trim())) {
-      return reply.status(400).send({ error: 'Username must be 2–32 characters (letters, numbers, _ or -)' });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return reply.status(400).send({ error: 'Invalid email address' });
-    }
-    if (password.length < 8) {
-      return reply.status(400).send({ error: 'Password must be at least 8 characters' });
-    }
-    if (realName && realName.length > 100) {
-      return reply.status(400).send({ error: 'Name too long' });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
+  // Registration - public endpoint with tighter rate limit
+  app.post('/api/users', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async (req, reply) => {
+    const parsed = validate(registerSchema, req.body, reply);
+    if (!parsed) return;
+    const { username, email: normalizedEmail, password, realName, phone, avatarEmoji } = parsed;
 
     const serverConfig = await getServerConfig();
 
@@ -124,6 +108,16 @@ export async function userRoutes(app: FastifyInstance) {
     const { realName, phone, avatarEmoji, avatarUrl } = req.body as {
       realName?: string; phone?: string; avatarEmoji?: string; avatarUrl?: string | null;
     };
+    // Validate avatarUrl: must be https or null
+    if (avatarUrl !== null && avatarUrl !== undefined) {
+      if (avatarUrl.length > 2048) return reply.status(400).send({ error: 'avatarUrl too long' });
+      try {
+        const parsed = new URL(avatarUrl);
+        if (parsed.protocol !== 'https:') return reply.status(400).send({ error: 'avatarUrl must use https' });
+      } catch {
+        return reply.status(400).send({ error: 'avatarUrl is not a valid URL' });
+      }
+    }
     try {
       const user = await prisma.user.update({
         where: { id },

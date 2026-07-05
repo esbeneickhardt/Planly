@@ -5,12 +5,18 @@ import { createNotification } from '../utils/notifications';
 
 export async function accessRequestRoutes(app: FastifyInstance) {
   // Discover: products the current user is NOT a member of
+  // Only returns public-facing fields (name, emoji) to avoid leaking sensitive project metadata
   app.get('/api/products/discover', { preHandler: requireAuth }, async (req, reply) => {
     const products = await prisma.product.findMany({
       where: {
         team: { members: { none: { userId: req.user.userId } } },
       },
-      include: { team: { select: { id: true, name: true } } },
+      select: {
+        id: true,
+        name: true,
+        emoji: true,
+        team: { select: { id: true, name: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
     // Also include the user's pending request status for each

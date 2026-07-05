@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProduct } from '../../context/ProductContext';
 import { useChat } from '../../context/ChatContext';
@@ -100,16 +100,36 @@ export default function SearchModal({ onClose }: Props) {
     return { matchingNav, matchingSprints };
   }, [query, navItems, sprints]);
 
-  // Flat list of navigable result items for keyboard nav
-  const flatItems = useCallback((): Array<{ type: 'task'; task: SearchResults['tasks'][number] } | { type: 'msg'; msg: MsgResult }> => {
-    if (!results) return [];
-    const items: ReturnType<typeof flatItems> = [];
-    const tasks = tab === 'messages' ? [] : results.tasks;
-    const msgs  = tab === 'tasks'    ? [] : results.messages;
-    tasks.forEach((task) => items.push({ type: 'task', task }));
-    msgs.forEach((msg) => items.push({ type: 'msg', msg }));
-    return items;
-  }, [results, tab]);
+  const QUICK_NAV = [
+    { label: 'Plan - Canvas & Dependencies',  path: '/canvas'   },
+    { label: 'Execute - Kanban Board',         path: '/kanban'   },
+    { label: 'Progress - Gantt & Milestones',  path: '/gantt'    },
+    { label: 'Tasks - Full task list',          path: '/backlog'  },
+  ];
+
+  type FlatItem =
+    | { type: 'nav';      item: NavItem }
+    | { type: 'sprint';   sprint: Sprint }
+    | { type: 'task';     task: SearchResults['tasks'][number] }
+    | { type: 'msg';      msg: MsgResult }
+    | { type: 'quicknav'; label: string; path: string };
+
+  // Unified flat list that mirrors the visual order of every row in the results pane
+  const allItems = useMemo((): FlatItem[] => {
+    const list: FlatItem[] = [];
+    if (!query.trim()) {
+      QUICK_NAV.forEach((n) => list.push({ type: 'quicknav', ...n }));
+      return list;
+    }
+    matchingNav.forEach((item) => list.push({ type: 'nav', item }));
+    matchingSprints.forEach((sprint) => list.push({ type: 'sprint', sprint }));
+    const taskList = tab === 'messages' ? [] : (results?.tasks ?? []);
+    taskList.forEach((task) => list.push({ type: 'task', task }));
+    const msgList = tab === 'tasks' ? [] : (results?.messages ?? []);
+    msgList.forEach((msg) => list.push({ type: 'msg', msg }));
+    return list;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, matchingNav, matchingSprints, results, tab]);
 
   function goToView(path: string) { navigate(path); onClose(); }
 
@@ -132,32 +152,34 @@ export default function SearchModal({ onClose }: Props) {
     onClose();
   }
 
+  // Scroll to highlighted row whenever the index changes
+  useEffect(() => {
+    if (highlightIdx < 0) return;
+    requestAnimationFrame(() => {
+      const el = listRef.current?.querySelector(`[data-idx="${highlightIdx}"]`) as HTMLElement | null;
+      el?.scrollIntoView({ block: 'nearest' });
+    });
+  }, [highlightIdx]);
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    const items = flatItems();
     if (e.key === 'Escape') { onClose(); return; }
-    if (items.length === 0) return;
+    if (allItems.length === 0) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlightIdx((i) => Math.min(i + 1, items.length - 1));
-      scrollHighlight('down');
+      setHighlightIdx((i) => Math.min(i + 1, allItems.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightIdx((i) => Math.max(i - 1, 0));
-      scrollHighlight('up');
     } else if (e.key === 'Enter' && highlightIdx >= 0) {
       e.preventDefault();
-      const item = items[highlightIdx];
-      if (item.type === 'task') handleTaskClick(item.task);
-      else handleMessageClick(item.msg);
+      const item = allItems[highlightIdx];
+      if (item.type === 'nav')      goToView(item.item.path);
+      else if (item.type === 'sprint')   goToView('/gantt');
+      else if (item.type === 'task')     handleTaskClick(item.task);
+      else if (item.type === 'msg')      handleMessageClick(item.msg);
+      else if (item.type === 'quicknav') goToView(item.path);
     }
-  }
-
-  function scrollHighlight(dir: 'up' | 'down') {
-    requestAnimationFrame(() => {
-      const el = listRef.current?.querySelector('[data-highlighted="true"]') as HTMLElement | null;
-      el?.scrollIntoView({ block: dir === 'down' ? 'nearest' : 'nearest' });
-    });
   }
 
   if (selectedTask) {
@@ -176,8 +198,8 @@ export default function SearchModal({ onClose }: Props) {
   const regular    = tasks.filter((t) => !t.deadline);
   const hasResults = tasks.length > 0 || msgs.length > 0 || matchingNav.length > 0 || matchingSprints.length > 0;
 
-  // Running item index for keyboard highlight tracking
-  let itemIdx = -1;
+  // Running index that mirrors allItems order — used to assign data-idx to every row
+  let rowIdx = -1;
 
   return (
     <>
@@ -244,40 +266,54 @@ export default function SearchModal({ onClose }: Props) {
           {(matchingNav.length > 0 || matchingSprints.length > 0) && (
             <div className="py-1">
               <div className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Go to</div>
-              {matchingNav.map((item) => (
-                <button
-                  key={item.path}
-                  onClick={() => goToView(item.path)}
-                  className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <span className="text-base flex-shrink-0 w-5 text-center">{item.icon}</span>
-                  <span className="flex-1 min-w-0">
-                    <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>{item.label}</span>
-                    <span className="text-xs block" style={{ color: 'var(--text-3)' }}>{item.subtitle}</span>
-                  </span>
-                  <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>→</span>
-                </button>
-              ))}
-              {matchingSprints.map((cycle) => (
-                <button
-                  key={cycle.id}
-                  onClick={() => goToView('/gantt')}
-                  className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <span className="w-3 h-3 rounded-full flex-shrink-0 ml-1" style={{ background: cycle.color }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>{cycle.name}</span>
-                    <span className="text-xs block" style={{ color: 'var(--text-3)' }}>
-                      Sub-plan · {new Date(cycle.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} – {new Date(cycle.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} · Progress
+              {matchingNav.map((item) => {
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
+                return (
+                  <button
+                    key={item.path}
+                    data-idx={i}
+                    onClick={() => goToView(item.path)}
+                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
+                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+                  >
+                    <span className="text-base flex-shrink-0 w-5 text-center">{item.icon}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>{item.label}</span>
+                      <span className="text-xs block" style={{ color: 'var(--text-3)' }}>{item.subtitle}</span>
                     </span>
-                  </span>
-                  <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>→</span>
-                </button>
-              ))}
+                    <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>→</span>
+                  </button>
+                );
+              })}
+              {matchingSprints.map((cycle) => {
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
+                return (
+                  <button
+                    key={cycle.id}
+                    data-idx={i}
+                    onClick={() => goToView('/gantt')}
+                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
+                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+                  >
+                    <span className="w-3 h-3 rounded-full flex-shrink-0 ml-1" style={{ background: cycle.color }} />
+                    <span className="flex-1 min-w-0">
+                      <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>{cycle.name}</span>
+                      <span className="text-xs block" style={{ color: 'var(--text-3)' }}>
+                        Sub-plan · {new Date(cycle.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} – {new Date(cycle.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} · Progress
+                      </span>
+                    </span>
+                    <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>→</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -285,12 +321,13 @@ export default function SearchModal({ onClose }: Props) {
             <div className="py-1">
               <div className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Milestones</div>
               {milestones.map((task) => {
-                itemIdx++;
-                const isHighlighted = highlightIdx === itemIdx;
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
                 return (
                   <button
                     key={task.id}
-                    data-highlighted={isHighlighted}
+                    data-idx={i}
                     onClick={() => handleTaskClick(task)}
                     className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
                     style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
@@ -315,12 +352,13 @@ export default function SearchModal({ onClose }: Props) {
             <div className="py-1">
               <div className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Tasks</div>
               {regular.map((task) => {
-                itemIdx++;
-                const isHighlighted = highlightIdx === itemIdx;
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
                 return (
                   <button
                     key={task.id}
-                    data-highlighted={isHighlighted}
+                    data-idx={i}
                     onClick={() => handleTaskClick(task)}
                     className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
                     style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
@@ -345,12 +383,13 @@ export default function SearchModal({ onClose }: Props) {
             <div className="py-1">
               <div className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Messages</div>
               {msgs.map((msg) => {
-                itemIdx++;
-                const isHighlighted = highlightIdx === itemIdx;
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
                 return (
                   <button
                     key={msg.id}
-                    data-highlighted={isHighlighted}
+                    data-idx={i}
                     onClick={() => handleMessageClick(msg)}
                     disabled={loadingMsg}
                     className="w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors"
@@ -374,24 +413,25 @@ export default function SearchModal({ onClose }: Props) {
 
           {!query.trim() && (
             <div className="py-1.5">
-              {/* Quick navigate */}
               <div className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Navigate</div>
-              {[
-                { label: 'Plan - Canvas & Dependencies', path: '/canvas' },
-                { label: 'Execute - Kanban Board',       path: '/kanban' },
-                { label: 'Progress - Gantt & Milestones', path: '/gantt' },
-                { label: 'Tasks - Full task list',        path: '/backlog' },
-              ].map((item) => (
-                <button
-                  key={item.path}
-                  onClick={() => goToView(item.path)}
-                  className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <span className="text-sm" style={{ color: 'var(--text)' }}>{item.label}</span>
-                </button>
-              ))}
+              {QUICK_NAV.map((item) => {
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
+                return (
+                  <button
+                    key={item.path}
+                    data-idx={i}
+                    onClick={() => goToView(item.path)}
+                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
+                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+                  >
+                    <span className="text-sm" style={{ color: 'var(--text)' }}>{item.label}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

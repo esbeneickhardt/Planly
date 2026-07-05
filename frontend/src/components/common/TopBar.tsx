@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import Tooltip from './Tooltip';
 import AvatarPicker from './AvatarPicker';
 import EmojiPicker from './EmojiPicker';
 import { useAuth } from '../../context/AuthContext';
@@ -187,6 +188,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
   const [showNotifPrefs, setShowNotifPrefs] = useState(false);
   const [showProjectDd, setShowProjectDd] = useState(false);
   const [showAccountDd, setShowAccountDd] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [productForm, setProductForm] = useState<NewProductForm>({ name: '', emoji: '', description: '', deadline: '' });
   const [creating, setCreating] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -260,7 +262,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', zIndex: 40 }}
       >
         {/* ── LEFT: logo + search ── */}
-        <div className="flex items-center gap-2.5 flex-shrink-0" style={{ width: 288 }}>
+        <div className="flex items-center gap-2.5 flex-shrink-0 md:w-72">
           <button
             onClick={() => navigate('/kanban')}
             className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 transition-opacity hover:opacity-80"
@@ -270,7 +272,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           </button>
           <button
             onClick={onOpenSearch}
-            className="flex items-center gap-2 flex-1 h-9 px-3 rounded-full text-sm transition-all"
+            className="hidden md:flex items-center gap-2 flex-1 h-9 px-3 rounded-full text-sm transition-all"
             style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
             onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
@@ -281,8 +283,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           </button>
         </div>
 
-        {/* ── CENTER: nav tabs ── */}
-        <nav className="flex-1 flex items-stretch justify-center h-full">
+        {/* ── CENTER: nav tabs (desktop only) ── */}
+        <nav className="hidden md:flex flex-1 items-stretch justify-center h-full">
           {isAdminPage ? (
             // ── Admin section tabs - same style as project nav ──
             ADMIN_TABS.map(({ key, label, Icon }) => (
@@ -372,29 +374,33 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           )}
         </nav>
 
+        {/* Spacer on mobile so right-side items stay right */}
+        <div className="flex-1 md:hidden" />
+
         {/* ── RIGHT: icons + project picker + account ── */}
-        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: 288, justifyContent: 'flex-end' }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0 md:w-72" style={{ justifyContent: 'flex-end' }}>
 
-          {/* How Planly works */}
-          <button
-            onClick={onOpenVision}
-            className="w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 text-sm font-semibold"
-            style={{
-              color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
-              background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              border: chatIsAdmin ? '1px solid var(--brand)' : '1px solid transparent',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-subtle)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = chatIsAdmin ? 'var(--brand)' : 'var(--text-3)'; e.currentTarget.style.borderColor = chatIsAdmin ? 'var(--brand)' : 'transparent'; e.currentTarget.style.background = chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)'; }}
-            title="How Planly works"
-          >?</button>
+          {/* How Planly works (desktop only) */}
+          <Tooltip content="How Planly works" side="bottom">
+            <button
+              onClick={onOpenVision}
+              className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-sm font-semibold"
+              style={{
+                color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
+                background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                border: chatIsAdmin ? '1px solid var(--brand)' : '1px solid transparent',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-subtle)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = chatIsAdmin ? 'var(--brand)' : 'var(--text-3)'; e.currentTarget.style.borderColor = chatIsAdmin ? 'var(--brand)' : 'transparent'; e.currentTarget.style.background = chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)'; }}
+            >?</button>
+          </Tooltip>
 
-          {/* Announcements - only shown when enabled (or for admins) */}
+          {/* Announcements - desktop only */}
           {user?.announcementsEnabled && (
+            <Tooltip content={chatIsAdmin ? 'Announcements (admin mode)' : 'Announcements'} side="bottom">
             <NavLink
               to="/announcements"
-              title={chatIsAdmin ? 'Announcements (admin mode)' : 'Announcements'}
-              className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+              className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
               style={({ isActive }) => ({
                 color: (chatIsAdmin || isActive) ? 'var(--brand)' : 'var(--text-3)',
                 background: (chatIsAdmin || isActive) ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -409,17 +415,18 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             >
               <MegaphoneIcon size={18} />
             </NavLink>
+            </Tooltip>
           )}
 
           {/* Notification bell */}
           <NotificationBell adminMode={!!chatIsAdmin} productId={chatIsAdmin ? undefined : activeProduct?.id} />
 
-          {/* Admin panel toggle - only for admins */}
+          {/* Admin panel toggle - desktop only */}
           {user?.isAdmin && (
+            <Tooltip content={chatIsAdmin ? 'Exit admin mode' : 'Admin panel'} side="bottom">
             <button
               onClick={onToggleAdmin ?? (() => isAdminPage ? navigate('/kanban') : navigate('/admin'))}
-              title={chatIsAdmin ? 'Exit admin mode' : 'Admin mode'}
-              className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+              className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
               style={{
                 color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
                 background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -433,18 +440,19 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             >
               <ShieldIcon size={18} />
             </button>
+            </Tooltip>
           )}
 
-          {/* Chat - in admin mode always brand-colored and opens admin chat */}
+          {/* Chat - desktop only */}
+          <Tooltip content={chatIsAdmin ? 'Admin chat' : 'Project chat'} side="bottom">
           <button
             onClick={onOpenChat}
-            className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+            className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
             style={{
               color: (chatIsAdmin || chatOpen) ? 'var(--brand)' : 'var(--text-3)',
               background: (chatIsAdmin || chatOpen) ? 'var(--brand-subtle)' : 'var(--surface-2)',
               border: `1px solid ${(chatIsAdmin || chatOpen) ? 'var(--brand)' : 'transparent'}`,
             }}
-            title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = (chatIsAdmin || chatOpen) ? 'var(--brand)' : 'var(--text-3)';
@@ -453,9 +461,10 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           >
             <ChatIcon />
           </button>
+          </Tooltip>
 
-          {/* Project picker - shows "Admin" label when in admin mode */}
-          <div ref={projectRef} className="relative">
+          {/* Project picker - desktop only */}
+          <div ref={projectRef} className="hidden md:block relative">
             <button
               onClick={() => { setShowProjectDd((v) => !v); setShowAccountDd(false); }}
               className="flex items-center gap-1.5 h-9 px-2.5 rounded-full transition-all text-sm flex-shrink-0"
@@ -557,8 +566,30 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             )}
           </div>
 
-          {/* Account */}
-          <div ref={accountRef} className="relative">
+          {/* Mobile: search icon */}
+          <button
+            onClick={onOpenSearch}
+            className="flex md:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+            title="Search"
+          >
+            <SearchIcon />
+          </button>
+
+          {/* Notification bell (visible on all screens) */}
+
+          {/* Mobile: hamburger */}
+          <button
+            onClick={() => setShowMobileMenu((v) => !v)}
+            className="flex md:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-lg"
+            style={{ background: showMobileMenu ? 'var(--brand-subtle)' : 'var(--surface-2)', color: showMobileMenu ? 'var(--brand)' : 'var(--text-3)', border: `1px solid ${showMobileMenu ? 'var(--brand)' : 'transparent'}` }}
+            title="Menu"
+          >
+            {showMobileMenu ? '✕' : '☰'}
+          </button>
+
+          {/* Account - desktop only */}
+          <div ref={accountRef} className="hidden md:block relative">
             <button
               onClick={() => { setShowAccountDd((v) => !v); setShowProjectDd(false); }}
               className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-base transition-all flex-shrink-0"
@@ -664,6 +695,160 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           </div>
         </div>
       </header>
+
+      {/* ── Mobile nav menu ── */}
+      {showMobileMenu && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex flex-col"
+          style={{ top: 56 }}
+          onClick={() => setShowMobileMenu(false)}
+        >
+          <div
+            className="flex-1 overflow-y-auto py-2"
+            style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', maxHeight: '80vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Project picker */}
+            <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>Project</p>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">{activeProduct?.emoji ?? '🎯'}</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{activeProduct?.name ?? 'No project'}</span>
+              </div>
+              <div className="mt-2 space-y-0.5">
+                {products.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setActiveProduct(p); setShowMobileMenu(false); navigate('/kanban'); }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-left"
+                    style={{
+                      background: activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
+                      color: activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text-2)',
+                    }}
+                  >
+                    <span>{p.emoji ?? '🎯'}</span>
+                    <span className="truncate">{p.name}</span>
+                    {activeProduct?.id === p.id && <span className="ml-auto text-xs font-bold" style={{ color: 'var(--brand)' }}>✓</span>}
+                  </button>
+                ))}
+                <button
+                  onClick={() => { setShowNewProduct(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-left"
+                  style={{ color: 'var(--text-3)' }}
+                >
+                  <span>+</span> New project
+                </button>
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>Navigate</p>
+              <div className="space-y-0.5">
+                {activeProduct && NAV.filter(({ tab }) => {
+                  if (tab === 'analytics' && !activeProduct.analyticsEnabled) return false;
+                  return canRead(tab);
+                }).map(({ to, label, Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    onClick={() => setShowMobileMenu(false)}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${isActive ? 'font-medium' : ''}`
+                    }
+                    style={({ isActive }) => ({
+                      background: isActive ? 'var(--brand-subtle)' : 'transparent',
+                      color: isActive ? 'var(--brand)' : 'var(--text-2)',
+                    })}
+                  >
+                    <Icon size={18} />
+                    {label}
+                  </NavLink>
+                ))}
+                {activeProduct && canManage && (
+                  <NavLink
+                    to="/settings"
+                    onClick={() => setShowMobileMenu(false)}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${isActive ? 'font-medium' : ''}`
+                    }
+                    style={({ isActive }) => ({
+                      background: isActive ? 'var(--brand-subtle)' : 'transparent',
+                      color: isActive ? 'var(--brand)' : 'var(--text-2)',
+                    })}
+                  >
+                    <CategoriesIcon size={18} />
+                    Settings
+                  </NavLink>
+                )}
+                {user?.isAdmin && (
+                  <button
+                    onClick={() => { setShowMobileMenu(false); navigate('/admin'); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                    style={{ color: 'var(--text-2)' }}
+                  >
+                    <ShieldIcon size={18} />
+                    Admin
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Account */}
+            <div className="px-4 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>Account</p>
+              <div className="flex items-center gap-3 px-2 py-2 mb-1">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-xl flex-shrink-0 overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  {user?.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" alt="" /> : (user?.avatarEmoji ?? '👤')}
+                </div>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{user?.realName ?? user?.username}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>@{user?.username}</p>
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <button
+                  onClick={() => { setShowProfile(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  <span>✏️</span> Edit profile
+                </button>
+                <button
+                  onClick={() => { setShowThemePicker(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  <span>🎨</span> Appearance
+                </button>
+                <button
+                  onClick={() => { setShowNotifPrefs(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  <span>🔔</span> Notifications
+                </button>
+                <button
+                  onClick={() => { setShowMobileMenu(false); onOpenChat(); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  <ChatIcon size={18} /> Chat
+                </button>
+                <button
+                  onClick={() => { setShowMobileMenu(false); logout(); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                  style={{ color: '#ef4444' }}
+                >
+                  <span>⏻</span> Sign out
+                </button>
+              </div>
+            </div>
+          </div>
+          {/* Backdrop */}
+          <div className="flex-1" style={{ background: 'rgba(0,0,0,0.5)' }} />
+        </div>
+      )}
 
       {/* ── Modals ── */}
 

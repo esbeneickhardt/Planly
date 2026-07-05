@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { randomBytes } from 'crypto';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, requireProductCoOwner } from '../utils/product-guard';
 
 const VALID_EVENTS = [
   'task.created', 'task.updated', 'task.deleted',
@@ -27,7 +27,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   // Create webhook
   app.post('/api/products/:productId/webhooks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
     const { url, events } = req.body as { url?: string; events?: string[] };
     if (!url) return reply.status(400).send({ error: 'url required' });
     if (!events?.length) return reply.status(400).send({ error: 'events required' });
@@ -49,7 +49,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   // Update webhook
   app.patch('/api/products/:productId/webhooks/:webhookId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, webhookId } = req.params as { productId: string; webhookId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
     const { url, events, active } = req.body as { url?: string; events?: string[]; active?: boolean };
 
     if (events) {
@@ -74,7 +74,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   // Rotate webhook secret
   app.post('/api/products/:productId/webhooks/:webhookId/rotate-secret', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, webhookId } = req.params as { productId: string; webhookId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
     const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
     const secret = randomBytes(32).toString('hex');
@@ -85,7 +85,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   // Delete webhook
   app.delete('/api/products/:productId/webhooks/:webhookId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, webhookId } = req.params as { productId: string; webhookId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
     const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
     await prisma.webhook.delete({ where: { id: webhookId } });
@@ -95,7 +95,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   // Webhook delivery history
   app.get('/api/products/:productId/webhooks/:webhookId/deliveries', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, webhookId } = req.params as { productId: string; webhookId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
     const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
     const deliveries = await prisma.webhookDelivery.findMany({

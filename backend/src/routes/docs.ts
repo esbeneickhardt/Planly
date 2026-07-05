@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { config } from '../config/env';
+import { requireAuth } from '../middleware/auth';
 
 const HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -1145,7 +1146,7 @@ const HTML = `<!DOCTYPE html>
 </html>`;
 
 export async function docsRoutes(app: FastifyInstance) {
-  app.get('/api/docs', async (_req, reply) => {
+  app.get('/api/docs', { preHandler: requireAuth }, async (_req, reply) => {
     reply.header('Content-Type', 'text/html; charset=utf-8');
     reply.send(HTML.replace(/PLANLY_ORIGIN/g, config.frontendOrigin));
   });

@@ -1418,5 +1418,21 @@ function CanvasInner() {
 }
 
 export default function CanvasView() {
-  return <ReactFlowProvider><CanvasInner /></ReactFlowProvider>;
+  return (
+    <>
+      {/* Mobile notice */}
+      <div className="md:hidden h-full flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <div className="text-5xl opacity-40">◈</div>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>Canvas view is optimised for desktop</p>
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>
+          The canvas planning view works best with a mouse and a larger screen.
+          Try the Kanban or Tasks view for a great mobile experience.
+        </p>
+      </div>
+      {/* Desktop */}
+      <div className="hidden md:block h-full">
+        <ReactFlowProvider><CanvasInner /></ReactFlowProvider>
+      </div>
+    </>
+  );
 }

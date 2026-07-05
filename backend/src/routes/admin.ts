@@ -297,8 +297,9 @@ export async function adminRoutes(app: FastifyInstance) {
       });
       for (const row of batch) {
         if (fmt === 'csv') {
+          const csvField = (v: string) => /^[=+\-@]/.test(v) ? `'${v}` : v;
           const meta = row.metadata ? JSON.stringify(row.metadata).replace(/"/g, '""') : '';
-          readable.push(`"${row.id}","${row.action}","${row.actorId ?? ''}","${row.actorName ?? ''}","${row.targetId ?? ''}","${row.targetName ?? ''}","${row.createdAt.toISOString()}","${meta}"\n`);
+          readable.push(`"${row.id}","${row.action}","${row.actorId ?? ''}","${csvField(row.actorName ?? '')}","${row.targetId ?? ''}","${csvField(row.targetName ?? '')}","${row.createdAt.toISOString()}","${meta}"\n`);
         } else {
           readable.push(JSON.stringify(row) + '\n');
         }

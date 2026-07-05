@@ -53,6 +53,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const { token, password } = req.body as { token?: string; password?: string };
     if (!token || !password) return reply.status(400).send({ error: 'token and password required' });
     if (password.length < 8) return reply.status(400).send({ error: 'Password must be at least 8 characters' });
+    if (password.length > 1024) return reply.status(400).send({ error: 'Password too long' });
 
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const record = await prisma.passwordResetToken.findUnique({
@@ -66,7 +67,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
 
     const passwordHash = await bcrypt.hash(password, 12);
     await prisma.$transaction([
-      prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+      prisma.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } }),
       prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
     ]);
 
@@ -127,6 +128,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
   app.post('/api/auth/change-password', { preHandler: requireAuth }, async (req, reply) => {
     const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
     if (!newPassword || newPassword.length < 8) return reply.status(400).send({ error: 'New password must be at least 8 characters' });
+    if (newPassword.length > 1024) return reply.status(400).send({ error: 'Password too long' });
     const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     if (!user.passwordHash) return reply.status(400).send({ error: 'This account uses SSO - password cannot be changed here.' });
@@ -137,7 +139,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
       if (!valid) return reply.status(401).send({ error: 'Current password is incorrect' });
     }
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false } });
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false, tokenVersion: { increment: 1 } } });
     reply.send({ ok: true });
   });
 
