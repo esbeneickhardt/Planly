@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
+import { useAuth } from '../context/AuthContext';
 
 interface DayStat { date: string; count: number }
 interface StatusStat { status: string; count: number }
@@ -15,6 +16,12 @@ interface AnalyticsData {
   statusBreakdown: StatusStat[];
   sprintVelocity: SprintVelocity[];
 }
+interface WorkloadData {
+  statusBreakdown: StatusStat[];
+  totalActive: number;
+  totalCompleted: number;
+  completionsByDay: DayStat[];
+}
 interface ActivityEvent {
   id: string; actorId: string; action: string; entityType: string;
   entityId: string | null; entityName: string | null; metadata: unknown; createdAt: string;
@@ -25,7 +32,7 @@ const PERIOD_DAYS: Record<Period, number> = { '7d': 7, '30d': 30, '90d': 90, 'al
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const STATUS_LABEL: Record<string, string> = {
-  backlog: 'Backlog', todo: 'To Do', in_progress: 'In Progress', blocked: 'Blocked', done: 'Done',
+  backlog: 'Not started', todo: 'To Do', in_progress: 'In Progress', blocked: 'Blocked', done: 'Done',
 };
 const STATUS_COLOR: Record<string, string> = {
   backlog: '#64748b', todo: '#3b82f6', in_progress: '#f59e0b', blocked: '#ef4444', done: '#10b981',
@@ -35,7 +42,7 @@ function actionLabel(action: string) {
   const map: Record<string, string> = {
     'task.created': 'created task', 'task.updated': 'updated task',
     'task.status_changed': 'moved task', 'task.deleted': 'deleted task',
-    'sprint.created': 'created sprint', 'sprint.updated': 'updated sprint',
+    'cycle.created': 'created sprint', 'cycle.updated': 'updated sprint',
   };
   return map[action] ?? action.replace('.', ' ');
 }
@@ -85,7 +92,7 @@ function BarChart({
                 opacity: count > 0 ? 0.7 + (count / max) * 0.3 : 0.25,
               }} />
           </div>
-          {/* Label area — always rendered, fixed height */}
+          {/* Label area - always rendered, fixed height */}
           <div style={{ height: labelHeight, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 1 }}>
             {label && <span className="text-[9px] leading-none" style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{label}</span>}
           </div>
@@ -151,8 +158,10 @@ function LineChart({
 export default function AnalyticsPage() {
   const { activeProduct } = useProduct();
   const { canManage } = usePermission();
+  const { user } = useAuth();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [workload, setWorkload] = useState<WorkloadData | null>(null);
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -179,6 +188,11 @@ export default function AnalyticsPage() {
     catch {/* ignore */} finally { setLoading(false); }
   }, []);
 
+  const loadWorkload = useCallback(async (productId: string) => {
+    try { setWorkload(await api.analytics.workload(productId)); }
+    catch {/* ignore */}
+  }, []);
+
   const loadActivity = useCallback(async (productId: string, cur?: string) => {
     try {
       const res = await api.analytics.activity(productId, cur);
@@ -189,10 +203,11 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (!activeProduct) return;
-    setData(null); setEvents([]); setCursor(null);
+    setData(null); setWorkload(null); setEvents([]); setCursor(null);
     loadAnalytics(activeProduct.id);
+    loadWorkload(activeProduct.id);
     loadActivity(activeProduct.id);
-  }, [activeProduct?.id, loadAnalytics, loadActivity]);
+  }, [activeProduct?.id, loadAnalytics, loadWorkload, loadActivity]);
 
   if (!activeProduct) {
     return (
@@ -207,7 +222,7 @@ export default function AnalyticsPage() {
     return <Navigate to="/kanban" replace />;
   }
 
-  // Throughput chart — bucket by week for 90d, label every 5th day for 30d, every day for 7d
+  // Throughput chart - bucket by week for 90d, label every 5th day for 30d, every day for 7d
   const allDays = data?.tasksByDay ?? [];
   const periodDays = PERIOD_DAYS[period];
   const filteredDays = period === 'all' ? allDays : allDays.slice(allDays.length - periodDays);
@@ -229,7 +244,7 @@ export default function AnalyticsPage() {
     });
   }
 
-  // Cumulative completions — independent period
+  // Cumulative completions - independent period
   const cumulativeDays = cumulativePeriod === 'all' ? allDays : allDays.slice(allDays.length - PERIOD_DAYS[cumulativePeriod]);
   const cumUseBuckets = cumulativePeriod === '90d' || (cumulativePeriod === 'all' && allDays.length > 60);
   const cumulativeData: { label: string; count: number }[] = [];
@@ -282,7 +297,7 @@ export default function AnalyticsPage() {
               const activeCount = data.totalActive - backlogCount;
               const total = data.totalActive + data.totalCompleted;
               const tiles = [
-                { label: 'Backlog',    value: backlogCount,          icon: '□', color: '#64748b' },
+                { label: 'Not started', value: backlogCount,   icon: '□', color: '#64748b' },
                 { label: 'Active',     value: activeCount,            icon: '⚡', color: 'var(--brand)' },
                 { label: 'Completed',  value: data.totalCompleted,    icon: '✓', color: '#10b981' },
                 { label: 'Total',      value: total,                  icon: '☰', color: 'var(--text-3)' },
@@ -387,15 +402,71 @@ export default function AnalyticsPage() {
               </div>
             )}
 
-            {/* Sprint velocity */}
+            {/* Cycle velocity */}
             {data.sprintVelocity.length > 0 && (
               <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Sprint velocity</h2>
-                <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>Tasks completed within each sprint's date range</p>
+                <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Tasks completed per sub-plan</h2>
+                <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>How many tasks were finished within each sub-plan's dates</p>
                 <SprintVelocityChart sprints={data.sprintVelocity} />
               </div>
             )}
           </>
+        )}
+
+        {/* My workload */}
+        {workload && (
+          <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>My workload</h2>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+                  {user?.realName ?? user?.username} · {workload.totalActive} active · {workload.totalCompleted} completed
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {/* Status breakdown */}
+              <div>
+                <p className="text-xs font-medium mb-3" style={{ color: 'var(--text-3)' }}>Active tasks by status</p>
+                {workload.statusBreakdown.length === 0 ? (
+                  <p className="text-xs py-3" style={{ color: 'var(--text-3)' }}>No active tasks assigned to you</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {[...workload.statusBreakdown].sort((a, b) => b.count - a.count).map(({ status, count }) => (
+                      <div key={status}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: STATUS_COLOR[status] ?? '#64748b' }} />
+                            <span className="text-xs" style={{ color: 'var(--text-2)' }}>{STATUS_LABEL[status] ?? status}</span>
+                          </div>
+                          <span className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{count}</span>
+                        </div>
+                        <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+                          <div className="h-full rounded-full" style={{ width: `${(count / workload.totalActive) * 100}%`, background: STATUS_COLOR[status] ?? '#64748b', opacity: 0.7 }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* 30-day completion trend */}
+              <div>
+                <p className="text-xs font-medium mb-3" style={{ color: 'var(--text-3)' }}>Completions (last 30 days)</p>
+                {workload.completionsByDay.every(d => d.count === 0) ? (
+                  <p className="text-xs py-3" style={{ color: 'var(--text-3)' }}>No completions in the last 30 days</p>
+                ) : (
+                  <BarChart
+                    data={workload.completionsByDay.map((d, i) => ({
+                      count: d.count,
+                      label: i % 7 === 0 ? new Date(d.date).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '',
+                    }))}
+                    height={80}
+                    color="#10b981"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Activity feed */}

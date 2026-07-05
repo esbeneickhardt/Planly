@@ -80,7 +80,7 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
 
   return (
     <div className="space-y-1.5">
-      {/* Toolbar — order: 😊 Emoji | 📎 Attach | ℹ Markdown | Preview */}
+      {/* Toolbar - order: 😊 Emoji | 📎 Attach | ℹ Markdown | Preview */}
       <div className="flex items-center gap-1.5 flex-wrap relative">
 
         {/* Emoji */}
@@ -119,7 +119,7 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
           disabled={disabled || uploading}
           className="text-xs px-2 py-0.5 rounded-md transition-colors"
           style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
-          title="Attach file or image — also supports paste"
+          title="Attach file or image - also supports paste"
         >{uploading ? '⏳ Uploading…' : '📎 Attach'}</button>
 
         {/* Markdown reference */}

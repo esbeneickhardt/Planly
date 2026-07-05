@@ -26,8 +26,8 @@ const PHASES = [
     icon: '⚡',
     label: 'Execute',
     color: '#f59e0b',
-    heading: 'Work sprint by sprint',
-    body: 'Pull tasks into sprints and move them across Kanban columns. A milestone progress bar shows how close you are to each deadline.',
+    heading: 'Work sub-plan by sub-plan',
+    body: 'Pull tasks into sub-plans and move them across Kanban columns. A milestone progress bar shows how close you are to each deadline.',
   },
   {
     icon: '📊',
@@ -41,7 +41,7 @@ const PHASES = [
 const CONCEPTS = [
   { term: 'Milestone', def: 'Any task with a deadline - visible on the canvas, Kanban progress bar, and Gantt timeline.' },
   { term: 'Final Product', def: 'The end goal at the bottom of all dependency chains. Milestone count tracks overall delivery.' },
-  { term: 'Sprint', def: 'A time-boxed chunk of work. Pull tasks in from the Plan view and execute them on the board.' },
+  { term: 'Sub-plan', def: 'A time-boxed chunk of work. Pull tasks in from the Plan view and execute them on the board.' },
   { term: 'Dependencies', def: 'Arrows on the canvas that say "B can\'t start until A is done." Drives Gantt progress logic.' },
 ];
 
@@ -50,8 +50,8 @@ const PRINCIPLES = [
   { icon: '💬', heading: 'Every task has its own chat', body: 'Discussions live with the task, not scattered across Slack.' },
   { icon: '→', heading: 'Tasks flow through states', body: 'Columns show work state, not org charts. The board shows reality.' },
   { icon: '⛓', heading: 'Dependencies are explicit', body: 'Blockers are visible before they become crises.' },
-  { icon: '📌', heading: 'Milestones mark commitments', body: 'A milestone is a promise to a stakeholder, not just a grouping.' },
-  { icon: '⚡', heading: 'Sprints are optional', body: 'Filter by "All sprints" if your team doesn\'t sprint.' },
+  { icon: '📌', heading: 'Milestones mark commitments', body: 'A milestone is a commitment, not just a grouping.' },
+  { icon: '⚡', heading: 'Sub-plans are optional', body: 'Filter by "All sub-plans" if your team doesn\'t cycle.' },
   { icon: '🔑', heading: 'Granular permissions', body: 'Per-tab, per-person access - external reviewers can view without editing.' },
   { icon: '📊', heading: 'Automation-friendly', body: 'Push tasks from spreadsheets, scripts, or CI via the REST API + tokens.' },
 ];

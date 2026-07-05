@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { api } from '../api/client';
+import { api, displayName } from '../api/client';
 import type { AnnItem, AnnComment } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -203,7 +203,7 @@ function CommentSection({ annId, userId, isAdmin }: { annId: string; userId: str
           <span className="text-base flex-shrink-0 mt-0.5">{c.author.avatarEmoji ?? '👤'}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{c.author.username}</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{displayName(c.author)}</span>
               <span className="text-xs" style={{ color: 'var(--text-3)' }}>{formatDate(c.createdAt)}</span>
               {(isAdmin || c.author.id === userId) && (
                 <button onClick={() => deleteComment(c.id)} className="text-xs ml-auto opacity-50 hover:opacity-100" style={{ color: '#ef4444' }}>Delete</button>
@@ -284,7 +284,7 @@ function AnnouncementCard({
               <span>·</span>
             </>
           )}
-          <span>{ann.author.avatarEmoji ?? '👤'} {ann.author.username}</span>
+          <span>{ann.author.avatarEmoji ?? '👤'} {displayName(ann.author)}</span>
           {ann.author.isAdmin && <span className="px-1 py-px rounded text-[10px]" style={{ background: '#6366f115', color: '#6366f1' }}>Admin</span>}
           <span>·</span>
           <span>{formatDate(ann.createdAt)}</span>
@@ -461,7 +461,7 @@ export default function AnnouncementsPage() {
         </div>
         {canPost && !editing && (
           <div className="flex items-center gap-2">
-            {/* Mode badge — always visible when user can post */}
+            {/* Mode badge - always visible when user can post */}
             <span
               className="text-xs px-2 py-0.5 rounded-full font-medium"
               style={adminMode
@@ -487,7 +487,7 @@ export default function AnnouncementsPage() {
         )}
       </div>
 
-      {/* Filter pills — only shown when there's more than one source */}
+      {/* Filter pills - only shown when there's more than one source */}
       {filterOptions.length > 2 && (
         <div className="flex items-center gap-1.5 flex-wrap">
           {filterOptions.map(opt => {

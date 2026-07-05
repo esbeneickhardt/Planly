@@ -12,6 +12,8 @@ import DiscoverProjectsModal from './DiscoverProjectsModal';
 import MembershipsModal from './MembershipsModal';
 import IntegrationsModal from './IntegrationsModal';
 import NotificationBell from './NotificationBell';
+import NotificationPreferencesModal from './NotificationPreferencesModal';
+import ThemePickerModal from './ThemePickerModal';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -154,19 +156,19 @@ const ADMIN_TABS: { key: string; label: string; Icon: (p: { size?: number }) => 
 // ── Nav config ─────────────────────────────────────────────────────────────
 
 const NAV = [
-  { to: '/canvas',    label: 'Plan',      Icon: PlanIcon,      tab: 'canvas' },
-  { to: '/kanban',    label: 'Execute',   Icon: ExecuteIcon,   tab: 'kanban' },
-  { to: '/gantt',     label: 'Progress',  Icon: ProgressIcon,  tab: 'gantt' },
-  { to: '/backlog',   label: 'Tasks',     Icon: TasksIcon,     tab: 'backlog' },
-  { to: '/analytics', label: 'Analytics', Icon: BarChartIcon,  tab: 'analytics' },
-  { to: '/about',     label: 'About',     Icon: AboutIcon,     tab: 'about' },
+  { to: '/canvas',    label: 'Plan',      sub: 'Canvas',   Icon: PlanIcon,      tab: 'canvas' },
+  { to: '/kanban',    label: 'Execute',   sub: 'Kanban',   Icon: ExecuteIcon,   tab: 'kanban' },
+  { to: '/gantt',     label: 'Progress',  sub: 'Gantt',    Icon: ProgressIcon,  tab: 'gantt' },
+  { to: '/backlog',   label: 'Tasks',     sub: 'Backlog',  Icon: TasksIcon,     tab: 'backlog' },
+  { to: '/analytics', label: 'Analytics', sub: 'Charts',   Icon: BarChartIcon,  tab: 'analytics' },
+  { to: '/about',     label: 'About',     sub: '',         Icon: AboutIcon,     tab: 'about' },
 ];
 
 interface NewProductForm { name: string; emoji: string; description: string; deadline: string; }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpen, chatIsAdmin, onToggleAdmin }: { onOpenSearch: () => void; onOpenChat: () => void; onOpenVision: () => void; chatOpen?: boolean; chatIsAdmin?: boolean; onToggleAdmin?: () => void }) {
+export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpen, chatIsAdmin, onToggleAdmin, onExitAdmin }: { onOpenSearch: () => void; onOpenChat: () => void; onOpenVision: () => void; chatOpen?: boolean; chatIsAdmin?: boolean; onToggleAdmin?: () => void; onExitAdmin?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -175,12 +177,14 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
   const { user, logout } = useAuth();
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
   const { canRead, canManage } = usePermission();
-  const { theme, toggle } = useTheme();
+  const { isDark } = useTheme();
   const [showNewProduct, setShowNewProduct] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showMemberships, setShowMemberships] = useState(false);
   const [showIntegrations, setShowIntegrations] = useState(false);
+  const [showNotifPrefs, setShowNotifPrefs] = useState(false);
   const [showProjectDd, setShowProjectDd] = useState(false);
   const [showAccountDd, setShowAccountDd] = useState(false);
   const [productForm, setProductForm] = useState<NewProductForm>({ name: '', emoji: '', description: '', deadline: '' });
@@ -302,7 +306,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             // ── Normal project tabs ──
             <>
               {NAV.filter(({ tab }) => {
-                if (!activeProduct) return true;
+                if (!activeProduct) return false;
                 if (tab === 'analytics' && !activeProduct.analyticsEnabled) return false;
                 return canRead(tab);
               }).map(({ to, label, Icon }) => {
@@ -312,7 +316,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                     key={to}
                     to={to}
                     className={({ isActive }) =>
-                      `relative flex flex-col items-center justify-center gap-0.5 w-24 text-[11px] font-medium tracking-wide transition-colors rounded-none ${
+                      `relative flex flex-col items-center justify-center gap-0 w-24 text-[11px] font-medium tracking-wide transition-colors rounded-none ${
                         isActive
                           ? 'text-[var(--brand)]'
                           : 'text-[var(--text-3)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'
@@ -332,7 +336,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                             </span>
                           )}
                         </div>
-                        <span>{label}</span>
+                        <span className="leading-tight">{label}</span>
                         {isActive && (
                           <div className="absolute bottom-0 left-6 right-6 h-[3px] rounded-t-full" style={{ background: 'var(--brand)' }} />
                         )}
@@ -343,7 +347,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
               })}
 
               {/* Settings - only for owners/co-owners */}
-              {(!activeProduct || canManage) && (
+              {activeProduct && canManage && (
                 <NavLink
                   to="/settings"
                   className={({ isActive }) =>
@@ -375,34 +379,40 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           <button
             onClick={onOpenVision}
             className="w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 text-sm font-semibold"
-            style={{ color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid transparent' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'transparent'; }}
+            style={{
+              color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
+              background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              border: chatIsAdmin ? '1px solid var(--brand)' : '1px solid transparent',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-subtle)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = chatIsAdmin ? 'var(--brand)' : 'var(--text-3)'; e.currentTarget.style.borderColor = chatIsAdmin ? 'var(--brand)' : 'transparent'; e.currentTarget.style.background = chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)'; }}
             title="How Planly works"
           >?</button>
 
-          {/* Announcements */}
-          <NavLink
-            to="/announcements"
-            title={chatIsAdmin ? 'Announcements (admin mode)' : 'Announcements'}
-            className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
-            style={({ isActive }) => ({
-              color: (chatIsAdmin || isActive) ? 'var(--brand)' : 'var(--text-3)',
-              background: (chatIsAdmin || isActive) ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              border: `1px solid ${(chatIsAdmin || isActive) ? 'var(--brand)' : 'transparent'}`,
-            })}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--brand)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand)'; }}
-            onMouseLeave={(e) => {
-              const active = chatIsAdmin || (e.currentTarget as HTMLElement).getAttribute('aria-current') === 'page';
-              (e.currentTarget as HTMLElement).style.color = active ? 'var(--brand)' : 'var(--text-3)';
-              (e.currentTarget as HTMLElement).style.borderColor = active ? 'var(--brand)' : 'transparent';
-            }}
-          >
-            <MegaphoneIcon size={18} />
-          </NavLink>
+          {/* Announcements - only shown when enabled (or for admins) */}
+          {user?.announcementsEnabled && (
+            <NavLink
+              to="/announcements"
+              title={chatIsAdmin ? 'Announcements (admin mode)' : 'Announcements'}
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+              style={({ isActive }) => ({
+                color: (chatIsAdmin || isActive) ? 'var(--brand)' : 'var(--text-3)',
+                background: (chatIsAdmin || isActive) ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                border: `1px solid ${(chatIsAdmin || isActive) ? 'var(--brand)' : 'transparent'}`,
+              })}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--brand)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand)'; }}
+              onMouseLeave={(e) => {
+                const active = chatIsAdmin || (e.currentTarget as HTMLElement).getAttribute('aria-current') === 'page';
+                (e.currentTarget as HTMLElement).style.color = active ? 'var(--brand)' : 'var(--text-3)';
+                (e.currentTarget as HTMLElement).style.borderColor = active ? 'var(--brand)' : 'transparent';
+              }}
+            >
+              <MegaphoneIcon size={18} />
+            </NavLink>
+          )}
 
           {/* Notification bell */}
-          <NotificationBell />
+          <NotificationBell adminMode={!!chatIsAdmin} productId={chatIsAdmin ? undefined : activeProduct?.id} />
 
           {/* Admin panel toggle - only for admins */}
           {user?.isAdmin && (
@@ -464,7 +474,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 </>
               ) : (
                 <>
-                  <span className="text-lg leading-none">{activeProduct?.emoji ?? '📁'}</span>
+                  <span className="text-lg leading-none">{activeProduct?.emoji ?? '🎯'}</span>
                   <span className="text-xs font-medium max-w-[72px] truncate">{activeProduct?.name ?? 'Project'}</span>
                 </>
               )}
@@ -490,7 +500,10 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                         onClick={() => {
                           setActiveProduct(p);
                           setShowProjectDd(false);
-                          if (isAdminPage) navigate('/kanban');
+                          if (chatIsAdmin) {
+                            onExitAdmin?.();
+                            navigate('/kanban');
+                          }
                         }}
                         className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors"
                         style={{
@@ -500,7 +513,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                         onMouseEnter={(e) => { if (isAdminPage || activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = (!isAdminPage && activeProduct?.id === p.id) ? 'var(--brand-subtle)' : 'transparent'; }}
                       >
-                        <span className="text-base">{p.emoji ?? '📁'}</span>
+                        <span className="text-base">{p.emoji ?? '🎯'}</span>
                         <span className="flex-1 truncate font-medium">{p.name}</span>
                         {!isAdminPage && activeProduct?.id === p.id && <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>✓</span>}
                       </button>
@@ -549,9 +562,9 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             <button
               onClick={() => { setShowAccountDd((v) => !v); setShowProjectDd(false); }}
               className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-base transition-all flex-shrink-0"
-              style={{ background: 'var(--surface-2)', border: '2px solid var(--border)' }}
+              style={{ background: 'var(--surface-2)', border: `2px solid ${chatIsAdmin ? 'var(--brand)' : 'var(--border)'}` }}
               onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = chatIsAdmin ? 'var(--brand)' : 'var(--border)')}
               title={user?.realName ?? user?.username}
             >
               {user?.avatarUrl
@@ -586,14 +599,14 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 </div>
 
                 <button
-                  onClick={toggle}
+                  onClick={() => { setShowThemePicker(true); setShowAccountDd(false); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
                   style={{ color: 'var(--text-2)' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <span className="w-5 text-center flex-shrink-0">{theme === 'dark' ? '☀️' : '🌙'}</span>
-                  {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                  <span className="w-5 text-center flex-shrink-0">{isDark ? '🎨' : '🎨'}</span>
+                  Appearance
                 </button>
                 <button
                   onClick={() => { setShowProfile(true); setShowAccountDd(false); }}
@@ -624,6 +637,16 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 >
                   <span className="w-5 text-center flex-shrink-0">🔑</span>
                   Integrations
+                </button>
+                <button
+                  onClick={() => { setShowNotifPrefs(true); setShowAccountDd(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: 'var(--text-2)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span className="w-5 text-center flex-shrink-0">🔔</span>
+                  Notifications
                 </button>
                 <div className="mx-4 my-1" style={{ height: 1, background: 'var(--border)' }} />
                 <button
@@ -656,7 +679,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors"
                   style={{ background: showProductEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${showProductEmojiPicker ? 'var(--brand)' : 'var(--border)'}` }}
                 >
-                  {productForm.emoji || '📋'}
+                  {productForm.emoji || '🎯'}
                 </button>
               </div>
               <div className="flex-1">
@@ -703,6 +726,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
       {showDiscover && <DiscoverProjectsModal onClose={() => setShowDiscover(false)} />}
       {showMemberships && <MembershipsModal onClose={() => setShowMemberships(false)} />}
       {showIntegrations && <IntegrationsModal onClose={() => setShowIntegrations(false)} />}
+      {showNotifPrefs && <NotificationPreferencesModal onClose={() => setShowNotifPrefs(false)} />}
+      {showThemePicker && <ThemePickerModal onClose={() => setShowThemePicker(false)} />}
 
       {showProfile && (
         <Modal title="Edit profile" onClose={() => setShowProfile(false)} width="max-w-sm">

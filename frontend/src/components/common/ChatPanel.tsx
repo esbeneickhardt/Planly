@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
-import { api } from '../../api/client';
+import { api, displayName } from '../../api/client';
 import type { Message } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
@@ -89,7 +89,7 @@ function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick, canEdit, on
       </div>
       <div className={`flex-1 min-w-0 ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative`}>
         <div className={`flex items-baseline gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
-          <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{msg.author.username}</span>
+          <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{displayName(msg.author)}</span>
           <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
             {formatTime(msg.createdAt)}{msg.editedAt ? ' (edited)' : ''}
           </span>
@@ -251,6 +251,8 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [taskSearch, setTaskSearch] = useState('');
 
+  const [scrollToMsgId, setScrollToMsgId] = useState<string | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -267,6 +269,21 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
       setSelectedTask({ id: initialTask.id, name: initialTask.name });
     }
   }, [initialTask?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!scrollToMsgId) return;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`chat-msg-${scrollToMsgId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.transition = 'background 0.3s';
+        el.style.background = 'var(--brand-subtle)';
+        setTimeout(() => { el.style.background = ''; }, 2000);
+      }
+      setScrollToMsgId(null);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [scrollToMsgId]);
 
   // Load team members for @ mentions (not applicable in admin chat)
   useEffect(() => {
@@ -759,7 +776,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
           </div>
         )}
 
-        {/* Toolbar — order: 😊 Emoji | 📎 Attach | ℹ Markdown | Preview */}
+        {/* Toolbar - order: 😊 Emoji | 📎 Attach | ℹ Markdown | Preview */}
         <div className="flex items-center gap-1 mb-2">
           <button
             data-emoji-picker
@@ -847,7 +864,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
           const isOwn = msg.authorId === user?.id;
           const isEditing = editingId === msg.id;
           return (
-            <div key={msg.id}>
+            <div key={msg.id} id={`chat-msg-${msg.id}`}>
               {isEditing ? (
                 <div className="space-y-1.5">
                   <textarea
@@ -1093,7 +1110,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                             </div>
                             {msgInfo ? (
                               <p className="text-xs truncate" style={{ color: 'var(--text-3)' }}>
-                                {msgInfo.last.author.avatarEmoji ?? '👤'} {msgInfo.last.author.username}: {msgInfo.last.content || '📎 attachment'}
+                                {msgInfo.last.author.avatarEmoji ?? '👤'} {displayName(msgInfo.last.author)}: {msgInfo.last.content || '📎 attachment'}
                               </p>
                             ) : (
                               <p className="text-xs" style={{ color: 'var(--text-3)' }}>No messages yet</p>
@@ -1165,6 +1182,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                 onClick={() => {
+                  setScrollToMsgId(msg.id);
                   if (msg.task) {
                     setSelectedTask(msg.task);
                     setTab('tasks');
@@ -1176,7 +1194,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm">{msg.author.avatarEmoji ?? '👤'}</span>
-                  <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{msg.author.username}</span>
+                  <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{displayName(msg.author)}</span>
                   {msg.task && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-1" style={{ background: 'var(--surface)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
                       📋 {msg.task.name}
@@ -1234,7 +1252,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                             </svg>
                           </button>
                           <div className="absolute bottom-1 left-1 right-1 text-[9px] truncate text-white opacity-0 group-hover/img:opacity-70 px-1">
-                            {formatTime(msg.createdAt)} · {msg.author.username}
+                            {formatTime(msg.createdAt)} · {displayName(msg.author)}
                           </div>
                         </div>
                       ))}
@@ -1250,7 +1268,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                           <span className="text-lg flex-shrink-0">{att.type === 'application/pdf' ? '📄' : '📁'}</span>
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{att.name}</p>
-                            <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>{msg.author.username} · {formatTime(msg.createdAt)}</p>
+                            <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>{displayName(msg.author)} · {formatTime(msg.createdAt)}</p>
                           </div>
                           <div className="flex items-center gap-1.5 opacity-0 group-hover/doc:opacity-100 transition-opacity flex-shrink-0">
                             <a href={att.url} download={att.name} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>↓</a>

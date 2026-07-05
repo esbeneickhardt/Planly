@@ -3,7 +3,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
 
-const AUTHOR_SELECT = { id: true, username: true, avatarEmoji: true, isAdmin: true };
+const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true };
 const TEAM_SELECT   = { id: true, name: true };
 
 async function resolvePermissions(userId: string): Promise<{ isAdmin: boolean; canPost: boolean; enabled: boolean }> {

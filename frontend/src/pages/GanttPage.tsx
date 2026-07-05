@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, MilestoneResult } from '../api/client';
+import { api, MilestoneResult, Sprint } from '../api/client';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import type { Product } from '../types';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
 import type { Task } from '../types';
+
+type GanttView = 'milestones' | 'sprints';
 
 const STATUS_COLOR: Record<string, string> = {
   backlog: '#64748b', todo: '#3b82f6', in_progress: '#f59e0b', done: '#10b981', blocked: '#ef4444',
@@ -70,11 +72,14 @@ export default function GanttPage() {
   const { activeProduct, tasks } = useProduct();
   const { canWrite } = usePermission();
   const readOnly = !canWrite('gantt');
+  const [ganttView, setGanttView] = useState<GanttView>('milestones');
   const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [hoveredMilestone, setHoveredMilestone] = useState<string | null>(null);
   const [hoveredProduct, setHoveredProduct] = useState(false);
+  const [hoveredSprint, setHoveredSprint] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewStart, setViewStart] = useState<Date | null>(null);
   const [viewEnd, setViewEnd] = useState<Date | null>(null);
@@ -98,9 +103,13 @@ export default function GanttPage() {
   useEffect(() => {
     if (!activeProduct) return;
     setLoading(true);
-    api.milestones.list(activeProduct.id)
-      .then(({ milestones: ms, product: p }) => {
+    Promise.all([
+      api.milestones.list(activeProduct.id),
+      api.sprints.list(activeProduct.id),
+    ])
+      .then(([{ milestones: ms, product: p }, sprintList]) => {
         setMilestones(ms);
+        setSprints(sprintList);
         setProduct(p);
         const s = new Date(p?.createdAt ?? activeProduct.createdAt);
         const e = new Date(p?.deadline ?? activeProduct.deadline);
@@ -242,6 +251,7 @@ export default function GanttPage() {
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('button, a')) return;
     dragState.current = { startX: e.clientX, vs, ve };
     setIsDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -273,17 +283,29 @@ export default function GanttPage() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Sticky column header - stays visible when the milestone list scrolls */}
       <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        {/* Left: Milestone label + zoom + hide-done toggle */}
-        <div className="flex-shrink-0 w-52 px-3 flex flex-col justify-center gap-1" style={{ borderRight: '1px solid var(--border)', minHeight: 44 }}>
+        {/* Left: view label + zoom + hide-done toggle */}
+        <div className="flex-shrink-0 w-56 px-3 flex flex-col justify-center gap-1" style={{ borderRight: '1px solid var(--border)', minHeight: 44 }}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Milestone</span>
+            {/* View toggle */}
+            <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--surface-2)' }}>
+              <button
+                onClick={() => setGanttView('milestones')}
+                className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
+                style={{ background: ganttView === 'milestones' ? 'var(--surface)' : 'transparent', color: ganttView === 'milestones' ? 'var(--text)' : 'var(--text-3)', boxShadow: ganttView === 'milestones' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
+              >Milestones</button>
+              <button
+                onClick={() => setGanttView('sprints')}
+                className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
+                style={{ background: ganttView === 'sprints' ? 'var(--surface)' : 'transparent', color: ganttView === 'sprints' ? 'var(--text)' : 'var(--text-3)', boxShadow: ganttView === 'sprints' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
+              >Sub-plans</button>
+            </div>
             <div className="flex items-center gap-0.5">
               <button onClick={() => applyZoom(0.5)} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom in">+</button>
               <button onClick={() => applyZoom(2)} disabled={isFullView} className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }} title="Zoom out">−</button>
               <button onClick={() => { setViewStart(fullStart); setViewEnd(fullEnd); }} disabled={isFullView} className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>Fit</button>
             </div>
           </div>
-          {doneCount > 0 && (
+          {ganttView === 'milestones' && doneCount > 0 && (
             <button
               onClick={() => setHideDone((v) => {
                 const next = !v;
@@ -326,8 +348,35 @@ export default function GanttPage() {
         <div className="flex min-h-full">
 
           {/* Left: names (sticky left edge) */}
-          <div className="flex-shrink-0 w-52 sticky left-0 z-10" style={{ borderRight: '1px solid var(--border)', background: 'var(--surface)' }}>
-            {visibleMilestones.map((m) => {
+          <div className="flex-shrink-0 w-56 sticky left-0 z-10" style={{ borderRight: '1px solid var(--border)', background: 'var(--surface)' }}>
+            {ganttView === 'sprints' && sprints.map((s) => {
+              const sprintTasks = tasks.filter((t) => s.taskIds.includes(t.id));
+              const doneTasks = sprintTasks.filter((t) => t.status === 'done' || !!t.completedAt);
+              return (
+                <div
+                  key={s.id}
+                  className="px-3 flex flex-col justify-center cursor-default transition-colors"
+                  style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredSprint === s.id ? 'var(--surface-2)' : 'transparent' }}
+                  onMouseEnter={() => setHoveredSprint(s.id)}
+                  onMouseLeave={() => setHoveredSprint(null)}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                    <p className="text-xs font-medium leading-tight min-w-0" title={s.name} style={{ color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.name}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                      {new Date(s.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} – {new Date(s.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-3)' }}>{doneTasks.length}/{sprintTasks.length} done</div>
+                </div>
+              );
+            })}
+            {ganttView === 'sprints' && sprints.length === 0 && (
+              <div className="px-3 py-4 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet</div>
+            )}
+            {ganttView === 'milestones' && visibleMilestones.map((m) => {
               const color = progressColor(m);
               const isDone = m.status === 'done';
               return (
@@ -367,15 +416,17 @@ export default function GanttPage() {
               );
             })}
 
-            {/* Product / Final Delivery row */}
-            <div
-              className="px-3 flex flex-col justify-center gap-1 cursor-default"
-              style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredProduct ? 'var(--surface-2)' : 'transparent' }}
-              onMouseEnter={() => setHoveredProduct(true)}
-              onMouseLeave={() => setHoveredProduct(false)}
-            >
-              <p className="text-xs font-semibold leading-tight" title={`${activeProduct.emoji ?? ''} ${activeProduct.name}`} style={{ color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{activeProduct.emoji} {activeProduct.name}</p>
-            </div>
+            {/* Product / Final Delivery row - milestones view only */}
+            {ganttView === 'milestones' && (
+              <div
+                className="px-3 flex flex-col justify-center gap-1 cursor-default"
+                style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredProduct ? 'var(--surface-2)' : 'transparent' }}
+                onMouseEnter={() => setHoveredProduct(true)}
+                onMouseLeave={() => setHoveredProduct(false)}
+              >
+                <p className="text-xs font-semibold leading-tight" title={`${activeProduct.emoji ?? ''} ${activeProduct.name}`} style={{ color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{activeProduct.emoji} {activeProduct.name}</p>
+              </div>
+            )}
           </div>
 
           {/* Right: timeline bars */}
@@ -394,7 +445,72 @@ export default function GanttPage() {
                 <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPct * 100}%`, width: 1, background: 'var(--brand)', zIndex: 3, opacity: 0.5, pointerEvents: 'none' }} />
               )}
 
-              {visibleMilestones.map((m) => {
+              {/* Sprint bars */}
+              {ganttView === 'sprints' && sprints.map((s) => {
+                const startPct = pct(new Date(s.startDate), vs, ve) * 100;
+                const endPct = pct(new Date(s.endDate), vs, ve) * 100;
+                const barWidth = Math.max(endPct - startPct, 0.5);
+                const sprintTasks = tasks.filter((t) => s.taskIds.includes(t.id));
+                const doneTasks = sprintTasks.filter((t) => t.status === 'done' || !!t.completedAt);
+                const progress = sprintTasks.length > 0 ? doneTasks.length / sprintTasks.length : 0;
+                const isActive = new Date(s.startDate) <= today && new Date(s.endDate) >= today;
+                return (
+                  <div
+                    key={s.id}
+                    className="relative flex items-center"
+                    style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredSprint === s.id ? 'var(--surface-2)' : 'transparent' }}
+                    onMouseEnter={() => setHoveredSprint(s.id)}
+                    onMouseLeave={() => setHoveredSprint(null)}
+                  >
+                    {/* Bar track */}
+                    <div className="absolute rounded-md"
+                      style={{ left: `${startPct}%`, width: `${barWidth}%`, height: 16, top: '50%', marginTop: -8, background: `${s.color}22`, border: `1px solid ${s.color}55` }} />
+                    {/* Progress fill */}
+                    {progress > 0 && (
+                      <div className="absolute rounded-md"
+                        style={{ left: `${startPct}%`, width: `${barWidth * progress}%`, height: 16, top: '50%', marginTop: -8, background: s.color, opacity: 0.7 }} />
+                    )}
+                    {/* Sub-plan name label inside bar */}
+                    {barWidth > 4 && (
+                      <div className="absolute flex items-center px-1.5" style={{ left: `${startPct}%`, width: `${barWidth}%`, height: 16, top: '50%', marginTop: -8, zIndex: 2, overflow: 'hidden', pointerEvents: 'none' }}>
+                        <span className="text-[9px] font-semibold truncate" style={{ color: progress > 0.5 ? 'white' : s.color, mixBlendMode: 'unset' }}>{s.name}</span>
+                      </div>
+                    )}
+                    {/* Active sprint indicator */}
+                    {isActive && todayPct > startPct / 100 && todayPct < endPct / 100 && (
+                      <div className="absolute -top-0.5 text-[8px] font-bold px-1 rounded-sm" style={{ left: `${startPct}%`, background: s.color, color: 'white' }}>active</div>
+                    )}
+                    {/* Hover popover */}
+                    {hoveredSprint === s.id && sprintTasks.length > 0 && (
+                      <div className="absolute z-30 rounded-xl shadow-xl p-3"
+                        style={{ background: 'var(--surface)', border: '1px solid var(--border)', top: '100%', left: `${startPct}%`, minWidth: 200, maxWidth: 280 }}
+                        onPointerDown={(e) => e.stopPropagation()}>
+                        <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
+                          {doneTasks.length}/{sprintTasks.length} tasks complete
+                        </p>
+                        <div className="space-y-1 max-h-40 overflow-auto">
+                          {sprintTasks.slice(0, 12).map((t) => {
+                            const isDone = t.status === 'done' || !!t.completedAt;
+                            return (
+                              <button key={t.id} className="flex items-center gap-2 text-xs w-full text-left rounded px-0.5 hover:opacity-80 transition-opacity cursor-pointer" onClick={(e) => { e.stopPropagation(); setSelectedTask(t); }}>
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: STATUS_COLOR[t.status] ?? '#64748b' }} />
+                                <span className="flex-1 truncate" style={{ color: 'var(--text)', opacity: isDone ? 0.45 : 1, textDecoration: isDone ? 'line-through' : 'none' }}>{t.name}</span>
+                              </button>
+                            );
+                          })}
+                          {sprintTasks.length > 12 && <p className="text-[10px] pt-1" style={{ color: 'var(--text-3)' }}>+{sprintTasks.length - 12} more</p>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {ganttView === 'sprints' && sprints.length === 0 && (
+                <div className="flex items-center justify-center py-12 text-xs" style={{ color: 'var(--text-3)' }}>No sprints to display</div>
+              )}
+
+              {/* Milestone bars */}
+              {ganttView === 'milestones' && visibleMilestones.map((m) => {
                 const deadlinePct = pct(new Date(m.deadline), vs, ve) * 100;
                 const fillWidth = m.progress * deadlinePct;
                 const color = progressColor(m);
@@ -438,6 +554,7 @@ export default function GanttPage() {
                         className="absolute z-30 rounded-xl shadow-xl p-3"
                         style={{ background: 'var(--surface)', border: '1px solid var(--border)', top: '100%', left: '2%', minWidth: 220, maxWidth: 300 }}
                         onMouseEnter={() => setHoveredMilestone(m.id)}
+                        onPointerDown={(e) => e.stopPropagation()}
                       >
                         <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
                           {m.doneDependencies}/{m.totalDependencies} tasks done
@@ -451,11 +568,11 @@ export default function GanttPage() {
                                 {isFirstDone && m.doneDependencies > 0 && m.doneDependencies < m.totalDependencies && (
                                   <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>Completed</div>
                                 )}
-                                <div className="flex items-center gap-2 text-xs">
+                                <button className="flex items-center gap-2 text-xs w-full text-left rounded px-0.5 hover:opacity-80 transition-opacity cursor-pointer" onClick={(e) => { e.stopPropagation(); const t = tasks.find((t) => t.id === d.id); if (t) setSelectedTask(t); }}>
                                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: STATUS_COLOR[d.status] ?? '#64748b' }} />
                                   <span className="flex-1 truncate" style={{ color: 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.45 : 1 }}>{d.name}</span>
                                   {!d.ownerId && !isDone && <span className="text-[10px] px-1 rounded flex-shrink-0" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>unassigned</span>}
-                                </div>
+                                </button>
                               </div>
                             );
                           })}
@@ -471,8 +588,8 @@ export default function GanttPage() {
                 );
               })}
 
-              {/* Product deadline row */}
-              <div
+              {/* Product deadline row - milestones view only */}
+              {ganttView === 'milestones' && <div
                 className="relative flex items-center"
                 style={{ height: ROW_H, borderBottom: '1px solid var(--border)', background: hoveredProduct ? 'var(--surface-2)' : 'transparent' }}
                 onMouseEnter={() => setHoveredProduct(true)}
@@ -537,7 +654,7 @@ export default function GanttPage() {
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
         </div>

@@ -12,7 +12,7 @@ export async function milestoneRoutes(app: FastifyInstance) {
       prisma.product.findUnique({ where: { id: productId } }),
       prisma.task.findMany({
         where: { productId, deadline: { not: null }, deletedAt: null },
-        include: { owner: { select: { id: true, username: true, avatarEmoji: true } } },
+        include: { owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } } },
       }),
     ]);
     if (!product) return reply.status(404).send({ error: 'Not found' });

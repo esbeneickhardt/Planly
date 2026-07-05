@@ -75,7 +75,7 @@ export async function requireTabWrite(
   // Co-owner always has write
   if (member.role === 'co_owner') return true;
 
-  // Check explicit tab permissions — no row means default write
+  // Check explicit tab permissions - no row means default write
   const rows = await prisma.tabPermission.findMany({
     where: { productId, userId, tab: { in: tabs } },
     select: { tab: true, level: true },

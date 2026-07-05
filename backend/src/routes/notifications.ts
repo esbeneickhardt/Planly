@@ -4,14 +4,16 @@ import { requireAuth } from '../middleware/auth';
 
 export async function notificationRoutes(app: FastifyInstance) {
   // Get own notifications (newest first, unread first)
+  // Optional ?productId= scopes to a specific project (plus null-productId system notifications)
   app.get('/api/notifications', { preHandler: requireAuth }, async (req, reply) => {
-    const { limit = '30', cursor } = req.query as { limit?: string; cursor?: string };
+    const { limit = '30', cursor, productId } = req.query as { limit?: string; cursor?: string; productId?: string };
     const take = Math.min(parseInt(limit), 100);
 
     const notifications = await prisma.notification.findMany({
       where: {
         userId: req.user.userId,
         ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
+        ...(productId ? { OR: [{ productId }, { productId: null }] } : {}),
       },
       orderBy: [{ read: 'asc' }, { createdAt: 'desc' }],
       take,
@@ -24,9 +26,15 @@ export async function notificationRoutes(app: FastifyInstance) {
   });
 
   // Unread count - used for the notification bell badge
+  // Optional ?productId= scopes to a specific project (plus null-productId system notifications)
   app.get('/api/notifications/unread-count', { preHandler: requireAuth }, async (req, reply) => {
+    const { productId } = req.query as { productId?: string };
     const count = await prisma.notification.count({
-      where: { userId: req.user.userId, read: false },
+      where: {
+        userId: req.user.userId,
+        read: false,
+        ...(productId ? { OR: [{ productId }, { productId: null }] } : {}),
+      },
     });
     reply.send({ count });
   });
@@ -58,6 +66,12 @@ export async function notificationRoutes(app: FastifyInstance) {
     await prisma.notification.deleteMany({
       where: { id: notificationId, userId: req.user.userId },
     });
+    reply.send({ ok: true });
+  });
+
+  // Delete all notifications for the current user
+  app.delete('/api/notifications', { preHandler: requireAuth }, async (req, reply) => {
+    await prisma.notification.deleteMany({ where: { userId: req.user.userId } });
     reply.send({ ok: true });
   });
 }

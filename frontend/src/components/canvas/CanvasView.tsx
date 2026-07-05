@@ -10,7 +10,7 @@ import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useToast } from '../../context/ToastContext';
-import { api } from '../../api/client';
+import { api, displayName } from '../../api/client';
 import type { CanvasSnapshot } from '../../api/client';
 import type { Task, Sprint } from '../../types';
 import TaskNode from './nodes/TaskNode';
@@ -56,7 +56,7 @@ const nodeTypes = { task: TaskNode, product: ProductNode };
 interface CtxMenu { x: number; y: number; type: 'edge' | 'node'; edgeId?: string; srcId?: string; tgtId?: string; taskId?: string; }
 
 const STATUS_OPTIONS = [
-  { key: 'backlog',     label: 'Backlog',      color: '#64748b' },
+  { key: 'backlog',     label: 'Not started',  color: '#64748b' },
   { key: 'todo',        label: 'To Do',        color: '#3b82f6' },
   { key: 'in_progress', label: 'In Progress',  color: '#f59e0b' },
   { key: 'blocked',     label: 'Blocked',      color: '#ef4444' },
@@ -215,8 +215,8 @@ function LegendModal({ onClose }: { onClose: () => void }) {
             <li>Right-click a task to quickly change its status</li>
             <li>Click a task to select it - double-click to open its detail panel</li>
             <li>Select a task and press Delete / Backspace to delete it</li>
-            <li>When a sprint is selected the checkbox on each task adds / removes it</li>
-            <li>Sprint map mode colours each task by which sprint(s) it belongs to</li>
+            <li>When a sub-plan is selected the checkbox on each task adds / removes it</li>
+            <li>Sub-plan map mode colours each task by which sub-plan(s) it belongs to</li>
           </ul>
         </div>
       </div>
@@ -735,7 +735,7 @@ function CanvasInner() {
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setCtxMenu(null);
     if (node.id.startsWith('product-')) return;
-    // In sprint-filter mode a click toggles membership; otherwise just select the node
+    // In sub-plan-filter mode a click toggles membership; otherwise just select the node
     const { filter, toggle } = sprintClickRef.current;
     if (filter) toggle(node.id);
   }, []); // stable reference - sprint state always fresh via sprintClickRef
@@ -801,7 +801,7 @@ function CanvasInner() {
       const updated = await api.sprints.update(activeProduct.id, editingSprint.id, { name: editSprintForm.name, color: editSprintForm.color });
       setSprints((prev) => prev.map((s) => s.id === updated.id ? { ...updated, taskIds: s.taskIds } : s));
       setEditingSprint(null);
-      showToast(`Sprint updated`, 'success');
+      showToast(`Sub-plan updated`, 'success');
     } catch (err) { showToast((err as Error).message, 'error'); }
   }
 
@@ -817,7 +817,7 @@ function CanvasInner() {
         return next;
       });
       setShowNewSprint(false);
-      showToast(`Sprint "${s.name}" created`, 'success');
+      showToast(`Sub-plan "${s.name}" created`, 'success');
     } catch (err) { showToast((err as Error).message, 'error'); }
   }
 
@@ -902,7 +902,7 @@ function CanvasInner() {
                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                     style={segBtn('sprint')}
                   >
-                    ⚡ {viewMode === 'sprint' && activeSprint ? activeSprint.name : 'Sprint'}
+                    ⚡ {viewMode === 'sprint' && activeSprint ? activeSprint.name : 'Sub-plan'}
                     <span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showSprintPicker && (
@@ -913,7 +913,7 @@ function CanvasInner() {
                     >
                       {/* Header */}
                       <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Sprints</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Sub-plans</span>
                         {canWriteCanvas && (
                           <button
                             onClick={() => { setShowSprintPicker(false); setShowNewSprint(true); }}
@@ -934,13 +934,13 @@ function CanvasInner() {
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                       >
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
-                        <span style={{ color: !selectedSprintFilter ? 'var(--brand)' : 'var(--text-2)' }}>No sprint (exit sprint mode)</span>
+                        <span style={{ color: !selectedSprintFilter ? 'var(--brand)' : 'var(--text-2)' }}>No sub-plan (exit sub-plan mode)</span>
                         {!selectedSprintFilter && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
                       </button>
 
                       {/* Sprint list with select + delete */}
                       {sortedSprints.length === 0 && (
-                        <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sprints yet - create one to start planning.</p>
+                        <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sub-plans yet - create one to start planning.</p>
                       )}
                       {sortedSprints.map((s) => {
                         const isActive = selectedSprintFilter === s.id;
@@ -969,7 +969,7 @@ function CanvasInner() {
                                   onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
                                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
                                   onClick={(e) => { e.stopPropagation(); setEditingSprint(s); setEditSprintForm({ name: s.name, color: s.color }); setShowSprintPicker(false); }}
-                                  title="Edit sprint"
+                                  title="Edit sub-plan"
                                 >✎</button>
                                 <button
                                   className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
@@ -977,7 +977,7 @@ function CanvasInner() {
                                   onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
                                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
                                   onClick={(e) => { e.stopPropagation(); deleteSprint(s.id); }}
-                                  title="Delete sprint"
+                                  title="Delete sub-plan"
                                 >✕</button>
                               </>
                             )}
@@ -1074,8 +1074,8 @@ function CanvasInner() {
                       <button onClick={() => setSprintAuraSave(!showSprintAura)} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                         <span style={{ fontSize: 15 }}>🎨</span>
                         <div className="flex-1">
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Sprint colour map</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Colour tasks by sprint membership</p>
+                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Sub-plan colour map</p>
+                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Colour tasks by sub-plan membership</p>
                         </div>
                         {showSprintAura && <span style={{ color: 'var(--brand)', fontSize: 12 }}>✓</span>}
                       </button>
@@ -1162,10 +1162,10 @@ function CanvasInner() {
                 </button>
               )}
 
-              {/* Sprint map legend - only when sprint aura is on */}
+              {/* Sub-plan map legend - only when sprint aura is on */}
               {showSprintAura && sortedSprints.length > 0 && (
                 <div className="rounded-xl px-3 py-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-3)' }}>Sprint map</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-3)' }}>Sub-plan map</p>
                   {sortedSprints.map((s) => (
                     <div key={s.id} className="flex items-center gap-2 mb-1 last:mb-0">
                       <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
@@ -1176,7 +1176,31 @@ function CanvasInner() {
               )}
             </div>
           </Panel>
+
         </ReactFlow>
+
+        {/* Empty-state onboarding */}
+        {tasksLoaded && tasks.length === 0 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 5 }}>
+            <div className="flex flex-col items-center gap-2 px-5 py-4 rounded-2xl text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', maxWidth: 320, pointerEvents: 'auto' }}>
+              <div className="text-3xl opacity-60">📐</div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Start building your canvas</p>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>
+                Add tasks and connect them to show dependencies. Tasks with deadlines become milestones.
+              </p>
+              <div className="flex flex-col gap-1.5 w-full">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
+                  <span className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--border)', color: 'var(--text-2)' }}>dbl-click</span>
+                  <span>canvas to create a task</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
+                  <span className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--border)', color: 'var(--text-2)' }}>drag</span>
+                  <span>between tasks to add dependencies</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Context menu */}
         {ctxMenu && (
@@ -1242,11 +1266,11 @@ function CanvasInner() {
         )}
 
         {showNewSprint && (
-          <Modal title="New sprint" onClose={() => setShowNewSprint(false)} width="max-w-sm">
+          <Modal title="New sub-plan" onClose={() => setShowNewSprint(false)} width="max-w-sm">
             <form onSubmit={handleCreateSprint} className="space-y-4">
               <div>
-                <label className="label">Sprint name</label>
-                <input autoFocus required type="text" value={sprintForm.name} onChange={(e) => setSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" placeholder="e.g. Sprint 1, MVP, Beta…" />
+                <label className="label">Sub-plan name</label>
+                <input autoFocus required type="text" value={sprintForm.name} onChange={(e) => setSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" placeholder="e.g. Sub-plan 1, MVP, Beta…" />
               </div>
               <div>
                 <label className="label">Colour</label>
@@ -1266,7 +1290,7 @@ function CanvasInner() {
                 <div><label className="label">End date</label><input required type="date" value={sprintForm.endDate} onChange={(e) => setSprintForm((p) => ({ ...p, endDate: e.target.value }))} className="input" /></div>
               </div>
               <div className="flex gap-3">
-                <button type="submit" className="btn-primary flex-1">Create sprint</button>
+                <button type="submit" className="btn-primary flex-1">Create sub-plan</button>
                 <button type="button" onClick={() => setShowNewSprint(false)} className="btn-secondary">Cancel</button>
               </div>
             </form>
@@ -1274,10 +1298,10 @@ function CanvasInner() {
         )}
 
         {editingSprint && (
-          <Modal title="Edit sprint" onClose={() => setEditingSprint(null)} width="max-w-sm">
+          <Modal title="Edit sub-plan" onClose={() => setEditingSprint(null)} width="max-w-sm">
             <form onSubmit={handleEditSprint} className="space-y-4">
               <div>
-                <label className="label">Sprint name</label>
+                <label className="label">Sub-plan name</label>
                 <input autoFocus required type="text" value={editSprintForm.name} onChange={(e) => setEditSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" />
               </div>
               <div>
@@ -1332,7 +1356,7 @@ function CanvasInner() {
                   onChange={(e) => setSnapshotName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') saveSnapshot(); }}
                   className="input"
-                  placeholder="e.g. Sprint 1 kickoff, QA review…"
+                  placeholder="e.g. Sub-plan 1 kickoff, QA review…"
                 />
               </div>
               <div className="flex gap-3">
@@ -1360,7 +1384,7 @@ function CanvasInner() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{snap.name}</p>
                         <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                          {snap.user.avatarEmoji ?? '👤'} {snap.user.username} · {new Date(snap.createdAt).toLocaleDateString()}
+                          {snap.user.avatarEmoji ?? '👤'} {displayName(snap.user)} · {new Date(snap.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <button

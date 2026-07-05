@@ -8,9 +8,9 @@ import { logActivity } from '../utils/activity';
 import { broadcast } from '../realtime/manager';
 
 const TASK_INCLUDE = {
-  owner: { select: { id: true, username: true, avatarEmoji: true } },
-  reviewer: { select: { id: true, username: true, avatarEmoji: true } },
-  creator: { select: { id: true, username: true } },
+  owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
+  reviewer: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
+  creator: { select: { id: true, username: true, realName: true } },
   subtasks: { orderBy: { order: 'asc' as const } },
   dependsOn: { select: { prerequisiteId: true } },
   requiredBy: { select: { dependentId: true } },

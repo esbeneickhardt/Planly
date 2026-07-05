@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAdmin } from '../middleware/auth';
 
-const AUTHOR_SELECT = { id: true, username: true, avatarEmoji: true };
+const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true };
 const MSG_INCLUDE = {
   author: { select: AUTHOR_SELECT },
   task: { select: { id: true, name: true } },

@@ -309,6 +309,33 @@ export async function adminRoutes(app: FastifyInstance) {
     readable.push(null);
   });
 
+  // ── Admin notifications (sourced from audit log, excludes routine logins) ──
+  const ADMIN_NOTIF_ACTIONS = [
+    'USER_REGISTERED', 'LOGIN_FAILED', 'LOGIN_LOCKED', 'LOGIN_UNLOCKED',
+    'USER_PROMOTED', 'USER_DEMOTED', 'CROWN_TRANSFERRED', 'FOUNDING_ADMIN_REGISTERED',
+    'EMAIL_VERIFIED_BY_ADMIN', 'USER_DELETED', 'SERVER_CONFIG_UPDATED', 'LOGS_PRUNED',
+  ];
+
+  app.get('/api/admin/notifications', { preHandler: requireAdmin }, async (req, reply) => {
+    const { limit = '30' } = req.query as { limit?: string };
+    const take = Math.min(parseInt(limit), 100);
+    const entries = await prisma.adminLog.findMany({
+      where: { action: { in: ADMIN_NOTIF_ACTIONS } },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
+    reply.send({ entries });
+  });
+
+  app.get('/api/admin/notifications/unread-count', { preHandler: requireAdmin }, async (req, reply) => {
+    const { since } = req.query as { since?: string };
+    if (!since) return reply.send({ count: 0 });
+    const count = await prisma.adminLog.count({
+      where: { action: { in: ADMIN_NOTIF_ACTIONS }, createdAt: { gt: new Date(since) } },
+    });
+    reply.send({ count });
+  });
+
   app.delete('/api/admin/logs/prune', { preHandler: requireAdmin }, async (req, reply) => {
     const { olderThanDays } = req.body as { olderThanDays: number };
     const days = Math.max(1, parseInt(String(olderThanDays)) || 90);

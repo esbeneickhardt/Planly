@@ -116,7 +116,7 @@ export default function IntegrationsModal({ onClose }: Props) {
             perms.map((p) => (
               <div key={p.productId} className="rounded-xl px-3 py-2.5" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-base">{p.productEmoji ?? '📁'}</span>
+                  <span className="text-base">{p.productEmoji ?? '🎯'}</span>
                   <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--text)' }}>{p.productName}</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold capitalize" style={{
                     background: p.role === 'owner' ? 'var(--brand-subtle)' : 'var(--surface)',
