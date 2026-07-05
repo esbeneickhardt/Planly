@@ -132,6 +132,14 @@ const AboutIcon = ({ size = 20 }: { size?: number }) => (
   </svg>
 );
 
+const MegaphoneIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <path d="M15.54 8.46a5 5 0 010 7.07" />
+    <path d="M19.07 4.93a10 10 0 010 14.14" />
+  </svg>
+);
+
 // ── Admin tab definitions ──────────────────────────────────────────────────
 
 const ADMIN_TABS: { key: string; label: string; Icon: (p: { size?: number }) => JSX.Element }[] = [
@@ -158,7 +166,7 @@ interface NewProductForm { name: string; emoji: string; description: string; dea
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpen, chatIsAdmin }: { onOpenSearch: () => void; onOpenChat: () => void; onOpenVision: () => void; chatOpen?: boolean; chatIsAdmin?: boolean }) {
+export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpen, chatIsAdmin, onToggleAdmin }: { onOpenSearch: () => void; onOpenChat: () => void; onOpenVision: () => void; chatOpen?: boolean; chatIsAdmin?: boolean; onToggleAdmin?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -373,24 +381,44 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             title="How Planly works"
           >?</button>
 
+          {/* Announcements */}
+          <NavLink
+            to="/announcements"
+            title={chatIsAdmin ? 'Announcements (admin mode)' : 'Announcements'}
+            className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+            style={({ isActive }) => ({
+              color: (chatIsAdmin || isActive) ? 'var(--brand)' : 'var(--text-3)',
+              background: (chatIsAdmin || isActive) ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              border: `1px solid ${(chatIsAdmin || isActive) ? 'var(--brand)' : 'transparent'}`,
+            })}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--brand)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand)'; }}
+            onMouseLeave={(e) => {
+              const active = chatIsAdmin || (e.currentTarget as HTMLElement).getAttribute('aria-current') === 'page';
+              (e.currentTarget as HTMLElement).style.color = active ? 'var(--brand)' : 'var(--text-3)';
+              (e.currentTarget as HTMLElement).style.borderColor = active ? 'var(--brand)' : 'transparent';
+            }}
+          >
+            <MegaphoneIcon size={18} />
+          </NavLink>
+
           {/* Notification bell */}
           <NotificationBell />
 
           {/* Admin panel toggle - only for admins */}
           {user?.isAdmin && (
             <button
-              onClick={() => isAdminPage ? navigate('/kanban') : navigate('/admin')}
-              title={isAdminPage ? 'Exit admin panel' : 'Admin panel'}
+              onClick={onToggleAdmin ?? (() => isAdminPage ? navigate('/kanban') : navigate('/admin'))}
+              title={chatIsAdmin ? 'Exit admin mode' : 'Admin mode'}
               className="w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0"
               style={{
-                color: isAdminPage ? 'var(--brand)' : 'var(--text-3)',
-                background: isAdminPage ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                border: `1px solid ${isAdminPage ? 'var(--brand)' : 'transparent'}`,
+                color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
+                background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                border: `1px solid ${chatIsAdmin ? 'var(--brand)' : 'transparent'}`,
               }}
               onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.color = isAdminPage ? 'var(--brand)' : 'var(--text-3)';
-                e.currentTarget.style.borderColor = isAdminPage ? 'var(--brand)' : 'transparent';
+                e.currentTarget.style.color = chatIsAdmin ? 'var(--brand)' : 'var(--text-3)';
+                e.currentTarget.style.borderColor = chatIsAdmin ? 'var(--brand)' : 'transparent';
               }}
             >
               <ShieldIcon size={18} />

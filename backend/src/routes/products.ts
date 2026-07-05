@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { getServerConfig } from '../utils/server-config';
 
 export async function productRoutes(app: FastifyInstance) {
   app.get('/api/products', { preHandler: requireAuth }, async (req, reply) => {
@@ -17,6 +18,13 @@ export async function productRoutes(app: FastifyInstance) {
       name: string; emoji?: string; description?: string; deadline: string; teamId: string;
     };
     if (!name || !deadline || !teamId) return reply.status(400).send({ error: 'name, deadline and teamId required' });
+
+    // Check server-level project creation permission (admins are always allowed)
+    const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+    if (!requestingUser?.isAdmin) {
+      const cfg = await getServerConfig();
+      if (!cfg.allowProjectCreation) return reply.status(403).send({ error: 'Project creation is restricted to admins on this server.' });
+    }
 
     // Verify the requester is a member of the target team
     const membership = await prisma.teamMember.findUnique({

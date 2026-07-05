@@ -19,6 +19,7 @@ import SettingsPage from './pages/SettingsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AboutPage from './pages/AboutPage';
 import AdminPage from './pages/AdminPage';
+import AnnouncementsPage from './pages/AnnouncementsPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 
@@ -97,6 +98,7 @@ export default function App() {
                               <Route path="/analytics" element={<AnalyticsPage />} />
                               <Route path="/about" element={<AboutPage />} />
                               <Route path="/admin" element={<AdminPage />} />
+                              <Route path="/announcements" element={<AnnouncementsPage />} />
                               <Route path="/categories" element={<Navigate to="/settings" replace />} />
                               <Route path="/settings" element={<RequireManage><SettingsPage /></RequireManage>} />
                             </Routes>

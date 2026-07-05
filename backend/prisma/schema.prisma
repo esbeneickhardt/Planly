@@ -65,6 +65,8 @@ model User {
   notifications       Notification[]
   passwordResetTokens PasswordResetToken[]
   emailVerifyTokens   EmailVerifyToken[]
+  announcements       Announcement[]
+  announcementComments AnnouncementComment[]
 }
 
 model Team {
@@ -73,9 +75,10 @@ model Team {
   createdAt DateTime  @default(now())
   deletedAt DateTime?
 
-  members  TeamMember[]
-  products Product[]
-  invites  TeamInvite[]
+  members       TeamMember[]
+  products      Product[]
+  invites       TeamInvite[]
+  announcements Announcement[]
 }
 
 model TeamMember {
@@ -475,6 +478,43 @@ model ServerConfig {
   id                       String  @id @default("main")
   requireEmailVerification Boolean @default(false)
   requireWhitelist         Boolean @default(false)
+  allowProjectCreation     Boolean @default(false)
+  announcementsEnabled     Boolean @default(false)
+  announcementPostRole     String  @default("admin")
+}
+
+// ── Announcements (server-wide) ───────────────────────────────────────────────
+
+model Announcement {
+  id              String   @id @default(uuid())
+  title           String
+  content         String
+  authorId        String
+  teamId          String?
+  pinned          Boolean  @default(false)
+  commentsEnabled Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  author   User                  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  team     Team?                 @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  comments AnnouncementComment[]
+
+  @@index([createdAt(sort: Desc)])
+}
+
+model AnnouncementComment {
+  id             String    @id @default(uuid())
+  announcementId String
+  authorId       String
+  content        String
+  createdAt      DateTime  @default(now())
+  editedAt       DateTime?
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

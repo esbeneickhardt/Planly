@@ -64,7 +64,7 @@ export type AdminTab = 'ownership' | 'users' | 'projects' | 'email' | 'logs' | '
 type AdminUser = { id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string; failedLoginAttempts: number; loginLockedUntil: string | null };
 type AdminProject = { id: string; name: string; emoji: string | null; deadline: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number };
 type AdminLogEntry = { id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string };
-type ServerConfig = { adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean };
+type ServerConfig = { adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string };
 type Stats = { userCount: number; projectCount: number; taskCount: number; messageCount: number; newUsers: number; newProjects: number };
 type EmailStatus = { enabled: boolean; from: string | null; config: { host: string; port: number; secure: boolean; user: string; from: string } | null };
 
@@ -598,6 +598,59 @@ export default function AdminPage() {
                         showToast(`Whitelist ${v ? 'enabled' : 'disabled'}`, 'success');
                       })}
                     />
+
+                    <Toggle
+                      label="Allow members to create projects"
+                      description="When off, only admins can create new projects. Admins can always create projects."
+                      value={serverConfig.allowProjectCreation}
+                      onChange={(v) => act(async () => {
+                        await api.admin.updateServerConfig({ allowProjectCreation: v });
+                        setServerConfig((c) => c ? { ...c, allowProjectCreation: v } : c);
+                        showToast(`Project creation ${v ? 'open to all members' : 'restricted to admins'}`, 'success');
+                      })}
+                    />
+                  </div>
+                )}
+
+                {/* Announcements feature */}
+                {serverConfig && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Announcements</p>
+                    <Toggle
+                      label="Enable announcement wall"
+                      description="Show a server-wide announcement wall accessible to all members."
+                      value={serverConfig.announcementsEnabled}
+                      onChange={(v) => act(async () => {
+                        await api.admin.updateServerConfig({ announcementsEnabled: v });
+                        setServerConfig((c) => c ? { ...c, announcementsEnabled: v } : c);
+                        showToast(`Announcement wall ${v ? 'enabled' : 'disabled'}`, 'success');
+                      })}
+                    />
+                    {serverConfig.announcementsEnabled && (
+                      <div className="px-4 py-3 rounded-xl space-y-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                        <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Who can post announcements?</p>
+                        <div className="flex gap-2">
+                          {[{ value: 'admin', label: 'Admins only' }, { value: 'admin_and_owners', label: 'Admins + Project owners' }, { value: 'all', label: 'All members' }].map(({ value, label }) => (
+                            <button
+                              key={value}
+                              onClick={() => act(async () => {
+                                await api.admin.updateServerConfig({ announcementPostRole: value });
+                                setServerConfig((c) => c ? { ...c, announcementPostRole: value } : c);
+                                showToast(`Posting restricted to ${label.toLowerCase()}`, 'success');
+                              })}
+                              className="px-3 py-1.5 rounded-lg text-sm transition-colors"
+                              style={{
+                                background: serverConfig.announcementPostRole === value ? '#6366f1' : 'var(--surface)',
+                                color: serverConfig.announcementPostRole === value ? '#fff' : 'var(--text-2)',
+                                border: `1px solid ${serverConfig.announcementPostRole === value ? '#6366f1' : 'var(--border)'}`,
+                              }}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

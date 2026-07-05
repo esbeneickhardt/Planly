@@ -151,9 +151,12 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   app.put('/api/admin/server-config', { preHandler: requireAdmin }, async (req, reply) => {
-    const { requireEmailVerification, requireWhitelist } = req.body as {
+    const { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } = req.body as {
       requireEmailVerification?: boolean;
       requireWhitelist?: boolean;
+      allowProjectCreation?: boolean;
+      announcementsEnabled?: boolean;
+      announcementPostRole?: string;
     };
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
 
@@ -164,15 +167,21 @@ export async function adminRoutes(app: FastifyInstance) {
       update: {
         ...(requireEmailVerification !== undefined ? { requireEmailVerification } : {}),
         ...(requireWhitelist !== undefined ? { requireWhitelist } : {}),
+        ...(allowProjectCreation !== undefined ? { allowProjectCreation } : {}),
+        ...(announcementsEnabled !== undefined ? { announcementsEnabled } : {}),
+        ...(announcementPostRole !== undefined ? { announcementPostRole } : {}),
       },
       create: {
         id: 'main',
         requireEmailVerification: requireEmailVerification ?? false,
         requireWhitelist: requireWhitelist ?? false,
+        allowProjectCreation: allowProjectCreation ?? false,
+        announcementsEnabled: announcementsEnabled ?? false,
+        announcementPostRole: announcementPostRole ?? 'admin',
       },
     });
     await prisma.adminLog.create({
-      data: { action: 'SERVER_CONFIG_UPDATED', actorName: actor?.username, metadata: { requireEmailVerification, requireWhitelist } },
+      data: { action: 'SERVER_CONFIG_UPDATED', actorName: actor?.username, metadata: { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } },
     });
 
     // When turning email verification ON: email everyone who has never verified

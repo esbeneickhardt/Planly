@@ -132,6 +132,19 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
           )}
           <div className="flex-1" />
 
+          <NavLink
+            to="/announcements"
+            state={{ adminContext: isAdminPage }}
+            title="Announcements"
+            className={({ isActive }) =>
+              `w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all ${
+                isActive ? 'bg-[var(--surface-2)] text-[var(--text)]' : 'text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+              }`
+            }
+          >
+            📢
+          </NavLink>
+
           {/* Admin icon - only shown when NOT already on admin page */}
           {user?.isAdmin && !isAdminPage && (
             <NavLink
@@ -326,6 +339,21 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
                   )}
                 </NavLink>
               ))}
+
+              <NavLink
+                to="/announcements"
+                state={{ adminContext: isAdminPage }}
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-all ${
+                    isActive
+                      ? 'bg-[var(--surface-2)] text-[var(--text)] font-medium'
+                      : 'text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                  }`
+                }
+              >
+                <span className="text-sm opacity-60">📢</span>
+                Announcements
+              </NavLink>
 
               {/* Admin panel link - only shown when not already on admin page */}
               {user?.isAdmin && (

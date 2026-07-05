@@ -139,6 +139,19 @@ export interface AppRegistration {
   createdAt: string;
 }
 
+export type AnnAuthor = { id: string; username: string; avatarEmoji: string | null; isAdmin: boolean };
+export type AnnTeam   = { id: string; name: string } | null;
+export type AnnItem   = {
+  id: string; title: string; content: string; pinned: boolean;
+  commentsEnabled: boolean; createdAt: string; updatedAt: string;
+  author: AnnAuthor; team: AnnTeam;
+  _count: { comments: number };
+};
+export type AnnComment = {
+  id: string; announcementId: string; content: string;
+  createdAt: string; editedAt: string | null; author: AnnAuthor;
+};
+
 export const api = {
 
   users: {
@@ -444,8 +457,8 @@ export const api = {
     whitelist: () => request<{ id: string; pattern: string; createdAt: string }[]>('/api/admin/whitelist'),
     addWhitelist: (pattern: string) => request<{ id: string; pattern: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern }) }),
     removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
-    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean }>('/api/admin/server-config'),
-    updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean }) =>
+    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string }>('/api/admin/server-config'),
+    updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean; allowProjectCreation?: boolean; announcementsEnabled?: boolean; announcementPostRole?: string }) =>
       request<{ ok: boolean; verificationEmailsSent?: number }>('/api/admin/server-config', { method: 'PUT', body: json(data) }),
     logs: (params?: { cursor?: string; action?: string; from?: string; to?: string }) => {
       const qs = new URLSearchParams();
@@ -475,6 +488,26 @@ export const api = {
       request<{ ok: boolean; deletedCount: number }>('/api/admin/logs/prune', { method: 'DELETE', body: json({ olderThanDays }) }),
     projects: () => request<{ id: string; name: string; emoji: string | null; deadline: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number }[]>('/api/admin/projects'),
     stats: () => request<{ userCount: number; projectCount: number; taskCount: number; messageCount: number; newUsers: number; newProjects: number }>('/api/admin/stats'),
+  },
+
+  announcements: {
+    list: () => request<{
+      announcements: AnnItem[];
+      canPost: boolean;
+      enabled: boolean;
+    }>('/api/announcements'),
+    create: (data: { title: string; content: string; pinned?: boolean; teamId?: string; commentsEnabled?: boolean }) =>
+      request<AnnItem>('/api/announcements', { method: 'POST', body: json(data) }),
+    update: (id: string, data: { title?: string; content?: string; pinned?: boolean; commentsEnabled?: boolean }) =>
+      request<AnnItem>(`/api/announcements/${id}`, { method: 'PATCH', body: json(data) }),
+    delete: (id: string) => request<{ ok: boolean }>(`/api/announcements/${id}`, { method: 'DELETE' }),
+    comments: {
+      list: (annId: string) => request<AnnComment[]>(`/api/announcements/${annId}/comments`),
+      create: (annId: string, content: string) =>
+        request<AnnComment>(`/api/announcements/${annId}/comments`, { method: 'POST', body: json({ content }) }),
+      delete: (annId: string, commentId: string) =>
+        request<{ ok: boolean }>(`/api/announcements/${annId}/comments/${commentId}`, { method: 'DELETE' }),
+    },
   },
 
   analytics: {
