@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { Prisma } from '@prisma/client';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { validate } from '../utils/validate';
+import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
 
 const MEMBER_INCLUDE = { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } } };
 
@@ -34,15 +36,17 @@ export async function teamRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/teams', { preHandler: requireAuth }, async (req, reply) => {
-    const { name, memberIds } = req.body as { name: string; memberIds?: string[] };
-    if (!name) return reply.status(400).send({ error: 'name required' });
+    const body = validate(createTeamSchema, req.body, reply);
+    if (!body) return;
+    const { name, memberIds } = body;
+
+    // Always enroll the creator; deduplicate in case they included themselves
+    const allMemberIds = Array.from(new Set([req.user.userId, ...(memberIds ?? [])]));
 
     const team = await prisma.team.create({
       data: {
         name,
-        members: memberIds?.length
-          ? { create: memberIds.map((userId) => ({ userId })) }
-          : undefined,
+        members: { create: allMemberIds.map((userId) => ({ userId })) },
       },
       include: MEMBER_INCLUDE,
     });
@@ -63,7 +67,9 @@ export async function teamRoutes(app: FastifyInstance) {
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isAdmin) return reply.status(403).send({ error: 'Only team admins can rename the team' });
-    const { name } = req.body as { name?: string };
+    const body = validate(updateTeamSchema, req.body, reply);
+    if (!body) return;
+    const { name } = body;
     try {
       const team = await prisma.team.update({ where: { id }, data: { name }, include: MEMBER_INCLUDE });
       reply.send(team);

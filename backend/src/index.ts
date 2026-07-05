@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import helmet from '@fastify/helmet';
 
 import { authRoutes } from './routes/auth';
 import { passwordResetRoutes } from './routes/password-reset';
@@ -40,12 +41,13 @@ import { adminRoutes } from './routes/admin';
 import { adminChatRoutes } from './routes/admin-chat';
 import { announcementRoutes } from './routes/announcements';
 import { ipRestrictionRoutes, matchesCidr, getClientIp } from './routes/ip-restrictions';
+import { icalRoutes } from './routes/ical';
 import { csrfCheck } from './middleware/csrf';
 
 import websocket from '@fastify/websocket';
 import prisma from './db/client';
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 
 async function ensureAdminAccount() {
   if (!config.admin.email) return;
@@ -140,6 +142,20 @@ async function main() {
     },
   });
 
+  await app.register(helmet, { contentSecurityPolicy: false });
+
+  // Attach a request-ID to every request and echo it back in the response.
+  // Frontend can log the X-Request-Id header to correlate errors with server logs.
+  app.addHook('onRequest', (req, _reply, done) => {
+    const incoming = req.headers['x-request-id'];
+    req.id = (Array.isArray(incoming) ? incoming[0] : incoming) || randomUUID();
+    done();
+  });
+  app.addHook('onSend', (_req, reply, _payload, done) => {
+    reply.header('X-Request-Id', _req.id as string);
+    done();
+  });
+
   await app.register(cors, {
     origin: config.frontendOrigin,
     credentials: true,
@@ -202,17 +218,18 @@ async function main() {
     }),
   });
 
-  // Stricter limits on auth endpoints (applied per-route via plugin config override)
-  // These routes self-register with tighter limits using addHook / config
-  await app.register(authRoutes);
-  await app.register(passwordResetRoutes);
-
-  // Override rate limit for sensitive auth endpoints
+  // Stricter limits on sensitive auth endpoints — hook must be registered BEFORE the routes
   app.addHook('onRoute', (route) => {
     if (route.url && ['/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password'].includes(route.url)) {
       (route as any).config = { rateLimit: { max: 10, timeWindow: '1 minute' } };
     }
+    if (route.url === '/api/auth/resend-verification') {
+      (route as any).config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
+    }
   });
+
+  await app.register(authRoutes);
+  await app.register(passwordResetRoutes);
 
   await app.register(apiTokenRoutes);
   await app.register(appRegistrationRoutes);
@@ -245,6 +262,7 @@ async function main() {
   await app.register(adminChatRoutes);
   await app.register(announcementRoutes);
   await app.register(ipRestrictionRoutes);
+  await app.register(icalRoutes);
 
   // Health check - verifies DB connection
   app.get('/api/health', async (_req, reply) => {

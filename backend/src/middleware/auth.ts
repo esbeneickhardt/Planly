@@ -20,6 +20,7 @@ export interface AuthPayload {
   userId: string;
   username: string;
   scopedProductId?: string; // set when the Bearer token is locked to a specific project
+  tv?: number; // tokenVersion — present in cookie JWTs issued after this feature was added
 }
 
 declare module 'fastify' {
@@ -74,7 +75,16 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
   const cookieToken = req.cookies?.token;
   if (cookieToken) {
     try {
-      req.user = jwt.verify(cookieToken, process.env.JWT_SECRET!) as AuthPayload;
+      const payload = jwt.verify(cookieToken, process.env.JWT_SECRET!) as AuthPayload;
+      // Verify tokenVersion when present — invalidates sessions after password change/reset
+      if (typeof payload.tv === 'number') {
+        const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
+        if (!userRow || userRow.tokenVersion !== payload.tv) {
+          reply.clearCookie('token', { path: '/' }).status(401).send({ error: 'Unauthorized' });
+          return false;
+        }
+      }
+      req.user = payload;
       return true;
     } catch {
       // invalid/expired

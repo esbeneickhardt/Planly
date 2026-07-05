@@ -6,6 +6,10 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "TEST_DATABASE_URL=$TEST_DATABASE_URL vitest run --reporter=verbose",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev"
@@ -14,6 +18,7 @@
     "@aws-sdk/client-s3": "^3.1075.0",
     "@fastify/cookie": "^9.3.1",
     "@fastify/cors": "^9.0.1",
+    "@fastify/helmet": "^11.1.1",
     "@fastify/multipart": "^8.3.1",
     "@fastify/rate-limit": "^9.1.0",
     "@fastify/websocket": "^8.3.1",
@@ -31,8 +36,10 @@
     "@types/node": "^20.14.0",
     "@types/nodemailer": "^8.0.1",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.1.9",
     "prisma": "^5.14.0",
     "tsx": "^4.15.7",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.9"
   }
 }

@@ -106,6 +106,10 @@ export default function SettingsPage() {
   const [appTokens, setAppTokens] = useState<ApiToken[]>([]);
   const [newAppTokenName, setNewAppTokenName] = useState('');
 
+  // Calendar feed state
+  const [calendarUrl, setCalendarUrl] = useState<string | null>(null);
+  const [generatingCalendar, setGeneratingCalendar] = useState(false);
+
   // Webhooks state
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
@@ -144,6 +148,7 @@ export default function SettingsPage() {
       setProjEmoji(activeProduct.emoji ?? '');
       setProjDesc(activeProduct.description ?? '');
       setProjDirty(false);
+      setCalendarUrl(localStorage.getItem(`planly-calendar-url-${activeProduct.id}`) ?? null);
     }
   }, [activeProduct?.id]);
 
@@ -1038,6 +1043,89 @@ export default function SettingsPage() {
                   Authorization: Bearer planly_…
                 </code>
               </div>
+            </div>
+
+            {/* ── Calendar Feed ── */}
+            <div>
+              <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Calendar feed (iCal)</h2>
+              <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+                Subscribe to project deadlines, milestones, and sprints in any calendar app — Google Calendar, Apple Calendar, Outlook, etc.
+                The URL contains a private token; keep it secret and regenerate if compromised.
+              </p>
+
+              {calendarUrl ? (
+                <div className="p-4 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Your calendar URL</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-[11px] break-all px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                      {calendarUrl}
+                    </code>
+                    <button
+                      className="btn-secondary text-xs flex-shrink-0"
+                      onClick={() => { navigator.clipboard.writeText(calendarUrl); showToast('Copied!', 'success'); }}
+                    >Copy</button>
+                  </div>
+                  <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                    Paste this URL as a "Calendar subscription" in your calendar app. It will auto-refresh with the latest milestones and sprints.
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      disabled={generatingCalendar}
+                      className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ color: 'var(--text-3)', border: '1px solid var(--border)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                      onClick={async () => {
+                        if (!activeProduct) return;
+                        if (!confirm('Regenerating will invalidate the current URL. Continue?')) return;
+                        setGeneratingCalendar(true);
+                        try {
+                          const { token } = await api.calendar.generateToken(activeProduct.id);
+                          const url = api.calendar.feedUrl(activeProduct.id, token);
+                          localStorage.setItem(`planly-calendar-url-${activeProduct.id}`, url);
+                          setCalendarUrl(url);
+                          showToast('Calendar URL regenerated', 'success');
+                        } catch (err) { showToast((err as Error).message, 'error'); }
+                        finally { setGeneratingCalendar(false); }
+                      }}
+                    >Regenerate</button>
+                    <button
+                      className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+                      onClick={async () => {
+                        if (!activeProduct) return;
+                        if (!confirm('Revoke calendar URL? Your calendar app will stop syncing.')) return;
+                        try {
+                          await api.calendar.revokeToken(activeProduct.id);
+                          localStorage.removeItem(`planly-calendar-url-${activeProduct.id}`);
+                          setCalendarUrl(null);
+                          showToast('Calendar URL revoked', 'success');
+                        } catch (err) { showToast((err as Error).message, 'error'); }
+                      }}
+                    >Revoke</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  disabled={generatingCalendar || !activeProduct}
+                  className="btn-secondary text-sm flex items-center gap-2"
+                  onClick={async () => {
+                    if (!activeProduct) return;
+                    setGeneratingCalendar(true);
+                    try {
+                      const { token } = await api.calendar.generateToken(activeProduct.id);
+                      const url = api.calendar.feedUrl(activeProduct.id, token);
+                      localStorage.setItem(`planly-calendar-url-${activeProduct.id}`, url);
+                      setCalendarUrl(url);
+                      showToast('Calendar URL generated — copy it now!', 'success');
+                    } catch (err) { showToast((err as Error).message, 'error'); }
+                    finally { setGeneratingCalendar(false); }
+                  }}
+                >
+                  {generatingCalendar ? <span className="inline-block w-4 h-4 border-2 border-current/40 border-t-current rounded-full animate-spin" /> : '📅'}
+                  Generate calendar URL
+                </button>
+              )}
             </div>
 
           </div>

@@ -1,13 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductCoOwner } from '../utils/product-guard';
 
 export async function exportRoutes(app: FastifyInstance) {
   // Full product data export as JSON
   app.get('/api/products/:productId/export', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
 
     const [product, tasks, columns, sprints, messages, colorLegend, snapshots] = await Promise.all([
       prisma.product.findUnique({

@@ -47,6 +47,7 @@ model User {
   failedLoginAttempts     Int      @default(0)
   loginLockedUntil        DateTime?
   notificationPreferences Json     @default("{}")
+  tokenVersion            Int      @default(0)
   createdAt               DateTime @default(now())
 
   teams               TeamMember[]
@@ -68,6 +69,7 @@ model User {
   emailVerifyTokens   EmailVerifyToken[]
   announcements       Announcement[]
   announcementComments AnnouncementComment[]
+  fileUploads         FileUpload[]
 }
 
 model Team {
@@ -119,6 +121,7 @@ model Product {
   messages           Message[]
   accessRequests     AccessRequest[]
   webhooks           Webhook[]
+  fileUploads        FileUpload[]
 
   @@index([teamId])
   @@index([ownerId])
@@ -550,6 +553,22 @@ model AdminLog {
 
   @@index([createdAt(sort: Desc)])
   @@index([action])
+}
+
+// ── File uploads ─────────────────────────────────────────────────────────────
+
+model FileUpload {
+  id         String   @id @default(uuid())
+  filename   String   @unique
+  uploaderId String
+  productId  String?
+  createdAt  DateTime @default(now())
+
+  uploader User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  product  Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([uploaderId])
+  @@index([productId])
 }
 
 // ── Activity log ──────────────────────────────────────────────────────────────

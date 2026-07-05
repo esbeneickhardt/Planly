@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, requireTabWrite } from '../utils/product-guard';
 
 const SPRINT_INCLUDE = {
   sprintTasks: { select: { taskId: true } },
@@ -21,7 +21,7 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   app.post('/api/products/:productId/sprints', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
     const { name, startDate, endDate, color, taskIds } = req.body as {
       name: string; startDate: string; endDate: string; color?: string; taskIds?: string[];
     };
@@ -42,7 +42,7 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   app.patch('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
     const { name, startDate, endDate, color } = req.body as { name?: string; startDate?: string; endDate?: string; color?: string };
     try {
       const sprint = await prisma.sprint.update({
@@ -63,7 +63,7 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   app.delete('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
     try {
       await prisma.sprint.delete({ where: { id: sprintId, productId } });
       reply.send({ ok: true });
@@ -74,7 +74,7 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   app.post('/api/products/:productId/sprints/:sprintId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
     const { taskIds } = req.body as { taskIds: string[] };
     if (!Array.isArray(taskIds)) return reply.status(400).send({ error: 'taskIds array required' });
 
@@ -91,7 +91,7 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   app.delete('/api/products/:productId/sprints/:sprintId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId, taskId } = req.params as { productId: string; sprintId: string; taskId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
     try {
       await prisma.sprintTask.delete({ where: { sprintId_taskId: { sprintId, taskId } } });
       reply.send({ ok: true });

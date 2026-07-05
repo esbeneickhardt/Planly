@@ -29,10 +29,22 @@ export function matchesCidr(clientIp: string, cidr: string): boolean {
 }
 
 export function getClientIp(req: { headers: Record<string, string | string[] | undefined>; socket: { remoteAddress?: string } }): string {
+  const depth = parseInt(process.env.TRUSTED_PROXY_DEPTH ?? '1', 10);
+
+  // depth=0 means no trusted proxy — use socket address directly
+  if (depth <= 0) return req.socket.remoteAddress ?? '';
+
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
-    const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded).split(',')[0].trim();
-    if (first) return first;
+    const list = (Array.isArray(forwarded) ? forwarded.join(',') : forwarded)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length > 0) {
+      // Proxies append to the right; the client IP sits depth entries from the right
+      const idx = Math.max(0, list.length - depth);
+      return list[idx];
+    }
   }
   return req.socket.remoteAddress ?? '';
 }

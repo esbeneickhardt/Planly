@@ -34,7 +34,6 @@ const ALLOWED_MIME_TYPES: Record<string, string> = {
   'image/png': 'png',
   'image/gif': 'gif',
   'image/webp': 'webp',
-  'image/svg+xml': 'svg',
   'application/pdf': 'pdf',
   'text/plain': 'txt',
   'text/markdown': 'md',
@@ -50,6 +49,38 @@ const ALLOWED_MIME_TYPES: Record<string, string> = {
 };
 
 export { ALLOWED_MIME_TYPES };
+
+// MIME types where magic-bytes verification is skipped (text has no signature)
+const TEXT_MIME_TYPES = new Set(['text/plain', 'text/markdown', 'text/csv', 'application/json']);
+
+/**
+ * Verifies the declared MIME type against the actual file content via magic bytes.
+ * Returns true when the content matches or the type has no binary signature (text).
+ * Returns false when the bytes contradict the declared type (e.g. HTML disguised as PNG).
+ */
+export function verifyMimeBytes(buf: Buffer, declaredMime: string): boolean {
+  if (TEXT_MIME_TYPES.has(declaredMime)) return true;
+  if (buf.length < 4) return false;
+  const b = buf;
+
+  if (declaredMime === 'image/jpeg') return b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF;
+  if (declaredMime === 'image/png')  return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47;
+  if (declaredMime === 'image/gif')  return b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46;
+  if (declaredMime === 'image/webp') return buf.length >= 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
+  if (declaredMime === 'application/pdf') return b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46;
+  // ZIP-based formats (docx, xlsx, pptx, zip)
+  const isZipFamily = ['application/zip','application/x-zip-compressed',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  ].includes(declaredMime);
+  if (isZipFamily) return b[0] === 0x50 && b[1] === 0x4B;
+  // Legacy Office formats
+  if (declaredMime === 'application/msword' || declaredMime === 'application/vnd.ms-excel') {
+    return b[0] === 0xD0 && b[1] === 0xCF && b[2] === 0x11 && b[3] === 0xE0;
+  }
+  return false;
+}
 
 export function fileExtFromMime(mime: string): string | null {
   return ALLOWED_MIME_TYPES[mime] ?? null;
@@ -108,7 +139,7 @@ export async function getFileBuffer(filename: string): Promise<Buffer> {
 
 const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-  gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+  gif: 'image/gif', webp: 'image/webp',
   pdf: 'application/pdf',
   txt: 'text/plain', md: 'text/plain', csv: 'text/csv', json: 'application/json',
   zip: 'application/zip',

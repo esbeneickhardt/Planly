@@ -6,6 +6,8 @@ import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { createNotification } from '../utils/notifications';
 import { logActivity } from '../utils/activity';
 import { broadcast } from '../realtime/manager';
+import { validate } from '../utils/validate';
+import { createTaskSchema, updateTaskSchema } from '../schemas/tasks';
 
 const TASK_INCLUDE = {
   owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
@@ -56,17 +58,13 @@ export async function taskRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
-    const { name, description, ownerId, reviewerId, color, deadline, canvasX, canvasY, status } = req.body as {
-      name: string; description?: string; ownerId?: string; reviewerId?: string; color?: string;
-      deadline?: string; canvasX?: number; canvasY?: number; status?: string;
-    };
-    if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
-    if (name.length > 200) return reply.status(400).send({ error: 'name too long (max 200)' });
-    if (description && description.length > 50000) return reply.status(400).send({ error: 'description too long (max 50000)' });
+    const body = validate(createTaskSchema, req.body, reply);
+    if (!body) return;
+    const { name, description, ownerId, reviewerId, color, deadline, canvasX, canvasY, status } = body;
 
     const task = await prisma.task.create({
       data: {
-        productId, name: name.trim(), description, ownerId, reviewerId, color, canvasX, canvasY,
+        productId, name, description, ownerId, reviewerId, color, canvasX, canvasY,
         status: status || undefined,
         deadline: deadline ? new Date(deadline) : undefined,
         createdBy: req.user.userId,
@@ -105,10 +103,8 @@ export async function taskRoutes(app: FastifyInstance) {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
-    const body = req.body as {
-      name?: string; description?: string; ownerId?: string; reviewerId?: string | null; color?: string;
-      deadline?: string | null; status?: string; canvasX?: number; canvasY?: number;
-    };
+    const body = validate(updateTaskSchema, req.body, reply);
+    if (!body) return;
 
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });

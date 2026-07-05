@@ -1,0 +1,47 @@
+import { describe, it, expect } from 'vitest';
+import { encryptValue, decryptValue } from '../../utils/crypto';
+
+describe('encryptValue / decryptValue', () => {
+  it('roundtrips a simple string', () => {
+    const plaintext = 'my-smtp-password';
+    expect(decryptValue(encryptValue(plaintext))).toBe(plaintext);
+  });
+
+  it('roundtrips an empty string', () => {
+    expect(decryptValue(encryptValue(''))).toBe('');
+  });
+
+  it('roundtrips a string with special characters', () => {
+    const plaintext = 'p@$$w0rd!#&<>"\'\\';
+    expect(decryptValue(encryptValue(plaintext))).toBe(plaintext);
+  });
+
+  it('produces different ciphertexts for the same plaintext (random IV)', () => {
+    const a = encryptValue('same');
+    const b = encryptValue('same');
+    expect(a).not.toBe(b);
+  });
+
+  it('decryptValue returns the input unchanged when it is not encrypted (legacy plaintext)', () => {
+    expect(decryptValue('plaintext-password')).toBe('plaintext-password');
+  });
+
+  it('decryptValue returns the input when auth tag is tampered (falls back gracefully)', () => {
+    const encrypted = encryptValue('secret');
+    const parts = encrypted.split(':');
+    // Tamper with the auth tag
+    parts[1] = '0'.repeat(parts[1].length);
+    const tampered = parts.join(':');
+    expect(decryptValue(tampered)).toBe(tampered);
+  });
+
+  it('encrypted value has the expected iv:tag:ciphertext format', () => {
+    const encrypted = encryptValue('test');
+    const parts = encrypted.split(':');
+    expect(parts).toHaveLength(3);
+    // IV is 12 bytes → 24 hex chars
+    expect(parts[0]).toHaveLength(24);
+    // Auth tag is 16 bytes → 32 hex chars
+    expect(parts[1]).toHaveLength(32);
+  });
+});

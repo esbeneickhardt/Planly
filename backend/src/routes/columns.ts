@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { randomUUID } from 'crypto';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, requireTabWrite } from '../utils/product-guard';
 
 const DEFAULT_COLUMNS = [
   { label: 'To Do',       color: '#3b82f6', order: 0, isDone: false, statusKey: 'todo'        },
@@ -31,7 +31,7 @@ export async function columnRoutes(app: FastifyInstance) {
 
   app.post('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
     const { label, color } = req.body as { label: string; color?: string };
     if (!label) return reply.status(400).send({ error: 'label required' });
 
@@ -54,7 +54,7 @@ export async function columnRoutes(app: FastifyInstance) {
   // Must be registered BEFORE /:columnId
   app.patch('/api/products/:productId/columns/reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
     const { order } = req.body as { order: { id: string; order: number }[] };
     await prisma.$transaction(
       order.map(({ id, order: o }) => prisma.kanbanColumn.update({ where: { id, productId }, data: { order: o } }))
@@ -64,7 +64,7 @@ export async function columnRoutes(app: FastifyInstance) {
 
   app.patch('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
     const { label, color } = req.body as { label?: string; color?: string };
     try {
       const col = await prisma.kanbanColumn.update({ where: { id: columnId, productId }, data: { label, color } });
@@ -76,7 +76,7 @@ export async function columnRoutes(app: FastifyInstance) {
 
   app.delete('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
     const col = await prisma.kanbanColumn.findFirst({ where: { id: columnId, productId } });
     if (!col) return reply.status(404).send({ error: 'Not found' });
     if (col.isDone) return reply.status(400).send({ error: 'Cannot delete the completion column' });

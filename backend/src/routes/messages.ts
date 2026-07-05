@@ -6,7 +6,9 @@ import { requireProductMember } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { broadcast } from '../realtime/manager';
 import { logActivity } from '../utils/activity';
-import { storeFile, getFileBuffer, deleteFile, fileExtFromMime, generateFilename, mimeFromExt, ALLOWED_MIME_TYPES } from '../utils/storage';
+import { storeFile, getFileBuffer, deleteFile, fileExtFromMime, generateFilename, mimeFromExt, ALLOWED_MIME_TYPES, verifyMimeBytes } from '../utils/storage';
+import { sendEmail, mentionEmail } from '../utils/email';
+import { createNotification } from '../utils/notifications';
 
 const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true };
 const MSG_INCLUDE = {
@@ -21,6 +23,7 @@ export async function messageRoutes(app: FastifyInstance) {
 
   // Upload file - returns a URL that can be embedded in messages
   app.post('/api/upload', { preHandler: requireAuth }, async (req, reply) => {
+    const { productId } = req.query as { productId?: string };
     const data = await req.file();
     if (!data) return reply.status(400).send({ error: 'No file' });
 
@@ -28,19 +31,46 @@ export async function messageRoutes(app: FastifyInstance) {
     if (!ext) return reply.status(400).send({ error: `File type not allowed: ${data.mimetype}` });
 
     const buf = await data.toBuffer();
+
+    // Verify file content matches declared MIME type
+    if (!verifyMimeBytes(buf, data.mimetype)) {
+      return reply.status(400).send({ error: 'File content does not match declared type' });
+    }
+
     const filename = generateFilename(buf, ext);
     await storeFile(buf, filename, data.mimetype);
+
+    // Track upload ownership for access control
+    await prisma.fileUpload.create({
+      data: {
+        filename,
+        uploaderId: req.user.userId,
+        productId: productId ?? null,
+      },
+    }).catch(() => {});
+
     reply.send({ url: `/api/uploads/${filename}`, name: data.filename, type: data.mimetype });
   });
 
-  // Serve uploaded files - requires auth to prevent public URL enumeration
+  // Serve uploaded files
   app.get('/api/uploads/:filename', { preHandler: requireAuth }, async (req, reply) => {
     const { filename } = req.params as { filename: string };
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+
+    // Check file ownership: if we have a record, enforce product membership
+    const record = await prisma.fileUpload.findUnique({ where: { filename: safe } });
+    if (record?.productId) {
+      const isMember = await prisma.product.findFirst({
+        where: { id: record.productId, team: { members: { some: { userId: req.user.userId } } } },
+      });
+      if (!isMember) return reply.status(403).send({ error: 'Forbidden' });
+    }
+
     try {
       const buf = await getFileBuffer(safe);
       const ext = safe.split('.').pop()?.toLowerCase() ?? '';
-      reply.header('Content-Type', mimeFromExt(ext) ?? 'application/octet-stream').send(buf);
+      const mime = mimeFromExt(ext) ?? 'application/octet-stream';
+      reply.header('Content-Type', mime).header('X-Content-Type-Options', 'nosniff').send(buf);
     } catch {
       reply.status(404).send({ error: 'Not found' });
     }
@@ -50,8 +80,16 @@ export async function messageRoutes(app: FastifyInstance) {
   app.delete('/api/uploads/:filename', { preHandler: requireAuth }, async (req, reply) => {
     const { filename } = req.params as { filename: string };
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+
+    // Only the uploader may delete; for legacy files (no DB record) any auth user can delete
+    const record = await prisma.fileUpload.findUnique({ where: { filename: safe } });
+    if (record && record.uploaderId !== req.user.userId) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
     try {
       await deleteFile(safe);
+      if (record) await prisma.fileUpload.delete({ where: { filename: safe } }).catch(() => {});
       reply.send({ ok: true });
     } catch {
       reply.status(404).send({ error: 'Not found' });
@@ -91,27 +129,38 @@ export async function messageRoutes(app: FastifyInstance) {
     broadcast(productId, 'message.created', msg);
     logActivity({ productId, actorId: req.user.userId, action: 'message.created', entityType: 'message', entityId: msg.id });
 
-    // Create notifications for @mentioned users (fire-and-forget)
+    // Create notifications and optional emails for @mentioned users (fire-and-forget)
     const mentionedUsernames = [...content.matchAll(/@(\w+)/g)].map((m) => m[1]);
     if (mentionedUsernames.length > 0) {
       prisma.user.findMany({
         where: { username: { in: mentionedUsernames }, id: { not: req.user.userId } },
-        select: { id: true },
-      }).then((users) => {
+        select: { id: true, email: true, notificationPreferences: true },
+      }).then(async (users) => {
         if (!users.length) return;
         const taskName = msg.task?.name;
         const snippet = content.slice(0, 200);
-        return prisma.notification.createMany({
-          data: users.map((u) => ({
+        const appUrl = process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+        for (const u of users) {
+          const prefs = (u.notificationPreferences as Record<string, boolean> | null) ?? {};
+          // In-app notification (respects mention pref, default on)
+          await createNotification({
             userId: u.id,
             type: 'mention',
             title: `${req.user.username} mentioned you${taskName ? ` in "${taskName}"` : ''}`,
             body: snippet,
             productId,
-            taskId: taskId ?? null,
-          })),
-          skipDuplicates: true,
-        });
+            taskId: taskId ?? undefined,
+          });
+          // Email notification (off by default, opt-in via emailMentions pref)
+          if (prefs.emailMentions === true) {
+            const context = taskName ?? '';
+            sendEmail({
+              to: u.email,
+              subject: `@${req.user.username} mentioned you in Planly`,
+              html: mentionEmail(req.user.username, context, snippet, appUrl),
+            }).catch(() => {});
+          }
+        }
       }).catch(() => {});
     }
 
