@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, requireTabRead } from '../utils/product-guard';
 
 export async function analyticsRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/analytics', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabRead(productId, req.user.userId, ['analytics'], reply)) return;
 
     // If analytics is disabled, only the product owner or team co-owner may view it
     const product = await prisma.product.findUnique({

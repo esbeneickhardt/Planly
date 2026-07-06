@@ -73,7 +73,11 @@ export async function authRoutes(app: FastifyInstance) {
       .send({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified });
   });
 
-  app.post('/api/auth/logout', async (_req, reply) => {
+  app.post('/api/auth/logout', { preHandler: requireAuth }, async (req, reply) => {
+    await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { tokenVersion: { increment: 1 } },
+    }).catch(() => {});
     reply.clearCookie('token', { path: '/' }).send({ ok: true });
   });
 

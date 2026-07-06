@@ -95,6 +95,64 @@ export async function requireTabWrite(
 }
 
 /**
+ * Verifies that `userId` has at least read-level access (not 'none') on at
+ * least one of the given tabs. Owners and co-owners always pass. Regular
+ * members pass unless every specified tab has an explicit 'none' row.
+ * Sends 403 and returns false on deny.
+ */
+export async function requireTabRead(
+  productId: string,
+  userId: string,
+  tabs: string[],
+  reply: FastifyReply,
+): Promise<boolean> {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: {
+      ownerId: true,
+      team: {
+        select: {
+          members: { where: { userId }, select: { role: true } },
+        },
+      },
+    },
+  });
+
+  if (!product) {
+    reply.status(404).send({ error: 'Not found' });
+    return false;
+  }
+
+  if (product.ownerId === userId) return true;
+
+  const member = product.team.members[0];
+  if (!member) {
+    reply.status(403).send({ error: 'Forbidden' });
+    return false;
+  }
+
+  if (member.role === 'co_owner') return true;
+
+  const rows = await prisma.tabPermission.findMany({
+    where: { productId, userId, tab: { in: tabs } },
+    select: { tab: true, level: true },
+  });
+
+  // Can read if any tab is absent (default write) or explicitly read/write
+  const canRead = tabs.some((tab) => {
+    const row = rows.find((r) => r.tab === tab);
+    return !row || row.level !== 'none';
+  });
+
+  if (!canRead) {
+    reply.status(403).send({ error: 'Access denied' });
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Verifies that `userId` is the owner or a co-owner of `productId`.
  * Regular members are rejected. Sends 404/403 and returns false on deny.
  */

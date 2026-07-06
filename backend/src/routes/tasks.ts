@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireTabWrite } from '../utils/product-guard';
+import { requireProductMember, requireTabRead, requireTabWrite } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { createNotification } from '../utils/notifications';
 import { logActivity } from '../utils/activity';
@@ -24,6 +24,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabRead(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
 
     const { cursor, limit = '500' } = req.query as { cursor?: string; limit?: string };
     const take = Math.min(parseInt(limit), 500);
@@ -94,6 +95,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabRead(productId, req.user.userId, ['kanban', 'backlog', 'canvas', 'gantt'], reply)) return;
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE }, include: TASK_INCLUDE });
     if (!task) return reply.status(404).send({ error: 'Not found' });
     reply.send(task);
