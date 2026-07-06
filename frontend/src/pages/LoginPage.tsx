@@ -1,10 +1,10 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, totpChallenge } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const next = searchParams.get('next') ?? '/kanban';
@@ -15,21 +15,33 @@ export default function LoginPage() {
   const [sso, setSso] = useState<{ enabled: boolean; providerName: string } | null>(null);
   const [showResend, setShowResend] = useState(false);
   const [resendSent, setResendSent] = useState(false);
+  // TOTP challenge state
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
+  const totpInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.auth.ssoConfig().then(setSso).catch(() => {});
-    // Show SSO error from callback redirect
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error');
     if (err) setError(err === 'sso_state_mismatch' ? 'SSO session expired - please try again.' : 'SSO sign-in failed. Try again or use email/password.');
   }, []);
+
+  // Focus TOTP input when the challenge step appears
+  useEffect(() => {
+    if (mfaToken) totpInputRef.current?.focus();
+  }, [mfaToken]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await login(identifier, password);
+      const result = await login(identifier, password);
+      if (result?.requiresTOTP) {
+        setMfaToken(result.mfaToken);
+        return;
+      }
       navigate(next, { replace: true });
     } catch (err) {
       const msg = (err as Error).message;
@@ -38,6 +50,66 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleTotpSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!mfaToken) return;
+    setError('');
+    setLoading(true);
+    try {
+      await totpChallenge(mfaToken, totpCode);
+      navigate(next, { replace: true });
+    } catch (err) {
+      setError((err as Error).message);
+      setTotpCode('');
+      totpInputRef.current?.focus();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── TOTP challenge step ──────────────────────────────────────────────────────
+  if (mfaToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
+              <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
+            </div>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Two-factor authentication</h1>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>Enter the 6-digit code from your authenticator app</p>
+          </div>
+          <form onSubmit={handleTotpSubmit} className="card p-6 space-y-4">
+            <div>
+              <label className="label">Authenticator code</label>
+              <input
+                ref={totpInputRef}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="input text-center text-2xl tracking-widest"
+                placeholder="000000"
+                maxLength={6}
+              />
+            </div>
+            {error && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>}
+            <button type="submit" disabled={loading || totpCode.length < 6} className="btn-primary w-full justify-center flex">
+              {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Verify'}
+            </button>
+            <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
+              Lost access to your app? Enter a backup code instead.
+            </p>
+          </form>
+          <button onClick={() => { setMfaToken(null); setError(''); }} className="w-full text-sm text-center mt-4" style={{ color: 'var(--text-3)' }}>
+            ← Back to sign in
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

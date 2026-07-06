@@ -53,7 +53,7 @@ export async function activityRoutes(app: FastifyInstance) {
 
     reply.send({
       events: enriched,
-      nextCursor: events.length === take ? events[events.length - 1].createdAt : null,
+      nextCursor: events.length === take ? (events[events.length - 1]?.createdAt ?? null) : null,
     });
   });
 }

@@ -497,7 +497,7 @@ export default function GanttPage() {
               <div className="px-3 py-5 flex flex-col gap-1.5">
                 <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>No sub-plans yet</p>
                 <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
-                  Create sprints in the <strong style={{ color: 'var(--text-2)' }}>Execute</strong> view to see them plotted as windows on the timeline.
+                  Create sprints in the <strong style={{ color: 'var(--text-2)' }}>Plan</strong> view to see them plotted as windows on the timeline.
                 </p>
               </div>
             )}

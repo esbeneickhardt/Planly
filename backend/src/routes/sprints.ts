@@ -1,7 +1,24 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireTabRead, requireTabWrite } from '../utils/product-guard';
+
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'Invalid color (expected hex e.g. #7c3aed)');
+const createSprintSchema = z.object({
+  name: z.string().min(1).max(100),
+  startDate: z.string().refine((d) => !isNaN(new Date(d).getTime()), 'Invalid startDate'),
+  endDate: z.string().refine((d) => !isNaN(new Date(d).getTime()), 'Invalid endDate'),
+  color: hexColor.optional(),
+  taskIds: z.array(z.string()).optional(),
+});
+const updateSprintSchema = z.object({
+  name: z.string().max(100).optional(),
+  startDate: z.string().refine((d) => !isNaN(new Date(d).getTime()), 'Invalid startDate').optional(),
+  endDate: z.string().refine((d) => !isNaN(new Date(d).getTime()), 'Invalid endDate').optional(),
+  color: hexColor.optional(),
+});
+const sprintTasksSchema = z.object({ taskIds: z.array(z.string()).max(1000) });
 
 const SPRINT_INCLUDE = {
   sprintTasks: { select: { taskId: true } },
@@ -23,10 +40,9 @@ export async function sprintRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/sprints', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
-    const { name, startDate, endDate, color, taskIds } = req.body as {
-      name: string; startDate: string; endDate: string; color?: string; taskIds?: string[];
-    };
-    if (!name || !startDate || !endDate) return reply.status(400).send({ error: 'name, startDate, endDate required' });
+    const parsed = createSprintSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'name, startDate, endDate required' });
+    const { name, startDate, endDate, color, taskIds } = parsed.data;
 
     const sprint = await prisma.sprint.create({
       data: {
@@ -44,7 +60,9 @@ export async function sprintRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
-    const { name, startDate, endDate, color } = req.body as { name?: string; startDate?: string; endDate?: string; color?: string };
+    const parsed = updateSprintSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+    const { name, startDate, endDate, color } = parsed.data;
     try {
       const sprint = await prisma.sprint.update({
         where: { id: sprintId, productId },
@@ -76,8 +94,9 @@ export async function sprintRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/sprints/:sprintId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
-    const { taskIds } = req.body as { taskIds: string[] };
-    if (!Array.isArray(taskIds)) return reply.status(400).send({ error: 'taskIds array required' });
+    const parsed = sprintTasksSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'taskIds array required' });
+    const { taskIds } = parsed.data;
 
     const validTasks = await prisma.task.findMany({
       where: { id: { in: taskIds }, productId },

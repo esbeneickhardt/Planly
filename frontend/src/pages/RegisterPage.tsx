@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const [searchParams] = useSearchParams();
   const next = searchParams.get('next') ?? '/kanban';
   const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '', realName: '' });
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,9 +24,13 @@ export default function RegisterPage() {
       setError('Passwords do not match');
       return;
     }
+    if (!tosAccepted) {
+      setError('You must accept the Terms of Service to register');
+      return;
+    }
     setLoading(true);
     try {
-      await api.users.create({ username: form.username, email: form.email, password: form.password, realName: form.realName || undefined });
+      await api.users.create({ username: form.username, email: form.email, password: form.password, realName: form.realName || undefined, tosAccepted: true });
       await login(form.email, form.password);
       navigate(next, { replace: true });
     } catch (err) {
@@ -61,12 +66,27 @@ export default function RegisterPage() {
           </div>
           <div>
             <label className="label">Password</label>
-            <input type="password" required minLength={6} value={form.password} onChange={set('password')} className="input" placeholder="••••••••" />
+            <input type="password" required minLength={8} value={form.password} onChange={set('password')} className="input" placeholder="••••••••" />
+            <p className="text-xs mt-1" style={{ color: 'var(--text-2)' }}>Min 8 characters, at least one number and one special character</p>
           </div>
           <div>
             <label className="label">Confirm password</label>
-            <input type="password" required minLength={6} value={form.confirmPassword} onChange={set('confirmPassword')} className="input" placeholder="••••••••" />
+            <input type="password" required minLength={8} value={form.confirmPassword} onChange={set('confirmPassword')} className="input" placeholder="••••••••" />
           </div>
+          <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={tosAccepted}
+              onChange={(e) => setTosAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded"
+            />
+            <span className="text-sm" style={{ color: 'var(--text-2)' }}>
+              I agree to the{' '}
+              <a href="/terms" target="_blank" className="underline" style={{ color: 'var(--brand)' }}>Terms of Service</a>
+              {' '}and{' '}
+              <a href="/privacy" target="_blank" className="underline" style={{ color: 'var(--brand)' }}>Privacy Policy</a>
+            </span>
+          </label>
           {error && (
             <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
           )}

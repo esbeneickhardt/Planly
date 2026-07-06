@@ -1,7 +1,17 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember } from '../utils/product-guard';
+
+const finiteNumber = z.number().finite();
+const positionSchema = z.record(z.string(), z.object({ x: finiteNumber, y: finiteNumber }))
+  .refine((p) => Object.keys(p).length <= 5000, 'Too many positions (max 5000)');
+const createSnapshotSchema = z.object({
+  name: z.string().min(1).max(100),
+  positions: positionSchema,
+  viewport: z.object({ x: finiteNumber, y: finiteNumber, zoom: finiteNumber }),
+});
 
 export async function canvasSnapshotRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
@@ -18,12 +28,9 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const { name, positions, viewport } = req.body as {
-      name: string;
-      positions: Record<string, { x: number; y: number }>;
-      viewport: { x: number; y: number; zoom: number };
-    };
-    if (!name) return reply.status(400).send({ error: 'name required' });
+    const parsed = createSnapshotSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+    const { name, positions, viewport } = parsed.data;
     const snapshot = await prisma.canvasSnapshot.create({
       data: { productId, userId: req.user.userId, name, positions, viewport },
       include: { user: { select: { id: true, username: true, avatarEmoji: true } } },

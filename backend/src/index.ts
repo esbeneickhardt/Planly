@@ -30,11 +30,13 @@ import { notificationRoutes } from './routes/notifications';
 import { webhookRoutes } from './routes/webhooks';
 import { inviteRoutes } from './routes/invites';
 import { exportRoutes } from './routes/export';
+import { meExportRoutes } from './routes/me-export';
 import { searchRoutes } from './routes/search';
 import { realtimeRoutes } from './routes/realtime';
 import { activityRoutes } from './routes/activity';
 import { docsRoutes } from './routes/docs';
 import { emailStatusRoutes } from './routes/email-status';
+import { totpRoutes } from './routes/totp';
 import { ssoRoutes } from './routes/sso';
 import { analyticsRoutes } from './routes/analytics';
 import { adminRoutes } from './routes/admin';
@@ -69,7 +71,7 @@ async function ensureAdminAccount() {
   const initialPassword = useEnvPassword ? config.admin.password : randomBytes(12).toString('base64url');
   const passwordHash = await bcrypt.hash(initialPassword, 12);
 
-  const base = adminEmail.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32) || 'admin';
+  const base = (adminEmail.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32) || 'admin';
   let username = base;
   let suffix = 0;
   while (await prisma.user.findUnique({ where: { username } })) username = `${base}${++suffix}`;
@@ -136,23 +138,45 @@ async function main() {
       level: process.env.LOG_LEVEL ?? 'info',
       serializers: {
         req(req) {
-          return { method: req.method, url: req.url, remoteAddress: req.socket?.remoteAddress };
+          const safeUrl = req.url.replace(/([?&])token=[^&]*/g, '$1token=[redacted]');
+          return { method: req.method, url: safeUrl, remoteAddress: req.socket?.remoteAddress };
         },
       },
     },
   });
 
-  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
+    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+  });
+
+  // Prevent stack traces and internal Prisma error details from leaking to clients
+  app.setErrorHandler((err: Error & { statusCode?: number }, req, reply) => {
+    req.log.error({ err, requestId: req.id }, 'Unhandled error');
+    const status = err.statusCode ?? reply.statusCode;
+    if (!status || status >= 500) {
+      reply.status(500).send({ error: 'Internal server error', requestId: req.id });
+    } else {
+      reply.status(status).send({ error: err.message });
+    }
+  });
 
   // Attach a request-ID to every request and echo it back in the response.
   // Frontend can log the X-Request-Id header to correlate errors with server logs.
   app.addHook('onRequest', (req, _reply, done) => {
     const incoming = req.headers['x-request-id'];
-    req.id = (Array.isArray(incoming) ? incoming[0] : incoming) || randomUUID();
+    const raw = (Array.isArray(incoming) ? incoming[0] : incoming) ?? '';
+    // Strip control characters to prevent log injection
+    const sanitized = raw.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 64);
+    req.id = sanitized || randomUUID();
     done();
   });
   app.addHook('onSend', (_req, reply, _payload, done) => {
     reply.header('X-Request-Id', _req.id as string);
+    const ct = reply.getHeader('content-type');
+    if (ct && typeof ct === 'string' && ct.includes('text/html')) {
+      reply.header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'");
+    }
     done();
   });
 
@@ -166,22 +190,20 @@ async function main() {
   // CSRF protection via Origin header check (allows non-browser API token callers)
   app.addHook('preHandler', csrfCheck);
 
-  // Token project-scope enforcement - scoped tokens can only access their own project
-  app.addHook('preHandler', async (req, reply) => {
-    const scopedProductId = req.user?.scopedProductId;
-    if (!scopedProductId) return; // NULL-scope or cookie session - unrestricted
-
-    // Scoped tokens never access admin endpoints
-    if (req.url.startsWith('/api/admin')) {
-      return reply.status(403).send({ error: 'Scoped tokens cannot access admin endpoints' });
+  // Reject requests whose Content-Type header contains a tab character.
+  // Tab chars in Content-Type caused Fastify ≤4 to skip body parsing, bypassing
+  // JSON schema validation. Fastify 5 fixed this, but we keep the guard as defence-in-depth.
+  app.addHook('onRequest', (req, reply, done) => {
+    const ct = req.headers['content-type'];
+    if (ct && ct.includes('\t')) {
+      reply.status(400).send({ error: 'Malformed Content-Type header' });
+      return;
     }
-
-    // For product-level routes, verify the token's project matches
-    const match = req.url.match(/\/api\/products\/([^/?]+)/);
-    if (match && match[1] !== scopedProductId) {
-      return reply.status(403).send({ error: 'Token is not authorized for this project' });
-    }
+    done();
   });
+
+  // Note: scoped PAT enforcement is handled atomically inside validateToken in auth.ts
+  // (a global preHandler hook cannot do this because req.user is not yet populated at that point)
 
   // IP restriction check - runs before every request
   app.addHook('preHandler', async (req, reply) => {
@@ -223,6 +245,9 @@ async function main() {
     if (route.url && ['/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password'].includes(route.url)) {
       (route as any).config = { rateLimit: { max: 10, timeWindow: '1 minute' } };
     }
+    if (route.url === '/api/auth/change-password') {
+      (route as any).config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
+    }
     if (route.url === '/api/auth/resend-verification') {
       (route as any).config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
     }
@@ -251,11 +276,13 @@ async function main() {
   await app.register(webhookRoutes);
   await app.register(inviteRoutes);
   await app.register(exportRoutes);
+  await app.register(meExportRoutes);
   await app.register(searchRoutes);
   await app.register(realtimeRoutes);
   await app.register(activityRoutes);
   await app.register(docsRoutes);
   await app.register(emailStatusRoutes);
+  await app.register(totpRoutes);
   await app.register(ssoRoutes);
   await app.register(analyticsRoutes);
   await app.register(adminRoutes);
@@ -273,6 +300,33 @@ async function main() {
       reply.status(503).send({ ok: false, db: 'disconnected' });
     }
   });
+
+  // Scheduled data-retention cleanup (runs once at startup then every 24h)
+  async function runRetentionCleanup() {
+    try {
+      const notifCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const activityCutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+      const softDeleteCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+      const adminLogRetentionDays = parseInt(process.env.ADMIN_LOG_RETENTION_DAYS ?? '365', 10);
+      const adminLogCutoff = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000);
+      const [notifResult, activityResult, taskResult, adminLogResult] = await Promise.all([
+        prisma.notification.deleteMany({ where: { createdAt: { lt: notifCutoff } } }),
+        prisma.activityEvent.deleteMany({ where: { createdAt: { lt: activityCutoff } } }),
+        prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }),
+        prisma.adminLog.deleteMany({ where: { createdAt: { lt: adminLogCutoff } } }),
+      ]);
+      if (notifResult.count > 0 || activityResult.count > 0 || taskResult.count > 0 || adminLogResult.count > 0) {
+        app.log.info({ notificationsDeleted: notifResult.count, activityEventsDeleted: activityResult.count, tasksHardDeleted: taskResult.count, adminLogsDeleted: adminLogResult.count }, 'Retention cleanup completed');
+      }
+    } catch (err) {
+      app.log.warn({ err }, 'Retention cleanup failed');
+    }
+  }
+  // Run at startup (after a short delay to avoid DB contention at boot)
+  setTimeout(() => {
+    runRetentionCleanup();
+    setInterval(runRetentionCleanup, 24 * 60 * 60 * 1000);
+  }, 30_000);
 
   try {
     await app.listen({ port: config.port, host: '0.0.0.0' });

@@ -3,6 +3,7 @@ import * as oidcClient from 'openid-client';
 import { config } from '../config/env';
 import prisma from '../db/client';
 import jwt from 'jsonwebtoken';
+import { encryptOptional } from '../utils/crypto';
 
 const SSO_ENABLED = !!(config.oidc.issuer && config.oidc.clientId && config.oidc.clientSecret);
 
@@ -71,7 +72,7 @@ export async function ssoRoutes(app: FastifyInstance) {
     try {
       const cfg = await getOidcConfig();
       const params = req.query as Record<string, string>;
-      const state = params.state;
+      const state = params.state ?? '';
       const pending = pendingStates.get(state);
       if (!pending) return reply.redirect(`${config.frontendOrigin}/login?error=sso_state_mismatch`);
       pendingStates.delete(state);
@@ -87,17 +88,21 @@ export async function ssoRoutes(app: FastifyInstance) {
       if (!claims) return reply.redirect(`${config.frontendOrigin}/login?error=sso_no_claims`);
 
       const sub = claims.sub;
-      const email = (claims.email as string | undefined) ?? '';
+      const rawEmail = ((claims.email as string | undefined) ?? '').toLowerCase().trim();
+      // Only trust email for account-linking when the IdP has explicitly verified it.
+      // An unverified email claim could be attacker-controlled and must not match existing accounts.
+      const emailVerified = claims.email_verified === true;
+      const emailForLinking = emailVerified ? rawEmail : '';
       const name = (claims.name as string | undefined) ?? (claims.preferred_username as string | undefined) ?? '';
 
-      // Find existing user by SSO subject or email
+      // Find existing user by SSO subject, or by email only when IdP-verified
       let user = await prisma.user.findFirst({
-        where: { OR: [{ ssoSub: sub }, ...(email ? [{ email }] : [])] },
+        where: { OR: [{ ssoSub: sub }, ...(emailForLinking ? [{ email: emailForLinking }] : [])] },
       });
 
       if (!user) {
         // Auto-provision new user
-        const baseUsername = (email.split('@')[0] || name || sub).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30) || 'user';
+        const baseUsername = (rawEmail.split('@')[0] || name || sub).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30) || 'user';
         let username = baseUsername;
         let attempt = 0;
         while (await prisma.user.findUnique({ where: { username } })) {
@@ -107,16 +112,16 @@ export async function ssoRoutes(app: FastifyInstance) {
         user = await prisma.user.create({
           data: {
             username,
-            email: email || `${sub}@sso.local`,
-            realName: name || undefined,
+            email: rawEmail || `${sub}@sso.local`,
+            realName: encryptOptional(name || undefined),
             ssoProvider: config.oidc.providerName,
             ssoSub: sub,
-            emailVerified: true,
+            emailVerified,
             // passwordHash intentionally null - SSO users have no password
           },
         });
       } else if (!user.ssoSub) {
-        // Link existing email account to SSO
+        // Link existing account to SSO — only reached when emailForLinking matched (verified)
         await prisma.user.update({ where: { id: user.id }, data: { ssoSub: sub, ssoProvider: config.oidc.providerName } });
       }
 
@@ -126,7 +131,7 @@ export async function ssoRoutes(app: FastifyInstance) {
         { expiresIn: '7d' },
       );
       reply
-        .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 7 * 24 * 3600, secure: process.env.NODE_ENV === 'production' })
+        .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 7 * 24 * 3600, secure: process.env.COOKIE_SECURE !== 'false' })
         .redirect(`${config.frontendOrigin}/kanban`);
     } catch (err) {
       app.log.error(err, 'SSO callback error');

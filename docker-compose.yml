@@ -20,8 +20,18 @@ services:
     environment:
       DATABASE_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
       JWT_SECRET: ${JWT_SECRET}
+      # ── Encryption (required) ────────────────────────────────────────────────
+      # Separate 256-bit key for encrypting secrets at rest (SMTP passwords,
+      # webhook secrets). Generate with: openssl rand -hex 32
+      # Add to .env:  ENCRYPTION_KEY=<64-char hex string>
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-80}
       UPLOADS_DIR: /data/uploads
+      # Tells the backend how many reverse-proxy hops sit in front of it so it
+      # can read the real client IP from X-Forwarded-For. 1 = one Nginx layer.
+      TRUSTED_PROXY_DEPTH: "1"
+      # Set to "false" only for local HTTP-only development (no TLS).
+      # COOKIE_SECURE: "false"
       # ── Email (optional) ────────────────────────────────────────────────────
       # RECOMMENDED: configure email through the UI after first login.
       #   Settings → Email → fill in host/port/credentials → Save.
@@ -76,8 +86,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "3000:3000"
+    # Port 3000 is intentionally NOT exposed to the host — the backend is only
+    # reachable via the Docker network through the Nginx reverse proxy.
+    # WARNING: this file is for LOCAL DEVELOPMENT ONLY.
+    # In production always use docker-compose.prod.yml (Traefik + TLS, no direct port exposure).
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
 
   frontend:
     build: ./frontend
@@ -86,6 +103,11 @@ services:
       - backend
     ports:
       - "${FRONTEND_PORT:-80}:80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
 
 volumes:
   db_data:

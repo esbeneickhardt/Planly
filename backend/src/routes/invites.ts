@@ -1,9 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { randomBytes } from 'crypto';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { config } from '../config/env';
 import { sendEmail, teamInviteEmail } from '../utils/email';
+
+const createInviteSchema = z.object({ email: z.string().email().optional() });
 
 async function getTeamAdmin(teamId: string, userId: string) {
   const team = await prisma.team.findUnique({
@@ -21,7 +24,7 @@ export async function inviteRoutes(app: FastifyInstance) {
     const { teamId } = req.params as { teamId: string };
     const ctx = await getTeamAdmin(teamId, req.user.userId);
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
-    if (!ctx.isMember) return reply.status(403).send({ error: 'Forbidden' });
+    if (!ctx.isAdmin) return reply.status(403).send({ error: 'Forbidden' });
 
     const invites = await prisma.teamInvite.findMany({
       where: { teamId, usedAt: null, expiresAt: { gt: new Date() } },
@@ -39,11 +42,13 @@ export async function inviteRoutes(app: FastifyInstance) {
   // Create invite link (admins or members - anyone on the team can invite)
   app.post('/api/teams/:teamId/invites', { preHandler: requireAuth }, async (req, reply) => {
     const { teamId } = req.params as { teamId: string };
-    const { email } = req.body as { email?: string };
+    const parsed = createInviteSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+    const { email } = parsed.data;
 
     const ctx = await getTeamAdmin(teamId, req.user.userId);
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
-    if (!ctx.isMember) return reply.status(403).send({ error: 'Forbidden' });
+    if (!ctx.isAdmin) return reply.status(403).send({ error: 'Forbidden' });
 
     const token = randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -77,7 +82,7 @@ export async function inviteRoutes(app: FastifyInstance) {
     const { teamId, inviteId } = req.params as { teamId: string; inviteId: string };
     const ctx = await getTeamAdmin(teamId, req.user.userId);
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
-    if (!ctx.isMember) return reply.status(403).send({ error: 'Forbidden' });
+    if (!ctx.isAdmin) return reply.status(403).send({ error: 'Forbidden' });
     await prisma.teamInvite.deleteMany({ where: { id: inviteId, teamId } });
     reply.send({ ok: true });
   });

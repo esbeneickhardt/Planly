@@ -1,5 +1,6 @@
 import { createHmac } from 'crypto';
 import prisma from '../db/client';
+import { decryptValue } from './crypto';
 
 export async function dispatchWebhooks(productId: string, event: string, payload: object) {
   const webhooks = await prisma.webhook.findMany({
@@ -10,7 +11,7 @@ export async function dispatchWebhooks(productId: string, event: string, payload
   await Promise.allSettled(
     webhooks.map(async (wh) => {
       const body = JSON.stringify({ event, payload, timestamp: new Date().toISOString() });
-      const sig = createHmac('sha256', wh.secret).update(body).digest('hex');
+      const sig = createHmac('sha256', decryptValue(wh.secret)).update(body).digest('hex');
       let statusCode: number | undefined;
       let responseBody: string | undefined;
       let success = false;
@@ -33,7 +34,9 @@ export async function dispatchWebhooks(productId: string, event: string, payload
       }
       await prisma.webhookDelivery.create({
         data: { webhookId: wh.id, event, payload, statusCode, responseBody, success },
-      }).catch(() => {});
+      }).catch((err) => {
+        console.warn('[webhook-dispatch] Failed to record delivery:', (err as Error).message);
+      });
     }),
   );
 }

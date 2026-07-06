@@ -1,7 +1,23 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
+
+const createAnnouncementSchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().min(1).max(10000),
+  pinned: z.boolean().optional(),
+  teamId: z.string().optional(),
+  commentsEnabled: z.boolean().optional(),
+});
+const updateAnnouncementSchema = z.object({
+  title: z.string().max(200).optional(),
+  content: z.string().max(10000).optional(),
+  pinned: z.boolean().optional(),
+  commentsEnabled: z.boolean().optional(),
+});
+const commentSchema = z.object({ content: z.string().min(1).max(5000) });
 
 const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true };
 const TEAM_SELECT   = { id: true, name: true };
@@ -30,11 +46,19 @@ async function resolvePermissions(userId: string): Promise<{ isAdmin: boolean; c
 export async function announcementRoutes(app: FastifyInstance) {
   // List all announcements with comment counts. Always returns data so admins can manage
   // the feature before enabling it for members. Response includes canPost + enabled flags.
+  //
+  // INTENTIONAL: All announcements — including those tagged with a specific teamId — are
+  // visible to every authenticated user in the organisation. Announcements are an org-wide
+  // broadcast channel. They are NOT a team-private communication tool; use product chat for
+  // that. This means a team announcement reaches the whole organisation by design.
   app.get('/api/announcements', { preHandler: requireAuth }, async (req, reply) => {
     const { canPost, enabled } = await resolvePermissions(req.user.userId);
     if (!enabled && !canPost) return reply.send({ announcements: [], canPost: false, enabled: false });
 
+    const { cursor } = req.query as { cursor?: string };
     const announcements = await prisma.announcement.findMany({
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: 50,
       include: {
         author: { select: AUTHOR_SELECT },
         team:   { select: TEAM_SELECT },
@@ -42,7 +66,8 @@ export async function announcementRoutes(app: FastifyInstance) {
       },
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
     });
-    reply.send({ announcements, canPost, enabled });
+    const nextCursor = announcements.length === 50 ? (announcements[announcements.length - 1]?.id ?? null) : null;
+    reply.send({ announcements, canPost, enabled, nextCursor });
   });
 
   // Create an announcement
@@ -50,11 +75,9 @@ export async function announcementRoutes(app: FastifyInstance) {
     const { canPost, isAdmin } = await resolvePermissions(req.user.userId);
     if (!canPost) return reply.status(403).send({ error: 'You do not have permission to post announcements.' });
 
-    const { title, content, pinned, teamId, commentsEnabled } = req.body as {
-      title: string; content: string; pinned?: boolean; teamId?: string; commentsEnabled?: boolean;
-    };
-    if (!title?.trim()) return reply.status(400).send({ error: 'title required' });
-    if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
+    const parsed = createAnnouncementSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+    const { title, content, pinned, teamId, commentsEnabled } = parsed.data;
     if (pinned && !isAdmin) return reply.status(403).send({ error: 'Only admins can pin announcements.' });
     if (pinned && teamId) return reply.status(400).send({ error: 'Team announcements cannot be pinned.' });
 
@@ -87,9 +110,9 @@ export async function announcementRoutes(app: FastifyInstance) {
   // Edit an announcement (author or admin)
   app.patch('/api/announcements/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { title, content, pinned, commentsEnabled } = req.body as {
-      title?: string; content?: string; pinned?: boolean; commentsEnabled?: boolean;
-    };
+    const parsed = updateAnnouncementSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+    const { title, content, pinned, commentsEnabled } = parsed.data;
 
     const existing = await prisma.announcement.findUnique({ where: { id } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
@@ -136,12 +159,16 @@ export async function announcementRoutes(app: FastifyInstance) {
     const announcement = await prisma.announcement.findUnique({ where: { id }, select: { commentsEnabled: true } });
     if (!announcement) return reply.status(404).send({ error: 'Not found' });
 
+    const { cursor } = req.query as { cursor?: string };
     const comments = await prisma.announcementComment.findMany({
       where: { announcementId: id },
       include: { author: { select: AUTHOR_SELECT } },
       orderBy: { createdAt: 'asc' },
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: 100,
     });
-    reply.send(comments);
+    const nextCursor = comments.length === 100 ? (comments[comments.length - 1]?.id ?? null) : null;
+    reply.send({ comments, nextCursor });
   });
 
   app.post('/api/announcements/:id/comments', { preHandler: requireAuth }, async (req, reply) => {
@@ -150,8 +177,9 @@ export async function announcementRoutes(app: FastifyInstance) {
     if (!announcement) return reply.status(404).send({ error: 'Not found' });
     if (!announcement.commentsEnabled) return reply.status(403).send({ error: 'Comments are disabled on this announcement.' });
 
-    const { content } = req.body as { content: string };
-    if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
+    const parsed = commentSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'content required' });
+    const { content } = parsed.data;
 
     const comment = await prisma.announcementComment.create({
       data: { announcementId: id, authorId: req.user.userId, content: content.trim() },

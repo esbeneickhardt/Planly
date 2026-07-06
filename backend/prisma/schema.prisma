@@ -46,9 +46,13 @@ model User {
   mustChangePassword      Boolean  @default(false)
   failedLoginAttempts     Int      @default(0)
   loginLockedUntil        DateTime?
-  notificationPreferences Json     @default("{}")
-  tokenVersion            Int      @default(0)
-  createdAt               DateTime @default(now())
+  notificationPreferences Json      @default("{}")
+  tokenVersion            Int       @default(0)
+  tosAcceptedAt           DateTime?
+  tosVersion              String?
+  totpSecret              String?
+  totpEnabled             Boolean   @default(false)
+  createdAt               DateTime  @default(now())
 
   teams               TeamMember[]
   ownedTasks          Task[]               @relation("TaskOwner")
@@ -70,6 +74,7 @@ model User {
   announcements       Announcement[]
   announcementComments AnnouncementComment[]
   fileUploads         FileUpload[]
+  totpBackupCodes     TotpBackupCode[]
 }
 
 model Team {
@@ -158,7 +163,7 @@ model Task {
   kanbanOrder Int       @default(0)
   completedBy String?
   completedAt DateTime?
-  createdBy   String
+  createdBy   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt
   deletedAt   DateTime?
@@ -167,7 +172,7 @@ model Task {
   owner              User?             @relation("TaskOwner", fields: [ownerId], references: [id])
   reviewer           User?             @relation("TaskReviewer", fields: [reviewerId], references: [id])
   completer          User?             @relation("TaskCompleter", fields: [completedBy], references: [id])
-  creator            User              @relation("TaskCreator", fields: [createdBy], references: [id])
+  creator            User?             @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   subtasks           Subtask[]
   dependsOn          TaskDependency[]  @relation("dependent")
   requiredBy         TaskDependency[]  @relation("prerequisite")
@@ -459,6 +464,17 @@ model EmailVerifyToken {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model TotpBackupCode {
+  id        String   @id @default(uuid())
+  userId    String
+  codeHash  String
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

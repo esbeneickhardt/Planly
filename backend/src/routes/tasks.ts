@@ -47,6 +47,9 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const { updates } = req.body as { updates: { taskId: string; order: number }[] };
+    if (!Array.isArray(updates) || updates.length > 1000) {
+      return reply.status(400).send({ error: 'Too many updates (max 1000)' });
+    }
     await prisma.$transaction(
       updates.map(({ taskId, order }) =>
         prisma.task.update({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE }, data: { kanbanOrder: order } }),
@@ -63,6 +66,19 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!body) return;
     const { name, description, ownerId, reviewerId, color, deadline, canvasX, canvasY, status } = body;
 
+    // Verify assignees are project members
+    if (ownerId) {
+      const m = await prisma.teamMember.findFirst({ where: { userId: ownerId, team: { products: { some: { id: productId } } } } });
+      if (!m) return reply.status(400).send({ error: 'ownerId must be a project member' });
+    }
+    if (reviewerId) {
+      const m = await prisma.teamMember.findFirst({ where: { userId: reviewerId, team: { products: { some: { id: productId } } } } });
+      if (!m) return reply.status(400).send({ error: 'reviewerId must be a project member' });
+    }
+    if (deadline && isNaN(new Date(deadline).getTime())) {
+      return reply.status(400).send({ error: 'Invalid deadline date' });
+    }
+
     const task = await prisma.task.create({
       data: {
         productId, name, description, ownerId, reviewerId, color, canvasX, canvasY,
@@ -73,7 +89,7 @@ export async function taskRoutes(app: FastifyInstance) {
       include: TASK_INCLUDE,
     });
 
-    dispatchWebhooks(productId, 'task.created', task).catch(() => {});
+    dispatchWebhooks(productId, 'task.created', task).catch((err) => { console.warn('[tasks] Webhook dispatch failed:', (err as Error).message); });
     broadcast(productId, 'task.created', task);
     logActivity({ productId, actorId: req.user.userId, action: 'task.created', entityType: 'task', entityId: task.id, entityName: task.name });
     if (ownerId && ownerId !== req.user.userId) {
@@ -111,6 +127,18 @@ export async function taskRoutes(app: FastifyInstance) {
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });
 
+    if (body.ownerId) {
+      const m = await prisma.teamMember.findFirst({ where: { userId: body.ownerId, team: { products: { some: { id: productId } } } } });
+      if (!m) return reply.status(400).send({ error: 'ownerId must be a project member' });
+    }
+    if (body.reviewerId) {
+      const m = await prisma.teamMember.findFirst({ where: { userId: body.reviewerId, team: { products: { some: { id: productId } } } } });
+      if (!m) return reply.status(400).send({ error: 'reviewerId must be a project member' });
+    }
+    if (body.deadline && isNaN(new Date(body.deadline).getTime())) {
+      return reply.status(400).send({ error: 'Invalid deadline date' });
+    }
+
     const completedFields =
       body.status === 'done' && task.status !== 'done'
         ? { completedBy: req.user.userId, completedAt: new Date() }
@@ -136,7 +164,7 @@ export async function taskRoutes(app: FastifyInstance) {
     });
 
     const eventName = body.status && body.status !== task.status ? 'task.status_changed' : 'task.updated';
-    dispatchWebhooks(productId, eventName, updated).catch(() => {});
+    dispatchWebhooks(productId, eventName, updated).catch((err) => { console.warn('[tasks] Webhook dispatch failed:', (err as Error).message); });
     broadcast(productId, eventName, updated);
     logActivity({ productId, actorId: req.user.userId, action: eventName, entityType: 'task', entityId: updated.id, entityName: updated.name });
 
@@ -166,7 +194,7 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!task) return reply.status(404).send({ error: 'Not found' });
     // Soft delete
     await prisma.task.update({ where: { id: taskId }, data: { deletedAt: new Date() } });
-    dispatchWebhooks(productId, 'task.deleted', { id: taskId, name: task.name }).catch(() => {});
+    dispatchWebhooks(productId, 'task.deleted', { id: taskId, name: task.name }).catch((err) => { console.warn('[tasks] Webhook dispatch failed:', (err as Error).message); });
     broadcast(productId, 'task.deleted', { id: taskId });
     logActivity({ productId, actorId: req.user.userId, action: 'task.deleted', entityType: 'task', entityId: taskId, entityName: task.name });
     reply.send({ ok: true });
@@ -177,6 +205,7 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
     const { x, y } = req.body as { x: number; y: number };
+    if (!isFinite(x) || !isFinite(y)) return reply.status(400).send({ error: 'x and y must be finite numbers' });
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });
     await prisma.task.update({ where: { id: taskId }, data: { canvasX: x, canvasY: y } });
@@ -191,11 +220,13 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const { name } = req.body as { name: string };
     if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
+    if (name.length > 200) return reply.status(400).send({ error: 'Subtask name too long (max 200)' });
 
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });
 
     const count = await prisma.subtask.count({ where: { taskId } });
+    if (count >= 500) return reply.status(400).send({ error: 'Subtask limit reached (max 500)' });
     const subtask = await prisma.subtask.create({ data: { taskId, name: name.trim(), order: count } });
     reply.status(201).send(subtask);
   });
@@ -205,6 +236,7 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const { name, completed, order } = req.body as { name?: string; completed?: boolean; order?: number };
+    if (name && name.length > 200) return reply.status(400).send({ error: 'Subtask name too long (max 200)' });
 
     const completedFields =
       completed === true

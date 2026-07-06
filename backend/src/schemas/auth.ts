@@ -12,10 +12,16 @@ export const registerSchema = z.object({
     .max(32)
     .regex(/^[a-zA-Z0-9_-]+$/, 'Username may only contain letters, numbers, underscores, and hyphens'),
   email: z.string().email('Invalid email address').max(254).toLowerCase(),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(1024),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(1024)
+    .refine((p) => /[0-9]/.test(p), 'Password must contain at least one number')
+    .refine((p) => /[^a-zA-Z0-9]/.test(p), 'Password must contain at least one special character'),
   realName: z.string().max(100).optional(),
   phone: z.string().max(30).optional(),
   avatarEmoji: z.string().max(10).optional(),
+  tosAccepted: z.literal(true, { error: 'You must accept the Terms of Service to register' }),
 });
 
 export type LoginInput    = z.infer<typeof loginSchema>;

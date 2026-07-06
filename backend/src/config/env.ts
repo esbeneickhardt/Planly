@@ -1,15 +1,23 @@
-const REQUIRED = ['JWT_SECRET', 'DATABASE_URL'] as const;
+const REQUIRED = ['JWT_SECRET', 'DATABASE_URL', 'ENCRYPTION_KEY'] as const;
 
 for (const key of REQUIRED) {
   if (!process.env[key]) {
     console.error(`FATAL: Missing required environment variable: ${key}`);
+    console.error(`       Generate ENCRYPTION_KEY with: openssl rand -hex 32`);
     process.exit(1);
   }
 }
 
+const jwtSecret = process.env.JWT_SECRET!;
+if (jwtSecret.length < 32) {
+  console.error('FATAL: JWT_SECRET must be at least 32 characters. Generate with: openssl rand -hex 32');
+  process.exit(1);
+}
+
 export const config = {
-  jwtSecret: process.env.JWT_SECRET!,
+  jwtSecret,
   databaseUrl: process.env.DATABASE_URL!,
+  encryptionKey: process.env.ENCRYPTION_KEY!,
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
   uploadsDir: process.env.UPLOADS_DIR ?? '/tmp/planly-uploads',
   port: parseInt(process.env.PORT ?? '3000'),

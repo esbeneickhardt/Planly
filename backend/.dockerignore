@@ -1,0 +1,11 @@
+.env
+.env.*
+node_modules
+dist
+*.log
+*.md
+.git
+.gitignore
+coverage
+test
+scripts

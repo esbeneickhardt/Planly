@@ -16,7 +16,7 @@ async function loginAs(app: FastifyInstance, email: string, password: string) {
     payload: { identifier: email, password },
   });
   const cookie = res.headers['set-cookie'] as string;
-  return cookie.split(';')[0].replace('token=', '');
+  return (cookie.split(';')[0] ?? '').replace('token=', '');
 }
 
 describe.skipIf(!RUN)('RBAC integration', () => {

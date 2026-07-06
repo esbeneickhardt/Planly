@@ -5,7 +5,8 @@ import type { User } from '../types';
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<{ requiresTOTP: true; mfaToken: string } | void>;
+  totpChallenge: (mfaToken: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -27,8 +28,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('planly:email-not-verified', handleEmailNotVerified);
   }, []);
 
-  async function login(email: string, password: string) {
-    const u = await api.auth.login(email, password);
+  async function login(identifier: string, password: string) {
+    const res = await api.auth.login(identifier, password);
+    if ('requiresTOTP' in res && res.requiresTOTP) return res;
+    setUser(res as User);
+  }
+
+  async function totpChallenge(mfaToken: string, code: string) {
+    const u = await api.auth.totpChallenge(mfaToken, code);
     setUser(u);
   }
 
@@ -42,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, totpChallenge, logout, refreshUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

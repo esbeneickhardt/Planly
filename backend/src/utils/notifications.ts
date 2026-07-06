@@ -32,7 +32,9 @@ export async function createNotification(data: {
 
   if (!isEnabled) return null;
 
-  return prisma.notification.create({ data }).catch(() => {});
+  return prisma.notification.create({ data }).catch((err) => {
+    console.warn('[notifications] Failed to create notification:', (err as Error).message);
+  });
 }
 
 export { DEFAULT_ENABLED };

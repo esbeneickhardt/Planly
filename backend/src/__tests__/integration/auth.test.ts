@@ -78,7 +78,7 @@ describe.skipIf(!RUN)('Auth integration', () => {
       payload: { identifier: email, password: 'pass1234' },
     });
     const cookie = loginRes.headers['set-cookie'] as string;
-    const token = cookie.split(';')[0].replace('token=', '');
+    const token = (cookie.split(';')[0] ?? '').replace('token=', '');
 
     const meRes = await app.inject({
       method: 'GET',
@@ -102,7 +102,7 @@ describe.skipIf(!RUN)('Auth integration', () => {
       payload: { identifier: email, password: 'old-password' },
     });
     const cookie = loginRes.headers['set-cookie'] as string;
-    const token = cookie.split(';')[0].replace('token=', '');
+    const token = (cookie.split(';')[0] ?? '').replace('token=', '');
 
     // Change password
     await app.inject({

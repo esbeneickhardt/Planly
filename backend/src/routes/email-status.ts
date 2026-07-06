@@ -1,8 +1,18 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getSmtpSettings, sendEmail } from '../utils/email';
 import { encryptValue } from '../utils/crypto';
 import prisma from '../db/client';
+
+const upsertSmtpSchema = z.object({
+  host: z.string().min(1),
+  port: z.number().int().min(1).max(65535).optional(),
+  secure: z.boolean().optional(),
+  user: z.string().optional(),
+  pass: z.string().optional(),
+  from: z.string().min(1),
+});
 
 export async function emailStatusRoutes(app: FastifyInstance) {
   // Returns SMTP enabled status; admins also get the full config (password never returned)
@@ -33,11 +43,9 @@ export async function emailStatusRoutes(app: FastifyInstance) {
 
   // Save (upsert) SMTP config
   app.put('/api/email-config', { preHandler: requireAdmin }, async (req, reply) => {
-    const { host, port, secure, user, pass, from } = req.body as {
-      host: string; port: number; secure: boolean; user: string; pass?: string; from: string;
-    };
-    if (!host?.trim()) return reply.status(400).send({ error: 'host required' });
-    if (!from?.trim()) return reply.status(400).send({ error: 'from required' });
+    const smtpParsed = upsertSmtpSchema.safeParse(req.body);
+    if (!smtpParsed.success) return reply.status(400).send({ error: smtpParsed.error.issues[0]?.message ?? 'Invalid request' });
+    const { host, port, secure, user, pass, from } = smtpParsed.data;
 
     const existing = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
 

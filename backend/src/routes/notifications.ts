@@ -21,7 +21,7 @@ export async function notificationRoutes(app: FastifyInstance) {
 
     reply.send({
       notifications,
-      nextCursor: notifications.length === take ? notifications[notifications.length - 1].createdAt : null,
+      nextCursor: notifications.length === take ? (notifications[notifications.length - 1]?.createdAt ?? null) : null,
     });
   });
 

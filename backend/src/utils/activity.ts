@@ -9,5 +9,7 @@ export async function logActivity(data: {
   entityName?: string;
   metadata?: object;
 }) {
-  return prisma.activityEvent.create({ data }).catch(() => {});
+  return prisma.activityEvent.create({ data }).catch((err) => {
+    console.warn('[activity] Failed to log activity event:', (err as Error).message);
+  });
 }

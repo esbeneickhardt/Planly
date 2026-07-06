@@ -1,20 +1,22 @@
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 import prisma from '../db/client';
-import { requireAuth } from '../middleware/auth';
+import { requireAdmin } from '../middleware/auth';
 
 type TaskInput = Omit<Prisma.TaskUncheckedCreateInput, 'productId' | 'createdBy'>;
 
 export async function seedRoutes(app: FastifyInstance) {
-  app.post('/api/seed-examples', { preHandler: requireAuth }, async (req, reply) => {
+  app.post('/api/seed-examples', { preHandler: requireAdmin }, async (req, reply) => {
     const userId = req.user.userId;
 
-    // Create a second demo user
+    // Create a second demo user with a random unguessable password (never revealed)
     let demoUser = await prisma.user.findUnique({ where: { username: 'sara' } });
     if (!demoUser) {
+      const demoPassword = randomBytes(32).toString('hex');
       demoUser = await prisma.user.create({
-        data: { username: 'sara', email: 'sara@planly.dev', passwordHash: await bcrypt.hash('demo123', 12), realName: 'Sara Chen', avatarEmoji: '👩‍💻' },
+        data: { username: 'sara', email: 'sara@planly.dev', passwordHash: await bcrypt.hash(demoPassword, 12), realName: 'Sara Chen', avatarEmoji: '👩‍💻', emailVerified: true },
       });
     }
 

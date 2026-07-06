@@ -11,8 +11,8 @@ export const createTaskSchema = z.object({
   reviewerId: z.string().uuid().optional().nullable(),
   deadline: isoDate,
   color: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional().nullable(),
-  canvasX: z.number().optional(),
-  canvasY: z.number().optional(),
+  canvasX: z.number().finite().optional(),
+  canvasY: z.number().finite().optional(),
 });
 
 export const updateTaskSchema = createTaskSchema.partial().extend({
