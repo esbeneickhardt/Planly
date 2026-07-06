@@ -106,6 +106,13 @@ export async function inviteRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invite not found or expired' });
     }
 
+    if (invite.email) {
+      const acceptingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { email: true } });
+      if (!acceptingUser || invite.email.toLowerCase() !== acceptingUser.email.toLowerCase()) {
+        return reply.status(403).send({ error: 'This invite was sent to a different email address' });
+      }
+    }
+
     // Add to team
     await prisma.teamMember.upsert({
       where: { teamId_userId: { teamId: invite.teamId, userId: req.user.userId } },

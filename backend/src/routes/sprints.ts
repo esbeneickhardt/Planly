@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireTabWrite } from '../utils/product-guard';
+import { requireProductMember, requireTabRead, requireTabWrite } from '../utils/product-guard';
 
 const SPRINT_INCLUDE = {
   sprintTasks: { select: { taskId: true } },
@@ -11,6 +11,7 @@ export async function sprintRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/sprints', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabRead(productId, req.user.userId, ['kanban', 'gantt'], reply)) return;
     const sprints = await prisma.sprint.findMany({
       where: { productId },
       include: SPRINT_INCLUDE,

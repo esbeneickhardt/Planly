@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, requireProductCoOwner } from '../utils/product-guard';
 
 export async function permissionRoutes(app: FastifyInstance) {
   // Returns the authenticated user's permissions across all their projects
@@ -37,7 +37,7 @@ export async function permissionRoutes(app: FastifyInstance) {
 
   app.get('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
     const rows = await prisma.tabPermission.findMany({ where: { productId } });
     reply.send(rows);
   });

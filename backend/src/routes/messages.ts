@@ -22,7 +22,7 @@ export async function messageRoutes(app: FastifyInstance) {
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
   // Upload file - returns a URL that can be embedded in messages
-  app.post('/api/upload', { preHandler: requireAuth }, async (req, reply) => {
+  app.post('/api/upload', { preHandler: requireAuth, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req, reply) => {
     const { productId } = req.query as { productId?: string };
     const data = await req.file();
     if (!data) return reply.status(400).send({ error: 'No file' });
@@ -121,6 +121,13 @@ export async function messageRoutes(app: FastifyInstance) {
     };
     if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
     if (content.length > 10000) return reply.status(400).send({ error: 'content too long (max 10000)' });
+    if (attachments) {
+      for (const a of attachments) {
+        if (!/^\/api\/uploads\/[a-zA-Z0-9._-]+$/.test(a.url)) {
+          return reply.status(400).send({ error: 'Invalid attachment — only uploads from this server are allowed' });
+        }
+      }
+    }
     const msg = await prisma.message.create({
       data: { productId, taskId: taskId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
       include: MSG_INCLUDE,

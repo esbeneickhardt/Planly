@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, requireTabRead } from '../utils/product-guard';
 
 export async function milestoneRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/milestones', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireTabRead(productId, req.user.userId, ['gantt'], reply)) return;
 
     const [product, milestones] = await Promise.all([
       prisma.product.findUnique({ where: { id: productId } }),
