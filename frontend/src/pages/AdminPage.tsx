@@ -74,7 +74,7 @@ export const ADMIN_TABS: { key: AdminTab; label: string; icon: string }[] = [
   { key: 'users',      label: 'Users',           icon: '👥' },
   { key: 'projects',   label: 'Projects',        icon: '📦' },
   { key: 'email',      label: 'Email Settings',  icon: '✉️' },
-  { key: 'ip-rules',   label: 'IP Rules',        icon: '🔒' },
+  { key: 'ip-rules',   label: 'Networking',      icon: '🛡️' },
   { key: 'logs',       label: 'Audit Logs',      icon: '📋' },
   { key: 'statistics', label: 'Statistics',      icon: '📊' },
 ];

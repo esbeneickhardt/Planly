@@ -1,7 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { createHash, randomBytes } from 'crypto';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+
+const createAppSchema = z.object({ name: z.string().min(1), description: z.string().optional() });
+const updateAppSchema = z.object({ name: z.string().optional(), description: z.string().optional() });
+const createAppTokenSchema = z.object({ name: z.string().min(1), expiresAt: z.string().optional() });
 
 function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
@@ -23,8 +28,9 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
 
   // Create a new app registration
   app.post('/api/apps', { preHandler: requireAuth }, async (req, reply) => {
-    const { name, description } = req.body as { name: string; description?: string };
-    if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
+    const parsed = createAppSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'name required' });
+    const { name, description } = parsed.data;
 
     const registration = await prisma.appRegistration.create({
       data: { name: name.trim(), description, ownerId: req.user.userId },
@@ -36,7 +42,9 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   // Update app registration metadata
   app.patch('/api/apps/:appId', { preHandler: requireAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
-    const { name, description } = req.body as { name?: string; description?: string };
+    const parsed = updateAppSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+    const { name, description } = parsed.data;
     try {
       const registration = await prisma.appRegistration.update({
         where: { id: appId, ownerId: req.user.userId },
@@ -79,8 +87,9 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
     const appExists = await prisma.appRegistration.findUnique({ where: { id: appId, ownerId: req.user.userId } });
     if (!appExists) return reply.status(404).send({ error: 'Not found' });
 
-    const { name, expiresAt } = req.body as { name: string; expiresAt?: string };
-    if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
+    const parsed = createAppTokenSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'name required' });
+    const { name, expiresAt } = parsed.data;
 
     const rawToken = `planly_${randomBytes(24).toString('hex')}`;
     const tokenHash = hashToken(rawToken);

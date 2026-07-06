@@ -10,7 +10,7 @@ function icalDate(d: Date): string {
 }
 
 function icalDateOnly(d: Date): string {
-  return d.toISOString().split('T')[0].replace(/-/g, '');
+  return (d.toISOString().split('T')[0] ?? '').replace(/-/g, '');
 }
 
 function addDay(d: Date): Date {
@@ -37,11 +37,15 @@ export async function icalRoutes(app: FastifyInstance) {
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const apiToken = await prisma.apiToken.findUnique({
       where: { tokenHash },
-      select: { id: true, userId: true, expiresAt: true },
+      select: { id: true, userId: true, expiresAt: true, productId: true },
     });
 
     if (!apiToken || (apiToken.expiresAt && apiToken.expiresAt < new Date())) {
       return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    if (apiToken.productId && apiToken.productId !== productId) {
+      return reply.status(403).send({ error: 'Token not authorized for this product' });
     }
 
     const product = await prisma.product.findFirst({

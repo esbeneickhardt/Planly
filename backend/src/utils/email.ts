@@ -49,7 +49,8 @@ export const emailEnabled = !!config.smtp.host;
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<boolean> {
   const settings = await getSmtpSettings();
   if (!settings) {
-    console.log(`\n[email:no-smtp] To: ${to}\nSubject: ${subject}\n---\n${html.replace(/<[^>]+>/g, '')}\n---\n`);
+    // Body intentionally omitted — it may contain password-reset tokens or other sensitive data.
+    console.log(`[email:no-smtp] To: ${to} | Subject: ${subject} | (body redacted)`);
     return false;
   }
   const transporter = buildTransporter(settings);
@@ -59,11 +60,15 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
 
 // ── Templates ──────────────────────────────────────────────────────────────────
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export function resetPasswordEmail(resetUrl: string, username: string) {
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
       <h2 style="margin:0 0 16px">Reset your Planly password</h2>
-      <p>Hi ${username},</p>
+      <p>Hi ${escHtml(username)},</p>
       <p>Click the button below to reset your password. This link expires in 1 hour.</p>
       <a href="${resetUrl}" style="display:inline-block;margin:24px 0;padding:12px 24px;background:#7c3aed;color:white;text-decoration:none;border-radius:8px;font-weight:600">
         Reset password
@@ -78,7 +83,7 @@ export function verifyEmailTemplate(verifyUrl: string, username: string) {
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
       <h2 style="margin:0 0 16px">Verify your Planly email</h2>
-      <p>Hi ${username},</p>
+      <p>Hi ${escHtml(username)},</p>
       <p>Click below to verify your email address. This link expires in 24 hours.</p>
       <a href="${verifyUrl}" style="display:inline-block;margin:24px 0;padding:12px 24px;background:#7c3aed;color:white;text-decoration:none;border-radius:8px;font-weight:600">
         Verify email
@@ -89,10 +94,12 @@ export function verifyEmailTemplate(verifyUrl: string, username: string) {
 }
 
 export function mentionEmail(mentionerUsername: string, context: string, snippet: string, appUrl: string) {
+  const safeContext = context.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const safeMentioner = mentionerUsername.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
       <h2 style="margin:0 0 16px">You were mentioned in Planly</h2>
-      <p><strong>@${mentionerUsername}</strong> mentioned you${context ? ` in <em>${context}</em>` : ''}:</p>
+      <p><strong>@${safeMentioner}</strong> mentioned you${safeContext ? ` in <em>${safeContext}</em>` : ''}:</p>
       <blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid #7c3aed;background:#f5f3ff;border-radius:4px;color:#444;font-size:14px">
         ${snippet.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}
       </blockquote>
@@ -105,10 +112,12 @@ export function mentionEmail(mentionerUsername: string, context: string, snippet
 }
 
 export function teamInviteEmail(inviteUrl: string, teamName: string, inviterName: string) {
+  const safeTeam = escHtml(teamName);
+  const safeInviter = escHtml(inviterName);
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
-      <h2 style="margin:0 0 16px">You're invited to join ${teamName} on Planly</h2>
-      <p>${inviterName} has invited you to collaborate on <strong>${teamName}</strong>.</p>
+      <h2 style="margin:0 0 16px">You're invited to join ${safeTeam} on Planly</h2>
+      <p>${safeInviter} has invited you to collaborate on <strong>${safeTeam}</strong>.</p>
       <a href="${inviteUrl}" style="display:inline-block;margin:24px 0;padding:12px 24px;background:#7c3aed;color:white;text-decoration:none;border-radius:8px;font-weight:600">
         Accept invite
       </a>

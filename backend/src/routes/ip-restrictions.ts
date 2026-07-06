@@ -18,7 +18,7 @@ export function matchesCidr(clientIp: string, cidr: string): boolean {
     return ip === cidr;
   }
 
-  const [network, prefixStr] = cidr.split('/');
+  const [network, prefixStr] = cidr.split('/') as [string, string];
   const prefix = parseInt(prefixStr, 10);
 
   if (!isIPv4(ip) || !isIPv4(network)) return false;
@@ -43,7 +43,7 @@ export function getClientIp(req: { headers: Record<string, string | string[] | u
     if (list.length > 0) {
       // Proxies append to the right; the client IP sits depth entries from the right
       const idx = Math.max(0, list.length - depth);
-      return list[idx];
+      return list[idx] ?? '';
     }
   }
   return req.socket.remoteAddress ?? '';
@@ -88,12 +88,16 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
 
     const normalized = cidr.trim();
     // Basic validation: must be a valid IP or CIDR
-    const [host, prefix] = normalized.split('/');
+    const [host, prefix] = normalized.split('/') as [string, string | undefined];
     const validIp = isIPv4(host) || host.includes(':'); // IPv4 or IPv6
     if (!validIp) return reply.status(400).send({ error: 'Invalid IP address or CIDR range' });
     if (prefix !== undefined) {
       const p = parseInt(prefix, 10);
-      if (isNaN(p) || p < 0 || p > 32) return reply.status(400).send({ error: 'CIDR prefix must be 0–32' });
+      const isIpv6 = host.includes(':');
+      const maxPrefix = isIpv6 ? 128 : 32;
+      if (isNaN(p) || p < 0 || p > maxPrefix) {
+        return reply.status(400).send({ error: `CIDR prefix must be 0–${maxPrefix}` });
+      }
     }
 
     try {

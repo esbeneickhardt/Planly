@@ -7,8 +7,11 @@ export async function accessRequestRoutes(app: FastifyInstance) {
   // Discover: products the current user is NOT a member of
   // Only returns public-facing fields (name, emoji) to avoid leaking sensitive project metadata
   app.get('/api/products/discover', { preHandler: requireAuth }, async (req, reply) => {
+    const { cursor, limit = '50' } = req.query as { cursor?: string; limit?: string };
+    const take = Math.min(parseInt(limit) || 50, 100);
     const products = await prisma.product.findMany({
       where: {
+        deletedAt: null,
         team: { members: { none: { userId: req.user.userId } } },
       },
       select: {
@@ -18,6 +21,8 @@ export async function accessRequestRoutes(app: FastifyInstance) {
         team: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     // Also include the user's pending request status for each
     const requests = await prisma.accessRequest.findMany({
@@ -25,13 +30,15 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     });
     // Only surface 'pending' status - 'approved' is stale (user was removed) and 'rejected' should allow re-request
     const requestMap = Object.fromEntries(requests.filter((r) => r.status === 'pending').map((r) => [r.productId, r.status]));
-    reply.send(products.map((p) => ({ ...p, requestStatus: requestMap[p.id] ?? null })));
+    const nextCursor = products.length === take ? (products[products.length - 1]?.id ?? null) : null;
+    reply.send({ products: products.map((p) => ({ ...p, requestStatus: requestMap[p.id] ?? null })), nextCursor });
   });
 
   // Request access to a product
   app.post('/api/products/:productId/access-requests', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     const { note } = req.body as { note?: string };
+    if (note && note.length > 1000) return reply.status(400).send({ error: 'note too long (max 1000)' });
 
     const product = await prisma.product.findUnique({
       where: { id: productId },

@@ -15,6 +15,7 @@ import IntegrationsModal from './IntegrationsModal';
 import NotificationBell from './NotificationBell';
 import NotificationPreferencesModal from './NotificationPreferencesModal';
 import ThemePickerModal from './ThemePickerModal';
+import TotpModal from './TotpModal';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -150,6 +151,7 @@ const ADMIN_TABS: { key: string; label: string; Icon: (p: { size?: number }) => 
   { key: 'users',      label: 'Users',       Icon: UsersIcon },
   { key: 'projects',   label: 'Projects',    Icon: FolderGridIcon },
   { key: 'email',      label: 'Email',       Icon: MailIcon },
+  { key: 'ip-rules',   label: 'Networking',  Icon: ShieldIcon },
   { key: 'logs',       label: 'Audit Logs',  Icon: ActivityIcon },
   { key: 'statistics', label: 'Stats',       Icon: BarChartIcon },
 ];
@@ -186,6 +188,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
   const [showMemberships, setShowMemberships] = useState(false);
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [showNotifPrefs, setShowNotifPrefs] = useState(false);
+  const [showTotp, setShowTotp] = useState(false);
   const [showProjectDd, setShowProjectDd] = useState(false);
   const [showAccountDd, setShowAccountDd] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -679,6 +682,49 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                   <span className="w-5 text-center flex-shrink-0">🔔</span>
                   Notifications
                 </button>
+                <button
+                  onClick={() => { setShowTotp(true); setShowAccountDd(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: 'var(--text-2)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span className="w-5 text-center flex-shrink-0">🛡️</span>
+                  Security (2FA)
+                </button>
+                <div className="mx-4 my-1" style={{ height: 1, background: 'var(--border)' }} />
+                <a
+                  href="/api/me/export"
+                  download
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: 'var(--text-2)', textDecoration: 'none' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  onClick={() => setShowAccountDd(false)}
+                >
+                  <span className="w-5 text-center flex-shrink-0">⬇</span>
+                  Download my data
+                </a>
+                <button
+                  onClick={async () => {
+                    setShowAccountDd(false);
+                    if (!user) return;
+                    if (!confirm('Permanently delete your account and all associated data? This cannot be undone.')) return;
+                    try {
+                      await fetch(`/api/users/${user.id}`, { method: 'DELETE', credentials: 'include' });
+                      logout();
+                    } catch {
+                      alert('Failed to delete account. Please try again or contact support.');
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: '#ef4444' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span className="w-5 text-center flex-shrink-0">🗑</span>
+                  Delete my account
+                </button>
                 <div className="mx-4 my-1" style={{ height: 1, background: 'var(--border)' }} />
                 <button
                   onClick={logout}
@@ -829,6 +875,13 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                   <span>🔔</span> Notifications
                 </button>
                 <button
+                  onClick={() => { setShowTotp(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  <span>🛡️</span> Security (2FA)
+                </button>
+                <button
                   onClick={() => { setShowMobileMenu(false); onOpenChat(); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
                   style={{ color: 'var(--text-2)' }}
@@ -913,6 +966,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
       {showIntegrations && <IntegrationsModal onClose={() => setShowIntegrations(false)} />}
       {showNotifPrefs && <NotificationPreferencesModal onClose={() => setShowNotifPrefs(false)} />}
       {showThemePicker && <ThemePickerModal onClose={() => setShowThemePicker(false)} />}
+      {showTotp && <TotpModal onClose={() => setShowTotp(false)} />}
 
       {showProfile && (
         <Modal title="Edit profile" onClose={() => setShowProfile(false)} width="max-w-sm">

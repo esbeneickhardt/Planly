@@ -10,8 +10,8 @@ export async function exportRoutes(app: FastifyInstance) {
     if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
 
     const [product, tasks, columns, sprints, messages, colorLegend, snapshots] = await Promise.all([
-      prisma.product.findUnique({
-        where: { id: productId },
+      prisma.product.findFirst({
+        where: { id: productId, deletedAt: null },
         include: { ownerUser: { select: { id: true, username: true } } },
       }),
       prisma.task.findMany({

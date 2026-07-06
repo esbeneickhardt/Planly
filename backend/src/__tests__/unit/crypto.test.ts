@@ -30,7 +30,7 @@ describe('encryptValue / decryptValue', () => {
     const encrypted = encryptValue('secret');
     const parts = encrypted.split(':');
     // Tamper with the auth tag
-    parts[1] = '0'.repeat(parts[1].length);
+    parts[1] = '0'.repeat(parts[1]?.length ?? 0);
     const tampered = parts.join(':');
     expect(decryptValue(tampered)).toBe(tampered);
   });

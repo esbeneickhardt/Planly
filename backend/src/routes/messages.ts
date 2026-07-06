@@ -19,7 +19,7 @@ const MSG_INCLUDE = {
 
 
 export async function messageRoutes(app: FastifyInstance) {
-  await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
+  await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 5, fieldSize: 1024 } });
 
   // Upload file - returns a URL that can be embedded in messages
   app.post('/api/upload', { preHandler: requireAuth, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req, reply) => {
@@ -81,9 +81,9 @@ export async function messageRoutes(app: FastifyInstance) {
     const { filename } = req.params as { filename: string };
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
 
-    // Only the uploader may delete; for legacy files (no DB record) any auth user can delete
     const record = await prisma.fileUpload.findUnique({ where: { filename: safe } });
-    if (record && record.uploaderId !== req.user.userId) {
+    if (!record) return reply.status(404).send({ error: 'Not found' });
+    if (record.uploaderId !== req.user.userId) {
       return reply.status(403).send({ error: 'Forbidden' });
     }
 
@@ -122,6 +122,7 @@ export async function messageRoutes(app: FastifyInstance) {
     if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
     if (content.length > 10000) return reply.status(400).send({ error: 'content too long (max 10000)' });
     if (attachments) {
+      if (attachments.length > 20) return reply.status(400).send({ error: 'Too many attachments (max 20)' });
       for (const a of attachments) {
         if (!/^\/api\/uploads\/[a-zA-Z0-9._-]+$/.test(a.url)) {
           return reply.status(400).send({ error: 'Invalid attachment — only uploads from this server are allowed' });
@@ -132,15 +133,20 @@ export async function messageRoutes(app: FastifyInstance) {
       data: { productId, taskId: taskId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
       include: MSG_INCLUDE,
     });
-    dispatchWebhooks(productId, 'message.created', msg).catch(() => {});
+    dispatchWebhooks(productId, 'message.created', msg).catch((err) => { console.warn('[messages] Webhook dispatch failed:', (err as Error).message); });
     broadcast(productId, 'message.created', msg);
     logActivity({ productId, actorId: req.user.userId, action: 'message.created', entityType: 'message', entityId: msg.id });
 
     // Create notifications and optional emails for @mentioned users (fire-and-forget)
-    const mentionedUsernames = [...content.matchAll(/@(\w+)/g)].map((m) => m[1]);
+    const mentionedUsernames = [...content.matchAll(/@(\w+)/g)].map((m) => m[1]).filter((u): u is string => u !== undefined);
     if (mentionedUsernames.length > 0) {
       prisma.user.findMany({
-        where: { username: { in: mentionedUsernames }, id: { not: req.user.userId } },
+        where: {
+          username: { in: mentionedUsernames },
+          id: { not: req.user.userId },
+          // Only notify users who are actually members of this project
+          teams: { some: { team: { products: { some: { id: productId } } } } },
+        },
         select: { id: true, email: true, notificationPreferences: true },
       }).then(async (users) => {
         if (!users.length) return;
@@ -178,6 +184,8 @@ export async function messageRoutes(app: FastifyInstance) {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const { content } = req.body as { content: string };
+    if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
+    if (content.length > 10000) return reply.status(400).send({ error: 'content too long (max 10000)' });
     const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });

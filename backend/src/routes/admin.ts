@@ -30,7 +30,9 @@ export async function adminRoutes(app: FastifyInstance) {
 
   app.put('/api/admin/users/:id/promote', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true, isFoundingAdmin: true } });
+    // Only the founding admin can grant admin rights — mirrors the demotion restriction
+    if (!actor?.isFoundingAdmin) return reply.status(403).send({ error: 'Only the founding admin can promote users to admin.' });
     const target = await prisma.user.findUnique({ where: { id }, select: { username: true, email: true, isAdmin: true } });
     if (!target) return reply.status(404).send({ error: 'User not found' });
     if (target.isAdmin) return reply.status(400).send({ error: 'User is already an admin' });
@@ -265,7 +267,7 @@ export async function adminRoutes(app: FastifyInstance) {
       take,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
-    reply.send({ logs, nextCursor: logs.length === take ? logs[logs.length - 1].id : null });
+    reply.send({ logs, nextCursor: logs.length === take ? (logs[logs.length - 1]?.id ?? null) : null });
   });
 
   app.get('/api/admin/logs/export', { preHandler: requireAdmin }, async (req, reply) => {
@@ -305,7 +307,7 @@ export async function adminRoutes(app: FastifyInstance) {
         }
       }
       if (batch.length < BATCH) break;
-      batchCursor = batch[batch.length - 1].id;
+      batchCursor = batch[batch.length - 1]?.id;
     }
     readable.push(null);
   });

@@ -10,8 +10,8 @@ export async function requireProductMember(
   userId: string,
   reply: FastifyReply,
 ): Promise<boolean> {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
+  const product = await prisma.product.findFirst({
+    where: { id: productId, deletedAt: null },
     select: {
       team: {
         select: {
@@ -46,8 +46,8 @@ export async function requireTabWrite(
   tabs: string[],
   reply: FastifyReply,
 ): Promise<boolean> {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
+  const product = await prisma.product.findFirst({
+    where: { id: productId, deletedAt: null },
     select: {
       ownerId: true,
       team: {
@@ -106,8 +106,8 @@ export async function requireTabRead(
   tabs: string[],
   reply: FastifyReply,
 ): Promise<boolean> {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
+  const product = await prisma.product.findFirst({
+    where: { id: productId, deletedAt: null },
     select: {
       ownerId: true,
       team: {
@@ -161,8 +161,8 @@ export async function requireProductCoOwner(
   userId: string,
   reply: FastifyReply,
 ): Promise<boolean> {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
+  const product = await prisma.product.findFirst({
+    where: { id: productId, deletedAt: null },
     select: {
       ownerId: true,
       team: {

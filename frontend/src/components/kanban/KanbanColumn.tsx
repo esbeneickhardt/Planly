@@ -118,7 +118,7 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
       {...(isOverlay ? {} : {})}
     >
       <div
-        className="rounded-xl overflow-hidden flex flex-col h-full"
+        className="rounded-xl flex flex-col h-full"
         style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
       >
         {/* Column header - drag handle for column reordering */}

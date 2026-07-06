@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS builder
 WORKDIR /app
 RUN apk add --no-cache openssl
 COPY package*.json ./
@@ -8,16 +8,20 @@ COPY . .
 RUN npm run db:generate
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
 WORKDIR /app
 RUN apk add --no-cache openssl
+# Run as non-root for defence-in-depth
+RUN addgroup -S planly && adduser -S planly -G planly
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+RUN mkdir -p /data/uploads && chown planly:planly /data/uploads
+USER planly
 
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]

@@ -8,6 +8,7 @@ import { sendEmail } from '../utils/email';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 import { registerSchema } from '../schemas/auth';
+import { encryptOptional, decryptUserPii } from '../utils/crypto';
 
 // Public profile fields - never expose passwordHash
 const USER_SELF_SELECT = {
@@ -20,8 +21,17 @@ const USER_PUBLIC_SELECT = { id: true, username: true, avatarEmoji: true };
 
 export async function userRoutes(app: FastifyInstance) {
   // Global user search: minimal fields only (used for team member lookup)
-  app.get('/api/users', { preHandler: requireAuth }, async (_req, reply) => {
-    reply.send(await prisma.user.findMany({ select: USER_PUBLIC_SELECT, orderBy: { username: 'asc' } }));
+  app.get('/api/users', { preHandler: requireAuth }, async (req, reply) => {
+    const { cursor, limit = '200' } = req.query as { cursor?: string; limit?: string };
+    const take = Math.min(parseInt(limit) || 200, 500);
+    const users = await prisma.user.findMany({
+      select: USER_PUBLIC_SELECT,
+      orderBy: { username: 'asc' },
+      take,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    const nextCursor = users.length === take ? (users[users.length - 1]?.id ?? null) : null;
+    reply.send({ users, nextCursor });
   });
 
   // Registration - public endpoint with tighter rate limit
@@ -29,6 +39,7 @@ export async function userRoutes(app: FastifyInstance) {
     const parsed = validate(registerSchema, req.body, reply);
     if (!parsed) return;
     const { username, email: normalizedEmail, password, realName, phone, avatarEmoji } = parsed;
+    const tosAcceptedAt = new Date();
 
     const serverConfig = await getServerConfig();
 
@@ -50,8 +61,10 @@ export async function userRoutes(app: FastifyInstance) {
       user = await prisma.user.create({
         data: {
           username: username.trim(), email: normalizedEmail,
-          passwordHash, realName: realName?.trim() || undefined, phone: phone?.trim() || undefined, avatarEmoji,
+          passwordHash, realName: encryptOptional(realName?.trim()), phone: encryptOptional(phone?.trim()), avatarEmoji,
           emailVerified: false,
+          tosAcceptedAt,
+          tosVersion: '1.0',
         },
         select: USER_SELF_SELECT,
       });
@@ -74,7 +87,7 @@ export async function userRoutes(app: FastifyInstance) {
           subject: 'Verify your Planly email address',
           html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
             <h2 style="margin:0 0 16px">Verify your email</h2>
-            <p>Hi ${user.username},</p>
+            <p>Hi ${user.username.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')},</p>
             <p>Click the button below to verify your email address. The link expires in 24 hours.</p>
             <p style="margin:24px 0"><a href="${verifyUrl}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Verify email →</a></p>
             <p style="color:#aaa;font-size:12px">If you didn't create a Planly account, you can ignore this email.</p>
@@ -85,8 +98,8 @@ export async function userRoutes(app: FastifyInstance) {
       }
     }
 
-    await prisma.adminLog.create({ data: { action: 'USER_REGISTERED', actorName: user.username, targetName: user.email } });
-    reply.status(201).send(user);
+    await prisma.adminLog.create({ data: { action: 'USER_REGISTERED', actorName: user.username, targetName: user.username } });
+    reply.status(201).send(decryptUserPii(user));
   });
 
   // Get own profile (full fields) or another user's public profile
@@ -98,7 +111,7 @@ export async function userRoutes(app: FastifyInstance) {
       select: isSelf ? USER_SELF_SELECT : USER_PUBLIC_SELECT,
     });
     if (!user) return reply.status(404).send({ error: 'Not found' });
-    reply.send(user);
+    reply.send(isSelf ? decryptUserPii(user as Parameters<typeof decryptUserPii>[0]) : user);
   });
 
   // Update own profile only
@@ -108,6 +121,9 @@ export async function userRoutes(app: FastifyInstance) {
     const { realName, phone, avatarEmoji, avatarUrl } = req.body as {
       realName?: string; phone?: string; avatarEmoji?: string; avatarUrl?: string | null;
     };
+    if (realName !== undefined && realName !== null && realName.length > 100) return reply.status(400).send({ error: 'realName too long (max 100)' });
+    if (phone !== undefined && phone !== null && phone.length > 30) return reply.status(400).send({ error: 'phone too long (max 30)' });
+    if (avatarEmoji !== undefined && avatarEmoji.length > 8) return reply.status(400).send({ error: 'avatarEmoji too long' });
     // Validate avatarUrl: must be https or null
     if (avatarUrl !== null && avatarUrl !== undefined) {
       if (avatarUrl.length > 2048) return reply.status(400).send({ error: 'avatarUrl too long' });
@@ -121,10 +137,10 @@ export async function userRoutes(app: FastifyInstance) {
     try {
       const user = await prisma.user.update({
         where: { id },
-        data: { realName, phone, avatarEmoji, avatarUrl },
+        data: { realName: encryptOptional(realName), phone: encryptOptional(phone), avatarEmoji, avatarUrl },
         select: USER_SELF_SELECT,
       });
-      reply.send(user);
+      reply.send(decryptUserPii(user));
     } catch {
       reply.status(404).send({ error: 'Not found' });
     }
@@ -135,7 +151,15 @@ export async function userRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     if (id !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
     const { preferences } = req.body as { preferences: Record<string, boolean> };
-    if (!preferences || typeof preferences !== 'object') return reply.status(400).send({ error: 'preferences required' });
+    if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) {
+      return reply.status(400).send({ error: 'preferences required' });
+    }
+    const prefKeys = Object.keys(preferences);
+    if (prefKeys.length > 50) return reply.status(400).send({ error: 'Too many preference keys (max 50)' });
+    for (const [k, v] of Object.entries(preferences)) {
+      if (k.length > 100) return reply.status(400).send({ error: 'Preference key too long' });
+      if (typeof v !== 'boolean') return reply.status(400).send({ error: 'Preference values must be booleans' });
+    }
     try {
       const user = await prisma.user.update({
         where: { id },

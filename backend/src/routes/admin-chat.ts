@@ -1,6 +1,18 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAdmin } from '../middleware/auth';
+
+const attachmentSchema = z.object({
+  url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment — only uploads from this server are allowed'),
+  name: z.string(),
+  type: z.string(),
+});
+const createMessageSchema = z.object({
+  content: z.string().min(1).max(10000),
+  attachments: z.array(attachmentSchema).optional(),
+});
+const editMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 
 const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true };
 const MSG_INCLUDE = {
@@ -25,12 +37,9 @@ export async function adminChatRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/admin/chat', { preHandler: requireAdmin }, async (req, reply) => {
-    const { content, attachments } = req.body as {
-      content: string;
-      attachments?: { url: string; name: string; type: string }[];
-    };
-    if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
-    if (content.length > 10000) return reply.status(400).send({ error: 'content too long (max 10000)' });
+    const parsed = createMessageSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'content required' });
+    const { content, attachments } = parsed.data;
     const msg = await prisma.message.create({
       data: { isAdminChat: true, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
       include: MSG_INCLUDE,
@@ -40,7 +49,9 @@ export async function adminChatRoutes(app: FastifyInstance) {
 
   app.patch('/api/admin/chat/:messageId', { preHandler: requireAdmin }, async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const { content } = req.body as { content: string };
+    const editParsed = editMessageSchema.safeParse(req.body);
+    if (!editParsed.success) return reply.status(400).send({ error: editParsed.error.issues[0]?.message ?? 'content required' });
+    const { content } = editParsed.data;
     const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });

@@ -1,9 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { Prisma } from '@prisma/client';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
+
+const addMemberSchema = z.object({ userId: z.string() });
+const updateRoleSchema = z.object({ role: z.enum(['member', 'co_owner']) });
 
 const MEMBER_INCLUDE = { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } } };
 
@@ -83,7 +87,9 @@ export async function teamRoutes(app: FastifyInstance) {
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isAdmin) return reply.status(403).send({ error: 'Only team admins can add members' });
-    const { userId } = req.body as { userId: string };
+    const addParsed = addMemberSchema.safeParse(req.body);
+    if (!addParsed.success) return reply.status(400).send({ error: 'userId required' });
+    const { userId } = addParsed.data;
     try {
       await prisma.teamMember.create({ data: { teamId: id, userId } });
       reply.send({ ok: true });
@@ -117,13 +123,14 @@ export async function teamRoutes(app: FastifyInstance) {
 
   app.patch('/api/teams/:id/members/:userId/role', { preHandler: requireAuth }, async (req, reply) => {
     const { id: teamId, userId } = req.params as { id: string; userId: string };
-    const { role } = req.body as { role: string };
-    if (!['member', 'co_owner'].includes(role)) return reply.status(400).send({ error: 'Invalid role' });
+    const roleParsed = updateRoleSchema.safeParse(req.body);
+    if (!roleParsed.success) return reply.status(400).send({ error: 'Invalid role' });
+    const { role } = roleParsed.data;
     const team = await prisma.team.findUnique({ where: { id: teamId }, include: { products: true } });
     if (!team) return reply.status(404).send({ error: 'Not found' });
     const isOwner = team.products.some(p => p.ownerId === req.user.userId);
     if (!isOwner) return reply.status(403).send({ error: 'Only the product owner can change roles' });
-    await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role: role as any } });
+    await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role } });
     reply.send({ ok: true });
   });
 

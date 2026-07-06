@@ -32,7 +32,7 @@ declare module 'fastify' {
 // Called by requireAuth after the JWT is validated to enforce email verification policy.
 // Skipped for exempt routes and for admin routes (admins must stay in control of the toggle).
 async function enforceEmailVerification(req: FastifyRequest, reply: FastifyReply) {
-  if (EMAIL_VERIFY_EXEMPT.has(req.routerPath ?? req.url.split('?')[0])) return;
+  if (EMAIL_VERIFY_EXEMPT.has(req.routeOptions?.url ?? (req.url.split('?')[0] ?? ''))) return;
   const cfg = await getServerConfig();
   if (!cfg.requireEmailVerification) return;
   const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { emailVerified: true } });
@@ -62,6 +62,21 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
           ...(apiToken.productId ? { scopedProductId: apiToken.productId } : {}),
         };
         prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
+
+        // Enforce product scope atomically here — the global preHandler hook runs before
+        // requireAuth sets req.user so it cannot do this check reliably.
+        if (apiToken.productId) {
+          const scope = apiToken.productId;
+          if (req.url.startsWith('/api/admin')) {
+            reply.status(403).send({ error: 'Scoped tokens cannot access admin endpoints' });
+            return false;
+          }
+          const m = req.url.match(/\/api\/products\/([^/?]+)/);
+          if (m && m[1] !== scope) {
+            reply.status(403).send({ error: 'Token is not authorized for this project' });
+            return false;
+          }
+        }
         return true;
       }
     } catch {
@@ -75,14 +90,16 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
   const cookieToken = req.cookies?.token;
   if (cookieToken) {
     try {
-      const payload = jwt.verify(cookieToken, process.env.JWT_SECRET!) as AuthPayload;
-      // Verify tokenVersion when present — invalidates sessions after password change/reset
-      if (typeof payload.tv === 'number') {
-        const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
-        if (!userRow || userRow.tokenVersion !== payload.tv) {
-          reply.clearCookie('token', { path: '/' }).status(401).send({ error: 'Unauthorized' });
-          return false;
-        }
+      const payload = jwt.verify(cookieToken, process.env.JWT_SECRET!, { algorithms: ['HS256'] }) as AuthPayload;
+      // All cookie JWTs must carry a tokenVersion claim — JWTs without it are rejected
+      if (typeof payload.tv !== 'number') {
+        reply.clearCookie('token', { path: '/' }).status(401).send({ error: 'Session expired, please log in again' });
+        return false;
+      }
+      const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
+      if (!userRow || userRow.tokenVersion !== payload.tv) {
+        reply.clearCookie('token', { path: '/' }).status(401).send({ error: 'Unauthorized' });
+        return false;
       }
       req.user = payload;
       return true;

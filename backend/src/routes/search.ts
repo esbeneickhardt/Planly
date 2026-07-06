@@ -11,11 +11,14 @@ export async function searchRoutes(app: FastifyInstance) {
 
     const take = Math.min(parseInt(limit), 50);
 
-    // Find all products the user belongs to (optionally scoped to one)
+    // If the request comes from a scoped PAT, restrict to that product only
+    const patScope = req.user.scopedProductId;
+
+    // Find all products the user belongs to (optionally scoped to one product)
     const memberProducts = await prisma.product.findMany({
       where: {
         deletedAt: null,
-        ...(productId ? { id: productId } : {}),
+        ...(patScope ? { id: patScope } : productId ? { id: productId } : {}),
         team: { members: { some: { userId: req.user.userId } } },
       },
       select: { id: true, name: true, emoji: true },

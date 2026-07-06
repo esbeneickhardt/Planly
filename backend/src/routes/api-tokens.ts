@@ -1,7 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { createHash, randomBytes } from 'crypto';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+
+const createTokenSchema = z.object({ name: z.string().min(1), expiresAt: z.string().optional() });
 
 function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
@@ -22,8 +25,12 @@ export async function apiTokenRoutes(app: FastifyInstance) {
 
   // Create a new token - the raw token value is returned exactly once
   app.post('/api/auth/tokens', { preHandler: requireAuth }, async (req, reply) => {
-    const { name, expiresAt } = req.body as { name: string; expiresAt?: string };
-    if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
+    const parsed = createTokenSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'name required' });
+    const { name, expiresAt } = parsed.data;
+
+    const existingCount = await prisma.apiToken.count({ where: { userId: req.user.userId } });
+    if (existingCount >= 25) return reply.status(400).send({ error: 'Maximum 25 tokens allowed per user. Revoke an existing token first.' });
 
     // Format: planly_<48 hex chars> = 55 chars total, easy to identify in logs
     const rawToken = `planly_${randomBytes(24).toString('hex')}`;

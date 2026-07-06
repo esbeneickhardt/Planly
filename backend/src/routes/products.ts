@@ -1,7 +1,24 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
+
+const createProductSchema = z.object({
+  name: z.string().min(1).max(100),
+  emoji: z.string().optional(),
+  description: z.string().max(5000).optional(),
+  deadline: z.string(),
+  teamId: z.string(),
+});
+const updateProductSchema = z.object({
+  name: z.string().max(100).optional(),
+  emoji: z.string().optional(),
+  description: z.string().max(5000).optional(),
+  deadline: z.string().optional(),
+  ownerId: z.string().optional(),
+  analyticsEnabled: z.boolean().optional(),
+});
 
 export async function productRoutes(app: FastifyInstance) {
   app.get('/api/products', { preHandler: requireAuth }, async (req, reply) => {
@@ -14,10 +31,9 @@ export async function productRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/products', { preHandler: requireAuth }, async (req, reply) => {
-    const { name, emoji, description, deadline, teamId } = req.body as {
-      name: string; emoji?: string; description?: string; deadline: string; teamId: string;
-    };
-    if (!name || !deadline || !teamId) return reply.status(400).send({ error: 'name, deadline and teamId required' });
+    const parsed = createProductSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'name, deadline and teamId required' });
+    const { name, emoji, description, deadline, teamId } = parsed.data;
 
     // Check server-level project creation permission (admins are always allowed)
     const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
@@ -41,8 +57,8 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.get('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const product = await prisma.product.findUnique({
-      where: { id },
+    const product = await prisma.product.findFirst({
+      where: { id, deletedAt: null },
       include: { team: { include: { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } } } } },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
@@ -53,12 +69,12 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.patch('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { name, emoji, description, deadline, ownerId, analyticsEnabled } = req.body as {
-      name?: string; emoji?: string; description?: string; deadline?: string; ownerId?: string; analyticsEnabled?: boolean;
-    };
+    const parsed = updateProductSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+    const { name, emoji, description, deadline, ownerId, analyticsEnabled } = parsed.data;
 
-    const product = await prisma.product.findUnique({
-      where: { id },
+    const product = await prisma.product.findFirst({
+      where: { id, deletedAt: null },
       include: { team: { select: { members: { where: { userId: req.user.userId }, select: { role: true } } } } },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
@@ -73,6 +89,12 @@ export async function productRoutes(app: FastifyInstance) {
     }
     if (ownerId !== undefined && !isProductOwner) {
       return reply.status(403).send({ error: 'Only the owner can transfer ownership' });
+    }
+    if (ownerId !== undefined) {
+      const newOwnerMembership = await prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId: product.teamId, userId: ownerId } },
+      });
+      if (!newOwnerMembership) return reply.status(400).send({ error: 'New owner must be a team member' });
     }
     if (analyticsEnabled !== undefined && !isProductOwner) {
       return reply.status(403).send({ error: 'Only the owner can change analytics visibility' });
@@ -100,7 +122,7 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.delete('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const product = await prisma.product.findUnique({ where: { id } });
+    const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     if (product.ownerId !== req.user.userId) return reply.status(403).send({ error: 'Only the owner can delete this product' });
     await prisma.product.update({ where: { id }, data: { deletedAt: new Date() } });

@@ -22,6 +22,8 @@ import AdminPage from './pages/AdminPage';
 import AnnouncementsPage from './pages/AnnouncementsPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -82,6 +84,8 @@ export default function App() {
                 <Route path="/invite/:token" element={<InvitePage />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/change-password" element={<ChangePasswordPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
                 <Route
                   path="/*"
                   element={

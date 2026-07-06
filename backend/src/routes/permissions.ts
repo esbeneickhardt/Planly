@@ -1,7 +1,14 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireProductCoOwner } from '../utils/product-guard';
+
+const permissionUpdateSchema = z.array(z.object({
+  userId: z.string(),
+  tab: z.enum(['kanban', 'backlog', 'gantt', 'canvas', 'messages', 'analytics', 'settings']),
+  level: z.enum(['write', 'read', 'none']),
+})).max(100);
 
 export async function permissionRoutes(app: FastifyInstance) {
   // Returns the authenticated user's permissions across all their projects
@@ -44,23 +51,33 @@ export async function permissionRoutes(app: FastifyInstance) {
 
   app.put('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    const updates = req.body as { userId: string; tab: string; level: string }[];
+    const parsed = permissionUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+    const updates = parsed.data;
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: { team: { include: { members: true } } },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
+    // product.team.members is already scoped to this product's team via the Prisma query above
     const myMembership = product.team.members.find(m => m.userId === req.user.userId);
     const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
     if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
+
+    const memberUserIds = new Set(product.team.members.map(m => m.userId));
+    for (const u of updates) {
+      if (!memberUserIds.has(u.userId)) {
+        return reply.status(400).send({ error: `User ${u.userId} is not a member of this project` });
+      }
+    }
 
     await prisma.$transaction(
       updates.map(({ userId, tab, level }) =>
         prisma.tabPermission.upsert({
           where: { productId_userId_tab: { productId, userId, tab } },
-          create: { productId, userId, tab, level: level as any },
-          update: { level: level as any },
+          create: { productId, userId, tab, level },
+          update: { level },
         }),
       ),
     );
