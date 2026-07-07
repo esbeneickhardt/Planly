@@ -2,6 +2,10 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAdmin } from '../middleware/auth';
+import { MESSAGE_INCLUDE } from '../db/selects';
+import { validate } from '../utils/validate';
+
+const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
 
 const attachmentSchema = z.object({
   url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment — only uploads from this server are allowed'),
@@ -14,13 +18,6 @@ const createMessageSchema = z.object({
 });
 const editMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 
-const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true };
-const MSG_INCLUDE = {
-  author: { select: AUTHOR_SELECT },
-  task: { select: { id: true, name: true } },
-  reactions: { select: { emoji: true, userId: true } },
-} as const;
-
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000;
 
 export async function adminChatRoutes(app: FastifyInstance) {
@@ -29,7 +26,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     const take = Math.min(parseInt(limit), 500);
     const messages = await prisma.message.findMany({
       where: { isAdminChat: true, ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}) },
-      include: MSG_INCLUDE,
+      include: MESSAGE_INCLUDE,
       orderBy: { createdAt: 'asc' },
       take,
     });
@@ -42,7 +39,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     const { content, attachments } = parsed.data;
     const msg = await prisma.message.create({
       data: { isAdminChat: true, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
-      include: MSG_INCLUDE,
+      include: MESSAGE_INCLUDE,
     });
     reply.status(201).send(msg);
   });
@@ -59,7 +56,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     const updated = await prisma.message.update({
       where: { id: messageId },
       data: { content: content.trim(), editedAt: new Date() },
-      include: MSG_INCLUDE,
+      include: MESSAGE_INCLUDE,
     });
     reply.send(updated);
   });
@@ -75,8 +72,9 @@ export async function adminChatRoutes(app: FastifyInstance) {
 
   app.post('/api/admin/chat/:messageId/reactions', { preHandler: requireAdmin }, async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const { emoji } = req.body as { emoji: string };
-    if (!emoji || typeof emoji !== 'string' || emoji.length > 12) return reply.status(400).send({ error: 'invalid emoji' });
+    const body = validate(addReactionSchema, req.body, reply);
+    if (!body) return;
+    const { emoji } = body;
     const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
 

@@ -1,13 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Tooltip from './Tooltip';
-import AvatarPicker from './AvatarPicker';
 import EmojiPicker from './EmojiPicker';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useTheme } from '../../context/ThemeContext';
-import { api } from '../../api/client';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
 import MembershipsModal from './MembershipsModal';
@@ -16,6 +14,9 @@ import NotificationBell from './NotificationBell';
 import NotificationPreferencesModal from './NotificationPreferencesModal';
 import ThemePickerModal from './ThemePickerModal';
 import TotpModal from './TotpModal';
+import ProfileModal from './ProfileModal';
+import DeleteAccountModal from './DeleteAccountModal';
+import SeedDataModal from './SeedDataModal';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -189,16 +190,15 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [showNotifPrefs, setShowNotifPrefs] = useState(false);
   const [showTotp, setShowTotp] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [showSeedData, setShowSeedData] = useState(false);
   const [showProjectDd, setShowProjectDd] = useState(false);
   const [showAccountDd, setShowAccountDd] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [productForm, setProductForm] = useState<NewProductForm>({ name: '', emoji: '', description: '', deadline: '' });
   const [creating, setCreating] = useState(false);
-  const [seeding, setSeeding] = useState(false);
   const [showProductEmojiPicker, setShowProductEmojiPicker] = useState(false);
   const [productError, setProductError] = useState('');
-  const [profileForm, setProfileForm] = useState({ realName: user?.realName ?? '', avatarEmoji: user?.avatarEmoji ?? '', avatarUrl: user?.avatarUrl ?? null as string | null });
-  const [savingProfile, setSavingProfile] = useState(false);
 
   const projectRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -234,29 +234,6 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
     finally { setCreating(false); }
   }
 
-  async function handleLoadExamples() {
-    if (!confirm('This will add 2 example products to your workspace. Continue?')) return;
-    setSeeding(true);
-    try { await api.seed.examples(); await refreshProducts(); }
-    catch (err) { alert((err as Error).message); }
-    finally { setSeeding(false); }
-  }
-
-
-  async function handleSaveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user) return;
-    setSavingProfile(true);
-    try {
-      await api.users.update(user.id, {
-        realName: profileForm.realName || undefined,
-        avatarEmoji: profileForm.avatarUrl ? undefined : (profileForm.avatarEmoji || undefined),
-        avatarUrl: profileForm.avatarUrl ?? undefined,
-      });
-      window.location.reload();
-    } catch (err) { alert((err as Error).message); }
-    finally { setSavingProfile(false); }
-  }
 
   return (
     <>
@@ -555,14 +532,13 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 </button>
                 {products.length === 0 && (
                   <button
-                    onClick={() => { handleLoadExamples(); setShowProjectDd(false); }}
-                    disabled={seeding}
+                    onClick={() => { setShowSeedData(true); setShowProjectDd(false); }}
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors"
                     style={{ color: 'var(--text-2)' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <span>✦</span> {seeding ? 'Loading…' : 'Load examples'}
+                    <span>✦</span> Load examples
                   </button>
                 )}
               </div>
@@ -706,17 +682,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                   Download my data
                 </a>
                 <button
-                  onClick={async () => {
-                    setShowAccountDd(false);
-                    if (!user) return;
-                    if (!confirm('Permanently delete your account and all associated data? This cannot be undone.')) return;
-                    try {
-                      await fetch(`/api/users/${user.id}`, { method: 'DELETE', credentials: 'include' });
-                      logout();
-                    } catch {
-                      alert('Failed to delete account. Please try again or contact support.');
-                    }
-                  }}
+                  onClick={() => { setShowAccountDd(false); setShowDeleteAccount(true); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
                   style={{ color: '#ef4444' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')}
@@ -967,47 +933,9 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
       {showNotifPrefs && <NotificationPreferencesModal onClose={() => setShowNotifPrefs(false)} />}
       {showThemePicker && <ThemePickerModal onClose={() => setShowThemePicker(false)} />}
       {showTotp && <TotpModal onClose={() => setShowTotp(false)} />}
-
-      {showProfile && (
-        <Modal title="Edit profile" onClose={() => setShowProfile(false)} width="max-w-sm">
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            {/* Avatar preview */}
-            <div className="flex flex-col items-center gap-1 pb-1">
-              <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-4xl flex-shrink-0" style={{ background: 'var(--surface-2)', border: '2px solid var(--border)' }}>
-                {profileForm.avatarUrl
-                  ? <img src={profileForm.avatarUrl} className="w-full h-full object-cover" alt="" />
-                  : (profileForm.avatarEmoji || '👤')}
-              </div>
-              <p className="text-xs" style={{ color: 'var(--text-3)' }}>Pick an avatar below</p>
-            </div>
-
-            {/* Avatar picker */}
-            <AvatarPicker
-              current={{ avatarEmoji: profileForm.avatarEmoji, avatarUrl: profileForm.avatarUrl }}
-              onChange={(v) => setProfileForm((p) => ({ ...p, avatarEmoji: v.avatarEmoji ?? (v.avatarUrl ? '' : p.avatarEmoji), avatarUrl: v.avatarUrl ?? null }))}
-            />
-
-            <div>
-              <label className="label">Full name</label>
-              <input type="text" value={profileForm.realName} onChange={(e) => setProfileForm((p) => ({ ...p, realName: e.target.value }))} className="input" placeholder="Your name" />
-            </div>
-            <div>
-              <label className="label">Username</label>
-              <input type="text" className="input opacity-50" value={user?.username ?? ''} disabled />
-            </div>
-            <div>
-              <label className="label">Email</label>
-              <input type="email" className="input opacity-50" value={user?.email ?? ''} disabled />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button type="submit" disabled={savingProfile} className="btn-primary flex-1 flex justify-center">
-                {savingProfile ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Save changes'}
-              </button>
-              <button type="button" onClick={() => setShowProfile(false)} className="btn-secondary">Cancel</button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      {showProfile && <ProfileModal user={user} onClose={() => setShowProfile(false)} />}
+      {showDeleteAccount && <DeleteAccountModal user={user} onClose={() => setShowDeleteAccount(false)} logout={logout} />}
+      {showSeedData && <SeedDataModal onClose={() => setShowSeedData(false)} onSuccess={refreshProducts} />}
     </>
   );
 }

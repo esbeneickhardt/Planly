@@ -1,7 +1,13 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { isIPv4 } from 'net';
 import prisma from '../db/client';
+import { config } from '../config/env';
 import { requireAdmin } from '../middleware/auth';
+import { validate } from '../utils/validate';
+
+const setModeSchema = z.object({ mode: z.enum(['disabled', 'allowlist', 'blocklist']) });
+const addRuleSchema = z.object({ cidr: z.string().min(1), description: z.string().optional() });
 
 // ── CIDR matching ──────────────────────────────────────────────────────────────
 
@@ -29,7 +35,7 @@ export function matchesCidr(clientIp: string, cidr: string): boolean {
 }
 
 export function getClientIp(req: { headers: Record<string, string | string[] | undefined>; socket: { remoteAddress?: string } }): string {
-  const depth = parseInt(process.env.TRUSTED_PROXY_DEPTH ?? '1', 10);
+  const depth = config.trustedProxyDepth;
 
   // depth=0 means no trusted proxy — use socket address directly
   if (depth <= 0) return req.socket.remoteAddress ?? '';
@@ -67,10 +73,9 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
 
   // Update mode (disabled / allowlist / blocklist)
   app.put('/api/admin/ip-restrictions/mode', { preHandler: requireAdmin }, async (req, reply) => {
-    const { mode } = req.body as { mode: string };
-    if (!['disabled', 'allowlist', 'blocklist'].includes(mode)) {
-      return reply.status(400).send({ error: 'mode must be disabled, allowlist, or blocklist' });
-    }
+    const body = validate(setModeSchema, req.body, reply);
+    if (!body) return;
+    const { mode } = body;
     await prisma.serverConfig.upsert({
       where: { id: 'main' },
       update: { ipRestrictionMode: mode },
@@ -83,8 +88,9 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
 
   // Add a rule
   app.post('/api/admin/ip-restrictions', { preHandler: requireAdmin }, async (req, reply) => {
-    const { cidr, description } = req.body as { cidr: string; description?: string };
-    if (!cidr?.trim()) return reply.status(400).send({ error: 'cidr required' });
+    const ruleBody = validate(addRuleSchema, req.body, reply);
+    if (!ruleBody) return;
+    const { cidr, description } = ruleBody;
 
     const normalized = cidr.trim();
     // Basic validation: must be a valid IP or CIDR

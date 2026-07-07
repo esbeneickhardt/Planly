@@ -1,16 +1,5 @@
 export type Status = string;
 
-export interface Sprint {
-  id: string;
-  productId: string;
-  name: string;
-  color: string;
-  startDate: string;
-  endDate: string;
-  createdAt: string;
-  taskIds: string[];
-}
-
 export interface KanbanColumn {
   id: string;
   productId: string;

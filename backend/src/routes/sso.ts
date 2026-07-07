@@ -3,6 +3,7 @@ import * as oidcClient from 'openid-client';
 import { config } from '../config/env';
 import prisma from '../db/client';
 import jwt from 'jsonwebtoken';
+import { issueAuthCookie } from '../utils/auth-cookie';
 import { encryptOptional } from '../utils/crypto';
 
 const SSO_ENABLED = !!(config.oidc.issuer && config.oidc.clientId && config.oidc.clientSecret);
@@ -126,13 +127,12 @@ export async function ssoRoutes(app: FastifyInstance) {
       }
 
       const token = jwt.sign(
-        { userId: user.id, username: user.username, tv: user.tokenVersion },
+        { userId: user.id, username: user.username, tokenVersion: user.tokenVersion },
         config.jwtSecret,
         { expiresIn: '7d' },
       );
-      reply
-        .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 7 * 24 * 3600, secure: process.env.COOKIE_SECURE !== 'false' })
-        .redirect(`${config.frontendOrigin}/kanban`);
+      issueAuthCookie(reply, token);
+      reply.redirect(`${config.frontendOrigin}/kanban`);
     } catch (err) {
       app.log.error(err, 'SSO callback error');
       reply.redirect(`${config.frontendOrigin}/login?error=sso_failed`);

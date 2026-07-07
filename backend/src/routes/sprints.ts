@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireTabRead, requireTabWrite } from '../utils/product-guard';
+import { handleNotFound } from '../utils/prisma-errors';
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'Invalid color (expected hex e.g. #7c3aed)');
 const createSprintSchema = z.object({
@@ -75,9 +76,7 @@ export async function sprintRoutes(app: FastifyInstance) {
         include: SPRINT_INCLUDE,
       });
       reply.send({ ...sprint, taskIds: sprint.sprintTasks.map((st) => st.taskId) });
-    } catch {
-      reply.status(404).send({ error: 'Sprint not found' });
-    }
+    } catch (e) { handleNotFound(e, reply, 'Sprint not found'); }
   });
 
   app.delete('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
@@ -86,9 +85,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     try {
       await prisma.sprint.delete({ where: { id: sprintId, productId } });
       reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Sprint not found' });
-    }
+    } catch (e) { handleNotFound(e, reply, 'Sprint not found'); }
   });
 
   app.post('/api/products/:productId/sprints/:sprintId/tasks', { preHandler: requireAuth }, async (req, reply) => {
@@ -115,8 +112,6 @@ export async function sprintRoutes(app: FastifyInstance) {
     try {
       await prisma.sprintTask.delete({ where: { sprintId_taskId: { sprintId, taskId } } });
       reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    } catch (e) { handleNotFound(e, reply); }
   });
 }

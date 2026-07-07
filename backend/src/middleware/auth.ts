@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
 import prisma from '../db/client';
+import { config } from '../config/env';
 import { getServerConfig } from '../utils/server-config';
 
 // Routes where an authenticated but unverified user must still be allowed through
@@ -20,7 +21,7 @@ export interface AuthPayload {
   userId: string;
   username: string;
   scopedProductId?: string; // set when the Bearer token is locked to a specific project
-  tv?: number; // tokenVersion — present in cookie JWTs issued after this feature was added
+  tokenVersion?: number;
 }
 
 declare module 'fastify' {
@@ -90,14 +91,14 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
   const cookieToken = req.cookies?.token;
   if (cookieToken) {
     try {
-      const payload = jwt.verify(cookieToken, process.env.JWT_SECRET!, { algorithms: ['HS256'] }) as AuthPayload;
+      const payload = jwt.verify(cookieToken, config.jwtSecret, { algorithms: ['HS256'] }) as AuthPayload;
       // All cookie JWTs must carry a tokenVersion claim — JWTs without it are rejected
-      if (typeof payload.tv !== 'number') {
+      if (typeof payload.tokenVersion !== 'number') {
         reply.clearCookie('token', { path: '/' }).status(401).send({ error: 'Session expired, please log in again' });
         return false;
       }
       const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
-      if (!userRow || userRow.tokenVersion !== payload.tv) {
+      if (!userRow || userRow.tokenVersion !== payload.tokenVersion) {
         reply.clearCookie('token', { path: '/' }).status(401).send({ error: 'Unauthorized' });
         return false;
       }

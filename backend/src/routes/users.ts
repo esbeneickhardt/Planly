@@ -3,12 +3,24 @@ import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { handleNotFound } from '../utils/prisma-errors';
 import { config } from '../config/env';
 import { sendEmail } from '../utils/email';
 import { getServerConfig } from '../utils/server-config';
+import { z } from 'zod';
 import { validate } from '../utils/validate';
 import { registerSchema } from '../schemas/auth';
 import { encryptOptional, decryptUserPii } from '../utils/crypto';
+
+const updateProfileSchema = z.object({
+  realName: z.string().max(100).optional(),
+  phone: z.string().max(30).optional(),
+  avatarEmoji: z.string().max(8).optional(),
+  avatarUrl: z.string().url().max(2048).startsWith('https').nullable().optional(),
+});
+const updatePreferencesSchema = z.object({
+  preferences: z.record(z.string().max(100), z.boolean()),
+});
 
 // Public profile fields - never expose passwordHash
 const USER_SELF_SELECT = {
@@ -118,22 +130,9 @@ export async function userRoutes(app: FastifyInstance) {
   app.patch('/api/users/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (id !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
-    const { realName, phone, avatarEmoji, avatarUrl } = req.body as {
-      realName?: string; phone?: string; avatarEmoji?: string; avatarUrl?: string | null;
-    };
-    if (realName !== undefined && realName !== null && realName.length > 100) return reply.status(400).send({ error: 'realName too long (max 100)' });
-    if (phone !== undefined && phone !== null && phone.length > 30) return reply.status(400).send({ error: 'phone too long (max 30)' });
-    if (avatarEmoji !== undefined && avatarEmoji.length > 8) return reply.status(400).send({ error: 'avatarEmoji too long' });
-    // Validate avatarUrl: must be https or null
-    if (avatarUrl !== null && avatarUrl !== undefined) {
-      if (avatarUrl.length > 2048) return reply.status(400).send({ error: 'avatarUrl too long' });
-      try {
-        const parsed = new URL(avatarUrl);
-        if (parsed.protocol !== 'https:') return reply.status(400).send({ error: 'avatarUrl must use https' });
-      } catch {
-        return reply.status(400).send({ error: 'avatarUrl is not a valid URL' });
-      }
-    }
+    const profileBody = validate(updateProfileSchema, req.body, reply);
+    if (!profileBody) return;
+    const { realName, phone, avatarEmoji, avatarUrl } = profileBody;
     try {
       const user = await prisma.user.update({
         where: { id },
@@ -141,25 +140,17 @@ export async function userRoutes(app: FastifyInstance) {
         select: USER_SELF_SELECT,
       });
       reply.send(decryptUserPii(user));
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    } catch (e) { handleNotFound(e, reply); }
   });
 
   // Update notification preferences
   app.patch('/api/users/:id/notification-preferences', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (id !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
-    const { preferences } = req.body as { preferences: Record<string, boolean> };
-    if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) {
-      return reply.status(400).send({ error: 'preferences required' });
-    }
-    const prefKeys = Object.keys(preferences);
-    if (prefKeys.length > 50) return reply.status(400).send({ error: 'Too many preference keys (max 50)' });
-    for (const [k, v] of Object.entries(preferences)) {
-      if (k.length > 100) return reply.status(400).send({ error: 'Preference key too long' });
-      if (typeof v !== 'boolean') return reply.status(400).send({ error: 'Preference values must be booleans' });
-    }
+    const prefBody = validate(updatePreferencesSchema, req.body, reply);
+    if (!prefBody) return;
+    const { preferences } = prefBody;
+    if (Object.keys(preferences).length > 50) return reply.status(400).send({ error: 'Too many preference keys (max 50)' });
     try {
       const user = await prisma.user.update({
         where: { id },
@@ -167,9 +158,7 @@ export async function userRoutes(app: FastifyInstance) {
         select: { notificationPreferences: true },
       });
       reply.send(user);
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    } catch (e) { handleNotFound(e, reply); }
   });
 
   // Delete own account only
@@ -179,8 +168,6 @@ export async function userRoutes(app: FastifyInstance) {
     try {
       await prisma.user.delete({ where: { id } });
       reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    } catch (e) { handleNotFound(e, reply); }
   });
 }

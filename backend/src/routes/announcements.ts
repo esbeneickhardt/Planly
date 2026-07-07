@@ -189,7 +189,7 @@ export async function announcementRoutes(app: FastifyInstance) {
   });
 
   app.delete('/api/announcements/:id/comments/:commentId', { preHandler: requireAuth }, async (req, reply) => {
-    const { commentId } = req.params as { id: string; commentId: string };
+    const { commentId } = req.params as { commentId: string };
     const comment = await prisma.announcementComment.findUnique({ where: { id: commentId } });
     if (!comment) return reply.status(404).send({ error: 'Not found' });
     const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });

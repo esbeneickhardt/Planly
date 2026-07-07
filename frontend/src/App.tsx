@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProductProvider, useProduct } from './context/ProductContext';
 import { PermissionProvider, usePermission } from './context/PermissionContext';
 import { ToastProvider } from './context/ToastContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -76,6 +77,7 @@ export default function App() {
         <BrowserRouter>
           <AuthProvider>
             <ToastProvider>
+              <ConfirmProvider>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
@@ -113,6 +115,7 @@ export default function App() {
                   }
                 />
               </Routes>
+              </ConfirmProvider>
             </ToastProvider>
           </AuthProvider>
         </BrowserRouter>

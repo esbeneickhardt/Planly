@@ -101,8 +101,8 @@ export default function PlanlyVisionModal({ onClose }: Props) {
               <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
             </div>
             <div>
-              <h2 className="text-lg font-bold leading-tight" style={{ color: 'var(--text)' }}>{PAGES[page].title}</h2>
-              <p className="text-sm mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>{PAGES[page].subtitle}</p>
+              <h2 className="text-lg font-bold leading-tight" style={{ color: 'var(--text)' }}>{PAGES[page]?.title}</h2>
+              <p className="text-sm mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>{PAGES[page]?.subtitle}</p>
             </div>
           </div>
           <button

@@ -233,6 +233,7 @@ export default function AvatarPicker({ current, onChange }: Props) {
   );
 
   const category = EMOJI_CATEGORIES[emojiPage];
+  if (!category) return null;
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--surface-2)' }}>

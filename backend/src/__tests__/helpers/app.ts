@@ -13,6 +13,7 @@ import rateLimit from '@fastify/rate-limit';
 
 import { authRoutes } from '../../routes/auth';
 import { passwordResetRoutes } from '../../routes/password-reset';
+import { totpRoutes } from '../../routes/totp';
 import { userRoutes } from '../../routes/users';
 import { productRoutes } from '../../routes/products';
 import { taskRoutes } from '../../routes/tasks';
@@ -20,19 +21,22 @@ import { teamRoutes } from '../../routes/teams';
 import { webhookRoutes } from '../../routes/webhooks';
 import { exportRoutes } from '../../routes/export';
 import { announcementRoutes } from '../../routes/announcements';
+import { adminRoutes } from '../../routes/admin';
 import { csrfCheck } from '../../middleware/csrf';
 
-export async function buildTestApp() {
+export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
   const app = Fastify({ logger: false });
 
   await app.register(cors, { origin: 'http://localhost:5173', credentials: true });
   await app.register(cookie);
-  await app.register(rateLimit, { global: true, max: 10000, timeWindow: '1 minute' });
+  await app.register(rateLimit, { global: true, max: opts.rateLimitMax ?? 10000, timeWindow: '1 minute' });
 
   app.addHook('preHandler', csrfCheck);
 
   await app.register(authRoutes);
   await app.register(passwordResetRoutes);
+  await app.register(totpRoutes);
+  await app.register(adminRoutes);
   await app.register(userRoutes);
   await app.register(productRoutes);
   await app.register(taskRoutes);

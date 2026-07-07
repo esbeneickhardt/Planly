@@ -174,6 +174,7 @@ export default function SearchModal({ onClose }: Props) {
     } else if (e.key === 'Enter' && highlightIdx >= 0) {
       e.preventDefault();
       const item = allItems[highlightIdx];
+      if (!item) return;
       if (item.type === 'nav')      goToView(item.item.path);
       else if (item.type === 'sprint')   goToView('/gantt');
       else if (item.type === 'task')     handleTaskClick(item.task);

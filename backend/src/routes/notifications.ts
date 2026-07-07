@@ -1,6 +1,10 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { validate } from '../utils/validate';
+
+const markReadSchema = z.object({ ids: z.array(z.string()).min(1) });
 
 export async function notificationRoutes(app: FastifyInstance) {
   // Get own notifications (newest first, unread first)
@@ -41,8 +45,9 @@ export async function notificationRoutes(app: FastifyInstance) {
 
   // Mark specific notifications as read
   app.patch('/api/notifications/read', { preHandler: requireAuth }, async (req, reply) => {
-    const { ids } = req.body as { ids?: string[] };
-    if (!ids?.length) return reply.status(400).send({ error: 'ids required' });
+    const body = validate(markReadSchema, req.body, reply);
+    if (!body) return;
+    const { ids } = body;
 
     await prisma.notification.updateMany({
       where: { id: { in: ids }, userId: req.user.userId },

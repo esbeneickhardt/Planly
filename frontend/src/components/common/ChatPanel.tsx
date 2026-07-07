@@ -8,9 +8,12 @@ import { api, displayName } from '../../api/client';
 import type { Message } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import type { User, Task } from '../../types';
 import TaskDetailPanel from './TaskDetailPanel';
 import { EMOJI_SET } from './MarkdownEditor';
+import MessageBubble, { formatTime } from './MessageBubble';
+import { useMessageEdit } from '../../hooks/useMessageEdit';
 
 interface Props {
   initialTask?: { id: string; name: string };
@@ -19,163 +22,6 @@ interface Props {
 }
 
 type Tab = 'messages' | 'tasks' | 'search' | 'files';
-
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-  if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (diffDays === 1) return `Yesterday ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
-function MessageBubble({ msg, isOwn, onEdit, onDelete, onImageClick, canEdit, onReact, currentUserId, reactionPickerOpen, onToggleReactionPicker }: {
-  msg: Message;
-  isOwn: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-  onImageClick: (url: string) => void;
-  canEdit: boolean;
-  onReact: (emoji: string) => void;
-  currentUserId: string | null;
-  reactionPickerOpen: boolean;
-  onToggleReactionPicker: () => void;
-}) {
-  const renderContent = (content: string, isOwn: boolean) => (
-    <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5 }}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
-        components={{
-          pre: ({ children }) => (
-            <pre style={{ margin: '6px -4px', borderRadius: 6, overflow: 'auto', fontSize: 12 }}>{children}</pre>
-          ),
-          code: ({ className, children, ...props }) => {
-            const isBlock = Boolean(className?.startsWith('language-'));
-            return isBlock ? (
-              <code className={className} {...props}>{children}</code>
-            ) : (
-              <code style={{ background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)', padding: '1px 4px', borderRadius: 3, fontSize: '0.88em', fontFamily: 'monospace' }} {...props}>{children}</code>
-            );
-          },
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noreferrer" style={{ color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--brand)', textDecoration: 'underline' }}>{children}</a>
-          ),
-          p: ({ children }) => <p style={{ margin: '2px 0' }}>{children}</p>,
-          ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ul>,
-          ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ol>,
-          li: ({ children }) => <li style={{ margin: '2px 0' }}>{children}</li>,
-          blockquote: ({ children }) => (
-            <blockquote style={{ margin: '4px 0', paddingLeft: 10, borderLeft: `3px solid ${isOwn ? 'rgba(255,255,255,0.4)' : 'var(--brand)'}`, opacity: 0.8 }}>{children}</blockquote>
-          ),
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
-  );
-
-  const reactionGroups: Record<string, string[]> = {};
-  for (const r of (msg.reactions ?? [])) {
-    if (!reactionGroups[r.emoji]) reactionGroups[r.emoji] = [];
-    reactionGroups[r.emoji].push(r.userId);
-  }
-  const hasReactions = Object.keys(reactionGroups).length > 0;
-
-  return (
-    <div className={`flex gap-2.5 group ${isOwn ? 'flex-row-reverse' : ''}`}>
-      <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-sm" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-        {msg.author.avatarEmoji ?? '👤'}
-      </div>
-      <div className={`flex-1 min-w-0 ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative`}>
-        <div className={`flex items-baseline gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
-          <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{displayName(msg.author)}</span>
-          <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-            {formatTime(msg.createdAt)}{msg.editedAt ? ' (edited)' : ''}
-          </span>
-        </div>
-        {msg.content && (
-          <div
-            className={`px-3 py-2 rounded-2xl text-sm max-w-[280px] ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
-            style={{
-              background: isOwn ? 'var(--brand)' : 'var(--surface-2)',
-              color: isOwn ? 'white' : 'var(--text)',
-              border: isOwn ? 'none' : '1px solid var(--border)',
-              wordBreak: 'break-word',
-            }}
-          >
-            {renderContent(msg.content, isOwn)}
-          </div>
-        )}
-        {msg.attachments.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {msg.attachments.map((att, i) =>
-              att.type.startsWith('image/') ? (
-                <button key={i} onClick={() => onImageClick(att.url)} className="block">
-                  <img src={att.url} alt={att.name} className="rounded-lg object-cover cursor-zoom-in hover:opacity-90 transition-opacity" style={{ maxWidth: 200, maxHeight: 160 }} />
-                </button>
-              ) : (
-                <a key={i} href={att.url} download={att.name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs" style={{ background: 'var(--surface-2)', color: 'var(--brand)', border: '1px solid var(--border)' }}>
-                  📎 {att.name}
-                </a>
-              )
-            )}
-          </div>
-        )}
-
-        {/* Reactions row */}
-        <div className={`flex flex-wrap items-center gap-1 mt-1.5 ${isOwn ? 'justify-end' : ''}`}>
-          {Object.entries(reactionGroups).map(([emoji, userIds]) => {
-            const mine = currentUserId ? userIds.includes(currentUserId) : false;
-            return (
-              <button
-                key={emoji}
-                onClick={() => onReact(emoji)}
-                title={userIds.length > 3 ? userIds.join(', ') : undefined}
-                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-colors"
-                style={{ background: mine ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${mine ? 'var(--brand)' : 'var(--border)'}`, color: mine ? 'var(--brand)' : 'var(--text-2)' }}
-              >
-                {emoji} <span>{userIds.length}</span>
-              </button>
-            );
-          })}
-          <button
-            onClick={onToggleReactionPicker}
-            className={`text-sm px-1.5 py-0.5 rounded-full transition-opacity ${hasReactions ? '' : 'opacity-0 group-hover:opacity-100'}`}
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)', lineHeight: 1 }}
-            title="Add reaction"
-          >😊+</button>
-        </div>
-
-        {/* Emoji picker for reactions */}
-        {reactionPickerOpen && (
-          <div
-            className="absolute z-50 p-2 rounded-xl shadow-xl"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', bottom: '100%', [isOwn ? 'right' : 'left']: 0, marginBottom: 2 }}
-          >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 28px)', gap: 2 }}>
-              {EMOJI_SET.map((e) => (
-                <button key={e} onClick={() => { onReact(e); onToggleReactionPicker(); }}
-                  className="flex items-center justify-center rounded hover:bg-[--surface-2] transition-colors text-base"
-                  style={{ width: 28, height: 28 }}>
-                  {e}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Edit / delete actions */}
-        {isOwn && (
-          <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {canEdit && <button onClick={onEdit} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-3)' }}>Edit</button>}
-            <button onClick={onDelete} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#ef4444' }}>Delete</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -199,6 +45,7 @@ function saveDismissed(productId: string, ids: string[]) {
 export default function ChatPanel({ initialTask, onClose, isAdminChat = false }: Props) {
   const { activeProduct, tasks } = useProduct();
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [tab, setTab] = useState<Tab>('messages');
   const [selectedTask, setSelectedTask] = useState<{ id: string; name: string } | null>(null);
@@ -231,8 +78,6 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState('');
   const [attachments, setAttachments] = useState<{ url: string; name: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
@@ -261,6 +106,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
 
   const productId = activeProduct?.id;
   const sendTaskId = tab === 'tasks' && selectedTask ? selectedTask.id : undefined;
+  const { editingId, editDraft, setEditDraft, startEdit, cancelEdit, saveEdit } = useMessageEdit({ isAdminChat, productId, setAllMessages });
 
   // When opened from a task's chat button, jump directly to that task's thread
   useEffect(() => {
@@ -454,7 +300,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     const textBeforeCursor = val.slice(0, cursor);
     const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
     if (mentionMatch) {
-      setMentionSearch(mentionMatch[1]);
+      setMentionSearch(mentionMatch[1] ?? null);
       setMentionCursorStart(cursor - mentionMatch[0].length);
       setMentionHighlight(0);
     } else {
@@ -481,7 +327,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     if (mentionSearch !== null && mentionCandidates.length > 0) {
       if (e.key === 'ArrowDown') { e.preventDefault(); setMentionHighlight((h) => Math.min(h + 1, mentionCandidates.length - 1)); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); setMentionHighlight((h) => Math.max(h - 1, 0)); return; }
-      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(mentionCandidates[mentionHighlight].username); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(mentionCandidates[mentionHighlight]!.username); return; }
       if (e.key === 'Escape') { setMentionSearch(null); return; }
     }
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
@@ -531,18 +377,8 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     } finally { setUploading(false); }
   }
 
-  async function saveEdit(id: string) {
-    if (!editDraft.trim()) return;
-    if (!isAdminChat && !productId) return;
-    const updated = isAdminChat
-      ? await api.adminChat.update(id, editDraft.trim())
-      : await api.messages.update(productId!, id, editDraft.trim());
-    setAllMessages((prev) => prev.map((m) => (m.id === id ? updated : m)));
-    setEditingId(null);
-  }
-
   async function deleteMsg(id: string) {
-    if (!confirm('Delete this message?')) return;
+    if (!await confirm('Delete this message?')) return;
     if (!isAdminChat && !productId) return;
     if (isAdminChat) {
       await api.adminChat.delete(id);
@@ -650,7 +486,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   }, [reactionPickerFor, showComposePicker]);
 
   async function handleDeleteFile(url: string) {
-    if (!confirm('Delete this file? It will no longer be accessible from chat messages.')) return;
+    if (!await confirm('Delete this file? It will no longer be accessible from chat messages.')) return;
     const filename = url.split('/').pop() ?? '';
     setDeletingFile(url);
     try {
@@ -871,13 +707,13 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                     autoFocus
                     value={editDraft}
                     onChange={(e) => setEditDraft(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveEdit(msg.id); if (e.key === 'Escape') setEditingId(null); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveEdit(msg.id); if (e.key === 'Escape') cancelEdit(); }}
                     className="input text-sm w-full resize-none"
                     rows={3}
                   />
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(msg.id)} className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background: 'var(--brand)', color: 'white' }}>Save</button>
-                    <button onClick={() => setEditingId(null)} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>Cancel</button>
+                    <button onClick={cancelEdit} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>Cancel</button>
                   </div>
                 </div>
               ) : (
@@ -885,7 +721,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                 <MessageBubble
                   msg={msg}
                   isOwn={isOwn}
-                  onEdit={() => { setEditingId(msg.id); setEditDraft(msg.content); }}
+                  onEdit={() => startEdit(msg.id, msg.content)}
                   onDelete={() => deleteMsg(msg.id)}
                   onImageClick={setLightboxUrl}
                   canEdit={Date.now() - new Date(msg.createdAt).getTime() < EDIT_TIMEOUT_MS}

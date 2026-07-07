@@ -72,6 +72,7 @@ interface Props {
 export default function EmojiPicker({ value, onChange }: Props) {
   const [page, setPage] = useState(0);
   const category = EMOJI_CATEGORIES[page];
+  if (!category) return null;
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--surface-2)' }}>

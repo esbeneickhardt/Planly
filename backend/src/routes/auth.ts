@@ -2,7 +2,9 @@ import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
+import { config } from '../config/env';
 import { requireAuth } from '../middleware/auth';
+import { issueAuthCookie } from '../utils/auth-cookie';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 import { loginSchema } from '../schemas/auth';
@@ -67,7 +69,7 @@ export async function authRoutes(app: FastifyInstance) {
       });
       const mfaToken = jwt.sign(
         { userId: user.id, type: 'mfa_challenge' },
-        process.env.JWT_SECRET!,
+        config.jwtSecret,
         { expiresIn: '5m' },
       );
       return reply.send({ requiresTOTP: true, mfaToken });
@@ -85,16 +87,15 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     const token = jwt.sign(
-      { userId: user.id, username: user.username, tv: updatedUser.tokenVersion },
-      process.env.JWT_SECRET!,
+      { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
+      config.jwtSecret,
       { expiresIn: '7d' }
     );
 
     await prisma.adminLog.create({ data: { action: 'LOGIN', actorName: user.username, targetName: user.username } }).catch((err) => { console.warn('[auth] Failed to write LOGIN audit log:', (err as Error).message); });
 
-    reply
-      .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7, secure: process.env.COOKIE_SECURE !== 'false' })
-      .send(decryptUserPii({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified }));
+    issueAuthCookie(reply, token);
+    reply.send(decryptUserPii({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified }));
   });
 
   // Incrementing tokenVersion on logout invalidates ALL open sessions on every device.
@@ -117,13 +118,12 @@ export async function authRoutes(app: FastifyInstance) {
     const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { id: true, username: true, tokenVersion: true } });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     const token = jwt.sign(
-      { userId: user.id, username: user.username, tv: user.tokenVersion },
-      process.env.JWT_SECRET!,
+      { userId: user.id, username: user.username, tokenVersion: user.tokenVersion },
+      config.jwtSecret,
       { expiresIn: '7d' }
     );
-    reply
-      .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7, secure: process.env.COOKIE_SECURE !== 'false' })
-      .send({ ok: true });
+    issueAuthCookie(reply, token);
+    reply.send({ ok: true });
   });
 
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {

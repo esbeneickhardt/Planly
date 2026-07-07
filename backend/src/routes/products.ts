@@ -3,19 +3,22 @@ import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
+import { validate } from '../utils/validate';
+
+const validDate = z.string().refine((s) => !isNaN(new Date(s).getTime()), 'Invalid date');
 
 const createProductSchema = z.object({
   name: z.string().min(1).max(100),
   emoji: z.string().optional(),
   description: z.string().max(5000).optional(),
-  deadline: z.string(),
+  deadline: validDate,
   teamId: z.string(),
 });
 const updateProductSchema = z.object({
   name: z.string().max(100).optional(),
   emoji: z.string().optional(),
   description: z.string().max(5000).optional(),
-  deadline: z.string().optional(),
+  deadline: validDate.optional(),
   ownerId: z.string().optional(),
   analyticsEnabled: z.boolean().optional(),
 });
@@ -31,9 +34,9 @@ export async function productRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/products', { preHandler: requireAuth }, async (req, reply) => {
-    const parsed = createProductSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'name, deadline and teamId required' });
-    const { name, emoji, description, deadline, teamId } = parsed.data;
+    const body = validate(createProductSchema, req.body, reply);
+    if (!body) return;
+    const { name, emoji, description, deadline, teamId } = body;
 
     // Check server-level project creation permission (admins are always allowed)
     const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { useConfirm } from '../../context/ConfirmContext';
 import type { ApiToken } from '../../api/client';
 import Modal from './Modal';
 
@@ -8,6 +9,7 @@ type PermissionRow = Awaited<ReturnType<typeof api.me.permissions>>[number];
 interface Props { onClose: () => void; }
 
 export default function IntegrationsModal({ onClose }: Props) {
+  const { confirm } = useConfirm();
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -48,7 +50,7 @@ export default function IntegrationsModal({ onClose }: Props) {
   }
 
   async function handleRevoke(id: string) {
-    if (!confirm('Revoke this token? Any integrations using it will stop working.')) return;
+    if (!await confirm('Revoke this token? Any integrations using it will stop working.')) return;
     setRevoking(id);
     try {
       await api.apiTokens.delete(id);

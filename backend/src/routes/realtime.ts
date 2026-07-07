@@ -36,12 +36,12 @@ export async function realtimeRoutes(app: FastifyInstance) {
     if (cookieToken) {
       try {
         const payload = jwt.verify(cookieToken, config.jwtSecret, { algorithms: ['HS256'] }) as AuthPayload;
-        if (typeof payload.tv !== 'number') {
+        if (typeof payload.tokenVersion !== 'number') {
           ws.close(1008, 'Unauthorized');
           return;
         }
         const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
-        if (!userRow || userRow.tokenVersion !== payload.tv) {
+        if (!userRow || userRow.tokenVersion !== payload.tokenVersion) {
           ws.close(1008, 'Unauthorized');
           return;
         }
