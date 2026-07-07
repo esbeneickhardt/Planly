@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { Readable } from 'stream';
 import { randomBytes, createHash } from 'crypto';
 import { requireAdmin } from '../middleware/auth';
@@ -6,6 +7,18 @@ import { config } from '../config/env';
 import prisma from '../db/client';
 import { getServerConfig } from '../utils/server-config';
 import { getSmtpSettings, sendEmail, verifyEmailTemplate } from '../utils/email';
+import { validate } from '../utils/validate';
+
+const transferCrownSchema = z.object({ userId: z.string() });
+const addWhitelistSchema = z.object({ pattern: z.string().min(1) });
+const serverConfigSchema = z.object({
+  requireEmailVerification: z.boolean().optional(),
+  requireWhitelist: z.boolean().optional(),
+  allowProjectCreation: z.boolean().optional(),
+  announcementsEnabled: z.boolean().optional(),
+  announcementPostRole: z.string().optional(),
+});
+const pruneLogsSchema = z.object({ olderThanDays: z.number().int().min(1).optional() });
 
 function buildLogWhere(action?: string, from?: string, to?: string) {
   return {
@@ -60,7 +73,9 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // Transfer founding-admin crown to another admin
   app.put('/api/admin/transfer-crown', { preHandler: requireAdmin }, async (req, reply) => {
-    const { userId: targetId } = req.body as { userId: string };
+    const crownBody = validate(transferCrownSchema, req.body, reply);
+    if (!crownBody) return;
+    const { userId: targetId } = crownBody;
     const actorId = req.user.userId;
 
     const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { username: true, isFoundingAdmin: true } });
@@ -122,8 +137,9 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/admin/whitelist', { preHandler: requireAdmin }, async (req, reply) => {
-    const { pattern } = req.body as { pattern: string };
-    if (!pattern?.trim()) return reply.status(400).send({ error: 'Pattern required' });
+    const wlBody = validate(addWhitelistSchema, req.body, reply);
+    if (!wlBody) return;
+    const { pattern } = wlBody;
     const p = pattern.trim().toLowerCase();
     if (!p.startsWith('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)) {
       return reply.status(400).send({ error: 'Pattern must be an email address or a domain starting with @ (e.g. @company.com)' });
@@ -153,13 +169,9 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   app.put('/api/admin/server-config', { preHandler: requireAdmin }, async (req, reply) => {
-    const { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } = req.body as {
-      requireEmailVerification?: boolean;
-      requireWhitelist?: boolean;
-      allowProjectCreation?: boolean;
-      announcementsEnabled?: boolean;
-      announcementPostRole?: string;
-    };
+    const cfgBody = validate(serverConfigSchema, req.body, reply);
+    if (!cfgBody) return;
+    const { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } = cfgBody;
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
 
     const prevConfig = await getServerConfig();
@@ -340,8 +352,9 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   app.delete('/api/admin/logs/prune', { preHandler: requireAdmin }, async (req, reply) => {
-    const { olderThanDays } = req.body as { olderThanDays: number };
-    const days = Math.max(1, parseInt(String(olderThanDays)) || 90);
+    const pruneBody = validate(pruneLogsSchema, req.body, reply);
+    if (!pruneBody) return;
+    const days = Math.max(1, pruneBody.olderThanDays ?? 90);
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true, isFoundingAdmin: true } });
     if (!actor?.isFoundingAdmin) return reply.status(403).send({ error: 'Only the founding admin can prune logs.' });
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

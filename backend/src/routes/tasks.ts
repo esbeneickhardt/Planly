@@ -6,8 +6,15 @@ import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { createNotification } from '../utils/notifications';
 import { logActivity } from '../utils/activity';
 import { broadcast } from '../realtime/manager';
+import { z } from 'zod';
 import { validate } from '../utils/validate';
 import { createTaskSchema, updateTaskSchema } from '../schemas/tasks';
+
+const reorderSchema = z.object({ updates: z.array(z.object({ taskId: z.string(), order: z.number().int() })).max(1000) });
+const positionSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
+const createSubtaskSchema = z.object({ name: z.string().min(1).max(200) });
+const updateSubtaskSchema = z.object({ name: z.string().max(200).optional(), completed: z.boolean().optional(), order: z.number().int().optional() });
+const addDependencySchema = z.object({ prerequisiteId: z.string() });
 
 const TASK_INCLUDE = {
   owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
@@ -46,10 +53,9 @@ export async function taskRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
-    const { updates } = req.body as { updates: { taskId: string; order: number }[] };
-    if (!Array.isArray(updates) || updates.length > 1000) {
-      return reply.status(400).send({ error: 'Too many updates (max 1000)' });
-    }
+    const reorderBody = validate(reorderSchema, req.body, reply);
+    if (!reorderBody) return;
+    const { updates } = reorderBody;
     await prisma.$transaction(
       updates.map(({ taskId, order }) =>
         prisma.task.update({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE }, data: { kanbanOrder: order } }),
@@ -68,12 +74,12 @@ export async function taskRoutes(app: FastifyInstance) {
 
     // Verify assignees are project members
     if (ownerId) {
-      const m = await prisma.teamMember.findFirst({ where: { userId: ownerId, team: { products: { some: { id: productId } } } } });
-      if (!m) return reply.status(400).send({ error: 'ownerId must be a project member' });
+      const member = await prisma.teamMember.findFirst({ where: { userId: ownerId, team: { products: { some: { id: productId } } } } });
+      if (!member) return reply.status(400).send({ error: 'ownerId must be a project member' });
     }
     if (reviewerId) {
-      const m = await prisma.teamMember.findFirst({ where: { userId: reviewerId, team: { products: { some: { id: productId } } } } });
-      if (!m) return reply.status(400).send({ error: 'reviewerId must be a project member' });
+      const member = await prisma.teamMember.findFirst({ where: { userId: reviewerId, team: { products: { some: { id: productId } } } } });
+      if (!member) return reply.status(400).send({ error: 'reviewerId must be a project member' });
     }
     if (deadline && isNaN(new Date(deadline).getTime())) {
       return reply.status(400).send({ error: 'Invalid deadline date' });
@@ -91,18 +97,18 @@ export async function taskRoutes(app: FastifyInstance) {
 
     dispatchWebhooks(productId, 'task.created', task).catch((err) => { console.warn('[tasks] Webhook dispatch failed:', (err as Error).message); });
     broadcast(productId, 'task.created', task);
-    logActivity({ productId, actorId: req.user.userId, action: 'task.created', entityType: 'task', entityId: task.id, entityName: task.name });
+    logActivity({ productId, actorId: req.user.userId, action: 'task.created', entityType: 'task', entityId: task.id, entityName: task.name }).catch((err) => { console.error('[tasks] logActivity failed:', (err as Error).message); });
     if (ownerId && ownerId !== req.user.userId) {
       createNotification({
         userId: ownerId, type: 'task_assigned', title: `You were assigned to "${task.name}"`,
         productId, taskId: task.id,
-      });
+      }).catch((err) => { console.error('[tasks] createNotification failed:', (err as Error).message); });
     }
     if (reviewerId && reviewerId !== req.user.userId && reviewerId !== ownerId) {
       createNotification({
         userId: reviewerId, type: 'task_assigned', title: `You were set as reviewer for "${task.name}"`,
         productId, taskId: task.id,
-      });
+      }).catch((err) => { console.error('[tasks] createNotification failed:', (err as Error).message); });
     }
 
     reply.status(201).send(task);
@@ -128,12 +134,12 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!task) return reply.status(404).send({ error: 'Not found' });
 
     if (body.ownerId) {
-      const m = await prisma.teamMember.findFirst({ where: { userId: body.ownerId, team: { products: { some: { id: productId } } } } });
-      if (!m) return reply.status(400).send({ error: 'ownerId must be a project member' });
+      const member = await prisma.teamMember.findFirst({ where: { userId: body.ownerId, team: { products: { some: { id: productId } } } } });
+      if (!member) return reply.status(400).send({ error: 'ownerId must be a project member' });
     }
     if (body.reviewerId) {
-      const m = await prisma.teamMember.findFirst({ where: { userId: body.reviewerId, team: { products: { some: { id: productId } } } } });
-      if (!m) return reply.status(400).send({ error: 'reviewerId must be a project member' });
+      const member = await prisma.teamMember.findFirst({ where: { userId: body.reviewerId, team: { products: { some: { id: productId } } } } });
+      if (!member) return reply.status(400).send({ error: 'reviewerId must be a project member' });
     }
     if (body.deadline && isNaN(new Date(body.deadline).getTime())) {
       return reply.status(400).send({ error: 'Invalid deadline date' });
@@ -166,21 +172,21 @@ export async function taskRoutes(app: FastifyInstance) {
     const eventName = body.status && body.status !== task.status ? 'task.status_changed' : 'task.updated';
     dispatchWebhooks(productId, eventName, updated).catch((err) => { console.warn('[tasks] Webhook dispatch failed:', (err as Error).message); });
     broadcast(productId, eventName, updated);
-    logActivity({ productId, actorId: req.user.userId, action: eventName, entityType: 'task', entityId: updated.id, entityName: updated.name });
+    logActivity({ productId, actorId: req.user.userId, action: eventName, entityType: 'task', entityId: updated.id, entityName: updated.name }).catch((err) => { console.error('[tasks] logActivity failed:', (err as Error).message); });
 
     // Notify new assignee
     if (body.ownerId && body.ownerId !== task.ownerId && body.ownerId !== req.user.userId) {
       createNotification({
         userId: body.ownerId, type: 'task_assigned', title: `You were assigned to "${updated.name}"`,
         productId, taskId: task.id,
-      });
+      }).catch((err) => { console.error('[tasks] createNotification failed:', (err as Error).message); });
     }
     // Notify new reviewer
     if (body.reviewerId && body.reviewerId !== task.reviewerId && body.reviewerId !== req.user.userId) {
       createNotification({
         userId: body.reviewerId, type: 'task_assigned', title: `You were set as reviewer for "${updated.name}"`,
         productId, taskId: task.id,
-      });
+      }).catch((err) => { console.error('[tasks] createNotification failed:', (err as Error).message); });
     }
 
     reply.send(updated);
@@ -204,8 +210,9 @@ export async function taskRoutes(app: FastifyInstance) {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
-    const { x, y } = req.body as { x: number; y: number };
-    if (!isFinite(x) || !isFinite(y)) return reply.status(400).send({ error: 'x and y must be finite numbers' });
+    const posBody = validate(positionSchema, req.body, reply);
+    if (!posBody) return;
+    const { x, y } = posBody;
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });
     await prisma.task.update({ where: { id: taskId }, data: { canvasX: x, canvasY: y } });
@@ -218,9 +225,9 @@ export async function taskRoutes(app: FastifyInstance) {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
-    const { name } = req.body as { name: string };
-    if (!name?.trim()) return reply.status(400).send({ error: 'name required' });
-    if (name.length > 200) return reply.status(400).send({ error: 'Subtask name too long (max 200)' });
+    const stBody = validate(createSubtaskSchema, req.body, reply);
+    if (!stBody) return;
+    const { name } = stBody;
 
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });
@@ -235,8 +242,9 @@ export async function taskRoutes(app: FastifyInstance) {
     const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
-    const { name, completed, order } = req.body as { name?: string; completed?: boolean; order?: number };
-    if (name && name.length > 200) return reply.status(400).send({ error: 'Subtask name too long (max 200)' });
+    const updateStBody = validate(updateSubtaskSchema, req.body, reply);
+    if (!updateStBody) return;
+    const { name, completed, order } = updateStBody;
 
     const completedFields =
       completed === true
@@ -274,7 +282,9 @@ export async function taskRoutes(app: FastifyInstance) {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
-    const { prerequisiteId } = req.body as { prerequisiteId: string };
+    const depBody = validate(addDependencySchema, req.body, reply);
+    if (!depBody) return;
+    const { prerequisiteId } = depBody;
 
     const [task, prereq] = await Promise.all([
       prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } }),

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { api, displayName as dn } from '../../api/client';
 import Modal from './Modal';
 import type { Product } from '../../types';
@@ -13,6 +14,7 @@ export default function MembershipsModal({ onClose }: Props) {
   const { user } = useAuth();
   const { products, activeProduct, setActiveProduct, refreshProducts } = useProduct();
 
+  const { confirm } = useConfirm();
   const [busy, setBusy] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   // When an owner clicks Leave, we expand the row with an owner action panel
@@ -31,7 +33,7 @@ export default function MembershipsModal({ onClose }: Props) {
     if (!user) return;
     if (p.ownerId !== user.id) {
       // Non-owner: simple leave
-      if (!confirm(`Leave "${p.name}"? You will lose access until re-invited.`)) return;
+      if (!await confirm(`Leave "${p.name}"? You will lose access until re-invited.`)) return;
       setBusy(p.id);
       try {
         await api.teams.removeMember(p.teamId, user.id);
@@ -61,7 +63,7 @@ export default function MembershipsModal({ onClose }: Props) {
   async function handleTransferAndLeave(p: Product) {
     if (!ownerAction || !user) return;
     if (!ownerAction.transferTo) { setErrorMsg('Select a member to transfer to.'); return; }
-    if (!confirm(`Transfer ownership of "${p.name}" to the selected member and leave?`)) return;
+    if (!await confirm(`Transfer ownership of "${p.name}" to the selected member and leave?`)) return;
     setBusy(p.id);
     try {
       await api.products.update(p.id, { ownerId: ownerAction.transferTo });
@@ -74,7 +76,7 @@ export default function MembershipsModal({ onClose }: Props) {
   }
 
   async function handleDelete(p: Product) {
-    if (!confirm(`Permanently delete "${p.name}" and all its tasks?`)) return;
+    if (!await confirm(`Permanently delete "${p.name}" and all its tasks?`)) return;
     setBusy(p.id);
     try {
       await api.products.delete(p.id);

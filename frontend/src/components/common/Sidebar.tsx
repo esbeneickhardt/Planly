@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { api } from '../../api/client';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
@@ -25,6 +26,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   const { user, logout } = useAuth();
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
   const { canRead, levelFor, canManage } = usePermission();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -66,7 +68,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   }
 
   async function handleLoadExamples() {
-    if (!confirm('This will add 2 example products to your workspace. Continue?')) return;
+    if (!await confirm('This will add 2 example products to your workspace. Continue?')) return;
     setSeeding(true);
     try {
       await api.seed.examples();

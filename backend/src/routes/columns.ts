@@ -4,6 +4,7 @@ import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireTabWrite } from '../utils/product-guard';
+import { handleNotFound } from '../utils/prisma-errors';
 
 const createColumnSchema = z.object({ label: z.string().min(1).max(50), color: z.string().optional() });
 const reorderColumnSchema = z.object({ order: z.array(z.object({ id: z.string(), order: z.number().int() })) });
@@ -79,9 +80,7 @@ export async function columnRoutes(app: FastifyInstance) {
     try {
       const col = await prisma.kanbanColumn.update({ where: { id: columnId, productId }, data: { label, color } });
       reply.send(col);
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    } catch (e) { handleNotFound(e, reply); }
   });
 
   app.delete('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {

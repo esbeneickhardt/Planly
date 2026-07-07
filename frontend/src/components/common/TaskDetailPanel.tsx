@@ -2,13 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import type { Task, KanbanColumn, User, Subtask } from '../../types';
-import type { Sprint } from '../../api/client';
+import type { Task, KanbanColumn, Subtask } from '../../types';
 import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useColorLegend } from '../../hooks/useColorLegend';
 import { useToast } from '../../context/ToastContext';
 import { useChat } from '../../context/ChatContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useProductMembers } from '../../hooks/useProductMembers';
+import { useSprints } from '../../hooks/useSprints';
 
 interface Props {
   task: Task;
@@ -32,8 +34,9 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const { legend, enabledColors } = useColorLegend(activeProduct?.id ?? '');
   const { showToast } = useToast();
   const { openChat, chatOpen, chatTaskId } = useChat();
+  const { confirm } = useConfirm();
   const [minimized, setMinimized] = useState(false);
-  const [users, setUsers] = useState<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>([]);
+  const users = useProductMembers(activeProduct?.teamId);
   const [name, setName] = useState(task.name);
   const [description, setDescription] = useState(task.description ?? '');
   const [ownerId, setOwnerId] = useState(task.ownerId ?? '');
@@ -70,7 +73,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const [subtaskLoading, setSubtaskLoading] = useState<string | null>(null);
 
   // Sprint membership
-  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const { sprints, refresh: refreshSprints } = useSprints(activeProduct?.id);
   const [sprintIds, setSprintIds] = useState<Set<string>>(new Set());
   const initialSprintIdsRef = useRef<Set<string>>(new Set());
 
@@ -92,21 +95,14 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     sprintsDirty;
 
   useEffect(() => {
-    if (!activeProduct?.teamId) return;
-    api.teams.get(activeProduct.teamId)
-      .then((team) => setUsers(team.members.map((m) => m.user)))
-      .catch(() => {});
-  }, [activeProduct?.teamId]);
-
-  useEffect(() => {
     if (!activeProduct) return;
-    api.sprints.list(activeProduct.id).then((ss) => {
-      setSprints(ss);
+    refreshSprints().then((ss) => {
       const ids = new Set(ss.filter((s) => s.taskIds.includes(task.id)).map((s) => s.id));
       setSprintIds(ids);
       initialSprintIdsRef.current = new Set(ids);
-    }).catch(() => {});
-  }, [activeProduct?.id, task.id]);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSprints, task.id]);
 
   const statusOptions = columns && columns.length > 0
     ? [
@@ -117,8 +113,8 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
   const currentStatus = statusOptions.find((s) => s.statusKey === status);
 
-  function handleClose() {
-    if (isDirty && !confirm('You have unsaved changes. Close anyway?')) return;
+  async function handleClose() {
+    if (isDirty && !await confirm('You have unsaved changes. Close anyway?')) return;
     onClose();
   }
 
@@ -174,7 +170,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
   async function deleteTask() {
     if (!activeProduct) return;
-    if (!confirm(`Delete "${task.name}"? This cannot be undone.`)) return;
+    if (!await confirm(`Delete "${task.name}"? This cannot be undone.`)) return;
     try {
       await api.tasks.delete(activeProduct.id, task.id);
       onDeleted?.();
@@ -293,10 +289,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
         <span className="text-sm font-medium truncate flex-1" style={{ color: 'var(--text)' }}>{name}</span>
         {isDirty && <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>●</span>}
         <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>↑ Restore</span>
-        <button onClick={(e) => { e.stopPropagation(); handleClose(); }} className="flex-shrink-0 text-xs" style={{ color: 'var(--text-3)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-        >✕</button>
+        <button onClick={(e) => { e.stopPropagation(); handleClose(); }} className="flex-shrink-0 text-xs text-[var(--text-3)] hover:text-[#ef4444] transition-colors">✕</button>
       </div>
     );
   }
@@ -363,11 +356,8 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           />
           <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
             {uploading && <span className="text-xs" style={{ color: 'var(--text-3)' }}>Uploading…</span>}
-            <label title="Upload image" className="cursor-pointer flex items-center justify-center w-6 h-6 rounded transition-colors"
-              style={{ color: 'var(--text-3)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-            >
+            <label title="Upload image" className="cursor-pointer flex items-center justify-center w-6 h-6 rounded transition-colors text-[var(--text-3)] hover:text-[var(--brand)]">
+
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="1" y="3" width="14" height="10" rx="1.5" />
                 <circle cx="5.5" cy="7" r="1.2" />
@@ -479,9 +469,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
                     <input type="checkbox" checked={s.completed} disabled={readOnly || subtaskLoading === s.id} onChange={() => toggleSubtask(s)} className="rounded flex-shrink-0" style={{ accentColor: 'var(--brand)' }} />
                     <span className="flex-1 text-sm" style={{ color: s.completed ? 'var(--text-3)' : 'var(--text-2)', textDecoration: s.completed ? 'line-through' : 'none' }}>{s.name}</span>
                     {!readOnly && (
-                      <button onClick={() => deleteSubtask(s)} className="opacity-0 group-hover:opacity-100 text-xs transition-opacity" style={{ color: 'var(--text-3)' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                      >✕</button>
+                      <button onClick={() => deleteSubtask(s)} className="opacity-0 group-hover:opacity-100 text-xs transition-all text-[var(--text-3)] hover:text-[#ef4444]">✕</button>
                     )}
                   </div>
                 ))}
@@ -496,9 +484,8 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
               <button onClick={() => { setAddingSubtask(false); setNewSubtaskName(''); }} className="text-xs" style={{ color: 'var(--text-3)' }}>✕</button>
             </div>
           ) : (
-            <button onClick={() => setAddingSubtask(true)} className="w-full text-left px-3 py-2 text-xs transition-colors"
-              style={{ color: 'var(--text-3)', borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+            <button onClick={() => setAddingSubtask(true)} className="w-full text-left px-3 py-2 text-xs transition-colors text-[var(--text-3)] hover:text-[var(--brand)]"
+              style={{ borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none' }}
             >+ Add subtask</button>
           ))}
         </div>
@@ -523,10 +510,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
   const iconBtn = (title: string, onClick: () => void, children: React.ReactNode, active = false) => (
     <button onClick={onClick} title={title}
-      className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-      style={{ color: active ? 'var(--brand)' : 'var(--text-3)', background: active ? 'var(--brand-subtle)' : 'transparent' }}
-      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
-      onMouseLeave={(e) => (e.currentTarget.style.color = active ? 'var(--brand)' : 'var(--text-3)')}
+      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:text-[var(--brand)] ${active ? 'text-[var(--brand)] bg-[var(--brand-subtle)]' : 'text-[var(--text-3)] bg-transparent'}`}
     >{children}</button>
   );
 
@@ -542,10 +526,8 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       <button onClick={handleClose} className="btn-secondary">Close</button>
       {!readOnly && onDeleted && (
         <button onClick={deleteTask} title="Delete task"
-          className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0"
-          style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.16)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+          className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 bg-red-500/[8%] hover:bg-red-500/[16%]"
+          style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="2,4 14,4" /><path d="M5 4V2h6v2" /><path d="M3 4l1 10h8l1-10" /><line x1="6" y1="7" x2="6" y2="11" /><line x1="10" y1="7" x2="10" y2="11" />

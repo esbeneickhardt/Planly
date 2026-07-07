@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { config } from '../config/env';
+import { issueAuthCookie } from '../utils/auth-cookie';
 import { decryptUserPii } from '../utils/crypto';
 import { z } from 'zod';
 
@@ -178,7 +179,7 @@ export async function totpRoutes(app: FastifyInstance) {
     });
 
     const token = jwt.sign(
-      { userId: user.id, username: user.username, tv: updatedUser.tokenVersion },
+      { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
       config.jwtSecret,
       { expiresIn: '7d' },
     );
@@ -187,9 +188,8 @@ export async function totpRoutes(app: FastifyInstance) {
       data: { action: 'LOGIN_TOTP', actorName: user.username, targetName: user.username },
     }).catch(() => {});
 
-    reply
-      .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7, secure: process.env.COOKIE_SECURE !== 'false' })
-      .send(decryptUserPii({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified }));
+    issueAuthCookie(reply, token);
+    reply.send(decryptUserPii({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified }));
   });
 
   // Returns whether TOTP is enabled for the current user.

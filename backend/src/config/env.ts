@@ -22,6 +22,7 @@ export const config = {
   uploadsDir: process.env.UPLOADS_DIR ?? '/tmp/planly-uploads',
   port: parseInt(process.env.PORT ?? '3000'),
   appUrl: process.env.APP_URL ?? process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
+  trustedProxyDepth: parseInt(process.env.TRUSTED_PROXY_DEPTH ?? '1', 10),
   smtp: {
     host: process.env.SMTP_HOST ?? '',
     port: parseInt(process.env.SMTP_PORT ?? '587'),

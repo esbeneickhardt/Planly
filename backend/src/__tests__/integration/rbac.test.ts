@@ -7,7 +7,8 @@ import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../helpers/app';
 import { prisma, createTestUser, createTestTeam, createTestProduct, randomSuffix } from '../helpers/db';
 
-const RUN = !!process.env.TEST_DATABASE_URL;
+// Set TEST_DATABASE_URL to run locally. Always provided in CI via .github/workflows/test.yml.
+const HAS_DB = !!process.env.TEST_DATABASE_URL;
 
 async function loginAs(app: FastifyInstance, email: string, password: string) {
   const res = await app.inject({
@@ -19,7 +20,7 @@ async function loginAs(app: FastifyInstance, email: string, password: string) {
   return (cookie.split(';')[0] ?? '').replace('token=', '');
 }
 
-describe.skipIf(!RUN)('RBAC integration', () => {
+describe.skipIf(!HAS_DB)('RBAC integration', () => {
   let app: FastifyInstance;
   const suffix = randomSuffix();
   const ownerEmail  = `owner_${suffix}@example.com`;

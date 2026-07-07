@@ -8,9 +8,10 @@ import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../helpers/app';
 import { prisma, createTestUser, randomSuffix } from '../helpers/db';
 
-const RUN = !!process.env.TEST_DATABASE_URL;
+// Set TEST_DATABASE_URL to run locally. Always provided in CI via .github/workflows/test.yml.
+const HAS_DB = !!process.env.TEST_DATABASE_URL;
 
-describe.skipIf(!RUN)('Auth integration', () => {
+describe.skipIf(!HAS_DB)('Auth integration', () => {
   let app: FastifyInstance;
   const createdEmails: string[] = [];
 

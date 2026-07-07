@@ -3,6 +3,7 @@ import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { api } from '../api/client';
 import type { Task } from '../types';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
@@ -26,6 +27,7 @@ export default function BacklogPage() {
   const { user } = useAuth();
   const readOnly = !canWrite('backlog');
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>('oldest');
@@ -89,7 +91,7 @@ export default function BacklogPage() {
   }
 
   async function bulkDelete() {
-    if (!activeProduct || !confirm(`Delete ${selected.size} task(s)?`)) return;
+    if (!activeProduct || !await confirm(`Delete ${selected.size} task(s)?`)) return;
     await Promise.all(Array.from(selected).map((id) => api.tasks.delete(activeProduct.id, id)));
     await refreshTasks();
     setSelected(new Set());

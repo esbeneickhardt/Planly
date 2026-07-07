@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import multipart from '@fastify/multipart';
 import prisma from '../db/client';
+import { config } from '../config/env';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
@@ -9,14 +11,21 @@ import { logActivity } from '../utils/activity';
 import { storeFile, getFileBuffer, deleteFile, fileExtFromMime, generateFilename, mimeFromExt, ALLOWED_MIME_TYPES, verifyMimeBytes } from '../utils/storage';
 import { sendEmail, mentionEmail } from '../utils/email';
 import { createNotification } from '../utils/notifications';
+import { MESSAGE_INCLUDE } from '../db/selects';
+import { validate } from '../utils/validate';
 
-const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true };
-const MSG_INCLUDE = {
-  author: { select: AUTHOR_SELECT },
-  task: { select: { id: true, name: true } },
-  reactions: { select: { emoji: true, userId: true } },
-} as const;
-
+const attachmentItemSchema = z.object({
+  url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment — only uploads from this server are allowed'),
+  name: z.string(),
+  type: z.string(),
+});
+const createMessageSchema = z.object({
+  content: z.string().min(1).max(10000),
+  taskId: z.string().optional(),
+  attachments: z.array(attachmentItemSchema).max(20).optional(),
+});
+const updateMessageSchema = z.object({ content: z.string().min(1).max(10000) });
+const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
 
 export async function messageRoutes(app: FastifyInstance) {
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 5, fieldSize: 1024 } });
@@ -104,7 +113,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const where = all === 'true' ? { productId } : { productId, taskId: taskId ?? null };
     const messages = await prisma.message.findMany({
       where: { ...where, ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}) },
-      include: MSG_INCLUDE,
+      include: MESSAGE_INCLUDE,
       orderBy: { createdAt: 'asc' },
       take,
     });
@@ -114,24 +123,12 @@ export async function messageRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const { content, taskId, attachments } = req.body as {
-      content: string;
-      taskId?: string;
-      attachments?: { url: string; name: string; type: string }[];
-    };
-    if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
-    if (content.length > 10000) return reply.status(400).send({ error: 'content too long (max 10000)' });
-    if (attachments) {
-      if (attachments.length > 20) return reply.status(400).send({ error: 'Too many attachments (max 20)' });
-      for (const a of attachments) {
-        if (!/^\/api\/uploads\/[a-zA-Z0-9._-]+$/.test(a.url)) {
-          return reply.status(400).send({ error: 'Invalid attachment — only uploads from this server are allowed' });
-        }
-      }
-    }
+    const msgBody = validate(createMessageSchema, req.body, reply);
+    if (!msgBody) return;
+    const { content, taskId, attachments } = msgBody;
     const msg = await prisma.message.create({
       data: { productId, taskId: taskId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
-      include: MSG_INCLUDE,
+      include: MESSAGE_INCLUDE,
     });
     dispatchWebhooks(productId, 'message.created', msg).catch((err) => { console.warn('[messages] Webhook dispatch failed:', (err as Error).message); });
     broadcast(productId, 'message.created', msg);
@@ -152,7 +149,7 @@ export async function messageRoutes(app: FastifyInstance) {
         if (!users.length) return;
         const taskName = msg.task?.name;
         const snippet = content.slice(0, 200);
-        const appUrl = process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+        const appUrl = config.appUrl;
         for (const u of users) {
           const prefs = (u.notificationPreferences as Record<string, boolean> | null) ?? {};
           // In-app notification (respects mention pref, default on)
@@ -171,10 +168,10 @@ export async function messageRoutes(app: FastifyInstance) {
               to: u.email,
               subject: `@${req.user.username} mentioned you in Planly`,
               html: mentionEmail(req.user.username, context, snippet, appUrl),
-            }).catch(() => {});
+            }).catch((err) => { console.error('[messages] mention email failed:', (err as Error).message); });
           }
         }
-      }).catch(() => {});
+      }).catch((err) => { console.error('[messages] mention notification failed:', (err as Error).message); });
     }
 
     reply.status(201).send(msg);
@@ -183,16 +180,16 @@ export async function messageRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const { content } = req.body as { content: string };
-    if (!content?.trim()) return reply.status(400).send({ error: 'content required' });
-    if (content.length > 10000) return reply.status(400).send({ error: 'content too long (max 10000)' });
+    const editBody = validate(updateMessageSchema, req.body, reply);
+    if (!editBody) return;
+    const { content } = editBody;
     const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
     const updated = await prisma.message.update({
       where: { id: messageId },
       data: { content, editedAt: new Date() },
-      include: MSG_INCLUDE,
+      include: MESSAGE_INCLUDE,
     });
     reply.send(updated);
   });
@@ -211,8 +208,9 @@ export async function messageRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/messages/:messageId/reactions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const { emoji } = req.body as { emoji: string };
-    if (!emoji || typeof emoji !== 'string' || emoji.length > 12) return reply.status(400).send({ error: 'invalid emoji' });
+    const rxnBody = validate(addReactionSchema, req.body, reply);
+    if (!rxnBody) return;
+    const { emoji } = rxnBody;
 
     const key = { messageId, userId: req.user.userId, emoji };
     const existing = await prisma.messageReaction.findUnique({ where: { messageId_userId_emoji: key } });

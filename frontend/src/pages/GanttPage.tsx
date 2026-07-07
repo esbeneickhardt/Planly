@@ -711,7 +711,7 @@ export default function GanttPage() {
                         <div className="space-y-1 max-h-48 overflow-auto">
                           {sortedDeps.map((d, i) => {
                             const isDone = d.status === 'done';
-                            const isFirstDone = isDone && (i === 0 || sortedDeps[i - 1].status !== 'done');
+                            const isFirstDone = isDone && (i === 0 || sortedDeps[i - 1]?.status !== 'done');
                             return (
                               <div key={d.id}>
                                 {isFirstDone && m.doneDependencies > 0 && m.doneDependencies < m.totalDependencies && (
@@ -784,7 +784,7 @@ export default function GanttPage() {
                         })
                         .map((m, i, arr) => {
                           const isDone = m.status === 'done';
-                          const isFirstDone = isDone && (i === 0 || arr[i - 1].status !== 'done');
+                          const isFirstDone = isDone && (i === 0 || arr[i - 1]?.status !== 'done');
                           return (
                             <div key={m.id}>
                               {isFirstDone && doneCount > 0 && doneCount < milestones.length && (

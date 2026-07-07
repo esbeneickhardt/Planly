@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useProduct } from '../context/ProductContext';
 import { useChat } from '../context/ChatContext';
+import { useConfirm } from '../context/ConfirmContext';
 import MarkdownEditor from '../components/common/MarkdownEditor';
 
 // ── Markdown renderer ──────────────────────────────────────────────────────────
@@ -174,20 +175,20 @@ function CommentSection({ annId, userId, isAdmin }: { annId: string; userId: str
       const c = await api.announcements.comments.create(annId, draft.trim());
       setComments(prev => [...(prev ?? []), c]);
       setDraft('');
-    } catch (e: any) {
-      showToast(e.message ?? 'Failed to post comment', 'error');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to post comment', 'error');
     } finally {
       setSending(false);
     }
   }
 
   async function deleteComment(commentId: string) {
-    if (!confirm('Delete this comment?')) return;
+    if (!await confirm('Delete this comment?')) return;
     try {
       await api.announcements.comments.delete(annId, commentId);
       setComments(prev => prev?.filter(c => c.id !== commentId) ?? []);
-    } catch (e: any) {
-      showToast(e.message ?? 'Failed to delete', 'error');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to delete', 'error');
     }
   }
 
@@ -343,6 +344,7 @@ export default function AnnouncementsPage() {
   const { showToast } = useToast();
   const { activeProduct, products } = useProduct();
   const { adminMode } = useChat();
+  const { confirm } = useConfirm();
 
   // adminMode mirrors the Admin toggle in the TopBar (true = on /admin as admin)
   const contextProduct = adminMode ? null : (activeProduct ?? (products.length === 1 ? products[0] : null));
@@ -394,8 +396,8 @@ export default function AnnouncementsPage() {
       setEnabled(data.enabled);
       setTeams(allTeams.map(t => ({ id: t.id, name: t.name })));
       setError(null);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
@@ -409,7 +411,7 @@ export default function AnnouncementsPage() {
       setAnnouncements(prev => sort([ann, ...prev]));
       setShowForm(false);
       showToast('Announcement posted', 'success');
-    } catch (e: any) { showToast(e.message ?? 'Failed to post', 'error'); }
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to post', 'error'); }
   }
 
   async function handleUpdate(data: { title: string; content: string; pinned: boolean; commentsEnabled: boolean; teamId?: string }) {
@@ -419,16 +421,16 @@ export default function AnnouncementsPage() {
       setAnnouncements(prev => sort(prev.map(a => a.id === ann.id ? ann : a)));
       setEditing(null);
       showToast('Announcement updated', 'success');
-    } catch (e: any) { showToast(e.message ?? 'Failed to update', 'error'); }
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to update', 'error'); }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this announcement?')) return;
+    if (!await confirm('Delete this announcement?')) return;
     try {
       await api.announcements.delete(id);
       setAnnouncements(prev => prev.filter(a => a.id !== id));
       showToast('Deleted', 'success');
-    } catch (e: any) { showToast(e.message ?? 'Failed to delete', 'error'); }
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to delete', 'error'); }
   }
 
   if (loading) return (

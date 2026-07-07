@@ -27,7 +27,7 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
   const [prefs, setPrefs] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {};
     for (const { type, defaultOn } of NOTIFICATION_TYPES) {
-      map[type] = type in currentPrefs ? currentPrefs[type] : defaultOn;
+      map[type] = currentPrefs[type] ?? defaultOn;
     }
     return map;
   });

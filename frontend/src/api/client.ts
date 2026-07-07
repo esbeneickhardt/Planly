@@ -48,7 +48,7 @@ export interface InviteInfo {
 }
 
 export type MinUser = { id: string; username: string; realName: string | null; avatarEmoji: string | null };
-export const displayName = (u: { realName?: string | null; username: string }): string => u.realName?.trim() || u.username;
+export { displayName } from '../utils/user';
 
 export interface SearchResults {
   tasks: (Task & { product: { id: string; name: string; emoji: string | null } })[];

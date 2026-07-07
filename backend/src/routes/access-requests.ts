@@ -1,7 +1,12 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { createNotification } from '../utils/notifications';
+import { validate } from '../utils/validate';
+
+const createRequestSchema = z.object({ note: z.string().max(1000).optional() });
+const reviewRequestSchema = z.object({ action: z.enum(['approve', 'reject']) });
 
 export async function accessRequestRoutes(app: FastifyInstance) {
   // Discover: products the current user is NOT a member of
@@ -37,8 +42,9 @@ export async function accessRequestRoutes(app: FastifyInstance) {
   // Request access to a product
   app.post('/api/products/:productId/access-requests', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    const { note } = req.body as { note?: string };
-    if (note && note.length > 1000) return reply.status(400).send({ error: 'note too long (max 1000)' });
+    const body = validate(createRequestSchema, req.body, reply);
+    if (!body) return;
+    const { note } = body;
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
@@ -106,7 +112,9 @@ export async function accessRequestRoutes(app: FastifyInstance) {
   // Approve or reject a request (owner or co-owner only)
   app.patch('/api/products/:productId/access-requests/:requestId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, requestId } = req.params as { productId: string; requestId: string };
-    const { action } = req.body as { action: 'approve' | 'reject' };
+    const actionBody = validate(reviewRequestSchema, req.body, reply);
+    if (!actionBody) return;
+    const { action } = actionBody;
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: { team: { include: { members: true } } },

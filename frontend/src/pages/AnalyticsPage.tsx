@@ -121,7 +121,7 @@ function LineChart({
   // Build SVG path
   const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   // Area fill path
-  const areaPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},${(pad.t + innerH).toFixed(1)} L${pts[0].x.toFixed(1)},${(pad.t + innerH).toFixed(1)} Z`;
+  const areaPath = `${linePath} L${pts[pts.length - 1]!.x.toFixed(1)},${(pad.t + innerH).toFixed(1)} L${pts[0]!.x.toFixed(1)},${(pad.t + innerH).toFixed(1)} Z`;
 
   return (
     <div>
@@ -161,6 +161,7 @@ export default function AnalyticsPage() {
   const { user } = useAuth();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [workload, setWorkload] = useState<WorkloadData | null>(null);
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -184,13 +185,15 @@ export default function AnalyticsPage() {
 
   const loadAnalytics = useCallback(async (productId: string) => {
     setLoading(true);
+    setError(null);
     try { setData(await api.analytics.get(productId)); }
-    catch {/* ignore */} finally { setLoading(false); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to load analytics'); }
+    finally { setLoading(false); }
   }, []);
 
   const loadWorkload = useCallback(async (productId: string) => {
     try { setWorkload(await api.analytics.workload(productId)); }
-    catch {/* ignore */}
+    catch {/* non-critical workload data */}
   }, []);
 
   const loadActivity = useCallback(async (productId: string, cur?: string) => {
@@ -198,7 +201,7 @@ export default function AnalyticsPage() {
       const res = await api.analytics.activity(productId, cur);
       setEvents((prev) => cur ? [...prev, ...res.events] : res.events);
       setCursor(res.nextCursor);
-    } catch {/* ignore */}
+    } catch {/* non-critical activity feed */}
   }, []);
 
   useEffect(() => {
@@ -220,6 +223,19 @@ export default function AnalyticsPage() {
 
   if (!activeProduct.analyticsEnabled && !canManage) {
     return <Navigate to="/kanban" replace />;
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
+        <p className="text-sm">{error}</p>
+        <button
+          onClick={() => loadAnalytics(activeProduct.id)}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          style={{ background: 'var(--brand)', color: 'white' }}
+        >Retry</button>
+      </div>
+    );
   }
 
   // Throughput chart - bucket by week for 90d, label every 5th day for 30d, every day for 7d
@@ -267,8 +283,8 @@ export default function AnalyticsPage() {
   // Weekday distribution
   const wdDays = weekdayPeriod === 'all' ? allDays : allDays.slice(allDays.length - PERIOD_DAYS[weekdayPeriod]);
   const wdCounts = [0, 0, 0, 0, 0, 0, 0];
-  wdDays.forEach((d) => { wdCounts[new Date(d.date).getDay()] += d.count; });
-  const weekdayData = WEEKDAYS.map((label, i) => ({ label, count: wdCounts[i] }));
+  wdDays.forEach((d) => { const day = new Date(d.date).getDay(); wdCounts[day] = (wdCounts[day] ?? 0) + d.count; });
+  const weekdayData = WEEKDAYS.map((label, i) => ({ label, count: wdCounts[i] ?? 0 }));
 
   return (
     <div className="h-full overflow-auto" style={{ background: 'var(--bg)' }}>

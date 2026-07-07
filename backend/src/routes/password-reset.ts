@@ -2,12 +2,13 @@ import { FastifyInstance } from 'fastify';
 import { randomBytes, createHash } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
 import { config } from '../config/env';
+import { issueAuthCookie } from '../utils/auth-cookie';
 import { sendEmail, emailEnabled, getSmtpSettings, resetPasswordEmail, verifyEmailTemplate } from '../utils/email';
 import { requireAuth } from '../middleware/auth';
 import { logAdminEvent } from '../utils/audit';
-import jwt from 'jsonwebtoken';
 
 const emailBodySchema = z.object({ email: z.string().email() });
 const tokenBodySchema = z.object({ token: z.string() });
@@ -170,13 +171,12 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     logAdminEvent('PASSWORD_CHANGED', { actorName: user.username, targetName: user.username });
     // Re-issue session cookie with the new tokenVersion so the user stays logged in
     const token = jwt.sign(
-      { userId: user.id, username: user.username, tv: updated.tokenVersion },
+      { userId: user.id, username: user.username, tokenVersion: updated.tokenVersion },
       config.jwtSecret,
       { expiresIn: '7d' },
     );
-    reply
-      .setCookie('token', token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7, secure: process.env.COOKIE_SECURE !== 'false' })
-      .send({ ok: true });
+    issueAuthCookie(reply, token);
+    reply.send({ ok: true });
   });
 
   // Verify email

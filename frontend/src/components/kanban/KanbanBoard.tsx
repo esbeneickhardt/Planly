@@ -5,29 +5,21 @@ import {
   pointerWithin,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import type { Task, KanbanColumn as KanbanColumnType, User } from '../../types';
-import type { Sprint } from '../../api/client';
+import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
 import { api } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
-import { useColorLegend } from '../../hooks/useColorLegend';
+import { useColorLegend, PRESET_COLORS } from '../../hooks/useColorLegend';
+import { useProductMembers } from '../../hooks/useProductMembers';
+import { useSprints } from '../../hooks/useSprints';
+import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import KanbanColumn from './KanbanColumn';
 import KanbanCard from './KanbanCard';
 import TaskDetailPanel from '../common/TaskDetailPanel';
 import Modal from '../common/Modal';
 
-const FILTER_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
-
-const KANBAN_BACKGROUNDS: { id: string; label: string; gradient: string }[] = [
-  { id: 'misty-forest',   label: 'Misty Forest',   gradient: 'linear-gradient(135deg,#0d2b1a 0%,#1a4a2e 50%,#2d6b45 100%)' },
-  { id: 'tokyo-night',    label: 'Tokyo Night',    gradient: 'linear-gradient(135deg,#0a0a2e 0%,#1a1a5e 40%,#2a0a4a 100%)' },
-  { id: 'miami-dusk',     label: 'Miami Dusk',     gradient: 'linear-gradient(135deg,#0d0821 0%,#4a0a3a 50%,#7a1050 100%)' },
-  { id: 'arctic-void',    label: 'Arctic Void',    gradient: 'linear-gradient(135deg,#030508 0%,#070e1a 50%,#142030 100%)' },
-  { id: 'cyber-city',     label: 'Cyber City',     gradient: 'linear-gradient(135deg,#0a0a18 0%,#1a0a2e 40%,#0a1a2e 100%)' },
-  { id: 'sakura-rain',    label: 'Sakura Rain',    gradient: 'linear-gradient(135deg,#0a0f10 0%,#111a1c 50%,#1a3020 100%)' },
-  { id: 'mountain-peaks', label: 'Mountain Peaks', gradient: 'linear-gradient(135deg,#0a0a14 0%,#141428 40%,#1e2840 100%)' },
-];
+const FILTER_COLORS = PRESET_COLORS;
 
 export default function KanbanBoard() {
   const { activeProduct, tasks, refreshTasks, createTask } = useProduct();
@@ -53,9 +45,9 @@ export default function KanbanBoard() {
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
   const [mineOnly, setMineOnly] = useState(false);
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
-  const [users, setUsers] = useState<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>([]);
-  const [sprints, setSprints] = useState<Sprint[]>([]);
-  const sprintInitialized = useRef<string | null>(null);
+  const lastInitializedProductId = useRef<string | null>(null);
+  const users = useProductMembers(activeProduct?.teamId);
+  const { sprints, refresh: refreshSprints } = useSprints(activeProduct?.id);
   const [compact, setCompact] = useState(() => localStorage.getItem('planly_kanban_compact') === '1');
   const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>({ key: 'status', dir: 1 });
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
@@ -98,17 +90,9 @@ export default function KanbanBoard() {
   );
 
   useEffect(() => {
-    if (!activeProduct?.teamId) return;
-    api.teams.get(activeProduct.teamId)
-      .then((team) => setUsers(team.members.map((m) => m.user)))
-      .catch(() => {});
-  }, [activeProduct?.teamId]);
-
-  useEffect(() => {
     if (!activeProduct) return;
-    sprintInitialized.current = null;
-    api.sprints.list(activeProduct.id).then((ss) => {
-      setSprints(ss);
+    lastInitializedProductId.current = null;
+    refreshSprints().then((ss) => {
       // Restore last user selection; fall back to current overlapping sprint
       const saved = localStorage.getItem(`planly_sprint_${activeProduct.id}`);
       if (saved && ss.some((s) => s.id === saved)) {
@@ -120,9 +104,10 @@ export default function KanbanBoard() {
           .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
         setSprintFilter(current?.id ?? null);
       }
-      sprintInitialized.current = activeProduct.id;
-    }).catch(() => {});
-  }, [activeProduct?.id]);
+      lastInitializedProductId.current = activeProduct.id;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSprints]);
 
   const loadColumns = useCallback(async () => {
     if (!activeProduct) return;
@@ -314,8 +299,7 @@ export default function KanbanBoard() {
     await refreshTasks();
     if (sprintFilter) {
       // Refresh sprint list so taskIds is up to date for filtering
-      const updated = await api.sprints.list(activeProduct.id);
-      setSprints(updated);
+      await refreshSprints();
     }
   }
 
@@ -446,10 +430,8 @@ export default function KanbanBoard() {
                     <button
                       key={u.id}
                       onClick={() => toggleOwner(u.id)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
-                      style={{ background: active ? 'var(--brand-subtle)' : 'transparent', color: active ? 'var(--brand)' : 'var(--text)' }}
-                      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+                      style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
                     >
                       <span>{u.avatarEmoji ?? '👤'}</span>
                       <span className="flex-1 text-left truncate">{u.username}</span>
@@ -545,10 +527,8 @@ export default function KanbanBoard() {
                 >
                   <button
                     onClick={() => selectBg(null)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
-                    style={{ background: !bgImage ? 'var(--brand-subtle)' : 'transparent', color: !bgImage ? 'var(--brand)' : 'var(--text-2)' }}
-                    onMouseEnter={(e) => { if (bgImage) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={(e) => { if (bgImage) e.currentTarget.style.background = 'transparent'; }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${!bgImage ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+                    style={{ color: !bgImage ? 'var(--brand)' : 'var(--text-2)' }}
                   >
                     <span className="w-8 h-6 rounded flex-shrink-0" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }} />
                     <span>None</span>
@@ -560,10 +540,8 @@ export default function KanbanBoard() {
                       <button
                         key={b.id}
                         onClick={() => selectBg(b.id)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
-                        style={{ background: active ? 'var(--brand-subtle)' : 'transparent', color: active ? 'var(--brand)' : 'var(--text)' }}
-                        onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+                        style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
                       >
                         <span className="w-8 h-6 rounded flex-shrink-0" style={{ background: b.gradient }} />
                         <span>{b.label}</span>
@@ -654,10 +632,7 @@ export default function KanbanBoard() {
                     <tr
                       key={task.id}
                       onClick={() => setSelectedTask(task)}
-                      className="group cursor-pointer rounded-xl"
-                      style={{ background: 'var(--surface)' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface)')}
+                      className="group cursor-pointer rounded-xl bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors"
                     >
                       {/* Status */}
                       <td className="px-3 py-2 rounded-l-xl" onClick={(e) => e.stopPropagation()}>
@@ -780,10 +755,8 @@ export default function KanbanBoard() {
               {!readOnly && (
                 <button
                   onClick={() => setShowNewColumn(true)}
-                  className="w-72 flex-shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm"
-                  style={{ height: 44, borderColor: 'var(--border)', color: 'var(--text-3)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)'; }}
+                  className="w-72 flex-shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm border-[var(--border)] text-[var(--text-3)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                  style={{ height: 44 }}
                 >
                   <span className="text-base leading-none">+</span>
                   <span>Add column</span>

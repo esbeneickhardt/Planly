@@ -1,7 +1,12 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireTabWrite } from '../utils/product-guard';
+import { handleNotFound } from '../utils/prisma-errors';
+import { validate } from '../utils/validate';
+
+const createConnectionSchema = z.object({ taskId: z.string().uuid() });
 
 export async function connectionRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/connections', { preHandler: requireAuth }, async (req, reply) => {
@@ -15,8 +20,9 @@ export async function connectionRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
-    const { taskId } = req.body as { taskId: string };
-    if (!taskId) return reply.status(400).send({ error: 'taskId required' });
+    const body = validate(createConnectionSchema, req.body, reply);
+    if (!body) return;
+    const { taskId } = body;
     const task = await prisma.task.findFirst({ where: { id: taskId, productId } });
     if (!task) return reply.status(404).send({ error: 'Task not found in this product' });
     await prisma.productConnection.upsert({
@@ -34,8 +40,6 @@ export async function connectionRoutes(app: FastifyInstance) {
     try {
       await prisma.productConnection.delete({ where: { productId_taskId: { productId, taskId } } });
       reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    } catch (e) { handleNotFound(e, reply); }
   });
 }

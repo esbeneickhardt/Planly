@@ -1,9 +1,10 @@
 import { FastifyInstance } from 'fastify';
-import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
+import { Prisma } from '@prisma/client';
+import { handleNotFound, handleConflict } from '../utils/prisma-errors';
 import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
 
 const addMemberSchema = z.object({ userId: z.string() });
@@ -77,9 +78,7 @@ export async function teamRoutes(app: FastifyInstance) {
     try {
       const team = await prisma.team.update({ where: { id }, data: { name }, include: MEMBER_INCLUDE });
       reply.send(team);
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    } catch (e) { handleNotFound(e, reply); }
   });
 
   app.post('/api/teams/:id/members', { preHandler: requireAuth }, async (req, reply) => {
@@ -93,9 +92,7 @@ export async function teamRoutes(app: FastifyInstance) {
     try {
       await prisma.teamMember.create({ data: { teamId: id, userId } });
       reply.send({ ok: true });
-    } catch {
-      reply.status(409).send({ error: 'Already a member or user not found' });
-    }
+    } catch (e) { handleConflict(e, reply, 'Already a member or user not found'); }
   });
 
   app.delete('/api/teams/:id/members/:userId', { preHandler: requireAuth }, async (req, reply) => {
@@ -142,8 +139,6 @@ export async function teamRoutes(app: FastifyInstance) {
     try {
       await prisma.team.delete({ where: { id } });
       reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
+    } catch (e) { handleNotFound(e, reply); }
   });
 }

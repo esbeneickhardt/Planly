@@ -34,7 +34,7 @@ import { meExportRoutes } from './routes/me-export';
 import { searchRoutes } from './routes/search';
 import { realtimeRoutes } from './routes/realtime';
 import { activityRoutes } from './routes/activity';
-import { docsRoutes } from './routes/docs';
+import { docsRoutes } from './docs/openapi';
 import { emailStatusRoutes } from './routes/email-status';
 import { totpRoutes } from './routes/totp';
 import { ssoRoutes } from './routes/sso';
@@ -242,14 +242,16 @@ async function main() {
 
   // Stricter limits on sensitive auth endpoints — hook must be registered BEFORE the routes
   app.addHook('onRoute', (route) => {
+    type RouteWithConfig = typeof route & { config?: { rateLimit?: { max: number; timeWindow: string } } };
+    const r = route as RouteWithConfig;
     if (route.url && ['/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password'].includes(route.url)) {
-      (route as any).config = { rateLimit: { max: 10, timeWindow: '1 minute' } };
+      r.config = { rateLimit: { max: 10, timeWindow: '1 minute' } };
     }
     if (route.url === '/api/auth/change-password') {
-      (route as any).config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
+      r.config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
     }
     if (route.url === '/api/auth/resend-verification') {
-      (route as any).config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
+      r.config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
     }
   });
 
