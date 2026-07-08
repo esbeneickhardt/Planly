@@ -28,6 +28,8 @@ import { colorLegendRoutes } from '../../routes/color-legend';
 import { canvasSnapshotRoutes } from '../../routes/canvas-snapshots';
 import { searchRoutes } from '../../routes/search';
 import { apiTokenRoutes } from '../../routes/api-tokens';
+import { appRegistrationRoutes } from '../../routes/app-registrations';
+import { permissionRoutes } from '../../routes/permissions';
 import { csrfCheck } from '../../middleware/csrf';
 
 export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
@@ -56,6 +58,8 @@ export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
   await app.register(canvasSnapshotRoutes);
   await app.register(searchRoutes);
   await app.register(apiTokenRoutes);
+  await app.register(appRegistrationRoutes);
+  await app.register(permissionRoutes);
 
   await app.ready();
   return app;

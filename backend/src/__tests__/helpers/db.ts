@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
 export const prisma = new PrismaClient({
   datasources: { db: { url: process.env.DATABASE_URL } },
@@ -60,4 +60,39 @@ export async function cleanupTestUsers(emails: string[]) {
 
 export async function cleanupTestTeams(names: string[]) {
   await prisma.team.deleteMany({ where: { name: { in: names } } });
+}
+
+/** Creates a raw PAT and returns both the plaintext token (for use in Bearer headers)
+ *  and the DB record. The token is hashed before storage — the raw value is never saved. */
+export async function createTestApiToken(userId: string, opts: { productId?: string; name?: string; expiresAt?: Date } = {}) {
+  const raw = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(raw).digest('hex');
+  const record = await prisma.apiToken.create({
+    data: {
+      userId,
+      tokenHash,
+      name: opts.name ?? 'test-token',
+      productId: opts.productId ?? null,
+      expiresAt: opts.expiresAt ?? null,
+    },
+  });
+  return { raw, record };
+}
+
+/** Creates an App Registration and issues one token for it.
+ *  Returns the app record and the plaintext Bearer token. */
+export async function createTestAppRegistration(ownerId: string, opts: { productId?: string; name?: string } = {}) {
+  const app = await prisma.appRegistration.create({
+    data: {
+      name: opts.name ?? `test-app-${randomSuffix()}`,
+      ownerId,
+      productId: opts.productId ?? null,
+    },
+  });
+  const raw = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(raw).digest('hex');
+  await prisma.apiToken.create({
+    data: { userId: ownerId, tokenHash, name: 'default', appId: app.id, productId: opts.productId ?? null },
+  });
+  return { app, raw };
 }

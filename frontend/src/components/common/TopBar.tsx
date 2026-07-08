@@ -757,66 +757,73 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
               <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>Navigate</p>
               <div className="space-y-0.5">
-                {activeProduct && NAV.filter(({ tab }) => {
-                  if (tab === 'analytics' && !activeProduct.analyticsEnabled) return false;
-                  return canRead(tab);
-                }).map(({ to, label, Icon }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    onClick={() => setShowMobileMenu(false)}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${isActive ? 'font-medium' : ''}`
-                    }
-                    style={({ isActive }) => ({
-                      background: isActive ? 'var(--brand-subtle)' : 'transparent',
-                      color: isActive ? 'var(--brand)' : 'var(--text-2)',
-                    })}
-                  >
-                    <Icon size={18} />
-                    {label}
-                  </NavLink>
-                ))}
-                {activeProduct && canManage && (
-                  <NavLink
-                    to="/settings"
-                    onClick={() => setShowMobileMenu(false)}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${isActive ? 'font-medium' : ''}`
-                    }
-                    style={({ isActive }) => ({
-                      background: isActive ? 'var(--brand-subtle)' : 'transparent',
-                      color: isActive ? 'var(--brand)' : 'var(--text-2)',
-                    })}
-                  >
-                    <CategoriesIcon size={18} />
-                    Settings
-                  </NavLink>
+                {isAdminPage ? (
+                  // Admin page: show only admin sub-tabs
+                  ADMIN_TABS.map(({ key, label, Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => { setSearchParams({ tab: key }); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                      style={{
+                        background: searchParams.get('tab') === key ? 'var(--brand-subtle)' : 'transparent',
+                        color: searchParams.get('tab') === key ? 'var(--brand)' : 'var(--text-2)',
+                      }}
+                    >
+                      <Icon size={18} />
+                      {label}
+                    </button>
+                  ))
+                ) : (
+                  // Normal pages: show project nav items
+                  <>
+                    {activeProduct && NAV.filter(({ tab }) => {
+                      if (tab === 'analytics' && !activeProduct.analyticsEnabled) return false;
+                      return canRead(tab);
+                    }).map(({ to, label, Icon }) => (
+                      <NavLink
+                        key={to}
+                        to={to}
+                        onClick={() => setShowMobileMenu(false)}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${isActive ? 'font-medium' : ''}`
+                        }
+                        style={({ isActive }) => ({
+                          background: isActive ? 'var(--brand-subtle)' : 'transparent',
+                          color: isActive ? 'var(--brand)' : 'var(--text-2)',
+                        })}
+                      >
+                        <Icon size={18} />
+                        {label}
+                      </NavLink>
+                    ))}
+                    {activeProduct && canManage && (
+                      <NavLink
+                        to="/settings"
+                        onClick={() => setShowMobileMenu(false)}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${isActive ? 'font-medium' : ''}`
+                        }
+                        style={({ isActive }) => ({
+                          background: isActive ? 'var(--brand-subtle)' : 'transparent',
+                          color: isActive ? 'var(--brand)' : 'var(--text-2)',
+                        })}
+                      >
+                        <CategoriesIcon size={18} />
+                        Settings
+                      </NavLink>
+                    )}
+                    {user?.isAdmin && (
+                      <button
+                        onClick={() => { setShowMobileMenu(false); navigate('/admin'); }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                        style={{ color: 'var(--text-2)' }}
+                      >
+                        <ShieldIcon size={18} />
+                        Admin
+                      </button>
+                    )}
+                  </>
                 )}
-                {user?.isAdmin && !isAdminPage && (
-                  <button
-                    onClick={() => { setShowMobileMenu(false); navigate('/admin'); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
-                    style={{ color: 'var(--text-2)' }}
-                  >
-                    <ShieldIcon size={18} />
-                    Admin
-                  </button>
-                )}
-                {user?.isAdmin && isAdminPage && ADMIN_TABS.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => { setSearchParams({ tab: key }); setShowMobileMenu(false); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
-                    style={{
-                      background: searchParams.get('tab') === key ? 'var(--brand-subtle)' : 'transparent',
-                      color: searchParams.get('tab') === key ? 'var(--brand)' : 'var(--text-2)',
-                    }}
-                  >
-                    <span className="w-5 text-center">{key === 'ownership' ? '👑' : key === 'users' ? '👥' : key === 'projects' ? '📦' : key === 'email' ? '✉️' : key === 'ip-rules' ? '🛡️' : key === 'logs' ? '📋' : '📊'}</span>
-                    {label}
-                  </button>
-                ))}
               </div>
             </div>
 
