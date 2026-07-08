@@ -23,5 +23,5 @@ USER planly
 
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/api/health/ready || exit 1
 CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]

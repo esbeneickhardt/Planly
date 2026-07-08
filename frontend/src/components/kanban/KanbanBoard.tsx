@@ -365,7 +365,7 @@ export default function KanbanBoard() {
   return (
     <div className="h-full flex flex-col" style={boardBgStyle}>
       {/* ── Filters ── */}
-      <div className="px-6 pt-4 pb-3 flex-shrink-0 flex items-center gap-3 flex-wrap">
+      <div className="px-4 md:px-6 pt-3 md:pt-4 pb-3 flex-shrink-0 flex items-center gap-2 md:gap-3 flex-wrap">
         {/* Task count */}
         <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
           {filteredTasks.length}{hasFilters ? ' filtered' : ''} tasks
@@ -373,7 +373,7 @@ export default function KanbanBoard() {
 
         <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
 
-        {/* Mine toggle */}
+        {/* Mine toggle — visible on all screen sizes */}
         <button
           onClick={() => setMineOnly((v) => !v)}
           className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
@@ -387,127 +387,130 @@ export default function KanbanBoard() {
           {user?.avatarEmoji ?? '👤'} Mine
         </button>
 
-        {/* Reset */}
-        <button
-          onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); setSprintFilterAndSave(null); setMineOnly(false); }}
-          className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
-          style={{
-            color: hasFilters ? 'var(--brand)' : 'var(--text-3)',
-            background: hasFilters ? 'var(--brand-subtle)' : 'transparent',
-            border: `1px solid ${hasFilters ? 'var(--brand)' : 'var(--border)'}`,
-            opacity: hasFilters ? 1 : 0.45,
-            cursor: hasFilters ? 'pointer' : 'default',
-          }}
-        >
-          ↺ Reset
-        </button>
+        {/* Desktop-only filters */}
+        <div className="hidden md:contents">
+          {/* Reset */}
+          <button
+            onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); setSprintFilterAndSave(null); setMineOnly(false); }}
+            className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+            style={{
+              color: hasFilters ? 'var(--brand)' : 'var(--text-3)',
+              background: hasFilters ? 'var(--brand-subtle)' : 'transparent',
+              border: `1px solid ${hasFilters ? 'var(--brand)' : 'var(--border)'}`,
+              opacity: hasFilters ? 1 : 0.45,
+              cursor: hasFilters ? 'pointer' : 'default',
+            }}
+          >
+            ↺ Reset
+          </button>
 
-        {/* Owner filter */}
-        {taskOwners.length > 0 && (
-          <div className="relative flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Owner</span>
-            <button
-              onClick={() => setShowOwnerDropdown((v) => !v)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all"
-              style={{
-                background: ownerFilters.size > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                color: ownerFilters.size > 0 ? 'var(--brand)' : 'var(--text-2)',
-                border: `1px solid ${ownerFilters.size > 0 ? 'var(--brand)' : 'var(--border)'}`,
-              }}
-            >
-              {ownerFilters.size === 0 ? 'All' : `${ownerFilters.size} selected`}
-              <span className="text-[10px] ml-0.5">▾</span>
-            </button>
-            {showOwnerDropdown && (
-              <div
-                className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 py-1 overflow-hidden"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }}
-                onMouseLeave={() => setShowOwnerDropdown(false)}
+          {/* Owner filter */}
+          {taskOwners.length > 0 && (
+            <div className="relative flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-xs" style={{ color: 'var(--text-3)' }}>Owner</span>
+              <button
+                onClick={() => setShowOwnerDropdown((v) => !v)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all"
+                style={{
+                  background: ownerFilters.size > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  color: ownerFilters.size > 0 ? 'var(--brand)' : 'var(--text-2)',
+                  border: `1px solid ${ownerFilters.size > 0 ? 'var(--brand)' : 'var(--border)'}`,
+                }}
               >
-                {taskOwners.map((u) => {
-                  const active = ownerFilters.has(u.id);
+                {ownerFilters.size === 0 ? 'All' : `${ownerFilters.size} selected`}
+                <span className="text-[10px] ml-0.5">▾</span>
+              </button>
+              {showOwnerDropdown && (
+                <div
+                  className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 py-1 overflow-hidden"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }}
+                  onMouseLeave={() => setShowOwnerDropdown(false)}
+                >
+                  {taskOwners.map((u) => {
+                    const active = ownerFilters.has(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => toggleOwner(u.id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+                        style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
+                      >
+                        <span>{u.avatarEmoji ?? '👤'}</span>
+                        <span className="flex-1 text-left truncate">{u.username}</span>
+                        {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
+                      </button>
+                    );
+                  })}
+                  {ownerFilters.size > 0 && (
+                    <div style={{ borderTop: '1px solid var(--border)' }}>
+                      <button onClick={() => { setOwnerFilters(new Set()); setShowOwnerDropdown(false); }} className="w-full text-left px-3 py-1.5 text-xs transition-colors" style={{ color: 'var(--text-3)' }}>
+                        Clear owners
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Color dots */}
+          {taskColors.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-xs" style={{ color: 'var(--text-3)' }}>Color</span>
+              <div className="flex items-center gap-2">
+                {taskColors.map((c) => {
+                  const active = colorFilters.has(c);
                   return (
                     <button
-                      key={u.id}
-                      onClick={() => toggleOwner(u.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
-                      style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
-                    >
-                      <span>{u.avatarEmoji ?? '👤'}</span>
-                      <span className="flex-1 text-left truncate">{u.username}</span>
-                      {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
-                    </button>
+                      key={c}
+                      onClick={() => toggleColor(c)}
+                      className="w-4 h-4 rounded-full flex-shrink-0 transition-all"
+                      style={{
+                        background: c,
+                        outline: active ? `2px solid ${c}` : 'none',
+                        outlineOffset: active ? '2px' : '0',
+                        boxShadow: active ? `0 0 0 1px var(--surface)` : 'none',
+                      }}
+                      title={colorLegend[c] || c}
+                    />
                   );
                 })}
-                {ownerFilters.size > 0 && (
-                  <div style={{ borderTop: '1px solid var(--border)' }}>
-                    <button onClick={() => { setOwnerFilters(new Set()); setShowOwnerDropdown(false); }} className="w-full text-left px-3 py-1.5 text-xs transition-colors" style={{ color: 'var(--text-3)' }}>
-                      Clear owners
-                    </button>
-                  </div>
-                )}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Color dots */}
-        {taskColors.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Color</span>
-            <div className="flex items-center gap-2">
-              {taskColors.map((c) => {
-                const active = colorFilters.has(c);
-                return (
-                  <button
-                    key={c}
-                    onClick={() => toggleColor(c)}
-                    className="w-4 h-4 rounded-full flex-shrink-0 transition-all"
-                    style={{
-                      background: c,
-                      outline: active ? `2px solid ${c}` : 'none',
-                      outlineOffset: active ? '2px' : '0',
-                      boxShadow: active ? `0 0 0 1px var(--surface)` : 'none',
-                    }}
-                    title={colorLegend[c] || c}
-                  />
-                );
-              })}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Sprint filter */}
-        {sprints.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sub-plan</span>
-            {sprintFilter && (() => { const s = sprints.find((s) => s.id === sprintFilter); return s ? <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} /> : null; })()}
-            <select
-              value={sprintFilter ?? ''}
-              onChange={(e) => setSprintFilterAndSave(e.target.value === '' ? null : e.target.value)}
-              className="text-xs px-2 py-0.5 rounded transition-all"
-              style={{
-                background: sprintFilter !== null ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                color: sprintFilter !== null ? 'var(--brand)' : 'var(--text-2)',
-                border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
-              }}
-            >
-              <option value="">All sub-plans</option>
-              {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-        )}
+          {/* Sprint filter */}
+          {sprints.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sub-plan</span>
+              {sprintFilter && (() => { const s = sprints.find((s) => s.id === sprintFilter); return s ? <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} /> : null; })()}
+              <select
+                value={sprintFilter ?? ''}
+                onChange={(e) => setSprintFilterAndSave(e.target.value === '' ? null : e.target.value)}
+                className="text-xs px-2 py-0.5 rounded transition-all"
+                style={{
+                  background: sprintFilter !== null ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  color: sprintFilter !== null ? 'var(--brand)' : 'var(--text-2)',
+                  border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
+                }}
+              >
+                <option value="">All sub-plans</option>
+                {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
 
-        {toast && (
-          <div className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-            {toast}
-          </div>
-        )}
+          {toast && (
+            <div className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+              {toast}
+            </div>
+          )}
+        </div>
 
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-          {/* Background picker */}
+          {/* Background picker — desktop only (drag backgrounds aren't useful on touch) */}
           {!compact && (
-            <div ref={bgPickerRef} className="relative">
+            <div ref={bgPickerRef} className="relative hidden md:block">
               <button
                 onClick={() => setShowBgPicker((v) => !v)}
                 className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
