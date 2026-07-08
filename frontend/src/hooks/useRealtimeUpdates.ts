@@ -1,3 +1,17 @@
+/**
+ * useRealtimeUpdates — subscribes to a project's WebSocket event stream and
+ * calls onEvent for each incoming message.
+ *
+ * Connects using the cookie session (sent automatically by the browser on the
+ * upgrade request). Automatically reconnects with exponential backoff (1s → 30s)
+ * on close. Reconnect state is reset to 1s on a successful open.
+ *
+ * The onEvent callback is held in a ref so callers can pass an inline function
+ * without adding it to the effect dependency array.
+ *
+ * In development (port 5173) the connection targets port 3000 directly
+ * since Vite's dev server does not proxy WebSocket upgrades.
+ */
 import { useEffect, useRef } from 'react';
 
 interface RealtimeEvent {

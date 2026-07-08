@@ -11,4 +11,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':    ['react', 'react-dom', 'react-router-dom'],
+          'vendor-reactflow': ['reactflow'],
+          'vendor-dnd':      ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+          'vendor-misc':     ['date-fns', 'zod'],
+        },
+      },
+    },
+  },
 });

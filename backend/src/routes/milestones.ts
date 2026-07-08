@@ -1,3 +1,11 @@
+/**
+ * Milestone routes — query tasks that act as milestones (tasks with a deadline)
+ * along with their transitive dependency progress for the Gantt view.
+ *
+ * Milestones are tasks that have a deadline set. A single recursive CTE fetches
+ * all transitive prerequisite tasks in one DB round-trip, computes per-milestone
+ * progress (done / total dependencies), and returns dependency counts for Gantt rendering.
+ */
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';

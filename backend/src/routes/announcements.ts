@@ -1,8 +1,17 @@
+/**
+ * Announcement routes — server-wide and team-scoped pinned announcements.
+ *
+ * Announcements support markdown content and can be pinned to appear at the
+ * top of views for all users. Admins can post server-wide announcements;
+ * co-owners can post team-scoped announcements. Announcements can be given an
+ * expiry date after which they are automatically hidden.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
+import { validate } from '../utils/validate';
 
 const createAnnouncementSchema = z.object({
   title: z.string().min(1).max(200),
@@ -75,9 +84,9 @@ export async function announcementRoutes(app: FastifyInstance) {
     const { canPost, isAdmin } = await resolvePermissions(req.user.userId);
     if (!canPost) return reply.status(403).send({ error: 'You do not have permission to post announcements.' });
 
-    const parsed = createAnnouncementSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { title, content, pinned, teamId, commentsEnabled } = parsed.data;
+    const body = validate(createAnnouncementSchema, req.body, reply);
+    if (!body) return;
+    const { title, content, pinned, teamId, commentsEnabled } = body;
     if (pinned && !isAdmin) return reply.status(403).send({ error: 'Only admins can pin announcements.' });
     if (pinned && teamId) return reply.status(400).send({ error: 'Team announcements cannot be pinned.' });
 
@@ -110,9 +119,9 @@ export async function announcementRoutes(app: FastifyInstance) {
   // Edit an announcement (author or admin)
   app.patch('/api/announcements/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const parsed = updateAnnouncementSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { title, content, pinned, commentsEnabled } = parsed.data;
+    const body = validate(updateAnnouncementSchema, req.body, reply);
+    if (!body) return;
+    const { title, content, pinned, commentsEnabled } = body;
 
     const existing = await prisma.announcement.findUnique({ where: { id } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
@@ -177,9 +186,9 @@ export async function announcementRoutes(app: FastifyInstance) {
     if (!announcement) return reply.status(404).send({ error: 'Not found' });
     if (!announcement.commentsEnabled) return reply.status(403).send({ error: 'Comments are disabled on this announcement.' });
 
-    const parsed = commentSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'content required' });
-    const { content } = parsed.data;
+    const body = validate(commentSchema, req.body, reply);
+    if (!body) return;
+    const { content } = body;
 
     const comment = await prisma.announcementComment.create({
       data: { announcementId: id, authorId: req.user.userId, content: content.trim() },

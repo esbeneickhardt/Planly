@@ -1,3 +1,11 @@
+/**
+ * Message routes — per-project chat with @mention notifications and file attachments.
+ *
+ * Messages support rich text content, emoji reactions, replies, and file attachments
+ * (images, documents). File uploads are validated by MIME type (magic bytes checked,
+ * not just extension). @mentions send in-app notifications and optionally email alerts.
+ * Real-time delivery via WebSocket broadcast; webhook dispatch on new messages.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import multipart from '@fastify/multipart';
@@ -130,7 +138,7 @@ export async function messageRoutes(app: FastifyInstance) {
       data: { productId, taskId: taskId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
       include: MESSAGE_INCLUDE,
     });
-    dispatchWebhooks(productId, 'message.created', msg).catch((err) => { console.warn('[messages] Webhook dispatch failed:', (err as Error).message); });
+    dispatchWebhooks(productId, 'message.created', msg).catch((err) => { req.log.warn({ err }, '[messages] Webhook dispatch failed'); });
     broadcast(productId, 'message.created', msg);
     logActivity({ productId, actorId: req.user.userId, action: 'message.created', entityType: 'message', entityId: msg.id });
 
@@ -168,10 +176,10 @@ export async function messageRoutes(app: FastifyInstance) {
               to: u.email,
               subject: `@${req.user.username} mentioned you in Planly`,
               html: mentionEmail(req.user.username, context, snippet, appUrl),
-            }).catch((err) => { console.error('[messages] mention email failed:', (err as Error).message); });
+            }).catch((err) => { req.log.error({ err }, '[messages] mention email failed'); });
           }
         }
-      }).catch((err) => { console.error('[messages] mention notification failed:', (err as Error).message); });
+      }).catch((err) => { req.log.error({ err }, '[messages] mention notification failed'); });
     }
 
     reply.status(201).send(msg);

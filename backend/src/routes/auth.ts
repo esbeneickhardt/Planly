@@ -1,10 +1,22 @@
+/**
+ * Auth routes — login, logout, registration, email verification, session refresh, and /me.
+ *
+ * Session lifecycle:
+ *   - Login issues a 7-day httpOnly JWT cookie ('token') plus a non-httpOnly CSRF cookie.
+ *   - tokenVersion on the User row is incremented on password change/reset/admin logout,
+ *     instantly invalidating every outstanding session without maintaining a blocklist.
+ *   - TOTP-enabled accounts receive a 5-minute mfa_challenge JWT instead of a full session;
+ *     the real session is only issued after POST /api/auth/totp/challenge succeeds.
+ *   - Progressive lockout: 5 failures → lock. Lock count drives the duration:
+ *     15 min → 60 min → 24 h → 7 days. Resets to 0 on successful login.
+ */
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
 import { config } from '../config/env';
 import { requireAuth } from '../middleware/auth';
-import { issueAuthCookie } from '../utils/auth-cookie';
+import { issueAuthCookie, clearAuthCookies } from '../utils/auth-cookie';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 import { loginSchema } from '../schemas/auth';
@@ -12,7 +24,13 @@ import { sendSecurityAlert } from '../utils/security-alert';
 import { decryptUserPii } from '../utils/crypto';
 
 const LOGIN_MAX_ATTEMPTS = 5;
-const LOGIN_LOCK_MINUTES = 15;
+
+// Progressive lockout: each successive lockout is longer.
+// lockCount 0 → 15 min, 1 → 60 min, 2 → 1440 min (24h), 3+ → 10080 min (7 days / admin-unlock territory)
+function lockDurationMinutes(lockCount: number): number {
+  const schedule = [15, 60, 1440, 10080];
+  return schedule[Math.min(lockCount, schedule.length - 1)] ?? 10080;
+}
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (req, reply) => {
@@ -24,6 +42,7 @@ export async function authRoutes(app: FastifyInstance) {
     const normalized = trimmed.toLowerCase();
     const user = await prisma.user.findFirst({
       where: { OR: [{ email: normalized }, { username: { equals: trimmed, mode: 'insensitive' } }] },
+      select: { id: true, username: true, email: true, passwordHash: true, emailVerified: true, totpEnabled: true, failedLoginAttempts: true, loginLockedUntil: true, loginLockCount: true, realName: true, avatarEmoji: true, mustChangePassword: true, isAdmin: true, isFoundingAdmin: true },
     });
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
     if (!user.passwordHash) return reply.status(401).send({ error: 'Invalid credentials' });
@@ -31,25 +50,33 @@ export async function authRoutes(app: FastifyInstance) {
     // Check lockout
     if (user.loginLockedUntil && user.loginLockedUntil > new Date()) {
       const remaining = Math.ceil((user.loginLockedUntil.getTime() - Date.now()) / 60000);
-      return reply.status(429).send({ error: `Account temporarily locked. Try again in ${remaining} minute${remaining === 1 ? '' : 's'}.` });
+      const hours = Math.floor(remaining / 60);
+      const mins = remaining % 60;
+      const timeStr = hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins} minute${mins === 1 ? '' : 's'}`;
+      return reply.status(429).send({ error: `Account temporarily locked. Try again in ${timeStr}.` });
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       const attempts = user.failedLoginAttempts + 1;
       const shouldLock = attempts >= LOGIN_MAX_ATTEMPTS;
+      const newLockCount = shouldLock ? user.loginLockCount + 1 : user.loginLockCount;
+      const lockMinutes = lockDurationMinutes(user.loginLockCount);
       await prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: attempts,
-          ...(shouldLock ? { loginLockedUntil: new Date(Date.now() + LOGIN_LOCK_MINUTES * 60 * 1000) } : {}),
+          ...(shouldLock ? { loginLockedUntil: new Date(Date.now() + lockMinutes * 60 * 1000), loginLockCount: newLockCount } : {}),
         },
       });
       await prisma.adminLog.create({ data: { action: 'LOGIN_FAILED', targetName: user.username, metadata: { attempts } } }).catch((err) => { console.warn('[auth] Failed to write LOGIN_FAILED audit log:', (err as Error).message); });
       if (shouldLock) {
-        await prisma.adminLog.create({ data: { action: 'LOGIN_LOCKED', targetName: user.username } }).catch((err) => { console.warn('[auth] Failed to write LOGIN_LOCKED audit log:', (err as Error).message); });
-        sendSecurityAlert('LOGIN_LOCKED', `Account "${user.username}" locked after ${LOGIN_MAX_ATTEMPTS} failed attempts`);
-        return reply.status(429).send({ error: `Too many failed attempts. Account locked for ${LOGIN_LOCK_MINUTES} minutes.` });
+        await prisma.adminLog.create({ data: { action: 'LOGIN_LOCKED', targetName: user.username, metadata: { lockCount: newLockCount, lockMinutes } } }).catch((err) => { console.warn('[auth] Failed to write LOGIN_LOCKED audit log:', (err as Error).message); });
+        sendSecurityAlert('LOGIN_LOCKED', `Account "${user.username}" locked for ${lockMinutes} min (lockout #${newLockCount}) after ${LOGIN_MAX_ATTEMPTS} failed attempts`);
+        const hours = Math.floor(lockMinutes / 60);
+        const mins = lockMinutes % 60;
+        const timeStr = hours > 0 ? `${hours} hour${hours === 1 ? '' : 's'}${mins > 0 ? ` ${mins} min` : ''}` : `${lockMinutes} minutes`;
+        return reply.status(429).send({ error: `Too many failed attempts. Account locked for ${timeStr}.` });
       }
       const remaining = LOGIN_MAX_ATTEMPTS - attempts;
       return reply.status(401).send({ error: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.` });
@@ -65,7 +92,7 @@ export async function authRoutes(app: FastifyInstance) {
     if (user.totpEnabled) {
       await prisma.user.update({
         where: { id: user.id },
-        data: { failedLoginAttempts: 0, loginLockedUntil: null },
+        data: { failedLoginAttempts: 0, loginLockedUntil: null, loginLockCount: 0 },
       });
       const mfaToken = jwt.sign(
         { userId: user.id, type: 'mfa_challenge' },
@@ -75,12 +102,13 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.send({ requiresTOTP: true, mfaToken });
     }
 
-    // Standard login (no TOTP) — reset lockout and rotate tokenVersion
+    // Standard login (no TOTP) — reset lockout counters and rotate tokenVersion
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         failedLoginAttempts: 0,
         loginLockedUntil: null,
+        loginLockCount: 0,
         tokenVersion: { increment: 1 },
       },
       select: { tokenVersion: true },
@@ -109,7 +137,8 @@ export async function authRoutes(app: FastifyInstance) {
     }).catch((err) => { console.warn('[auth] Failed to increment tokenVersion on logout:', (err as Error).message); });
     await prisma.adminLog.create({ data: { action: 'LOGOUT', actorName: req.user.username } })
       .catch((err) => { console.warn('[auth] Failed to write LOGOUT audit log:', (err as Error).message); });
-    reply.clearCookie('token', { path: '/' }).send({ ok: true });
+    clearAuthCookies(reply);
+    reply.send({ ok: true });
   });
 
   // Sliding session refresh — re-issues the cookie with a fresh 7-day maxAge.

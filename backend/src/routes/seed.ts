@@ -1,3 +1,10 @@
+/**
+ * Seed routes — admin-only endpoint to populate a fresh instance with demo data.
+ *
+ * Creates a sample team, project, columns, sprints, tasks, and users so the app
+ * is ready to demo immediately after installation. Requires isAdmin access.
+ * Should be disabled or removed in production deployments where real data exists.
+ */
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';

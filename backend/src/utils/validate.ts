@@ -1,3 +1,9 @@
+/**
+ * Zod validation helper for Fastify route handlers.
+ *
+ * Keeps route bodies consistent: parse with a typed schema, send 400 with the first
+ * human-readable error message on failure, return the typed value on success.
+ */
 import type { ZodSchema, ZodError } from 'zod';
 import type { FastifyReply } from 'fastify';
 

@@ -1,3 +1,10 @@
+/**
+ * Environment variable validation and typed configuration.
+ *
+ * Imported as the very first line of index.ts so the process exits immediately
+ * with a clear error message if any required variable is missing or too short.
+ * All other modules import `config` from here instead of reading process.env directly.
+ */
 const REQUIRED = ['JWT_SECRET', 'DATABASE_URL', 'ENCRYPTION_KEY'] as const;
 
 for (const key of REQUIRED) {

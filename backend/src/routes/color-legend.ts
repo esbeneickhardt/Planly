@@ -1,8 +1,16 @@
+/**
+ * Color legend routes — manage the per-project label color mapping used to
+ * visually categorize tasks on the Kanban board and other views.
+ *
+ * The legend is a list of { colorKey, label } entries. Co-owners define the legend;
+ * all project members can read it. Tasks reference colorKeys to display their label color.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireProductCoOwner } from '../utils/product-guard';
+import { validate } from '../utils/validate';
 
 const PRESET_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
 const colorLegendSchema = z.array(z.object({
@@ -32,9 +40,8 @@ export async function colorLegendRoutes(app: FastifyInstance) {
   app.put('/api/products/:productId/color-legend', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
-    const parsed = colorLegendSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const entries = parsed.data;
+    const entries = validate(colorLegendSchema, req.body, reply);
+    if (!entries) return;
     for (const e of entries) {
       if (!PRESET_COLORS.includes(e.colorKey)) return reply.status(400).send({ error: `Invalid colorKey: ${e.colorKey}` });
     }

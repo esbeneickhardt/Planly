@@ -1,3 +1,4 @@
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -6,25 +7,29 @@ import { PermissionProvider, usePermission } from './context/PermissionContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import InvitePage from './pages/InvitePage';
 import AppLayout from './components/common/AppLayout';
-import KanbanPage from './pages/KanbanPage';
-import BacklogPage from './pages/BacklogPage';
-import CanvasPage from './pages/CanvasPage';
-import GanttPage from './pages/GanttPage';
-import SettingsPage from './pages/SettingsPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import AboutPage from './pages/AboutPage';
-import AdminPage from './pages/AdminPage';
-import AnnouncementsPage from './pages/AnnouncementsPage';
-import VerifyEmailPage from './pages/VerifyEmailPage';
-import ChangePasswordPage from './pages/ChangePasswordPage';
-import TermsPage from './pages/TermsPage';
-import PrivacyPage from './pages/PrivacyPage';
+
+// Auth pages — lazy so they don't bloat the initial bundle
+const LoginPage         = lazy(() => import('./pages/LoginPage'));
+const RegisterPage      = lazy(() => import('./pages/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const InvitePage        = lazy(() => import('./pages/InvitePage'));
+const VerifyEmailPage   = lazy(() => import('./pages/VerifyEmailPage'));
+const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'));
+const TermsPage         = lazy(() => import('./pages/TermsPage'));
+const PrivacyPage       = lazy(() => import('./pages/PrivacyPage'));
+
+// App pages — lazy-loaded once user is authenticated
+const KanbanPage       = lazy(() => import('./pages/KanbanPage'));
+const BacklogPage      = lazy(() => import('./pages/BacklogPage'));
+const CanvasPage       = lazy(() => import('./pages/CanvasPage'));
+const GanttPage        = lazy(() => import('./pages/GanttPage'));
+const SettingsPage     = lazy(() => import('./pages/SettingsPage'));
+const AnalyticsPage    = lazy(() => import('./pages/AnalyticsPage'));
+const AboutPage        = lazy(() => import('./pages/AboutPage'));
+const AdminPage        = lazy(() => import('./pages/AdminPage'));
+const AnnouncementsPage = lazy(() => import('./pages/AnnouncementsPage'));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -70,6 +75,16 @@ function DefaultRoute() {
   return <Navigate to="/kanban" replace />;
 }
 
+function PageBoundary({ children }: { children: React.ReactNode }) {
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<PermSpinner />}>
+        {children}
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -79,15 +94,15 @@ export default function App() {
             <ToastProvider>
               <ConfirmProvider>
               <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
-                <Route path="/invite/:token" element={<InvitePage />} />
-                <Route path="/verify-email" element={<VerifyEmailPage />} />
-                <Route path="/change-password" element={<ChangePasswordPage />} />
-                <Route path="/terms" element={<TermsPage />} />
-                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/login"            element={<PageBoundary><LoginPage /></PageBoundary>} />
+                <Route path="/register"         element={<PageBoundary><RegisterPage /></PageBoundary>} />
+                <Route path="/forgot-password"  element={<PageBoundary><ForgotPasswordPage /></PageBoundary>} />
+                <Route path="/reset-password"   element={<PageBoundary><ResetPasswordPage /></PageBoundary>} />
+                <Route path="/invite/:token"    element={<PageBoundary><InvitePage /></PageBoundary>} />
+                <Route path="/verify-email"     element={<PageBoundary><VerifyEmailPage /></PageBoundary>} />
+                <Route path="/change-password"  element={<PageBoundary><ChangePasswordPage /></PageBoundary>} />
+                <Route path="/terms"            element={<PageBoundary><TermsPage /></PageBoundary>} />
+                <Route path="/privacy"          element={<PageBoundary><PrivacyPage /></PageBoundary>} />
                 <Route
                   path="/*"
                   element={
@@ -97,16 +112,16 @@ export default function App() {
                           <AppLayout>
                             <Routes>
                               <Route path="/" element={<DefaultRoute />} />
-                              <Route path="/kanban" element={<RequireTab tab="kanban"><KanbanPage /></RequireTab>} />
-                              <Route path="/backlog" element={<RequireTab tab="backlog"><BacklogPage /></RequireTab>} />
-                              <Route path="/canvas" element={<RequireTab tab="canvas"><CanvasPage /></RequireTab>} />
-                              <Route path="/gantt" element={<RequireTab tab="gantt"><GanttPage /></RequireTab>} />
-                              <Route path="/analytics" element={<AnalyticsPage />} />
-                              <Route path="/about" element={<AboutPage />} />
-                              <Route path="/admin" element={<AdminPage />} />
-                              <Route path="/announcements" element={<AnnouncementsPage />} />
-                              <Route path="/categories" element={<Navigate to="/settings" replace />} />
-                              <Route path="/settings" element={<RequireManage><SettingsPage /></RequireManage>} />
+                              <Route path="/kanban"        element={<RequireTab tab="kanban"><PageBoundary><KanbanPage /></PageBoundary></RequireTab>} />
+                              <Route path="/backlog"       element={<RequireTab tab="backlog"><PageBoundary><BacklogPage /></PageBoundary></RequireTab>} />
+                              <Route path="/canvas"        element={<RequireTab tab="canvas"><PageBoundary><CanvasPage /></PageBoundary></RequireTab>} />
+                              <Route path="/gantt"         element={<RequireTab tab="gantt"><PageBoundary><GanttPage /></PageBoundary></RequireTab>} />
+                              <Route path="/analytics"     element={<PageBoundary><AnalyticsPage /></PageBoundary>} />
+                              <Route path="/about"         element={<PageBoundary><AboutPage /></PageBoundary>} />
+                              <Route path="/admin"         element={<PageBoundary><AdminPage /></PageBoundary>} />
+                              <Route path="/announcements" element={<PageBoundary><AnnouncementsPage /></PageBoundary>} />
+                              <Route path="/categories"    element={<Navigate to="/settings" replace />} />
+                              <Route path="/settings"      element={<RequireManage><PageBoundary><SettingsPage /></PageBoundary></RequireManage>} />
                             </Routes>
                           </AppLayout>
                         </PermissionProvider>

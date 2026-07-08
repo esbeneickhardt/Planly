@@ -1,3 +1,10 @@
+/**
+ * useCanvasSnapshots — loads and saves task node positions for the Canvas view.
+ *
+ * Fetches the stored snapshot on mount and provides a save() function that
+ * persists the current node positions. Debounces saves to avoid hammering the
+ * API on every drag event — callers should call save() on drag-end.
+ */
 import { useState } from 'react';
 import type { Node } from 'reactflow';
 import { api } from '../api/client';

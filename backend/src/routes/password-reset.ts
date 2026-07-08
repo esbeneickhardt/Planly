@@ -1,3 +1,13 @@
+/**
+ * Password reset routes — forgot-password flow and token-based password reset.
+ *
+ * The forgot-password endpoint always returns 200 regardless of whether the email
+ * exists to prevent user enumeration. Reset tokens are single-use, expire in 1 hour,
+ * and are stored as SHA-256 hashes in the database.
+ *
+ * A successful reset increments tokenVersion (invalidating all sessions) and
+ * automatically logs the user in by issuing a new session cookie.
+ */
 import { FastifyInstance } from 'fastify';
 import { randomBytes, createHash } from 'crypto';
 import bcrypt from 'bcryptjs';
@@ -9,6 +19,7 @@ import { issueAuthCookie } from '../utils/auth-cookie';
 import { sendEmail, emailEnabled, getSmtpSettings, resetPasswordEmail, verifyEmailTemplate } from '../utils/email';
 import { requireAuth } from '../middleware/auth';
 import { logAdminEvent } from '../utils/audit';
+import { validate } from '../utils/validate';
 
 const emailBodySchema = z.object({ email: z.string().email() });
 const tokenBodySchema = z.object({ token: z.string() });
@@ -36,9 +47,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     if (!emailEnabled) {
       return reply.status(503).send({ error: 'Email is not configured on this server. Ask your administrator to set up SMTP.' });
     }
-    const parsed = emailBodySchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'email required' });
-    const { email } = parsed.data;
+    const body = validate(emailBodySchema, req.body, reply);
+    if (!body) return;
+    const { email } = body;
 
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
     // Always respond OK to avoid user enumeration
@@ -72,9 +83,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
 
   // Complete password reset
   app.post('/api/auth/reset-password', async (req, reply) => {
-    const parsed = resetPasswordBodySchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'token and password required' });
-    const { token, password } = parsed.data;
+    const body = validate(resetPasswordBodySchema, req.body, reply);
+    if (!body) return;
+    const { token, password } = body;
 
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const record = await prisma.passwordResetToken.findUnique({
@@ -99,9 +110,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
 
   // Public resend - for users who got logged out before they could verify (no auth required)
   app.post('/api/auth/resend-verification', async (req, reply) => {
-    const parsed = emailBodySchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'email required' });
-    const { email } = parsed.data;
+    const body = validate(emailBodySchema, req.body, reply);
+    if (!body) return;
+    const { email } = body;
     const smtpSettings = await getSmtpSettings();
     if (!smtpSettings) return reply.status(503).send({ error: 'Email is not configured on this server.' });
 
@@ -150,9 +161,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
 
   // Change password while logged in (also clears mustChangePassword flag)
   app.post('/api/auth/change-password', { preHandler: requireAuth }, async (req, reply) => {
-    const parsed = changePasswordBodySchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { currentPassword, newPassword } = parsed.data;
+    const body = validate(changePasswordBodySchema, req.body, reply);
+    if (!body) return;
+    const { currentPassword, newPassword } = body;
     const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     if (!user.passwordHash) return reply.status(400).send({ error: 'This account uses SSO - password cannot be changed here.' });
@@ -181,9 +192,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
 
   // Verify email
   app.post('/api/auth/verify-email', async (req, reply) => {
-    const parsed = tokenBodySchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: 'token required' });
-    const { token } = parsed.data;
+    const body = validate(tokenBodySchema, req.body, reply);
+    if (!body) return;
+    const { token } = body;
 
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const record = await prisma.emailVerifyToken.findUnique({ where: { tokenHash } });

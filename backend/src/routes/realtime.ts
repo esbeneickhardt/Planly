@@ -1,3 +1,17 @@
+/**
+ * Realtime routes — WebSocket connection endpoint and one-time ticket issuance.
+ *
+ * Auth flow for browser clients:
+ *   1. POST /api/products/:productId/ws-ticket → 30-second single-use ticket
+ *   2. Open WebSocket at /api/products/:productId/ws?ticket=<token>
+ *   3. Server consumes the ticket (deletes from DB) and validates it immediately
+ *
+ * The ticket pattern prevents the session JWT from ever appearing in a URL query
+ * string (which would be logged by servers and proxies).
+ *
+ * Fallback auth: cookie JWT (browser same-origin) or API PAT (?token=).
+ * All three paths verify membership before joining the product's WebSocket room.
+ */
 import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
@@ -17,7 +31,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
       where: { userId, team: { products: { some: { id: productId, deletedAt: null } } } },
     });
     if (!member) return reply.status(403).send({ error: 'Forbidden' });
-    const ticket = issueTicket(userId);
+    const ticket = await issueTicket(userId);
     reply.send({ ticket });
   });
 
@@ -53,7 +67,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
     if (!userId) {
       const ticket = (req.query as Record<string, string | undefined>).ticket;
       if (ticket) {
-        userId = consumeTicket(ticket) ?? null;
+        userId = await consumeTicket(ticket) ?? null;
       }
     }
 

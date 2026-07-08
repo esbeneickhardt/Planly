@@ -46,6 +46,7 @@ model User {
   mustChangePassword      Boolean  @default(false)
   failedLoginAttempts     Int      @default(0)
   loginLockedUntil        DateTime?
+  loginLockCount          Int      @default(0) // increments on each lockout for progressive penalties
   notificationPreferences Json      @default("{}")
   tokenVersion            Int       @default(0)
   tosAcceptedAt           DateTime?
@@ -164,6 +165,7 @@ model Task {
   completedBy String?
   completedAt DateTime?
   createdBy   String?
+  githubUrl   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt
   deletedAt   DateTime?
@@ -434,7 +436,9 @@ model TeamInvite {
   email     String?
   token     String    @unique
   expiresAt DateTime
-  usedAt    DateTime?
+  usedAt    DateTime? // set when consumed (email-bound: first use; open: when useCount >= maxUses)
+  useCount  Int       @default(0) // how many people have accepted this link
+  maxUses   Int?      // null = unlimited for open invites; 1 = single-use (default for email invites)
   createdAt DateTime  @default(now())
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -504,6 +508,10 @@ model ServerConfig {
   announcementsEnabled     Boolean @default(false)
   announcementPostRole     String  @default("admin")
   ipRestrictionMode        String  @default("disabled")
+  githubWebhookSecret      String?
+  githubImportIssues       Boolean @default(false)
+  githubImportPrs          Boolean @default(false)
+  githubDefaultProductId   String?
 }
 
 // ── IP access restrictions ─────────────────────────────────────────────────────
@@ -569,6 +577,29 @@ model AdminLog {
 
   @@index([createdAt(sort: Desc)])
   @@index([action])
+}
+
+// ── WebSocket upgrade tickets (DB-backed for multi-replica correctness) ───────
+
+model WsTicket {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+// ── SSO state (DB-backed so callbacks work across multiple replicas) ──────────
+
+model SsoState {
+  state        String   @id
+  codeVerifier String
+  nonce        String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 // ── File uploads ─────────────────────────────────────────────────────────────

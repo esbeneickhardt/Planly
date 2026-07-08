@@ -1,3 +1,11 @@
+/**
+ * Search routes — cross-project full-text search over tasks and messages.
+ *
+ * Results are scoped to projects where the authenticated user is a team member.
+ * Supports an optional productId filter to restrict results to a single project.
+ * Minimum query length is 2 characters. Results are capped at the limit parameter
+ * (default 20) for each result type.
+ */
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';

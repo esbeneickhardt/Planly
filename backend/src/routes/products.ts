@@ -1,3 +1,11 @@
+/**
+ * Project (product) routes — CRUD for projects within a team.
+ *
+ * Projects are the main workspace unit. Each project belongs to exactly one team,
+ * has its own set of tasks, views (Kanban, Backlog, Gantt, Canvas), columns, sprints,
+ * webhooks, and per-user tab permissions. Soft-deleted projects (deletedAt set) are
+ * hidden from all queries but can be restored by admins.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
@@ -72,9 +80,9 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.patch('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const parsed = updateProductSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { name, emoji, description, deadline, ownerId, analyticsEnabled } = parsed.data;
+    const body = validate(updateProductSchema, req.body, reply);
+    if (!body) return;
+    const { name, emoji, description, deadline, ownerId, analyticsEnabled } = body;
 
     const product = await prisma.product.findFirst({
       where: { id, deletedAt: null },

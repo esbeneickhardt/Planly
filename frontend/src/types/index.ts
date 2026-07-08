@@ -82,6 +82,7 @@ export interface Task {
   completedBy?: string;
   completedAt?: string;
   createdBy: string;
+  githubUrl?: string;
   createdAt: string;
   subtasks: Subtask[];
   dependsOn: { prerequisiteId: string }[];

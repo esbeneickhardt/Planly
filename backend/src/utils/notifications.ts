@@ -1,4 +1,13 @@
+/**
+ * In-app notification utility — creates per-user notification records
+ * while respecting each user's stored notification preferences.
+ *
+ * Notifications appear in the bell-icon dropdown and are retained for 90 days.
+ * Email delivery for @mentions is handled separately in the route layer.
+ * Failures are warned but never thrown.
+ */
 import prisma from '../db/client';
+import { logger } from './logger';
 
 const DEFAULT_ENABLED: Record<string, boolean> = {
   task_assigned:    true,
@@ -11,6 +20,14 @@ const DEFAULT_ENABLED: Record<string, boolean> = {
   sprint_started:   false, // opt-in
 };
 
+/**
+ * Creates a notification for a user if their preferences allow it.
+ *
+ * Checks the user's `notificationPreferences` JSON column before inserting.
+ * Returns null (without error) if the user has disabled this notification type.
+ *
+ * @param data.type - Notification category key (must match a DEFAULT_ENABLED entry or defaults to enabled)
+ */
 export async function createNotification(data: {
   userId: string;
   type: string;
@@ -33,7 +50,7 @@ export async function createNotification(data: {
   if (!isEnabled) return null;
 
   return prisma.notification.create({ data }).catch((err) => {
-    console.warn('[notifications] Failed to create notification:', (err as Error).message);
+    logger.warn({ err: (err as Error).message }, 'notification write failed');
   });
 }
 

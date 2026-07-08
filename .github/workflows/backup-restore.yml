@@ -1,0 +1,82 @@
+name: Backup & Restore Test
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'  # every Sunday at 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  backup-restore:
+    name: Backup, restore, and smoke-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: planly
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: planly
+        options: >-
+          --health-cmd "pg_isready -U planly"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://planly:testpass@localhost:5432/planly
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Apply migrations and seed
+        working-directory: backend
+        run: |
+          npx prisma migrate deploy
+          npx prisma db seed || true
+
+      - name: Create pg_dump backup
+        run: |
+          PGPASSWORD=testpass pg_dump \
+            -h localhost -U planly -d planly \
+            -Fc -Z 9 -f /tmp/backup.dump
+          echo "Backup size: $(du -sh /tmp/backup.dump | cut -f1)"
+
+      - name: Drop and recreate database
+        run: |
+          PGPASSWORD=testpass psql -h localhost -U planly -d postgres \
+            -c "DROP DATABASE planly;" \
+            -c "CREATE DATABASE planly OWNER planly;"
+
+      - name: Restore from backup
+        run: |
+          PGPASSWORD=testpass pg_restore \
+            -h localhost -U planly -d planly \
+            --no-owner --no-privileges \
+            /tmp/backup.dump
+
+      - name: Re-apply any pending migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+
+      - name: Run integration smoke tests
+        working-directory: backend
+        run: npx jest --testPathPattern="integration" --forceExit --passWithNoTests
+        env:
+          JWT_SECRET: test-jwt-secret-32chars-minimum
+          ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+          FRONTEND_ORIGIN: http://localhost:3000
+          NODE_ENV: test

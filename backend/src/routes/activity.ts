@@ -1,3 +1,10 @@
+/**
+ * Activity feed routes — query the chronological event log for a project.
+ *
+ * Activity events are written by logActivity() throughout the app whenever a
+ * significant action occurs (task created, status changed, sprint ended, etc.).
+ * They are displayed in the project's activity panel and retained for 180 days.
+ */
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';

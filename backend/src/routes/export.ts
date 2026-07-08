@@ -1,3 +1,10 @@
+/**
+ * Project data export routes — full JSON export of a project's tasks, columns,
+ * sprints, and metadata for backup or migration purposes.
+ *
+ * Requires co-owner access. The response is a single JSON object containing all
+ * project data. Soft-deleted tasks are excluded.
+ */
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';

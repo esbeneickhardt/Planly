@@ -1,3 +1,10 @@
+/**
+ * Analytics routes — aggregate statistics for a project's Analytics tab.
+ *
+ * Computes throughput (tasks completed per week), workload distribution per assignee,
+ * cycle velocity (average days from start to completion), and priority breakdown.
+ * Data is scoped to the last 90 days. Requires Analytics tab read access.
+ */
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';

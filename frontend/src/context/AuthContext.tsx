@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '../api/client';
+import { clearMembersCache } from '../hooks/useProductMembers';
 import type { User } from '../types';
 
 interface AuthContextValue {
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     try { await api.auth.logout(); } catch { /* ignore network errors */ }
+    clearMembersCache();
     setUser(null);
   }
 

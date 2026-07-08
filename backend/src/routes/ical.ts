@@ -1,3 +1,11 @@
+/**
+ * iCal export routes — generate RFC 5545 calendar feeds for task due dates.
+ *
+ * Each user gets a stable, token-authenticated iCal subscription URL that
+ * calendar apps (Google Calendar, Apple Calendar, Outlook) can subscribe to.
+ * The feed includes all tasks with due dates across projects the user belongs to.
+ * The token is a SHA-256 hash stored in the database — rotation invalidates old URLs.
+ */
 import { FastifyInstance } from 'fastify';
 import { createHash, randomBytes } from 'crypto';
 import prisma from '../db/client';

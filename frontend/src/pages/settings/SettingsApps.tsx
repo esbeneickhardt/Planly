@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import type { ApiToken, AppRegistration } from '../../api/client';
 import type { Product } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 
 interface Props {
   activeProduct: Product;
@@ -9,7 +10,18 @@ interface Props {
   confirm: (msg: string) => Promise<boolean>;
 }
 
+interface GithubConfig {
+  webhookUrl: string;
+  hasSecret: boolean;
+  githubImportIssues: boolean;
+  githubImportPrs: boolean;
+  githubDefaultProductId: string | null;
+}
+
 export default function SettingsApps({ activeProduct, showToast, confirm }: Props) {
+  const { user } = useAuth();
+  const isAdmin = user?.isAdmin ?? false;
+
   const [apps, setApps] = useState<AppRegistration[]>([]);
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [newAppName, setNewAppName] = useState('');
@@ -22,6 +34,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
   );
   const [generatingCalendar, setGeneratingCalendar] = useState(false);
 
+  const [githubConfig, setGithubConfig] = useState<GithubConfig | null>(null);
+  const [revealedWebhookSecret, setRevealedWebhookSecret] = useState<string | null>(null);
+  const [savingGithub, setSavingGithub] = useState(false);
+
   const loadApps = useCallback(async () => {
     try { setApps(await api.appRegistrations.list()); } catch {}
   }, []);
@@ -32,6 +48,11 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
     if (!selectedAppId) { setAppTokens([]); return; }
     api.appRegistrations.listTokens(selectedAppId).then(setAppTokens).catch(() => {});
   }, [selectedAppId]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    api.github.getConfig().then(setGithubConfig).catch(() => {});
+  }, [isAdmin]);
 
   return (
     <div className="max-w-2xl space-y-10">
@@ -270,6 +291,107 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
           </button>
         )}
       </div>
+
+      {/* ── GitHub Integration (admin only) ── */}
+      {isAdmin && githubConfig && (
+        <div>
+          <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>GitHub integration</h2>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+            Automatically create tasks from GitHub issues and pull requests via webhook.
+            Configure a webhook in your GitHub repository pointing to the URL below.
+          </p>
+
+          {/* Webhook URL */}
+          <div className="p-4 rounded-xl mb-4 space-y-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Webhook URL</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-[11px] break-all px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                {githubConfig.webhookUrl || `${window.location.origin}/api/github/webhook`}
+              </code>
+              <button
+                className="btn-secondary text-xs flex-shrink-0"
+                onClick={() => { navigator.clipboard.writeText(githubConfig.webhookUrl || `${window.location.origin}/api/github/webhook`); showToast('Copied!', 'success'); }}
+              >Copy</button>
+            </div>
+            <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+              {githubConfig.hasSecret ? '🔒 Webhook secret is configured — requests are verified with HMAC-SHA256.' : '⚠ No webhook secret — generate one below to secure incoming requests.'}
+            </p>
+          </div>
+
+          {/* One-time secret reveal */}
+          {revealedWebhookSecret && (
+            <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}>
+              <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Copy this secret now — it will not be shown again. Paste it into your GitHub webhook settings.</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs break-all px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                  {revealedWebhookSecret}
+                </code>
+                <button className="btn-secondary text-xs flex-shrink-0" onClick={() => { navigator.clipboard.writeText(revealedWebhookSecret); showToast('Copied!', 'success'); }}>Copy</button>
+                <button className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }} onClick={() => setRevealedWebhookSecret(null)}>Dismiss</button>
+              </div>
+            </div>
+          )}
+
+          {/* Regenerate secret */}
+          <div className="mb-4">
+            <button
+              className="btn-secondary text-xs"
+              onClick={async () => {
+                if (githubConfig.hasSecret && !await confirm('Regenerating the secret will invalidate the current one. You will need to update it in GitHub. Continue?')) return;
+                try {
+                  const { secret } = await api.github.regenerateSecret();
+                  setRevealedWebhookSecret(secret);
+                  setGithubConfig((c) => c ? { ...c, hasSecret: true } : c);
+                  showToast('Webhook secret generated', 'success');
+                } catch (err) { showToast((err as Error).message, 'error'); }
+              }}
+            >
+              {githubConfig.hasSecret ? 'Regenerate secret' : 'Generate webhook secret'}
+            </button>
+          </div>
+
+          {/* Import settings */}
+          <div className="p-4 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Import settings</p>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={githubConfig.githubImportIssues}
+                style={{ accentColor: 'var(--brand)' }}
+                onChange={(e) => setGithubConfig((c) => c ? { ...c, githubImportIssues: e.target.checked } : c)}
+              />
+              <span className="text-xs" style={{ color: 'var(--text)' }}>Import GitHub issues as tasks</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={githubConfig.githubImportPrs}
+                style={{ accentColor: 'var(--brand)' }}
+                onChange={(e) => setGithubConfig((c) => c ? { ...c, githubImportPrs: e.target.checked } : c)}
+              />
+              <span className="text-xs" style={{ color: 'var(--text)' }}>Import GitHub pull requests as tasks</span>
+            </label>
+            <button
+              disabled={savingGithub}
+              className="btn-primary text-xs"
+              onClick={async () => {
+                setSavingGithub(true);
+                try {
+                  await api.github.updateConfig({
+                    githubImportIssues: githubConfig.githubImportIssues,
+                    githubImportPrs: githubConfig.githubImportPrs,
+                    githubDefaultProductId: activeProduct.id,
+                  });
+                  showToast('GitHub settings saved', 'success');
+                } catch (err) { showToast((err as Error).message, 'error'); }
+                finally { setSavingGithub(false); }
+              }}
+            >
+              {savingGithub ? '…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

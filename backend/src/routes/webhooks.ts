@@ -1,3 +1,13 @@
+/**
+ * Webhook routes — manage webhook subscriptions for a project.
+ *
+ * Webhooks push event payloads to external HTTP endpoints signed with HMAC-SHA256.
+ * The secret is stored AES-256-GCM encrypted in the database and decrypted at
+ * dispatch time. It is only returned in plaintext at creation and on secret rotation.
+ *
+ * All webhook URLs are validated for SSRF safety (no private IPs) before being
+ * persisted. All lifecycle events are recorded in the admin audit log.
+ */
 import { FastifyInstance } from 'fastify';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
@@ -5,6 +15,9 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductCoOwner } from '../utils/product-guard';
 import { encryptValue } from '../utils/crypto';
+import { validate } from '../utils/validate';
+import { logAdminEvent } from '../utils/audit';
+import { validateWebhookUrl } from '../utils/webhook-url-guard';
 
 const createWebhookSchema = z.object({
   url: z.string().url('Invalid URL'),
@@ -40,9 +53,9 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/webhooks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
-    const parsed = createWebhookSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { url, events } = parsed.data;
+    const body = validate(createWebhookSchema, req.body, reply);
+    if (!body) return;
+    const { url, events } = body;
 
     const webhookCount = await prisma.webhook.count({ where: { productId } });
     if (webhookCount >= 20) return reply.status(400).send({ error: 'Maximum 20 webhooks allowed per project. Delete an existing webhook first.' });
@@ -50,11 +63,15 @@ export async function webhookRoutes(app: FastifyInstance) {
     const invalid = events.filter((e) => !VALID_EVENTS.includes(e));
     if (invalid.length > 0) return reply.status(400).send({ error: `Invalid events: ${invalid.join(', ')}` });
 
+    const urlError = await validateWebhookUrl(url);
+    if (urlError) return reply.status(400).send({ error: urlError });
+
     const rawSecret = randomBytes(32).toString('hex');
     const webhook = await prisma.webhook.create({
       data: { productId, url, events, secret: encryptValue(rawSecret) },
       select: { id: true, url: true, events: true, active: true, createdAt: true },
     });
+    logAdminEvent('WEBHOOK_CREATED', { actorName: req.user.username, targetName: productId, metadata: { webhookId: webhook.id, url, events } });
     // Return the raw (unencrypted) secret once at creation
     reply.status(201).send({ ...webhook, secret: rawSecret });
   });
@@ -63,13 +80,18 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/webhooks/:webhookId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, webhookId } = req.params as { productId: string; webhookId: string };
     if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
-    const parsed = updateWebhookSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { url, events, active } = parsed.data;
+    const patch = validate(updateWebhookSchema, req.body, reply);
+    if (!patch) return;
+    const { url, events, active } = patch;
 
     if (events) {
       const invalid = events.filter((e) => !VALID_EVENTS.includes(e));
       if (invalid.length > 0) return reply.status(400).send({ error: `Invalid events: ${invalid.join(', ')}` });
+    }
+
+    if (url) {
+      const urlError = await validateWebhookUrl(url);
+      if (urlError) return reply.status(400).send({ error: urlError });
     }
 
     const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
@@ -80,6 +102,7 @@ export async function webhookRoutes(app: FastifyInstance) {
       data: { url, events, active },
       select: { id: true, url: true, events: true, active: true, createdAt: true },
     });
+    logAdminEvent('WEBHOOK_UPDATED', { actorName: req.user.username, targetName: productId, metadata: { webhookId, changes: { url, events, active } } });
     reply.send(updated);
   });
 
@@ -91,6 +114,7 @@ export async function webhookRoutes(app: FastifyInstance) {
     if (!existing) return reply.status(404).send({ error: 'Not found' });
     const rawSecret = randomBytes(32).toString('hex');
     await prisma.webhook.update({ where: { id: webhookId }, data: { secret: encryptValue(rawSecret) } });
+    logAdminEvent('WEBHOOK_SECRET_ROTATED', { actorName: req.user.username, targetName: productId, metadata: { webhookId } });
     reply.send({ secret: rawSecret });
   });
 
@@ -101,6 +125,7 @@ export async function webhookRoutes(app: FastifyInstance) {
     const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
     await prisma.webhook.delete({ where: { id: webhookId } });
+    logAdminEvent('WEBHOOK_DELETED', { actorName: req.user.username, targetName: productId, metadata: { webhookId, url: existing.url } });
     reply.send({ ok: true });
   });
 

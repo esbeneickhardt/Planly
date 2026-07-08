@@ -1,9 +1,27 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
+/**
+ * AES-256-GCM encryption utilities for secrets stored in the database.
+ *
+ * Used to encrypt webhook signing secrets and SMTP passwords at rest.
+ * The key is derived from ENCRYPTION_KEY via HKDF (RFC 5869) with a domain-separation
+ * info string, so the raw env var value is never used directly as the cipher key.
+ *
+ * Ciphertext format stored in the database: "<ivHex>:<authTagHex>:<ciphertextHex>"
+ * The GCM auth tag detects tampering — decryptValue throws on a corrupted value.
+ *
+ * MIGRATION NOTE: Changing ENCRYPTION_KEY breaks decryption of existing rows.
+ * Run scripts/rotate-encryption-key.ts to re-encrypt in-place when rotating.
+ */
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'crypto';
 
+// HKDF (RFC 5869) derives a well-structured 256-bit key from the raw ENCRYPTION_KEY value.
+// Unlike a bare SHA-256 hash this adds domain separation (info string) and salt, making
+// the derived key robust regardless of the input's entropy or format.
 function getKey(): Buffer {
   const secret = process.env.ENCRYPTION_KEY;
   if (!secret) throw new Error('ENCRYPTION_KEY env var is required for encryption operations');
-  return createHash('sha256').update('planly-enc-key:' + secret).digest();
+  return Buffer.from(
+    hkdfSync('sha256', Buffer.from(secret, 'utf8'), 'planly-v1', 'aes-256-gcm-key', 32),
+  );
 }
 
 // Returns "<ivHex>:<authTagHex>:<ciphertextHex>"

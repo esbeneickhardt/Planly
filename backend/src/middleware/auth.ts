@@ -1,3 +1,17 @@
+/**
+ * Authentication middleware — validates incoming requests and populates req.user.
+ *
+ * Two authentication paths:
+ *   Bearer token — PATs and App Registration tokens stored as SHA-256 hashes.
+ *                  Checked first; if a Bearer header is present and invalid, the
+ *                  request is rejected immediately (no cookie fallback).
+ *   Cookie JWT   — httpOnly 'token' cookie set on login. The tokenVersion field
+ *                  in the JWT payload is compared against the live DB value so that
+ *                  password changes and admin logouts take effect instantly.
+ *
+ * requireAuth — validates token + enforces email verification if enabled.
+ * requireAdmin — same as requireAuth plus checks isAdmin: true on the user row.
+ */
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
@@ -92,14 +106,16 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
   if (cookieToken) {
     try {
       const payload = jwt.verify(cookieToken, config.jwtSecret, { algorithms: ['HS256'] }) as AuthPayload;
-      // All cookie JWTs must carry a tokenVersion claim — JWTs without it are rejected
+      // tokenVersion is an incrementing integer on the user row.
+      // Password change, password reset, and admin logout all increment it,
+      // instantly invalidating every outstanding session without maintaining a blocklist.
       if (typeof payload.tokenVersion !== 'number') {
-        reply.clearCookie('token', { path: '/' }).status(401).send({ error: 'Session expired, please log in again' });
+        reply.clearCookie('token', { path: '/' }).clearCookie('csrf', { path: '/' }).status(401).send({ error: 'Session expired, please log in again' });
         return false;
       }
       const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
       if (!userRow || userRow.tokenVersion !== payload.tokenVersion) {
-        reply.clearCookie('token', { path: '/' }).status(401).send({ error: 'Unauthorized' });
+        reply.clearCookie('token', { path: '/' }).clearCookie('csrf', { path: '/' }).status(401).send({ error: 'Unauthorized' });
         return false;
       }
       req.user = payload;

@@ -1,3 +1,11 @@
+/**
+ * Notification routes — list, mark-read, and clear in-app notifications for the
+ * authenticated user.
+ *
+ * Notifications are created by createNotification() throughout the app for events like
+ * task assignments, @mentions, invite acceptances, and access requests. They are retained
+ * for 90 days and pruned by the nightly cleanup job.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';

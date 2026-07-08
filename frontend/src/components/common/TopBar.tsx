@@ -793,7 +793,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                     Settings
                   </NavLink>
                 )}
-                {user?.isAdmin && (
+                {user?.isAdmin && !isAdminPage && (
                   <button
                     onClick={() => { setShowMobileMenu(false); navigate('/admin'); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
@@ -803,6 +803,20 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                     Admin
                   </button>
                 )}
+                {user?.isAdmin && isAdminPage && ADMIN_TABS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => { setSearchParams({ tab: key }); setShowMobileMenu(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                    style={{
+                      background: searchParams.get('tab') === key ? 'var(--brand-subtle)' : 'transparent',
+                      color: searchParams.get('tab') === key ? 'var(--brand)' : 'var(--text-2)',
+                    }}
+                  >
+                    <span className="w-5 text-center">{key === 'ownership' ? '👑' : key === 'users' ? '👥' : key === 'projects' ? '📦' : key === 'email' ? '✉️' : key === 'ip-rules' ? '🛡️' : key === 'logs' ? '📋' : '📊'}</span>
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
