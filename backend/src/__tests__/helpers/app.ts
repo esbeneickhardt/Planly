@@ -30,6 +30,7 @@ import { searchRoutes } from '../../routes/search';
 import { apiTokenRoutes } from '../../routes/api-tokens';
 import { appRegistrationRoutes } from '../../routes/app-registrations';
 import { permissionRoutes } from '../../routes/permissions';
+import { messageRoutes } from '../../routes/messages';
 import { csrfCheck } from '../../middleware/csrf';
 
 export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
@@ -60,6 +61,7 @@ export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
   await app.register(apiTokenRoutes);
   await app.register(appRegistrationRoutes);
   await app.register(permissionRoutes);
+  await app.register(messageRoutes);
 
   await app.ready();
   return app;

@@ -215,6 +215,7 @@ async function main() {
     const incoming = req.headers['x-request-id'];
     const raw = (Array.isArray(incoming) ? incoming[0] : incoming) ?? '';
     // Strip control characters to prevent log injection
+    // eslint-disable-next-line no-control-regex
     const sanitized = raw.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 64);
     req.id = sanitized || randomUUID();
     done();
@@ -371,7 +372,7 @@ async function main() {
     try {
       await prisma.$queryRaw`SELECT 1`;
       reply.send({ ready: true, uptime: process.uptime() });
-    } catch (err) {
+    } catch {
       reply.status(503).send({ ready: false, reason: 'database unreachable' });
     }
   });

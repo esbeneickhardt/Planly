@@ -12,11 +12,10 @@ const CHANNEL_PREFIX = 'planly:room:';
 
 // Redis pub/sub — only active when REDIS_URL is set (opt-in for horizontal scaling)
 let publisher: Redis | null = null;
-let subscriber: Redis | null = null;
 
 if (process.env.REDIS_URL) {
   publisher = new Redis(process.env.REDIS_URL);
-  subscriber = new Redis(process.env.REDIS_URL);
+  const subscriber = new Redis(process.env.REDIS_URL);
 
   subscriber.psubscribe(`${CHANNEL_PREFIX}*`, (err) => {
     if (err) console.error('[realtime] Redis psubscribe error', err);

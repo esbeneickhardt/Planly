@@ -164,7 +164,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 ### docker-compose.yml (dev)
 - [ ] Service names are correct (`db`, `backend`, `frontend`)
 - [ ] All required environment variables are mapped from `.env`
-- [ ] Volumes `db_data` and `uploads_data` are defined
+- [ ] Volume `db_data` is defined; uploads use a bind mount (`./data/uploads:/data/uploads`), not a named volume
 - [ ] Backend healthcheck absent (frontend has port mapping, backend does not expose ports to host)
 - [ ] Logging limits (`max-size: 50m`, `max-file: 5`) are present on backend
 

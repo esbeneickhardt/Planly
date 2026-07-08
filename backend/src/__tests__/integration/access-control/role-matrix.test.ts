@@ -35,7 +35,7 @@ describe.skipIf(!HAS_DB)('Role matrix — endpoint access control', () => {
 
     const owner    = await createTestUser({ email: `rm_owner_${suffix}@t.com`,    username: `rm_owner_${suffix}`,    password: pw });
     const member   = await createTestUser({ email: `rm_member_${suffix}@t.com`,   username: `rm_member_${suffix}`,   password: pw });
-    const outsider = await createTestUser({ email: `rm_outside_${suffix}@t.com`,  username: `rm_outside_${suffix}`,  password: pw });
+    await createTestUser({ email: `rm_outside_${suffix}@t.com`,  username: `rm_outside_${suffix}`,  password: pw });
 
     const team    = await createTestTeam(owner.id, [member.id]);
     const product = await createTestProduct(owner.id, team.id);
@@ -77,11 +77,11 @@ describe.skipIf(!HAS_DB)('Role matrix — endpoint access control', () => {
 
   async function req(method: string, url: string, role: Role, payload?: unknown) {
     const t = token(role);
-    return app.inject({
+    return await app.inject({
       method: method as 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
       url,
       cookies: t ? cookieJar(t) : undefined,
-      payload,
+      payload: payload as Record<string, unknown> | undefined,
     });
   }
 
