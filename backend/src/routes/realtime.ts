@@ -60,7 +60,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
           return;
         }
         userId = payload.userId;
-      } catch {}
+      } catch { /* invalid or expired JWT in Authorization header — fall through to ticket auth */ }
     }
 
     // 2. One-time ticket (issued via POST /ws-ticket — session JWT never in query string)

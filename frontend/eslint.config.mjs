@@ -1,15 +1,25 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   jsxA11y.flatConfigs.recommended,
   {
+    plugins: {
+      'react-hooks': reactHooks,
+    },
     rules: {
+      'react-hooks/rules-of-hooks': 'warn',
+      'react-hooks/exhaustive-deps': 'warn',
+
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+
+      // Empty catch blocks are common for intentional fire-and-forget patterns
+      'no-empty': ['error', { allowEmptyCatch: true }],
 
       // Accessibility: errors for issues that break keyboard/screen-reader access
       'jsx-a11y/alt-text': 'error',

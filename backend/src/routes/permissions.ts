@@ -10,7 +10,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireProductCoOwner } from '../utils/product-guard';
+import { requireProductCoOwner } from '../utils/product-guard';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 

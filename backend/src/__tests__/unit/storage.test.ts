@@ -1,5 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { verifyMimeBytes, fileExtFromMime, mimeFromExt } from '../../utils/storage';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { verifyMimeBytes, fileExtFromMime, mimeFromExt, generateFilename, storeFile, getFileBuffer, deleteFile } from '../../utils/storage';
+
+// Mocked for local-disk tests. S3 tests use vi.resetModules() + vi.doMock + dynamic import.
+vi.mock('fs/promises', () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined),
+  readFile: vi.fn().mockResolvedValue(Buffer.from('disk-content')),
+  unlink: vi.fn().mockResolvedValue(undefined),
+}));
 
 // ── Magic byte helpers ─────────────────────────────────────────────────────
 
@@ -124,5 +132,159 @@ describe('mimeFromExt', () => {
 
   it('returns application/octet-stream for unknown extensions', () => {
     expect(mimeFromExt('xyz')).toBe('application/octet-stream');
+  });
+});
+
+// ── generateFilename ───────────────────────────────────────────────────────
+
+describe('generateFilename', () => {
+  it('generates a 24-char hex prefix with the given extension', () => {
+    const name = generateFilename(Buffer.from('hello'), 'txt');
+    expect(name).toMatch(/^[a-f0-9]{24}\.txt$/);
+  });
+
+  it('is deterministic — same content always produces the same filename', () => {
+    const buf = Buffer.from('consistent');
+    expect(generateFilename(buf, 'png')).toBe(generateFilename(buf, 'png'));
+  });
+
+  it('produces different names for different content', () => {
+    expect(generateFilename(Buffer.from('a'), 'png')).not.toBe(generateFilename(Buffer.from('b'), 'png'));
+  });
+});
+
+// ── local disk storage ─────────────────────────────────────────────────────
+
+describe('local disk storage (no AWS_S3_BUCKET)', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('storeFile creates the uploads dir and writes the buffer', async () => {
+    const { mkdir, writeFile } = await import('fs/promises');
+    await storeFile(Buffer.from('data'), 'test.png', 'image/png');
+    expect(mkdir).toHaveBeenCalledOnce();
+    expect(writeFile).toHaveBeenCalledOnce();
+    const call = ((writeFile as ReturnType<typeof vi.fn>).mock.calls as unknown[][])[0];
+    expect(String(call?.[0])).toContain('test.png');
+  });
+
+  it('getFileBuffer reads from the uploads directory', async () => {
+    const buf = await getFileBuffer('test.png');
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf.toString()).toBe('disk-content');
+  });
+
+  it('deleteFile unlinks from the uploads directory', async () => {
+    const { unlink } = await import('fs/promises');
+    await deleteFile('test.png');
+    expect(unlink).toHaveBeenCalledOnce();
+  });
+
+  it('deleteFile sanitizes path traversal characters before unlinking', async () => {
+    const { unlink } = await import('fs/promises');
+    vi.clearAllMocks();
+    await deleteFile('../../../etc/passwd');
+    const unlinkCall = ((unlink as ReturnType<typeof vi.fn>).mock.calls as unknown[][])[0];
+    expect(String(unlinkCall?.[0])).not.toContain('..');
+    expect(String(unlinkCall?.[0])).not.toContain('/etc/passwd');
+  });
+
+  it('getFileBuffer sanitizes path traversal before reading', async () => {
+    const { readFile } = await import('fs/promises');
+    vi.clearAllMocks();
+    await getFileBuffer('../../../etc/passwd');
+    const readCall = ((readFile as ReturnType<typeof vi.fn>).mock.calls as unknown[][])[0];
+    expect(String(readCall?.[0])).not.toContain('..');
+  });
+});
+
+// ── S3 storage mode ────────────────────────────────────────────────────────
+
+describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
+  const mockSend = vi.fn();
+
+  beforeEach(() => {
+    mockSend.mockReset();
+    vi.resetModules();
+    process.env.AWS_S3_BUCKET = 'test-bucket';
+    process.env.AWS_S3_PREFIX = 'pfx';
+    vi.doMock('@aws-sdk/client-s3', () => ({
+      S3Client: vi.fn(() => ({ send: mockSend })),
+      PutObjectCommand: vi.fn(input => ({ _cmd: 'PUT', ...input })),
+      GetObjectCommand: vi.fn(input => ({ _cmd: 'GET', ...input })),
+      DeleteObjectCommand: vi.fn(input => ({ _cmd: 'DELETE', ...input })),
+    }));
+  });
+
+  afterEach(() => {
+    delete process.env.AWS_S3_BUCKET;
+    delete process.env.AWS_S3_PREFIX;
+    vi.resetModules();
+  });
+
+  it('storeFile sends PutObjectCommand with correct bucket, key, and content-type', async () => {
+    mockSend.mockResolvedValueOnce({});
+    const { storeFile: s3Store } = await import('../../utils/storage');
+    await s3Store(Buffer.from('img-data'), 'photo.jpg', 'image/jpeg');
+    expect(mockSend).toHaveBeenCalledOnce();
+    const cmd = (mockSend.mock.calls as unknown[][])[0]?.[0] as Record<string, unknown>;
+    expect(cmd._cmd).toBe('PUT');
+    expect(cmd.Bucket).toBe('test-bucket');
+    expect(cmd.Key).toBe('pfx/photo.jpg');
+    expect(cmd.ContentType).toBe('image/jpeg');
+  });
+
+  it('getFileBuffer sends GetObjectCommand and reassembles streamed chunks', async () => {
+    async function* stream() { yield Buffer.from('chunk1'); yield Buffer.from('chunk2'); }
+    mockSend.mockResolvedValueOnce({ Body: stream() });
+    const { getFileBuffer: s3Get } = await import('../../utils/storage');
+    const buf = await s3Get('photo.jpg');
+    expect(buf.toString()).toBe('chunk1chunk2');
+    const cmd = (mockSend.mock.calls as unknown[][])[0]?.[0] as Record<string, unknown>;
+    expect(cmd._cmd).toBe('GET');
+    expect(cmd.Bucket).toBe('test-bucket');
+    expect(cmd.Key).toBe('pfx/photo.jpg');
+  });
+
+  it('deleteFile sends DeleteObjectCommand with correct key', async () => {
+    mockSend.mockResolvedValueOnce({});
+    const { deleteFile: s3Delete } = await import('../../utils/storage');
+    await s3Delete('photo.jpg');
+    expect(mockSend).toHaveBeenCalledOnce();
+    const cmd = (mockSend.mock.calls as unknown[][])[0]?.[0] as Record<string, unknown>;
+    expect(cmd._cmd).toBe('DELETE');
+    expect(cmd.Bucket).toBe('test-bucket');
+    expect(cmd.Key).toBe('pfx/photo.jpg');
+  });
+
+  it('getFileBuffer sanitizes path traversal before building the S3 key', async () => {
+    async function* stream() { yield Buffer.from('data'); }
+    mockSend.mockResolvedValueOnce({ Body: stream() });
+    const { getFileBuffer: s3Get } = await import('../../utils/storage');
+    await s3Get('../../../etc/passwd.txt');
+    const cmd = (mockSend.mock.calls as unknown[][])[0]?.[0] as Record<string, unknown>;
+    expect(cmd.Key).not.toContain('..');
+    expect(cmd.Key).not.toContain('/etc/');
+  });
+
+  it('deleteFile sanitizes path traversal before building the S3 key', async () => {
+    mockSend.mockResolvedValueOnce({});
+    const { deleteFile: s3Delete } = await import('../../utils/storage');
+    await s3Delete('../../../etc/passwd.txt');
+    const cmd = (mockSend.mock.calls as unknown[][])[0]?.[0] as Record<string, unknown>;
+    expect(cmd.Key).not.toContain('..');
+  });
+
+  it('uses AWS_S3_PREFIX as the key prefix', async () => {
+    mockSend.mockResolvedValueOnce({});
+    process.env.AWS_S3_PREFIX = 'custom-prefix';
+    vi.resetModules();
+    vi.doMock('@aws-sdk/client-s3', () => ({
+      S3Client: vi.fn(() => ({ send: mockSend })),
+      PutObjectCommand: vi.fn(input => ({ _cmd: 'PUT', ...input })),
+    }));
+    const { storeFile: s3Store } = await import('../../utils/storage');
+    await s3Store(Buffer.from('x'), 'file.txt', 'text/plain');
+    const cmd = (mockSend.mock.calls as unknown[][])[0]?.[0] as Record<string, unknown>;
+    expect(cmd.Key).toMatch(/^custom-prefix\//);
   });
 });

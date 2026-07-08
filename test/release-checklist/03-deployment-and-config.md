@@ -122,7 +122,10 @@ curl -s -X POST $BASE/api/seed-examples
 
 - [ ] Restart the stack: `docker compose restart`; log in — all data preserved
 - [ ] Stop and start (not restart): `docker compose down && docker compose up -d` — all data preserved
-- [ ] `docker compose down -v` destroys all data — **confirm this is documented as destructive**
+- [ ] `docker compose down -v` destroys the **database** (`db_data` named volume) — **confirm this is documented as destructive**
+- [ ] Uploaded files survive `docker compose down -v` because they live in `./data/uploads/` on the host (bind mount, not a named volume)
+- [ ] `./data/uploads/` directory exists on the host before first start (created by `mkdir -p data/uploads` or automatically by Docker when bind-mounted)
+- [ ] S3 mode: set `AWS_S3_BUCKET` in `.env` → restart → upload a file → confirm it appears in the S3/Scaleway bucket, not in `./data/uploads/`
 
 ---
 

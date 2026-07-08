@@ -7,7 +7,7 @@
  * the page (no rehype-raw, no rehype-sanitize needed because raw HTML is
  * not allowed by default).
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

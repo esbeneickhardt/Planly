@@ -1,0 +1,47 @@
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    client_max_body_size 20m;
+
+    # Security headers
+    add_header X-Frame-Options           "DENY"                              always;
+    add_header X-Content-Type-Options    "nosniff"                           always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin"   always;
+    add_header Permissions-Policy        "camera=(), microphone=(), geolocation=()" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header Content-Security-Policy   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'" always;
+    add_header X-DNS-Prefetch-Control    "off"                                    always;
+
+    # Vite-built assets have content-hash filenames — cache them aggressively.
+    location ~* \.(js|css|woff2?|ttf|otf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    location ~* \.(png|jpg|jpeg|gif|svg|ico|webp)$ {
+        expires 30d;
+        add_header Cache-Control "public";
+        access_log off;
+    }
+
+    # Never cache index.html so users pick up new deployments immediately.
+    location = /index.html {
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+    }
+
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host                $host;
+        proxy_set_header X-Real-IP           $remote_addr;
+        proxy_set_header X-Forwarded-For     $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto   $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

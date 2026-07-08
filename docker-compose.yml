@@ -61,6 +61,17 @@ services:
       #
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       #
+      # ── File uploads: S3-compatible object storage (optional) ────────────────
+      # By default uploads are stored in ./data/uploads on the host (bind mount).
+      # Set AWS_S3_BUCKET in .env to switch to S3-compatible storage instead.
+      # See .env.example for Scaleway Object Storage and MinIO examples.
+      # AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      # AWS_REGION: ${AWS_REGION}
+      # AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
+      # AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      # AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      # AWS_S3_PREFIX: ${AWS_S3_PREFIX}
+      #
       # Optionally enforce email verification before users can sign in:
       #   REQUIRE_EMAIL_VERIFICATION: "true"
       #
@@ -82,7 +93,7 @@ services:
       # Set APP_URL to your public backend URL so the redirect is correct:
       # APP_URL: https://planly.yourdomain.com
     volumes:
-      - uploads_data:/data/uploads
+      - ./data/uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -184,7 +195,6 @@ services:
 
 volumes:
   db_data:
-  uploads_data:
   # redis_data:      # uncomment when enabling Redis above
   # prometheus_data: # uncomment when enabling Prometheus above
   # minio_data:      # uncomment when enabling MinIO above

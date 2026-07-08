@@ -14,15 +14,13 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
   const suffix = randomSuffix();
   const adminEmail = `admin_${suffix}@example.com`;
   const targetEmail = `target_${suffix}@example.com`;
-  let adminId: string;
   let targetId: string;
   let adminToken: string;
 
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const admin = await createTestUser({ email: adminEmail, username: `admin_${suffix}`, password: 'pass1234', isAdmin: true });
-    adminId = admin.id;
+    await createTestUser({ email: adminEmail, username: `admin_${suffix}`, password: 'pass1234', isAdmin: true });
     const target = await createTestUser({ email: targetEmail, username: `target_${suffix}`, password: 'pass1234' });
     targetId = target.id;
 
