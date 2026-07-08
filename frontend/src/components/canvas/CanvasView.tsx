@@ -129,6 +129,11 @@ function buildGraph(
   return { nodes, edges };
 }
 
+// Sugiyama layered layout via dagre (left-to-right, ranked by dependency depth).
+// dagre returns centre coordinates; React Flow nodes are top-left anchored, so we
+// subtract half the node dimensions (100, 40) to convert.
+// The product-deadline node is placed to the right of all task nodes, centred
+// vertically, because it has no dagre rank of its own (no outgoing edges).
 function runAutoLayout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: 'LR', ranksep: 120, nodesep: 70 });
@@ -758,8 +763,8 @@ function CanvasInner() {
           multiSelectionKeyCode="Shift"
         >
           <Background variant={BackgroundVariant.Dots} color="var(--border)" gap={24} size={1.5} />
-          <Controls style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} />
-          <MiniMap nodeColor={(n) => n.id.startsWith('product-') ? 'var(--brand)' : 'var(--surface-2)'} maskColor="rgba(0,0,0,0.25)" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} zoomable pannable />
+          <Controls className="hidden md:block" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} />
+          <MiniMap className="hidden md:block" nodeColor={(n) => n.id.startsWith('product-') ? 'var(--brand)' : 'var(--surface-2)'} maskColor="rgba(0,0,0,0.25)" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} zoomable pannable />
 
           {/* ── Top-left ────────────────────────────────────────────────── */}
           <Panel position="top-left">

@@ -1,3 +1,14 @@
+/**
+ * Invite routes — create, revoke, and accept team invite links.
+ *
+ * Two invite types:
+ *   Open invite — shareable URL valid for anyone; multi-use with an optional maxUses cap.
+ *   Email invite — targeted to one address; single-use; sends an email if SMTP is configured.
+ *
+ * useCount tracks redemptions. The invite is exhausted (usedAt set) only when
+ * maxUses is set and useCount reaches it — open invites with no maxUses are permanent.
+ * All invites expire after 7 days. Acceptance events are recorded in the audit log.
+ */
 import { FastifyInstance } from 'fastify';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
@@ -5,8 +16,13 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { config } from '../config/env';
 import { sendEmail, teamInviteEmail } from '../utils/email';
+import { validate } from '../utils/validate';
+import { logAdminEvent } from '../utils/audit';
 
-const createInviteSchema = z.object({ email: z.string().email().optional() });
+const createInviteSchema = z.object({
+  email: z.string().email().optional(),
+  maxUses: z.number().int().min(1).max(1000).optional(), // open invite use cap; null = unlimited
+});
 
 async function getTeamAdmin(teamId: string, userId: string) {
   const team = await prisma.team.findUnique({
@@ -42,9 +58,9 @@ export async function inviteRoutes(app: FastifyInstance) {
   // Create invite link (admins or members - anyone on the team can invite)
   app.post('/api/teams/:teamId/invites', { preHandler: requireAuth }, async (req, reply) => {
     const { teamId } = req.params as { teamId: string };
-    const parsed = createInviteSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { email } = parsed.data;
+    const body = validate(createInviteSchema, req.body, reply);
+    if (!body) return;
+    const { email, maxUses } = body;
 
     const ctx = await getTeamAdmin(teamId, req.user.userId);
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
@@ -53,8 +69,11 @@ export async function inviteRoutes(app: FastifyInstance) {
     const token = randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
+    // Email-bound invites default to single-use; open invites are unlimited unless caller sets maxUses
+    const resolvedMaxUses = email ? 1 : (maxUses ?? null);
+
     const invite = await prisma.teamInvite.create({
-      data: { teamId, email: email?.toLowerCase().trim() ?? null, token, expiresAt },
+      data: { teamId, email: email?.toLowerCase().trim() ?? null, token, expiresAt, maxUses: resolvedMaxUses },
     });
 
     const inviteUrl = `${config.appUrl}/invite/${token}`;
@@ -73,6 +92,7 @@ export async function inviteRoutes(app: FastifyInstance) {
       email: invite.email,
       inviteUrl,
       expiresAt: invite.expiresAt,
+      maxUses: invite.maxUses,
       createdAt: invite.createdAt,
     });
   });
@@ -105,7 +125,7 @@ export async function inviteRoutes(app: FastifyInstance) {
     const { token } = req.params as { token: string };
     const invite = await prisma.teamInvite.findUnique({
       where: { token },
-      include: { team: true },
+      include: { team: { select: { id: true, name: true } } },
     });
     if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
       return reply.status(400).send({ error: 'Invite not found or expired' });
@@ -118,6 +138,10 @@ export async function inviteRoutes(app: FastifyInstance) {
       }
     }
 
+    const newUseCount = invite.useCount + 1;
+    // Exhaust the invite when maxUses is set and we hit the limit
+    const isNowExhausted = invite.maxUses !== null && newUseCount >= invite.maxUses;
+
     // Add to team
     await prisma.teamMember.upsert({
       where: { teamId_userId: { teamId: invite.teamId, userId: req.user.userId } },
@@ -125,7 +149,12 @@ export async function inviteRoutes(app: FastifyInstance) {
       update: {},
     });
 
-    await prisma.teamInvite.update({ where: { id: invite.id }, data: { usedAt: new Date() } });
+    await prisma.teamInvite.update({
+      where: { id: invite.id },
+      data: { useCount: newUseCount, ...(isNowExhausted ? { usedAt: new Date() } : {}) },
+    });
+
+    logAdminEvent('INVITE_ACCEPTED', { actorName: req.user.username, targetName: invite.team.name, metadata: { inviteId: invite.id, teamId: invite.teamId, useCount: newUseCount, maxUses: invite.maxUses } });
 
     reply.send({ ok: true, teamId: invite.teamId, teamName: invite.team.name });
   });

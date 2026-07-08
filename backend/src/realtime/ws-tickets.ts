@@ -1,31 +1,37 @@
+/**
+ * WebSocket one-time ticket store — issues and consumes short-lived single-use tokens
+ * that allow clients to authenticate a WebSocket upgrade without passing the session JWT
+ * in a URL query string (which would be logged by servers and proxies).
+ *
+ * Tickets are stored in the database (not in-memory) so they are validated correctly
+ * across every backend replica in a multi-instance deployment.
+ *
+ * Flow:
+ *   1. Browser POSTs to /api/products/:productId/ws-ticket → receives a 30-second ticket
+ *   2. Browser opens WebSocket with ?ticket=<token>
+ *   3. consumeTicket() deletes the row immediately (single-use) and checks expiry
+ */
 import { randomBytes } from 'crypto';
+import prisma from '../db/client';
 
-interface Ticket {
-  userId: string;
-  expiresAt: number;
-}
-
-const tickets = new Map<string, Ticket>();
 const TICKET_TTL_MS = 30_000;
 
-// Clean up expired tickets every minute
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, ticket] of tickets) {
-    if (ticket.expiresAt < now) tickets.delete(token);
-  }
-}, 60_000);
+// Tickets are stored in the DB so WebSocket upgrade requests are correctly validated
+// across every replica — an in-memory map would silently fail in multi-instance deployments.
 
-export function issueTicket(userId: string): string {
+export async function issueTicket(userId: string): Promise<string> {
   const token = randomBytes(32).toString('hex');
-  tickets.set(token, { userId, expiresAt: Date.now() + TICKET_TTL_MS });
+  await prisma.wsTicket.create({
+    data: { token, userId, expiresAt: new Date(Date.now() + TICKET_TTL_MS) },
+  });
   return token;
 }
 
-export function consumeTicket(token: string): string | null {
-  const ticket = tickets.get(token);
+export async function consumeTicket(token: string): Promise<string | null> {
+  const ticket = await prisma.wsTicket.findUnique({ where: { token } });
   if (!ticket) return null;
-  tickets.delete(token); // single-use
-  if (ticket.expiresAt < Date.now()) return null;
+  // Delete immediately — single-use regardless of whether it has expired
+  await prisma.wsTicket.delete({ where: { token } }).catch(() => {});
+  if (ticket.expiresAt < new Date()) return null;
   return ticket.userId;
 }

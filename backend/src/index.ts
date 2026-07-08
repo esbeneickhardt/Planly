@@ -1,52 +1,88 @@
+/**
+ * Planly backend entrypoint — bootstraps the Fastify application.
+ *
+ * Startup sequence:
+ *   1. Validate required environment variables (exits with clear error if missing)
+ *   2. Run database startup tasks: emergency crown transfer, ensure admin account
+ *   3. Register plugins: helmet, CORS, cookie, WebSocket, rate limiting
+ *   4. Register global hooks: request ID, Content-Type guard, CSRF, IP restrictions, rate limits
+ *   5. Register all route plugins
+ *   6. Start listening
+ *   7. Schedule the nightly data-retention cleanup job
+ */
+
 // Validate env before anything else
 import './config/env';
 import { config } from './config/env';
 
+// Fastify core and plugins
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import helmet from '@fastify/helmet';
+import websocket from '@fastify/websocket';
 
+// Auth routes
 import { authRoutes } from './routes/auth';
 import { passwordResetRoutes } from './routes/password-reset';
+import { totpRoutes } from './routes/totp';
+import { ssoRoutes } from './routes/sso';
+
+// User and team management routes
 import { userRoutes } from './routes/users';
 import { teamRoutes } from './routes/teams';
 import { accessRequestRoutes } from './routes/access-requests';
+import { inviteRoutes } from './routes/invites';
+
+// Project (product) and content routes
 import { productRoutes } from './routes/products';
 import { taskRoutes } from './routes/tasks';
 import { milestoneRoutes } from './routes/milestones';
 import { columnRoutes } from './routes/columns';
-import { seedRoutes } from './routes/seed';
 import { connectionRoutes } from './routes/connections';
 import { colorLegendRoutes } from './routes/color-legend';
 import { sprintRoutes } from './routes/sprints';
 import { canvasSnapshotRoutes } from './routes/canvas-snapshots';
 import { permissionRoutes } from './routes/permissions';
 import { messageRoutes } from './routes/messages';
+
+// API access and integrations
 import { apiTokenRoutes } from './routes/api-tokens';
 import { appRegistrationRoutes } from './routes/app-registrations';
-import { notificationRoutes } from './routes/notifications';
 import { webhookRoutes } from './routes/webhooks';
-import { inviteRoutes } from './routes/invites';
+
+// Notifications, search, and activity
+import { notificationRoutes } from './routes/notifications';
+import { searchRoutes } from './routes/search';
+import { activityRoutes } from './routes/activity';
+import { analyticsRoutes } from './routes/analytics';
+import { announcementRoutes } from './routes/announcements';
+
+// Export and calendar
 import { exportRoutes } from './routes/export';
 import { meExportRoutes } from './routes/me-export';
-import { searchRoutes } from './routes/search';
+import { icalRoutes } from './routes/ical';
+
+// Realtime (WebSocket)
 import { realtimeRoutes } from './routes/realtime';
-import { activityRoutes } from './routes/activity';
-import { docsRoutes } from './docs/openapi';
-import { emailStatusRoutes } from './routes/email-status';
-import { totpRoutes } from './routes/totp';
-import { ssoRoutes } from './routes/sso';
-import { analyticsRoutes } from './routes/analytics';
+import { wsConnectionCount } from './realtime/manager';
+
+// Integrations
+import { githubRoutes } from './routes/github';
+
+// Admin
 import { adminRoutes } from './routes/admin';
 import { adminChatRoutes } from './routes/admin-chat';
-import { announcementRoutes } from './routes/announcements';
+import { emailStatusRoutes } from './routes/email-status';
 import { ipRestrictionRoutes, matchesCidr, getClientIp } from './routes/ip-restrictions';
-import { icalRoutes } from './routes/ical';
-import { csrfCheck } from './middleware/csrf';
 
-import websocket from '@fastify/websocket';
+// Docs and middleware
+import { docsRoutes } from './docs/openapi';
+import { csrfCheck } from './middleware/csrf';
+import { seedRoutes } from './routes/seed';
+
+// Node.js built-ins and database
 import prisma from './db/client';
 import bcrypt from 'bcryptjs';
 import { randomBytes, randomUUID } from 'crypto';
@@ -61,7 +97,7 @@ async function ensureAdminAccount() {
     // The founding-admin seat belongs to whoever holds it in the DB (managed via Transfer Ownership).
     if (!existing.isAdmin) {
       await prisma.user.update({ where: { email: adminEmail }, data: { isAdmin: true } });
-      console.log(`[admin] Admin flag restored for ${adminEmail}`);
+      process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: 'admin flag restored', email: adminEmail }) + '\n');
     }
     return;
   }
@@ -89,17 +125,19 @@ async function ensureAdminAccount() {
   });
 
   if (useEnvPassword) {
-    console.log(`[admin] Founding admin account created: ${adminEmail} (password from ADMIN_PASSWORD env var)`);
+    process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: 'founding admin created', email: adminEmail, source: 'ADMIN_PASSWORD env var' }) + '\n');
   } else {
-    console.log('');
-    console.log('[admin] ╔══════════════════════════════════════════╗');
-    console.log('[admin] ║   Founding admin account created         ║');
-    console.log(`[admin] ║   Email:    ${adminEmail.padEnd(29)}║`);
-    console.log(`[admin] ║   Password: ${initialPassword.padEnd(29)}║`);
-    console.log('[admin] ║   You will be prompted to change it      ║');
-    console.log('[admin] ║   on first login.                        ║');
-    console.log('[admin] ╚══════════════════════════════════════════╝');
-    console.log('');
+    // Write banner as structured JSON so log aggregators capture it, but keep it readable
+    const lines = [
+      '╔══════════════════════════════════════════╗',
+      '║   Founding admin account created         ║',
+      `║   Email:    ${adminEmail.padEnd(29)}║`,
+      `║   Password: ${initialPassword.padEnd(29)}║`,
+      '║   You will be prompted to change it      ║',
+      '║   on first login.                        ║',
+      '╚══════════════════════════════════════════╝',
+    ];
+    lines.forEach((line) => process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: line }) + '\n'));
   }
 }
 
@@ -109,7 +147,7 @@ async function emergencyRecrown() {
 
   const target = await prisma.user.findUnique({ where: { email } });
   if (!target) {
-    console.error(`[recrown] RECROWN_EMAIL is set but no user with email "${email}" was found - skipping.`);
+    process.stderr.write(JSON.stringify({ level: 50, time: Date.now(), msg: 'RECROWN_EMAIL set but user not found — skipping', email }) + '\n');
     return;
   }
 
@@ -119,15 +157,22 @@ async function emergencyRecrown() {
     prisma.adminLog.create({ data: { action: 'CROWN_TRANSFERRED', actorName: 'SYSTEM (RECROWN_EMAIL)', targetName: target.username, metadata: { reason: 'Emergency recovery via RECROWN_EMAIL env var' } } }),
   ]);
 
-  console.log('');
-  console.log('[recrown] ╔══════════════════════════════════════════╗');
-  console.log('[recrown] ║   EMERGENCY CROWN TRANSFER COMPLETE      ║');
-  console.log(`[recrown] ║   New founding admin: ${email.padEnd(19)}║`);
-  console.log('[recrown] ║   Remove RECROWN_EMAIL from your env     ║');
-  console.log('[recrown] ║   and restart to clear this message.     ║');
-  console.log('[recrown] ╚══════════════════════════════════════════╝');
-  console.log('');
+  const rcrownLines = [
+    '╔══════════════════════════════════════════╗',
+    '║   EMERGENCY CROWN TRANSFER COMPLETE      ║',
+    `║   New founding admin: ${email.padEnd(19)}║`,
+    '║   Remove RECROWN_EMAIL from your env     ║',
+    '║   and restart to clear this message.     ║',
+    '╚══════════════════════════════════════════╝',
+  ];
+  rcrownLines.forEach((line) => process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: line, event: 'recrown' }) + '\n'));
 }
+
+const metrics = {
+  requestsTotal: 0 as number,
+  requestsByStatus: {} as Record<string, number>,
+  startTime: Date.now(),
+};
 
 async function main() {
   await emergencyRecrown();
@@ -136,6 +181,9 @@ async function main() {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
+      ...(process.env.LOG_FORMAT === 'pretty'
+        ? { transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:standard', ignore: 'pid,hostname' } } }
+        : {}),
       serializers: {
         req(req) {
           const safeUrl = req.url.replace(/([?&])token=[^&]*/g, '$1token=[redacted]');
@@ -171,6 +219,13 @@ async function main() {
     req.id = sanitized || randomUUID();
     done();
   });
+  app.addHook('onResponse', (_req, reply, done) => {
+    metrics.requestsTotal++;
+    const bucket = String(Math.floor(reply.statusCode / 100) * 100);
+    metrics.requestsByStatus[bucket] = (metrics.requestsByStatus[bucket] ?? 0) + 1;
+    done();
+  });
+
   app.addHook('onSend', (_req, reply, _payload, done) => {
     reply.header('X-Request-Id', _req.id as string);
     const ct = reply.getHeader('content-type');
@@ -240,19 +295,27 @@ async function main() {
     }),
   });
 
-  // Stricter limits on sensitive auth endpoints — hook must be registered BEFORE the routes
+  // Per-route rate limit overrides. Lookup table: url → { max, timeWindow }.
+  // Auth endpoints use much tighter limits to resist brute force and enumeration.
+  // Expensive read endpoints (search, exports) use tighter limits to resist scraping.
+  const ROUTE_RATE_LIMITS: Record<string, { max: number; timeWindow: string }> = {
+    '/api/auth/login':                   { max: 10, timeWindow: '1 minute' },
+    '/api/auth/forgot-password':         { max: 10, timeWindow: '1 minute' },
+    '/api/auth/reset-password':          { max: 10, timeWindow: '1 minute' },
+    '/api/auth/change-password':         { max: 5,  timeWindow: '15 minutes' },
+    '/api/auth/resend-verification':     { max: 5,  timeWindow: '15 minutes' },
+    '/api/auth/register':                { max: 10, timeWindow: '1 hour' },
+    '/api/search':                       { max: 30, timeWindow: '1 minute' },
+    '/api/admin/logs/export':            { max: 10, timeWindow: '1 minute' },
+    '/api/me/export':                    { max: 5,  timeWindow: '1 hour' },
+  };
+
   app.addHook('onRoute', (route) => {
+    if (!route.url) return;
+    const limit = ROUTE_RATE_LIMITS[route.url];
+    if (!limit) return;
     type RouteWithConfig = typeof route & { config?: { rateLimit?: { max: number; timeWindow: string } } };
-    const r = route as RouteWithConfig;
-    if (route.url && ['/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password'].includes(route.url)) {
-      r.config = { rateLimit: { max: 10, timeWindow: '1 minute' } };
-    }
-    if (route.url === '/api/auth/change-password') {
-      r.config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
-    }
-    if (route.url === '/api/auth/resend-verification') {
-      r.config = { rateLimit: { max: 5, timeWindow: '15 minutes' } };
-    }
+    (route as RouteWithConfig).config = { rateLimit: limit };
   });
 
   await app.register(authRoutes);
@@ -288,6 +351,7 @@ async function main() {
   await app.register(ssoRoutes);
   await app.register(analyticsRoutes);
   await app.register(adminRoutes);
+  await app.register(githubRoutes);
   await app.register(adminChatRoutes);
   await app.register(announcementRoutes);
   await app.register(ipRestrictionRoutes);
@@ -303,6 +367,41 @@ async function main() {
     }
   });
 
+  app.get('/api/health/ready', async (_req, reply) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      reply.send({ ready: true, uptime: process.uptime() });
+    } catch (err) {
+      reply.status(503).send({ ready: false, reason: 'database unreachable' });
+    }
+  });
+
+  app.get('/api/metrics', async (req, reply) => {
+    const secret = process.env.METRICS_SECRET;
+    if (secret) {
+      const provided = req.headers['x-metrics-secret'];
+      if (provided !== secret) return reply.status(401).send('Unauthorized');
+    }
+    const uptimeSec = (Date.now() - metrics.startTime) / 1000;
+    const wsConns = wsConnectionCount();
+    const lines = [
+      '# HELP process_uptime_seconds Server uptime in seconds',
+      '# TYPE process_uptime_seconds gauge',
+      `process_uptime_seconds ${uptimeSec.toFixed(2)}`,
+      '# HELP http_requests_total Total HTTP requests handled',
+      '# TYPE http_requests_total counter',
+      `http_requests_total ${metrics.requestsTotal}`,
+      ...Object.entries(metrics.requestsByStatus).map(
+        ([bucket, count]) => `http_requests_by_status_total{status="${bucket}"} ${count}`,
+      ),
+      '# HELP ws_connections_active Active WebSocket connections',
+      '# TYPE ws_connections_active gauge',
+      `ws_connections_active ${wsConns}`,
+      '',
+    ].join('\n');
+    reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8').send(lines);
+  });
+
   // Scheduled data-retention cleanup (runs once at startup then every 24h)
   async function runRetentionCleanup() {
     try {
@@ -311,14 +410,16 @@ async function main() {
       const softDeleteCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
       const adminLogRetentionDays = parseInt(process.env.ADMIN_LOG_RETENTION_DAYS ?? '365', 10);
       const adminLogCutoff = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000);
-      const [notifResult, activityResult, taskResult, adminLogResult] = await Promise.all([
+      const [notifResult, activityResult, taskResult, adminLogResult, ssoStateResult] = await Promise.all([
         prisma.notification.deleteMany({ where: { createdAt: { lt: notifCutoff } } }),
         prisma.activityEvent.deleteMany({ where: { createdAt: { lt: activityCutoff } } }),
         prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }),
         prisma.adminLog.deleteMany({ where: { createdAt: { lt: adminLogCutoff } } }),
+        prisma.ssoState.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
+        prisma.wsTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
       ]);
-      if (notifResult.count > 0 || activityResult.count > 0 || taskResult.count > 0 || adminLogResult.count > 0) {
-        app.log.info({ notificationsDeleted: notifResult.count, activityEventsDeleted: activityResult.count, tasksHardDeleted: taskResult.count, adminLogsDeleted: adminLogResult.count }, 'Retention cleanup completed');
+      if (notifResult.count > 0 || activityResult.count > 0 || taskResult.count > 0 || adminLogResult.count > 0 || ssoStateResult.count > 0) {
+        app.log.info({ notificationsDeleted: notifResult.count, activityEventsDeleted: activityResult.count, tasksHardDeleted: taskResult.count, adminLogsDeleted: adminLogResult.count, ssoStatesDeleted: ssoStateResult.count }, 'Retention cleanup completed');
       }
     } catch (err) {
       app.log.warn({ err }, 'Retention cleanup failed');

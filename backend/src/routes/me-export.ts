@@ -1,3 +1,11 @@
+/**
+ * Personal data export route (GDPR portability) — returns a complete JSON
+ * document of all data the platform holds about the authenticated user.
+ *
+ * Includes profile, notification preferences, team memberships, tasks, comments,
+ * messages, and API tokens (names only, not secrets). PII fields are decrypted.
+ * Intended for data-portability requests under GDPR Article 20.
+ */
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';

@@ -1,3 +1,18 @@
+/**
+ * SSO / OpenID Connect routes — authorize redirect and callback handling.
+ *
+ * Supports any OIDC-compliant provider (Google, Microsoft, Auth0, Okta, Keycloak, …).
+ * Enabled when OIDC_ISSUER, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET are all set.
+ *
+ * Security:
+ *   - PKCE (RFC 7636): code_verifier + code_challenge pair generated per authorization request.
+ *   - Nonce: binds the ID token to this specific authorization request (prevents replay).
+ *   - State + code_verifier stored in the SsoState DB table (not in-memory) for multi-replica safety.
+ *   - State entries expire after 10 minutes and are deleted on first use.
+ *
+ * On successful SSO login, an account is created (emailVerified=true) if none exists for
+ * that email, or the existing account is used. A full session cookie is then issued.
+ */
 import { FastifyInstance } from 'fastify';
 import * as oidcClient from 'openid-client';
 import { config } from '../config/env';
@@ -27,16 +42,7 @@ function callbackUrl(): string {
   return `${config.appUrl}${CALLBACK_PATH}`;
 }
 
-// In-memory state store (good enough for single-instance; use Redis for multi-node)
-const pendingStates = new Map<string, { codeVerifier: string; nonce: string; expiresAt: number }>();
-
-// Cleanup old states periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of pendingStates) {
-    if (v.expiresAt < now) pendingStates.delete(k);
-  }
-}, 60_000);
+// SSO state is stored in the DB so PKCE/nonce callbacks work correctly across all replicas.
 
 export async function ssoRoutes(app: FastifyInstance) {
   // Returns whether SSO is configured and what to call it on the login button
@@ -54,7 +60,9 @@ export async function ssoRoutes(app: FastifyInstance) {
     const codeVerifier = oidcClient.randomPKCECodeVerifier();
     const codeChallenge = await oidcClient.calculatePKCECodeChallenge(codeVerifier);
 
-    pendingStates.set(state, { codeVerifier, nonce, expiresAt: Date.now() + 10 * 60 * 1000 });
+    await prisma.ssoState.create({
+      data: { state, codeVerifier, nonce, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
+    });
 
     const url = oidcClient.buildAuthorizationUrl(cfg, {
       redirect_uri: callbackUrl(),
@@ -74,9 +82,13 @@ export async function ssoRoutes(app: FastifyInstance) {
       const cfg = await getOidcConfig();
       const params = req.query as Record<string, string>;
       const state = params.state ?? '';
-      const pending = pendingStates.get(state);
-      if (!pending) return reply.redirect(`${config.frontendOrigin}/login?error=sso_state_mismatch`);
-      pendingStates.delete(state);
+      const pending = await prisma.ssoState.findUnique({ where: { state } });
+      if (!pending || pending.expiresAt < new Date()) {
+        if (pending) await prisma.ssoState.delete({ where: { state } }).catch(() => {});
+        return reply.redirect(`${config.frontendOrigin}/login?error=sso_state_mismatch`);
+      }
+      // Delete immediately — single-use to prevent replay
+      await prisma.ssoState.delete({ where: { state } }).catch(() => {});
 
       const currentUrl = new URL(`${callbackUrl()}?${new URLSearchParams(params).toString()}`);
       const tokens = await oidcClient.authorizationCodeGrant(cfg, currentUrl, {

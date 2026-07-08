@@ -1,8 +1,17 @@
+/**
+ * Canvas snapshot routes — persist and retrieve task node positions on the
+ * Canvas (freeform planning) view.
+ *
+ * A snapshot stores a map of { taskId → { x, y } } positions for a project.
+ * The entire position map is replaced on each save (one snapshot per project).
+ * Positions are bounded to finite numbers and the map is limited to 5000 entries.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember } from '../utils/product-guard';
+import { validate } from '../utils/validate';
 
 const finiteNumber = z.number().finite();
 const positionSchema = z.record(z.string(), z.object({ x: finiteNumber, y: finiteNumber }))
@@ -28,9 +37,9 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    const parsed = createSnapshotSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { name, positions, viewport } = parsed.data;
+    const body = validate(createSnapshotSchema, req.body, reply);
+    if (!body) return;
+    const { name, positions, viewport } = body;
     const snapshot = await prisma.canvasSnapshot.create({
       data: { productId, userId: req.user.userId, name, positions, viewport },
       include: { user: { select: { id: true, username: true, avatarEmoji: true } } },

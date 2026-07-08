@@ -17,6 +17,12 @@ export default {
           800: '#5b21b6',
           900: '#4c1d95',
         },
+        // Design token colors — backed by CSS variables so they switch across themes
+        canvas:  'var(--bg)',
+        surface: { DEFAULT: 'var(--surface)', 2: 'var(--surface-2)' },
+        border:  { DEFAULT: 'var(--border)',  2: 'var(--border-2)' },
+        token:   { DEFAULT: 'var(--text)',    2: 'var(--text-2)', 3: 'var(--text-3)' },
+        accent:  { DEFAULT: 'var(--brand)',   hover: 'var(--brand-hover)', subtle: 'var(--brand-subtle)' },
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"Inter"', '"Segoe UI"', 'sans-serif'],

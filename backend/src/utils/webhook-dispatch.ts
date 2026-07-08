@@ -1,7 +1,25 @@
+/**
+ * Webhook dispatch — fans out event payloads to all active webhooks for a project.
+ *
+ * Each delivery is attempted in parallel with an 8-second timeout. Failures (network
+ * errors, non-2xx responses, timeouts) are recorded in WebhookDelivery but do not
+ * throw — a failed delivery must never break the request that triggered it.
+ *
+ * Payloads are signed with HMAC-SHA256 using the webhook's encrypted secret.
+ * The signature is sent as `X-Planly-Signature: sha256=<hex>` for receivers to verify.
+ */
 import { createHmac } from 'crypto';
 import prisma from '../db/client';
 import { decryptValue } from './crypto';
+import { logger } from './logger';
 
+/**
+ * Dispatches `event` to all active webhooks in `productId` that subscribe to it.
+ *
+ * @param productId - Project whose webhooks to fan out to
+ * @param event - Event name (e.g. 'task.created')
+ * @param payload - Event-specific data included in the JSON body
+ */
 export async function dispatchWebhooks(productId: string, event: string, payload: object) {
   const webhooks = await prisma.webhook.findMany({
     where: { productId, active: true, events: { has: event } },
@@ -35,7 +53,7 @@ export async function dispatchWebhooks(productId: string, event: string, payload
       await prisma.webhookDelivery.create({
         data: { webhookId: wh.id, event, payload, statusCode, responseBody, success },
       }).catch((err) => {
-        console.warn('[webhook-dispatch] Failed to record delivery:', (err as Error).message);
+        logger.warn({ err: (err as Error).message, webhookId: wh.id, event }, 'webhook delivery record failed');
       });
     }),
   );

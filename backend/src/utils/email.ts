@@ -1,7 +1,18 @@
+/**
+ * Email sending utilities — SMTP transport, configuration resolution, and HTML templates.
+ *
+ * SMTP settings are resolved at send time: the database row (set via Admin → Email UI)
+ * takes precedence over environment variables. This allows SMTP reconfiguration without
+ * a container restart. When no SMTP is configured, emails are logged to stdout so
+ * development works without a mail server.
+ *
+ * All email body content is HTML-escaped before interpolation.
+ */
 import nodemailer from 'nodemailer';
 import { config } from '../config/env';
 import { decryptValue } from './crypto';
 import prisma from '../db/client';
+import { logger } from './logger';
 
 export interface SmtpSettings {
   host: string;
@@ -12,7 +23,10 @@ export interface SmtpSettings {
   from: string;
 }
 
-// Returns active SMTP settings: DB config takes precedence over env vars.
+/**
+ * Resolves active SMTP settings. Database row (written by Admin UI) wins over env vars.
+ * Returns null when neither source is configured.
+ */
 export async function getSmtpSettings(): Promise<SmtpSettings | null> {
   try {
     const row = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
@@ -50,7 +64,7 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
   const settings = await getSmtpSettings();
   if (!settings) {
     // Body intentionally omitted — it may contain password-reset tokens or other sensitive data.
-    console.log(`[email:no-smtp] To: ${to} | Subject: ${subject} | (body redacted)`);
+    logger.info({ to, subject }, 'email skipped — no SMTP configured (body redacted)');
     return false;
   }
   const transporter = buildTransporter(settings);

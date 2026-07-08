@@ -1,3 +1,10 @@
+/**
+ * useColorLegend — manages the project color legend (label → color mapping).
+ *
+ * Loads the legend on mount and exposes helpers to add, rename, and remove entries.
+ * Saves are debounced so rapid UI interactions (e.g. color picker drags) are batched.
+ * PRESET_COLORS is the ordered palette shown in the color picker.
+ */
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 

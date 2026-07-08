@@ -109,6 +109,82 @@ services:
         max-size: "20m"
         max-file: "3"
 
+  # ── Optional: Redis (required for WebSocket horizontal scaling) ─────────────
+  # When running multiple backend replicas, enable Redis so real-time events are
+  # shared across all instances (no sticky load balancer needed).
+  # After enabling: add REDIS_URL=redis://redis:6379 to the backend environment block.
+  #
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+  #   volumes:
+  #     - redis_data:/data
+  #   command: redis-server --save 60 1 --loglevel warning
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
+  # ── Optional: Prometheus metrics scraper ─────────────────────────────────────
+  # Scrapes /api/metrics on the backend. Requires METRICS_SECRET in .env.
+  # Access Prometheus UI at http://localhost:9090
+  #
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+  #   ports:
+  #     - "9090:9090"
+  #
+  # prometheus.yml example:
+  #   scrape_configs:
+  #     - job_name: planly
+  #       scrape_interval: 15s
+  #       static_configs:
+  #         - targets: ['backend:3000']
+  #       metrics_path: /api/metrics
+  #       params:
+  #         _: [''] # empty param to satisfy URL reuse
+  #       # If METRICS_SECRET is set, uncomment:
+  #       # authorization:
+  #       #   credentials: <your-secret>
+  #       # Use headers instead:
+  #       # params: {}
+  #       # Add X-Metrics-Secret via relabeling or a dedicated proxy
+
+  # ── Optional: MinIO self-hosted object storage ──────────────────────────────
+  # Uncomment to get an S3-compatible local object store with a web UI.
+  # After enabling, set these in .env:
+  #   AWS_S3_BUCKET=planly
+  #   AWS_ENDPOINT_URL=http://minio:9000
+  #   AWS_REGION=us-east-1
+  #   AWS_ACCESS_KEY_ID=planly
+  #   AWS_SECRET_ACCESS_KEY=changeme
+  # The existing storage.ts in the backend picks up AWS_ENDPOINT_URL automatically.
+  # Web UI is available at http://localhost:9001 (login: planly / changeme)
+  #
+  # minio:
+  #   image: minio/minio:latest
+  #   command: server /data --console-address ":9001"
+  #   volumes:
+  #     - minio_data:/data
+  #   environment:
+  #     MINIO_ROOT_USER: planly
+  #     MINIO_ROOT_PASSWORD: changeme
+  #   ports:
+  #     - "9000:9000"
+  #     - "9001:9001"
+  #   healthcheck:
+  #     test: ["CMD", "mc", "ready", "local"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
 volumes:
   db_data:
   uploads_data:
+  # redis_data:      # uncomment when enabling Redis above
+  # prometheus_data: # uncomment when enabling Prometheus above
+  # minio_data:      # uncomment when enabling MinIO above

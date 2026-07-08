@@ -18,14 +18,11 @@ export default function Modal({ title, onClose, children, width = 'max-w-lg' }: 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className={`relative w-full ${width} card shadow-2xl`} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
-          <h2 className="font-semibold" style={{ color: 'var(--text)' }}>{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="font-semibold text-token">{title}</h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-lg transition-colors"
-            style={{ color: 'var(--text-3)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-lg transition-colors text-token-3 hover:text-token"
           >
             ✕
           </button>

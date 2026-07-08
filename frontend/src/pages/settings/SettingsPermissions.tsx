@@ -15,8 +15,8 @@ const LEVELS = [
   { value: 'none',  label: 'None',  color: '#ef4444' },
 ];
 
-function RoleBadge({ role }: { role: 'owner' | 'co_owner' }) {
-  if (role === 'owner') return (
+function RoleBadge({ kind }: { kind: 'owner' | 'co_owner' }) {
+  if (kind === 'owner') return (
     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>Owner</span>
   );
   return (
@@ -151,8 +151,8 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm truncate" style={{ color: 'var(--text)' }}>{user.username}</span>
-                    {isProductOwner && <RoleBadge role="owner" />}
-                    {!isProductOwner && role === 'co_owner' && <RoleBadge role="co_owner" />}
+                    {isProductOwner && <RoleBadge kind="owner" />}
+                    {!isProductOwner && role === 'co_owner' && <RoleBadge kind="co_owner" />}
                   </div>
                 </div>
               </div>

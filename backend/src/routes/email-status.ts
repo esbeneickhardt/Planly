@@ -1,8 +1,17 @@
+/**
+ * Email/SMTP admin routes — manage the SMTP configuration via the Admin UI.
+ *
+ * Provides endpoints to read, upsert, test, and delete the SMTP configuration.
+ * The SMTP password is stored AES-256-GCM encrypted. The test endpoint sends a
+ * real email to the admin's address to verify the configuration is working.
+ * DB-stored SMTP config takes precedence over environment variables at send time.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getSmtpSettings, sendEmail } from '../utils/email';
 import { encryptValue } from '../utils/crypto';
+import { validate } from '../utils/validate';
 import prisma from '../db/client';
 
 const upsertSmtpSchema = z.object({
@@ -43,9 +52,9 @@ export async function emailStatusRoutes(app: FastifyInstance) {
 
   // Save (upsert) SMTP config
   app.put('/api/email-config', { preHandler: requireAdmin }, async (req, reply) => {
-    const smtpParsed = upsertSmtpSchema.safeParse(req.body);
-    if (!smtpParsed.success) return reply.status(400).send({ error: smtpParsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { host, port, secure, user, pass, from } = smtpParsed.data;
+    const body = validate(upsertSmtpSchema, req.body, reply);
+    if (!body) return;
+    const { host, port, secure, user, pass, from } = body;
 
     const existing = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
 

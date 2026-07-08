@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { api, MilestoneResult, Sprint } from '../api/client';
+import { useState, useEffect } from 'react';
+import { api } from '../api/client';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
-import type { Product } from '../types';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
 import Tooltip from '../components/common/Tooltip';
 import type { Task } from '../types';
+import GanttMobileList, { progressColor } from '../components/gantt/GanttMobileList';
+import { useGanttDragZoom } from '../hooks/useGanttDragZoom';
+import { useGanttData } from '../hooks/useGanttData';
 
 type GanttView = 'milestones' | 'sprints';
 
@@ -13,13 +15,6 @@ const STATUS_COLOR: Record<string, string> = {
   backlog: '#64748b', todo: '#3b82f6', in_progress: '#f59e0b', done: '#10b981', blocked: '#ef4444',
 };
 
-function progressColor(m: MilestoneResult): string {
-  if (m.status === 'done') return '#10b981';
-  const now = new Date();
-  const deadline = new Date(m.deadline);
-  if (deadline < now) return m.progress >= 0.5 ? '#f59e0b' : '#ef4444';
-  return m.progress >= 0.75 ? '#10b981' : m.progress >= 0.4 ? '#f59e0b' : '#ef4444';
-}
 
 function pct(date: Date, start: Date, end: Date): number {
   const total = end.getTime() - start.getTime();
@@ -74,54 +69,49 @@ export default function GanttPage() {
   const { canWrite } = usePermission();
   const readOnly = !canWrite('gantt');
   const [ganttView, setGanttView] = useState<GanttView>('milestones');
-  const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
-  const [sprints, setSprints] = useState<Sprint[]>([]);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(false);
   const [hoveredMilestone, setHoveredMilestone] = useState<string | null>(null);
   const [hoveredProduct, setHoveredProduct] = useState(false);
   const [hoveredSprint, setHoveredSprint] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [viewStart, setViewStart] = useState<Date | null>(null);
-  const [viewEnd, setViewEnd] = useState<Date | null>(null);
-  const [hideDone, setHideDone] = useState(() => {
-    // no product id yet at init time - will be overwritten by the effect below
-    return true;
+  const [hideDone, setHideDone] = useState(true);
+
+  const { vs, ve, setViewStart, setViewEnd, isDragging, isResizing, applyZoom, attachWheel, handlePointerDown, handlePointerMove, handlePointerUp } = useGanttDragZoom({
+    fullStart: new Date(activeProduct?.createdAt ?? Date.now()),
+    fullEnd: new Date(activeProduct?.deadline ?? Date.now()),
+    onResizing: ({ type, id, date }) => {
+      if (type === 'milestone') setMilestones((prev) => prev.map((m) => m.id === id ? { ...m, deadline: date.toISOString() } : m));
+      else if (type === 'sprint') setSprints((prev) => prev.map((s) => s.id === id ? { ...s, endDate: date.toISOString() } : s));
+      else if (type === 'sprint-start') setSprints((prev) => prev.map((s) => s.id === id ? { ...s, startDate: date.toISOString() } : s));
+      else if (type === 'product') setProduct((p) => p ? { ...p, deadline: date.toISOString() } : p);
+    },
+    onResized: ({ type, id }) => {
+      if (!activeProduct) return;
+      if (type === 'milestone') {
+        const m = milestonesRef.current.find((m) => m.id === id);
+        if (m) api.tasks.update(activeProduct.id, id, { deadline: m.deadline }).catch(() => {});
+      } else if (type === 'sprint') {
+        const s = sprintsRef.current.find((s) => s.id === id);
+        if (s) api.sprints.update(activeProduct.id, id, { endDate: s.endDate }).catch(() => {});
+      } else if (type === 'sprint-start') {
+        const s = sprintsRef.current.find((s) => s.id === id);
+        if (s) api.sprints.update(activeProduct.id, id, { startDate: s.startDate }).catch(() => {});
+      } else if (type === 'product') {
+        const p = productRef.current;
+        if (p) api.products.update(activeProduct.id, { deadline: p.deadline }).catch(() => {});
+      }
+    },
   });
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef({ vs: new Date(), ve: new Date(), fullStart: new Date(), fullEnd: new Date() });
-  const dragState = useRef<{ startX: number; vs: Date; ve: Date } | null>(null);
-  const resizeState = useRef<{ type: 'milestone' | 'sprint' | 'sprint-start' | 'product'; id: string } | null>(null);
+
+  const { milestones, sprints, product, loading, setMilestones, setSprints, setProduct, milestonesRef, sprintsRef, productRef } =
+    useGanttData(activeProduct, tasks, (start, end) => { setViewStart(start); setViewEnd(end); });
 
   useEffect(() => {
     if (!activeProduct) return;
     try {
       const stored = localStorage.getItem(`planly-gantt-hideDone-${activeProduct.id}`);
       setHideDone(stored === null ? true : stored === 'true');
-    } catch { /* ignore */ }
+    } catch { }
   }, [activeProduct?.id]);
-
-  useEffect(() => {
-    if (!activeProduct) return;
-    setLoading(true);
-    Promise.all([
-      api.milestones.list(activeProduct.id),
-      api.sprints.list(activeProduct.id),
-    ])
-      .then(([{ milestones: ms, product: p }, sprintList]) => {
-        setMilestones(ms);
-        setSprints(sprintList);
-        setProduct(p);
-        const s = new Date(p?.createdAt ?? activeProduct.createdAt);
-        const e = new Date(p?.deadline ?? activeProduct.deadline);
-        setViewStart(s);
-        setViewEnd(e);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [activeProduct, tasks]);
 
   if (!activeProduct) {
     return (
@@ -180,205 +170,10 @@ export default function GanttPage() {
   const visibleMilestones = hideDone ? sortedMilestones.filter((m) => m.status !== 'done') : sortedMilestones;
   const doneCount = milestones.filter((m) => m.status === 'done').length;
 
-  const vs = viewStart ?? fullStart;
-  const ve = viewEnd ?? fullEnd;
-
-  viewRef.current = { vs, ve, fullStart, fullEnd };
-
   const todayPct = pct(today, vs, ve);
   const markers = getTimeMarkers(vs, ve);
-
-  function applyZoom(factor: number, anchorRatio = 0.5) {
-    const span = ve.getTime() - vs.getTime();
-    const newSpan = span * factor;
-    const minSpan = 3 * 86_400_000;
-    const maxSpan = fullEnd.getTime() - fullStart.getTime();
-    if (newSpan < minSpan) return;
-    if (newSpan >= maxSpan) { setViewStart(fullStart); setViewEnd(fullEnd); return; }
-    const anchor = vs.getTime() + anchorRatio * span;
-    let newStart = anchor - anchorRatio * newSpan;
-    let newEnd = anchor + (1 - anchorRatio) * newSpan;
-    if (newStart < fullStart.getTime()) { newStart = fullStart.getTime(); newEnd = fullStart.getTime() + newSpan; }
-    if (newEnd > fullEnd.getTime()) { newEnd = fullEnd.getTime(); newStart = Math.max(fullStart.getTime(), fullEnd.getTime() - newSpan); }
-    setViewStart(new Date(newStart));
-    setViewEnd(new Date(newEnd));
-  }
-
-  const attachWheel = (el: HTMLDivElement | null) => {
-    (timelineRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    if (!el) return;
-    if ((el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached) return;
-    (el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached = true;
-    el.addEventListener('wheel', (e: WheelEvent) => {
-      e.preventDefault();
-      const { vs, ve, fullStart, fullEnd } = viewRef.current;
-      const rect = el.getBoundingClientRect();
-      const span = ve.getTime() - vs.getTime();
-      const maxSpan = fullEnd.getTime() - fullStart.getTime();
-
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        // Horizontal scroll → pan
-        const deltaMs = (e.deltaX / rect.width) * span * 1.5;
-        let newStart = vs.getTime() + deltaMs;
-        let newEnd = ve.getTime() + deltaMs;
-        if (newStart < fullStart.getTime()) { newStart = fullStart.getTime(); newEnd = fullStart.getTime() + span; }
-        if (newEnd > fullEnd.getTime()) { newEnd = fullEnd.getTime(); newStart = Math.max(fullStart.getTime(), fullEnd.getTime() - span); }
-        viewRef.current.vs = new Date(newStart);
-        viewRef.current.ve = new Date(newEnd);
-        setViewStart(new Date(newStart));
-        setViewEnd(new Date(newEnd));
-        return;
-      }
-
-      // Vertical scroll → zoom
-      const mouseRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const factor = e.deltaY > 0 ? 1.25 : 0.8;
-      const newSpan = span * factor;
-      const minSpan = 3 * 86_400_000;
-      if (newSpan < minSpan) return;
-      if (newSpan >= maxSpan) {
-        viewRef.current.vs = fullStart;
-        viewRef.current.ve = fullEnd;
-        setViewStart(new Date(fullStart));
-        setViewEnd(new Date(fullEnd));
-        return;
-      }
-      const anchor = vs.getTime() + mouseRatio * span;
-      let newStart = anchor - mouseRatio * newSpan;
-      let newEnd = anchor + (1 - mouseRatio) * newSpan;
-      if (newStart < fullStart.getTime()) { newStart = fullStart.getTime(); newEnd = fullStart.getTime() + newSpan; }
-      if (newEnd > fullEnd.getTime()) { newEnd = fullEnd.getTime(); newStart = Math.max(fullStart.getTime(), fullEnd.getTime() - newSpan); }
-      viewRef.current.vs = new Date(newStart);
-      viewRef.current.ve = new Date(newEnd);
-      setViewStart(new Date(newStart));
-      setViewEnd(new Date(newEnd));
-    }, { passive: false });
-  };
-
-  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (e.button !== 0) return;
-    // Check for resize handle
-    const handle = (e.target as HTMLElement).closest('[data-resize]') as HTMLElement | null;
-    if (handle) {
-      const id = handle.getAttribute('data-resize')!;
-      const type = handle.getAttribute('data-resize-type') as 'milestone' | 'sprint' | 'sprint-start' | 'product';
-      resizeState.current = { type, id };
-      setIsResizing(true);
-      e.currentTarget.setPointerCapture(e.pointerId);
-      return;
-    }
-    if ((e.target as HTMLElement).closest('button, a')) return;
-    dragState.current = { startX: e.clientX, vs, ve };
-    setIsDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (resizeState.current) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const pctX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const newDate = new Date(vs.getTime() + pctX * (ve.getTime() - vs.getTime()));
-      const { type, id } = resizeState.current;
-      if (type === 'milestone') {
-        setMilestones((prev) => prev.map((m) => m.id === id ? { ...m, deadline: newDate.toISOString() } : m));
-      } else if (type === 'sprint') {
-        setSprints((prev) => prev.map((s) => s.id === id ? { ...s, endDate: newDate.toISOString() } : s));
-      } else if (type === 'sprint-start') {
-        setSprints((prev) => prev.map((s) => s.id === id ? { ...s, startDate: newDate.toISOString() } : s));
-      } else if (type === 'product') {
-        setProduct((p) => p ? { ...p, deadline: newDate.toISOString() } : p);
-      }
-      return;
-    }
-    if (!dragState.current) return;
-    const dx = e.clientX - dragState.current.startX;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const span = dragState.current.ve.getTime() - dragState.current.vs.getTime();
-    const deltaMs = -(dx / rect.width) * span;
-    let newStart = dragState.current.vs.getTime() + deltaMs;
-    let newEnd = dragState.current.ve.getTime() + deltaMs;
-    if (newStart < fullStart.getTime()) { newStart = fullStart.getTime(); newEnd = fullStart.getTime() + span; }
-    if (newEnd > fullEnd.getTime()) { newEnd = fullEnd.getTime(); newStart = Math.max(fullStart.getTime(), fullEnd.getTime() - span); }
-    setViewStart(new Date(newStart));
-    setViewEnd(new Date(newEnd));
-  }
-
-  function handlePointerUp() {
-    if (resizeState.current && activeProduct) {
-      const { type, id } = resizeState.current;
-      if (type === 'milestone') {
-        const m = milestones.find((m) => m.id === id);
-        if (m) api.tasks.update(activeProduct.id, id, { deadline: m.deadline }).catch(() => {});
-      } else if (type === 'sprint') {
-        const s = sprints.find((s) => s.id === id);
-        if (s) api.sprints.update(activeProduct.id, id, { endDate: s.endDate }).catch(() => {});
-      } else if (type === 'sprint-start') {
-        const s = sprints.find((s) => s.id === id);
-        if (s) api.sprints.update(activeProduct.id, id, { startDate: s.startDate }).catch(() => {});
-      } else if (type === 'product') {
-        if (product) api.products.update(activeProduct.id, { deadline: product.deadline }).catch(() => {});
-      }
-      resizeState.current = null;
-      setIsResizing(false);
-      return;
-    }
-    dragState.current = null;
-    setIsDragging(false);
-  }
-
   const isFullView = vs.getTime() <= fullStart.getTime() && ve.getTime() >= fullEnd.getTime();
   const ROW_H = 52;
-
-  // ── Mobile milestone list ────────────────────────────────────────────────────
-  const mobileMilestoneList = (
-    <div className="md:hidden h-full overflow-y-auto px-4 py-3 space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-3)' }}>
-        Milestones — {doneCount}/{milestones.length} done
-      </p>
-      {visibleMilestones.map((m) => {
-        const color = progressColor(m);
-        const isDone = m.status === 'done';
-        const isOverdue = new Date(m.deadline) < new Date() && !isDone;
-        return (
-          <button
-            key={m.id}
-            className="w-full text-left rounded-xl px-4 py-3 transition-colors"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-            onClick={() => { const t = tasks.find((t) => t.id === m.id); if (t) setSelectedTask(t); }}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium leading-tight" style={{ color: isDone ? 'var(--text-3)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none' }}>
-                {isDone && <span className="mr-1">✓</span>}{m.name}
-              </p>
-              <span
-                className="text-xs font-semibold flex-shrink-0 px-2 py-0.5 rounded-full"
-                style={{ background: isOverdue ? 'rgba(239,68,68,0.12)' : 'rgba(100,116,139,0.12)', color: isOverdue ? '#ef4444' : 'var(--text-3)' }}
-              >
-                {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
-              </span>
-            </div>
-            {!isDone && (
-              <div className="mt-2">
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${m.progress * 100}%`, background: color }} />
-                </div>
-                <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>{m.doneDependencies}/{m.totalDependencies} tasks done</p>
-              </div>
-            )}
-          </button>
-        );
-      })}
-      {doneCount > 0 && hideDone && (
-        <button
-          onClick={() => setHideDone(false)}
-          className="w-full text-center text-xs py-2"
-          style={{ color: 'var(--text-3)' }}
-        >
-          Show {doneCount} completed milestone{doneCount !== 1 ? 's' : ''}
-        </button>
-      )}
-    </div>
-  );
 
   const allDone = doneCount === milestones.length;
   const progressPct = milestones.length > 0 ? Math.round((doneCount / milestones.length) * 100) : 0;
@@ -386,7 +181,15 @@ export default function GanttPage() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Mobile view — simple list */}
-      {mobileMilestoneList}
+      <GanttMobileList
+        visibleMilestones={visibleMilestones}
+        milestones={milestones}
+        hideDone={hideDone}
+        doneCount={doneCount}
+        tasks={tasks}
+        setSelectedTask={setSelectedTask}
+        setHideDone={setHideDone}
+      />
 
       {/* Desktop view */}
       {/* Sticky column header - stays visible when the milestone list scrolls */}
@@ -570,7 +373,10 @@ export default function GanttPage() {
                 <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPct * 100}%`, width: 1, background: 'var(--brand)', zIndex: 3, opacity: 0.5, pointerEvents: 'none' }} />
               )}
 
-              {/* Sprint bars */}
+              {/* Sprint bars — each sprint occupies one row.
+                  The bar is rendered as an absolute-positioned track (background) with a
+                  progress fill layered on top. Start/end resize handles use data-resize
+                  attributes which the useGanttDragZoom hook picks up via closest('[data-resize]'). */}
               {ganttView === 'sprints' && sprints.map((s) => {
                 const startPct = pct(new Date(s.startDate), vs, ve) * 100;
                 const endPct = pct(new Date(s.endDate), vs, ve) * 100;

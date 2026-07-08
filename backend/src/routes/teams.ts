@@ -1,3 +1,11 @@
+/**
+ * Team routes — CRUD for teams, member management (add/remove/role changes),
+ * and access request handling.
+ *
+ * Teams are the top-level organizational unit. Each team owns one or more
+ * projects. Roles: co_owner (full control), member (standard access), viewer (read-only).
+ * Only co-owners can change team settings or manage members.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
@@ -6,6 +14,7 @@ import { validate } from '../utils/validate';
 import { Prisma } from '@prisma/client';
 import { handleNotFound, handleConflict } from '../utils/prisma-errors';
 import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
+import { logAdminEvent } from '../utils/audit';
 
 const addMemberSchema = z.object({ userId: z.string() });
 const updateRoleSchema = z.object({ role: z.enum(['member', 'co_owner']) });
@@ -86,11 +95,13 @@ export async function teamRoutes(app: FastifyInstance) {
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isAdmin) return reply.status(403).send({ error: 'Only team admins can add members' });
-    const addParsed = addMemberSchema.safeParse(req.body);
-    if (!addParsed.success) return reply.status(400).send({ error: 'userId required' });
-    const { userId } = addParsed.data;
+    const addBody = validate(addMemberSchema, req.body, reply);
+    if (!addBody) return;
+    const { userId } = addBody;
     try {
+      const added = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
       await prisma.teamMember.create({ data: { teamId: id, userId } });
+      logAdminEvent('TEAM_MEMBER_ADDED', { actorName: req.user.username, targetName: added?.username, metadata: { teamId: id, userId } });
       reply.send({ ok: true });
     } catch (e) { handleConflict(e, reply, 'Already a member or user not found'); }
   });
@@ -104,7 +115,9 @@ export async function teamRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: 'Only team admins can remove other members' });
     }
     try {
+      const removed = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
       await prisma.teamMember.delete({ where: { teamId_userId: { teamId: id, userId } } });
+      logAdminEvent('TEAM_MEMBER_REMOVED', { actorName: req.user.username, targetName: removed?.username, metadata: { teamId: id, userId, self: userId === req.user.userId } });
     } catch (err) {
       // P2025 = record not found - for self-removal this is fine (already gone)
       if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025')) {
@@ -120,14 +133,16 @@ export async function teamRoutes(app: FastifyInstance) {
 
   app.patch('/api/teams/:id/members/:userId/role', { preHandler: requireAuth }, async (req, reply) => {
     const { id: teamId, userId } = req.params as { id: string; userId: string };
-    const roleParsed = updateRoleSchema.safeParse(req.body);
-    if (!roleParsed.success) return reply.status(400).send({ error: 'Invalid role' });
-    const { role } = roleParsed.data;
+    const roleBody = validate(updateRoleSchema, req.body, reply);
+    if (!roleBody) return;
+    const { role } = roleBody;
     const team = await prisma.team.findUnique({ where: { id: teamId }, include: { products: true } });
     if (!team) return reply.status(404).send({ error: 'Not found' });
     const isOwner = team.products.some(p => p.ownerId === req.user.userId);
     if (!isOwner) return reply.status(403).send({ error: 'Only the product owner can change roles' });
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
     await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role } });
+    logAdminEvent('TEAM_MEMBER_ROLE_CHANGED', { actorName: req.user.username, targetName: target?.username, metadata: { teamId, userId, newRole: role } });
     reply.send({ ok: true });
   });
 

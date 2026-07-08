@@ -22,6 +22,12 @@ import { webhookRoutes } from '../../routes/webhooks';
 import { exportRoutes } from '../../routes/export';
 import { announcementRoutes } from '../../routes/announcements';
 import { adminRoutes } from '../../routes/admin';
+import { sprintRoutes } from '../../routes/sprints';
+import { columnRoutes } from '../../routes/columns';
+import { colorLegendRoutes } from '../../routes/color-legend';
+import { canvasSnapshotRoutes } from '../../routes/canvas-snapshots';
+import { searchRoutes } from '../../routes/search';
+import { apiTokenRoutes } from '../../routes/api-tokens';
 import { csrfCheck } from '../../middleware/csrf';
 
 export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
@@ -44,6 +50,12 @@ export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
   await app.register(webhookRoutes);
   await app.register(exportRoutes);
   await app.register(announcementRoutes);
+  await app.register(sprintRoutes);
+  await app.register(columnRoutes);
+  await app.register(colorLegendRoutes);
+  await app.register(canvasSnapshotRoutes);
+  await app.register(searchRoutes);
+  await app.register(apiTokenRoutes);
 
   await app.ready();
   return app;

@@ -12,8 +12,8 @@ type AccessRequestRow = {
   user: { id: string; username: string; avatarEmoji: string | null; realName: string | null };
 };
 
-function RoleBadge({ role }: { role: 'owner' | 'co_owner' }) {
-  if (role === 'owner') return (
+function RoleBadge({ kind }: { kind: 'owner' | 'co_owner' }) {
+  if (kind === 'owner') return (
     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>Owner</span>
   );
   return (
@@ -172,8 +172,8 @@ export default function SettingsTeam({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{user.username}</span>
-                    {isProductOwner && <RoleBadge role="owner" />}
-                    {!isProductOwner && isCoOwner && <RoleBadge role="co_owner" />}
+                    {isProductOwner && <RoleBadge kind="owner" />}
+                    {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
                     {userId === currentUser?.id && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>You</span>
                     )}

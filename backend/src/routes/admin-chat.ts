@@ -1,3 +1,10 @@
+/**
+ * Admin chat routes — the private admin-only message channel.
+ *
+ * Admin chat is a server-wide message thread visible only to users with isAdmin: true.
+ * It supports the same features as project messages (emoji reactions, file attachments)
+ * but is scoped to administrators. Used for internal ops communication.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
@@ -34,9 +41,9 @@ export async function adminChatRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/admin/chat', { preHandler: requireAdmin }, async (req, reply) => {
-    const parsed = createMessageSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'content required' });
-    const { content, attachments } = parsed.data;
+    const body = validate(createMessageSchema, req.body, reply);
+    if (!body) return;
+    const { content, attachments } = body;
     const msg = await prisma.message.create({
       data: { isAdminChat: true, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
       include: MESSAGE_INCLUDE,
@@ -46,9 +53,9 @@ export async function adminChatRoutes(app: FastifyInstance) {
 
   app.patch('/api/admin/chat/:messageId', { preHandler: requireAdmin }, async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const editParsed = editMessageSchema.safeParse(req.body);
-    if (!editParsed.success) return reply.status(400).send({ error: editParsed.error.issues[0]?.message ?? 'content required' });
-    const { content } = editParsed.data;
+    const editBody = validate(editMessageSchema, req.body, reply);
+    if (!editBody) return;
+    const { content } = editBody;
     const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });

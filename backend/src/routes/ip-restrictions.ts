@@ -1,3 +1,14 @@
+/**
+ * IP restriction routes — manage the server-wide IP allowlist / blocklist.
+ *
+ * Three modes: 'disabled' (default), 'allowlist' (only listed CIDRs allowed),
+ * 'blocklist' (listed CIDRs denied). Evaluated in the global preHandler hook in index.ts.
+ *
+ * The management endpoints themselves are always exempt from IP filtering to prevent
+ * admins from locking themselves out. Localhost is also always allowed.
+ *
+ * Also exports the getClientIp() and matchesCidr() helpers used by the global hook.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { isIPv4 } from 'net';

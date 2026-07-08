@@ -1,3 +1,11 @@
+/**
+ * Column (Kanban status) routes — manage the custom columns that define task
+ * statuses within a project's Kanban board.
+ *
+ * Columns have a label, optional color, and an explicit position for ordering.
+ * Reordering is done by updating the position field on multiple columns in one request.
+ * Only project members with Kanban write access can create, update, or delete columns.
+ */
 import { FastifyInstance } from 'fastify';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
@@ -5,6 +13,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireTabWrite } from '../utils/product-guard';
 import { handleNotFound } from '../utils/prisma-errors';
+import { validate } from '../utils/validate';
 
 const createColumnSchema = z.object({ label: z.string().min(1).max(50), color: z.string().optional() });
 const reorderColumnSchema = z.object({ order: z.array(z.object({ id: z.string(), order: z.number().int() })) });
@@ -38,9 +47,9 @@ export async function columnRoutes(app: FastifyInstance) {
   app.post('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
-    const parsed = createColumnSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'label required' });
-    const { label, color } = parsed.data;
+    const body = validate(createColumnSchema, req.body, reply);
+    if (!body) return;
+    const { label, color } = body;
 
     await ensureColumns(productId);
     const doneCol = await prisma.kanbanColumn.findFirst({ where: { productId, isDone: true } });
@@ -62,9 +71,9 @@ export async function columnRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/columns/reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
-    const reorderParsed = reorderColumnSchema.safeParse(req.body);
-    if (!reorderParsed.success) return reply.status(400).send({ error: 'order array required' });
-    const { order } = reorderParsed.data;
+    const reorderBody = validate(reorderColumnSchema, req.body, reply);
+    if (!reorderBody) return;
+    const { order } = reorderBody;
     await prisma.$transaction(
       order.map(({ id, order: o }) => prisma.kanbanColumn.update({ where: { id, productId }, data: { order: o } }))
     );
@@ -74,9 +83,9 @@ export async function columnRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
-    const parsed = updateColumnSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const { label, color } = parsed.data;
+    const body = validate(updateColumnSchema, req.body, reply);
+    if (!body) return;
+    const { label, color } = body;
     try {
       const col = await prisma.kanbanColumn.update({ where: { id: columnId, productId }, data: { label, color } });
       reply.send(col);

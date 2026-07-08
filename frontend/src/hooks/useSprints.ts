@@ -1,3 +1,10 @@
+/**
+ * useSprints — manages sprint list state for a project.
+ *
+ * Provides a sprints array and a refresh() callback. Components call refresh()
+ * on mount and after any sprint create/update/delete to keep state current.
+ * Returns the latest sprint list from refresh() so callers can act on it immediately.
+ */
 import { useState, useCallback } from 'react';
 import { api } from '../api/client';
 import type { Sprint } from '../api/client';

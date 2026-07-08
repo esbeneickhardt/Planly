@@ -1,3 +1,13 @@
+/**
+ * Product (project) authorization guards — reusable preHandler helpers that
+ * check membership and tab-level permissions before allowing route handlers to run.
+ *
+ * Permission model:
+ *   - Owner and co-owners always have full write access to every tab.
+ *   - Regular members default to write access unless a TabPermission row says otherwise.
+ *   - Explicit 'none' level completely hides a tab from a member.
+ *   - Absent row = write (default); 'read' = view-only; 'write' = full access.
+ */
 import { FastifyReply } from 'fastify';
 import prisma from '../db/client';
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,9 +8,9 @@ import { api } from '../api/client';
 import type { Task } from '../types';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
 import Modal from '../components/common/Modal';
-
-type SortKey = 'oldest' | 'newest' | 'alpha' | 'unassigned' | 'deadline';
-type StatusTab = 'all' | 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'done';
+import { useBacklogFilters } from '../hooks/useBacklogFilters';
+import type { StatusTab } from '../hooks/useBacklogFilters';
+import type { SortKey } from '../hooks/useBacklogFilters';
 
 const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
   { key: 'all',         label: 'All',         color: 'var(--text-3)' },
@@ -30,46 +30,14 @@ export default function BacklogPage() {
   const { confirm } = useConfirm();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [sortKey, setSortKey] = useState<SortKey>('oldest');
-  const [statusTab, setStatusTab] = useState<StatusTab>('backlog');
-  const [mineOnly, setMineOnly] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [creating, setCreating] = useState(false);
-  const [search, setSearch] = useState('');
+
+  const { sortKey, setSortKey, statusTab, setStatusTab, mineOnly, setMineOnly, search, setSearch, filteredTasks, tabCounts, unassignedCount, overdueCount } =
+    useBacklogFilters(tasks, user?.id);
 
   const now = new Date();
-
-  const tabCounts = useMemo(() => {
-    const base = mineOnly ? tasks.filter((t) => t.ownerId === user?.id) : tasks;
-    const counts: Record<string, number> = { all: base.length };
-    base.forEach((t) => { counts[t.status] = (counts[t.status] ?? 0) + 1; });
-    return counts;
-  }, [tasks, mineOnly, user?.id]);
-
-  const filteredTasks = useMemo(() => {
-    let bt = tasks.filter((t) => {
-      if (statusTab !== 'all' && t.status !== statusTab) return false;
-      if (mineOnly && t.ownerId !== user?.id) return false;
-      if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
-    return [...bt].sort((a, b) => {
-      if (sortKey === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      if (sortKey === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (sortKey === 'alpha') return a.name.localeCompare(b.name);
-      if (sortKey === 'deadline') {
-        if (!a.deadline && !b.deadline) return 0;
-        if (!a.deadline) return 1;
-        if (!b.deadline) return -1;
-        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-      }
-      return (a.ownerId ? 1 : 0) - (b.ownerId ? 1 : 0);
-    });
-  }, [tasks, statusTab, mineOnly, sortKey, search, user?.id]);
-
-  const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
-  const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < now).length;
 
   function toggleSelect(id: string) {
     setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -210,7 +178,7 @@ export default function BacklogPage() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto min-w-0">
         {filteredTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3" style={{ color: 'var(--text-3)' }}>
             <span className="text-4xl opacity-30">{search ? '🔍' : '✓'}</span>
@@ -218,7 +186,7 @@ export default function BacklogPage() {
             {!search && !readOnly && <button onClick={() => setShowNewTask(true)} className="btn-primary text-xs">+ Add first task</button>}
           </div>
         ) : (
-          <table className="w-full text-sm border-collapse">
+          <table className="w-full min-w-[640px] text-sm border-collapse">
             <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <th className="w-10 px-4 py-3">

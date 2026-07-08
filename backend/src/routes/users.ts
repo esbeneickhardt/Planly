@@ -1,3 +1,11 @@
+/**
+ * User routes — profile management, email verification, notification preferences,
+ * and self-deletion.
+ *
+ * Sensitive PII fields (realName, phone) are stored AES-256-GCM encrypted and
+ * decrypted before being sent to the client. Self-deletion is audit-logged and
+ * permanently removes the user from all teams.
+ */
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
@@ -11,6 +19,7 @@ import { z } from 'zod';
 import { validate } from '../utils/validate';
 import { registerSchema } from '../schemas/auth';
 import { encryptOptional, decryptUserPii } from '../utils/crypto';
+import { logAdminEvent } from '../utils/audit';
 
 const updateProfileSchema = z.object({
   realName: z.string().max(100).optional(),
@@ -167,6 +176,7 @@ export async function userRoutes(app: FastifyInstance) {
     if (id !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
     try {
       await prisma.user.delete({ where: { id } });
+      logAdminEvent('USER_SELF_DELETED', { actorName: req.user.username, targetName: req.user.username });
       reply.send({ ok: true });
     } catch (e) { handleNotFound(e, reply); }
   });

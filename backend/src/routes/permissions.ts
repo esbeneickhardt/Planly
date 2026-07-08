@@ -1,8 +1,18 @@
+/**
+ * Tab permission routes — manage per-user, per-tab access levels within a project.
+ *
+ * Permission levels: 'write' (full access), 'read' (view-only), 'none' (hidden).
+ * Absent row means default write. Owners and co-owners always have write regardless.
+ * Tab names: kanban, backlog, gantt, canvas, messages, analytics, settings.
+ * Changes are recorded in the admin audit log.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireProductCoOwner } from '../utils/product-guard';
+import { validate } from '../utils/validate';
+import { logAdminEvent } from '../utils/audit';
 
 const permissionUpdateSchema = z.array(z.object({
   userId: z.string(),
@@ -51,9 +61,8 @@ export async function permissionRoutes(app: FastifyInstance) {
 
   app.put('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    const parsed = permissionUpdateSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
-    const updates = parsed.data;
+    const updates = validate(permissionUpdateSchema, req.body, reply);
+    if (!updates) return;
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
@@ -81,6 +90,7 @@ export async function permissionRoutes(app: FastifyInstance) {
         }),
       ),
     );
+    logAdminEvent('PERMISSION_UPDATED', { actorName: req.user.username, targetName: productId, metadata: { updateCount: updates.length } });
     reply.send({ ok: true });
   });
 }

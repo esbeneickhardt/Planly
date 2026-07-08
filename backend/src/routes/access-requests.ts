@@ -1,3 +1,11 @@
+/**
+ * Access request routes — workflow for users to request membership in a closed team.
+ *
+ * When a team requires approval for new members, visitors see a "Request Access" button.
+ * Requests are queued and reviewed by team co-owners via the admin panel.
+ * Approval automatically adds the user to the team as a member.
+ * Notifications are sent to co-owners on new requests and to the requester on decisions.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';

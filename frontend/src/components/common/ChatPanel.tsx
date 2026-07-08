@@ -14,6 +14,7 @@ import TaskDetailPanel from './TaskDetailPanel';
 import { EMOJI_SET } from './MarkdownEditor';
 import MessageBubble, { formatTime } from './MessageBubble';
 import { useMessageEdit } from '../../hooks/useMessageEdit';
+import PdfPreview from './PdfPreview';
 
 interface Props {
   initialTask?: { id: string; name: string };
@@ -1107,6 +1108,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                             <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>{displayName(msg.author)} · {formatTime(msg.createdAt)}</p>
                           </div>
                           <div className="flex items-center gap-1.5 opacity-0 group-hover/doc:opacity-100 transition-opacity flex-shrink-0">
+                            {att.type === 'application/pdf' && <PdfPreview url={att.url} name={att.name} />}
                             <a href={att.url} download={att.name} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>↓</a>
                             <button
                               onClick={() => handleDeleteFile(att.url)}

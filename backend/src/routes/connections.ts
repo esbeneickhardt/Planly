@@ -1,3 +1,10 @@
+/**
+ * Connection routes — manage directed relationships between tasks on the Canvas view.
+ *
+ * Connections are visual edges between task nodes in the freeform Canvas.
+ * They differ from Gantt dependencies (which enforce scheduling constraints) —
+ * connections are purely visual and have no effect on task ordering or dates.
+ */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';

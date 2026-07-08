@@ -1,3 +1,18 @@
+/**
+ * Typed API client — thin wrapper around fetch() with CSRF token injection,
+ * error handling, and typed response interfaces for all backend endpoints.
+ *
+ * The request() helper:
+ *   - Sends cookies with every request (credentials: 'include')
+ *   - Reads the non-httpOnly `csrf` cookie and adds it as X-CSRF-Token on
+ *     all mutating methods (POST, PUT, PATCH, DELETE)
+ *   - Parses error responses and throws a typed ApiError with the status code
+ *   - Dispatches a 'planly:email-not-verified' custom event on 403 so the UI
+ *     can prompt the user to verify their email without coupling every caller
+ *
+ * All exported functions above the helpers call request() directly —
+ * add new ones in the same pattern to keep the client consistent.
+ */
 import type { Product, Task, Team, User, Status, Subtask, KanbanColumn } from '../types';
 
 export interface Notification {
@@ -60,8 +75,24 @@ export interface SearchResults {
   }[];
 }
 
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function getCsrfToken(): string | undefined {
+  return document.cookie.split('; ').find((c) => c.startsWith('csrf='))?.split('=')[1];
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const csrfHeaders: Record<string, string> = {};
+  if (MUTATING.has(method)) {
+    const csrf = getCsrfToken();
+    if (csrf) csrfHeaders['X-CSRF-Token'] = csrf;
+  }
+  const res = await fetch(path, {
+    credentials: 'include',
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders, ...init?.headers },
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     if (res.status === 403 && (body as { code?: string }).code === 'EMAIL_NOT_VERIFIED') {
@@ -568,5 +599,17 @@ export const api = {
       totalCompleted: number;
       completionsByDay: { date: string; count: number }[];
     }>(`/api/products/${productId}/analytics/workload`),
+  },
+  github: {
+    getConfig: () => request<{
+      webhookUrl: string;
+      hasSecret: boolean;
+      githubImportIssues: boolean;
+      githubImportPrs: boolean;
+      githubDefaultProductId: string | null;
+    }>('/api/github/config'),
+    updateConfig: (data: { githubImportIssues?: boolean; githubImportPrs?: boolean; githubDefaultProductId?: string | null }) =>
+      request<{ ok: boolean }>('/api/github/config', { method: 'POST', body: json(data) }),
+    regenerateSecret: () => request<{ secret: string }>('/api/github/regenerate-secret', { method: 'POST', body: json({}) }),
   },
 };
