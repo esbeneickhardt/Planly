@@ -46,6 +46,7 @@ test.describe('Login', () => {
   test.beforeAll(async ({ browser }) => {
     ({ email, username, password } = uniqueUser('login_user'));
     const page = await browser.newPage();
+    await page.context().clearCookies();
     await registerViaUI(page, email, username, password);
     await page.close();
   });
@@ -87,6 +88,7 @@ test.describe('Login lockout', () => {
     email = u.email;
     password = u.password;
     const page = await browser.newPage();
+    await page.context().clearCookies();
     await registerViaUI(page, email, u.username, password);
     await page.close();
   });
