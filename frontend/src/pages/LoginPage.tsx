@@ -143,8 +143,9 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="card p-6 space-y-4">
           <div>
-            <label className="label">Email or username</label>
+            <label htmlFor="login-identifier" className="label">Email or username</label>
             <input
+              id="login-identifier"
               type="text"
               required
               autoComplete="username"
@@ -156,10 +157,11 @@ export default function LoginPage() {
           </div>
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="label mb-0">Password</label>
+              <label htmlFor="login-password" className="label mb-0">Password</label>
               <Link to="/forgot-password" className="text-xs" style={{ color: 'var(--brand)' }}>Forgot password?</Link>
             </div>
             <input
+              id="login-password"
               type="password"
               required
               value={password}
@@ -170,7 +172,7 @@ export default function LoginPage() {
           </div>
           {error && (
             <div className="space-y-2">
-              <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
+              <div role="alert" className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
               {showResend && (
                 resendSent ? (
                   <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>Verification email sent - check your inbox.</p>

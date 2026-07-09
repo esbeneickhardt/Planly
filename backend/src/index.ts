@@ -299,8 +299,9 @@ async function main() {
   // Per-route rate limit overrides. Lookup table: url → { max, timeWindow }.
   // Auth endpoints use much tighter limits to resist brute force and enumeration.
   // Expensive read endpoints (search, exports) use tighter limits to resist scraping.
+  const loginRateMax = parseInt(process.env.RATE_LIMIT_LOGIN_MAX ?? '10', 10);
   const ROUTE_RATE_LIMITS: Record<string, { max: number; timeWindow: string }> = {
-    '/api/auth/login':                   { max: 10, timeWindow: '1 minute' },
+    '/api/auth/login':                   { max: loginRateMax, timeWindow: '1 minute' },
     '/api/auth/forgot-password':         { max: 10, timeWindow: '1 minute' },
     '/api/auth/reset-password':          { max: 10, timeWindow: '1 minute' },
     '/api/auth/change-password':         { max: 5,  timeWindow: '15 minutes' },

@@ -53,25 +53,25 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="card p-6 space-y-4">
           <div>
-            <label className="label">Full name</label>
-            <input type="text" value={form.realName} onChange={set('realName')} className="input" placeholder="Alex Johnson" />
+            <label htmlFor="reg-realname" className="label">Full name</label>
+            <input id="reg-realname" type="text" value={form.realName} onChange={set('realName')} className="input" placeholder="Alex Johnson" />
           </div>
           <div>
-            <label className="label">Username</label>
-            <input type="text" required value={form.username} onChange={set('username')} className="input" placeholder="alexj" />
+            <label htmlFor="reg-username" className="label">Username</label>
+            <input id="reg-username" type="text" required value={form.username} onChange={set('username')} className="input" placeholder="alexj" />
           </div>
           <div>
-            <label className="label">Email</label>
-            <input type="email" required value={form.email} onChange={set('email')} className="input" placeholder="alex@example.com" />
+            <label htmlFor="reg-email" className="label">Email</label>
+            <input id="reg-email" type="email" required value={form.email} onChange={set('email')} className="input" placeholder="alex@example.com" />
           </div>
           <div>
-            <label className="label">Password</label>
-            <input type="password" required minLength={8} value={form.password} onChange={set('password')} className="input" placeholder="••••••••" />
+            <label htmlFor="reg-password" className="label">Password</label>
+            <input id="reg-password" type="password" required minLength={8} value={form.password} onChange={set('password')} className="input" placeholder="••••••••" />
             <p className="text-xs mt-1" style={{ color: 'var(--text-2)' }}>Min 8 characters, at least one number and one special character</p>
           </div>
           <div>
-            <label className="label">Confirm password</label>
-            <input type="password" required minLength={8} value={form.confirmPassword} onChange={set('confirmPassword')} className="input" placeholder="••••••••" />
+            <label htmlFor="reg-confirm" className="label">Confirm password</label>
+            <input id="reg-confirm" type="password" required minLength={8} value={form.confirmPassword} onChange={set('confirmPassword')} className="input" placeholder="••••••••" />
           </div>
           <label className="flex items-start gap-2 cursor-pointer select-none">
             <input
@@ -88,7 +88,7 @@ export default function RegisterPage() {
             </span>
           </label>
           {error && (
-            <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
+            <div role="alert" className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
           )}
           <button type="submit" disabled={loading} className="btn-primary w-full justify-center flex">
             {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Create account'}
