@@ -109,7 +109,7 @@ export async function storeFile(buffer: Buffer, filename: string, mimeType: stri
 }
 
 export async function deleteFile(filename: string): Promise<void> {
-  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
   const s3 = await getS3();
   if (s3) {
     const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
@@ -120,7 +120,7 @@ export async function deleteFile(filename: string): Promise<void> {
 }
 
 export async function getFileBuffer(filename: string): Promise<Buffer> {
-  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
   const s3 = await getS3();
   if (s3) {
     const { GetObjectCommand } = await import('@aws-sdk/client-s3');

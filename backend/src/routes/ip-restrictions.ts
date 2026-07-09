@@ -46,7 +46,8 @@ export function matchesCidr(clientIp: string, cidr: string): boolean {
 }
 
 export function getClientIp(req: { headers: Record<string, string | string[] | undefined>; socket: { remoteAddress?: string } }): string {
-  const depth = config.trustedProxyDepth;
+  const raw = process.env.TRUSTED_PROXY_DEPTH;
+  const depth = raw === undefined ? config.trustedProxyDepth : parseInt(raw, 10);
 
   // depth=0 means no trusted proxy — use socket address directly
   if (depth <= 0) return req.socket.remoteAddress ?? '';

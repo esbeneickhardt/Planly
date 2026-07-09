@@ -208,10 +208,11 @@ describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
     process.env.AWS_S3_BUCKET = 'test-bucket';
     process.env.AWS_S3_PREFIX = 'pfx';
     vi.doMock('@aws-sdk/client-s3', () => ({
-      S3Client: vi.fn(() => ({ send: mockSend })),
-      PutObjectCommand: vi.fn(input => ({ _cmd: 'PUT', ...input })),
-      GetObjectCommand: vi.fn(input => ({ _cmd: 'GET', ...input })),
-      DeleteObjectCommand: vi.fn(input => ({ _cmd: 'DELETE', ...input })),
+      // All must be regular functions (not arrow) because storage.ts uses `new` on each
+      S3Client: function MockS3Client(this: unknown) { return { send: mockSend }; },
+      PutObjectCommand: function MockPut(this: unknown, input: unknown) { return { _cmd: 'PUT', ...(input as object) }; },
+      GetObjectCommand: function MockGet(this: unknown, input: unknown) { return { _cmd: 'GET', ...(input as object) }; },
+      DeleteObjectCommand: function MockDelete(this: unknown, input: unknown) { return { _cmd: 'DELETE', ...(input as object) }; },
     }));
   });
 
@@ -279,8 +280,8 @@ describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
     process.env.AWS_S3_PREFIX = 'custom-prefix';
     vi.resetModules();
     vi.doMock('@aws-sdk/client-s3', () => ({
-      S3Client: vi.fn(() => ({ send: mockSend })),
-      PutObjectCommand: vi.fn(input => ({ _cmd: 'PUT', ...input })),
+      S3Client: function MockS3Client(this: unknown) { return { send: mockSend }; },
+      PutObjectCommand: function MockPut(this: unknown, input: unknown) { return { _cmd: 'PUT', ...(input as object) }; },
     }));
     const { storeFile: s3Store } = await import('../../utils/storage');
     await s3Store(Buffer.from('x'), 'file.txt', 'text/plain');
