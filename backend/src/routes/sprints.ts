@@ -93,7 +93,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
     try {
       await prisma.sprint.delete({ where: { id: sprintId, productId } });
-      reply.send({ ok: true });
+      reply.status(204).send();
     } catch (e) { handleNotFound(e, reply, 'Sprint not found'); }
   });
 

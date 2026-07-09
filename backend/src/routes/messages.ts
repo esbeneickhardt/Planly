@@ -72,7 +72,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Serve uploaded files
   app.get('/api/uploads/:filename', { preHandler: requireAuth }, async (req, reply) => {
     const { filename } = req.params as { filename: string };
-    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
 
     // Check file ownership: if we have a record, enforce product membership
     const record = await prisma.fileUpload.findUnique({ where: { filename: safe } });
@@ -96,7 +96,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Delete an uploaded file
   app.delete('/api/uploads/:filename', { preHandler: requireAuth }, async (req, reply) => {
     const { filename } = req.params as { filename: string };
-    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
 
     const record = await prisma.fileUpload.findUnique({ where: { filename: safe } });
     if (!record) return reply.status(404).send({ error: 'Not found' });

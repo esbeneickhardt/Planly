@@ -172,12 +172,13 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
-    if (!task) return reply.status(404).send({ error: 'Not found' });
-    await prisma.task.update({ where: { id: taskId }, data: { deletedAt: new Date() } });
-    dispatchWebhooks(productId, 'task.deleted', { id: taskId, name: task.name }).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
-    broadcast(productId, 'task.deleted', { id: taskId });
-    logActivity({ productId, actorId: req.user.userId, action: 'task.deleted', entityType: 'task', entityId: taskId, entityName: task.name });
-    reply.send({ ok: true });
+    if (task) {
+      await prisma.task.update({ where: { id: taskId }, data: { deletedAt: new Date() } });
+      dispatchWebhooks(productId, 'task.deleted', { id: taskId, name: task.name }).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
+      broadcast(productId, 'task.deleted', { id: taskId });
+      logActivity({ productId, actorId: req.user.userId, action: 'task.deleted', entityType: 'task', entityId: taskId, entityName: task.name });
+    }
+    reply.status(204).send();
   });
 
   app.patch('/api/products/:productId/tasks/:taskId/position', { preHandler: requireAuth }, async (req, reply) => {
