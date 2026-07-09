@@ -102,7 +102,7 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
       url: '/api/auth/login',
       payload: { identifier: email, password: 'old-password' },
     });
-    const cookie = loginRes.headers['set-cookie'] as string;
+    const cookie = loginRes.headers['set-cookie']?.[0] ?? '';
     const token = (cookie.split(';')[0] ?? '').replace('token=', '');
 
     // Change password

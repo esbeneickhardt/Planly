@@ -8,6 +8,7 @@ import prisma from '../../db/client';
 import { validate } from '../../utils/validate';
 
 const transferCrownSchema = z.object({ userId: z.string() });
+const updateUserSchema = z.object({ isAdmin: z.boolean() });
 
 export async function adminUserRoutes(app: FastifyInstance) {
   app.get('/api/admin/users', { preHandler: requireAdmin }, async (_req, reply) => {
@@ -16,6 +17,18 @@ export async function adminUserRoutes(app: FastifyInstance) {
       orderBy: [{ isFoundingAdmin: 'desc' }, { isAdmin: 'desc' }, { createdAt: 'asc' }],
     });
     reply.send(users);
+  });
+
+  app.put('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = validate(updateUserSchema, req.body, reply);
+    if (!body) return;
+    if (id === req.user.userId) return reply.status(400).send({ error: 'Cannot modify your own admin status.' });
+    const target = await prisma.user.findUnique({ where: { id }, select: { isFoundingAdmin: true } });
+    if (!target) return reply.status(404).send({ error: 'User not found' });
+    if (target.isFoundingAdmin) return reply.status(403).send({ error: 'Cannot modify the founding admin.' });
+    const updated = await prisma.user.update({ where: { id }, data: { isAdmin: body.isAdmin } });
+    reply.send({ id: updated.id, isAdmin: updated.isAdmin });
   });
 
   app.put('/api/admin/users/:id/promote', { preHandler: requireAdmin }, async (req, reply) => {
