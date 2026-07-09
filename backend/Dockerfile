@@ -1,6 +1,6 @@
 FROM node:26-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache openssl
+RUN apk upgrade --no-cache && apk add --no-cache openssl
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci
@@ -10,7 +10,7 @@ RUN npm run build
 
 FROM node:26-alpine
 WORKDIR /app
-RUN apk add --no-cache openssl && npm install -g npm@latest
+RUN apk upgrade --no-cache && apk add --no-cache openssl && npm install -g npm@latest
 # Run as non-root for defence-in-depth
 RUN addgroup -S planly && adduser -S planly -G planly
 COPY package*.json ./
