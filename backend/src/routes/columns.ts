@@ -103,6 +103,6 @@ export async function columnRoutes(app: FastifyInstance) {
       prisma.task.updateMany({ where: { productId, status: col.statusKey }, data: { status: 'todo' } }),
       prisma.kanbanColumn.delete({ where: { id: columnId } }),
     ]);
-    reply.send({ ok: true });
+    reply.status(204).send();
   });
 }

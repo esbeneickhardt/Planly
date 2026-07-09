@@ -82,6 +82,6 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     const { count } = await prisma.apiToken.deleteMany({ where: { id: tokenId, userId: req.user.userId } });
     if (count === 0) return reply.status(404).send({ error: 'Not found' });
     logAdminEvent('PAT_REVOKED', { actorName: req.user.username, targetName: req.user.username, metadata: { tokenId, name: deleted?.name } });
-    reply.send({ ok: true });
+    reply.status(204).send();
   });
 }

@@ -53,11 +53,11 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
       method: 'POST',
       url: `/api/products/${productId}/columns`,
       headers: { cookie },
-      payload: { name: 'In Progress', color: '#3b82f6' },
+      payload: { label: 'In Progress', color: '#3b82f6' },
     });
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.body);
-    expect(body.name).toBe('In Progress');
+    expect(body.label).toBe('In Progress');
   });
 
   it('PATCH /api/products/:id/columns/:columnId updates name', async () => {
@@ -65,7 +65,7 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
       method: 'POST',
       url: `/api/products/${productId}/columns`,
       headers: { cookie },
-      payload: { name: 'Old Name', color: '#10b981' },
+      payload: { label: 'Old Name', color: '#10b981' },
     });
     const col = JSON.parse(createRes.body);
 
@@ -73,10 +73,10 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
       method: 'PATCH',
       url: `/api/products/${productId}/columns/${col.id}`,
       headers: { cookie },
-      payload: { name: 'New Name' },
+      payload: { label: 'New Name' },
     });
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).name).toBe('New Name');
+    expect(JSON.parse(res.body).label).toBe('New Name');
   });
 
   it('DELETE /api/products/:id/columns/:columnId removes column', async () => {
@@ -84,7 +84,7 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
       method: 'POST',
       url: `/api/products/${productId}/columns`,
       headers: { cookie },
-      payload: { name: 'To Remove', color: '#ef4444' },
+      payload: { label: 'To Remove', color: '#ef4444' },
     });
     const col = JSON.parse(createRes.body);
 

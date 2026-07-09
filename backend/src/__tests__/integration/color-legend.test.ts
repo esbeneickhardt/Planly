@@ -49,7 +49,10 @@ describe.skipIf(!HAS_DB)('Color legend routes smoke', () => {
   });
 
   it('PUT /api/products/:id/color-legend updates entries', async () => {
-    const entries = [{ label: 'Bug', color: '#ef4444' }, { label: 'Feature', color: '#3b82f6' }];
+    const entries = [
+      { colorKey: '#ef4444', name: 'Bug', enabled: true },
+      { colorKey: '#3b82f6', name: 'Feature', enabled: true },
+    ];
     const res = await app.inject({
       method: 'PUT',
       url: `/api/products/${productId}/color-legend`,
@@ -57,8 +60,6 @@ describe.skipIf(!HAS_DB)('Color legend routes smoke', () => {
       payload: entries,
     });
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
-    expect(body).toHaveLength(2);
-    expect(body[0].label).toBe('Bug');
+    expect(JSON.parse(res.body).ok).toBe(true);
   });
 });

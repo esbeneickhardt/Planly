@@ -54,6 +54,6 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     if (!snap) return reply.status(404).send({ error: 'Not found' });
     if (snap.userId !== req.user.userId) return reply.status(403).send({ error: 'Not your snapshot' });
     await prisma.canvasSnapshot.delete({ where: { id: snapshotId } });
-    reply.send({ ok: true });
+    reply.status(204).send();
   });
 }
