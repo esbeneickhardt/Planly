@@ -65,47 +65,32 @@ export async function loginViaAPI(
 
 /**
  * Creates a project via direct API calls (teams + products endpoints).
- * More reliable than UI form interaction — avoids React controlled-input
- * quirks with type="date" that can block HTML5 form validation.
+ * Uses page.request so calls run Node-side with the page's auth cookies
+ * automatically included — no browser-evaluate complexity or AbortController.
  * Reloads the page afterwards so ProductContext picks up the new product.
  */
 export async function createProjectViaTopBar(page: Page, name = 'E2E Project') {
-  // Wait for the current navigation to fully settle before evaluating — in CI the
-  // post-registration redirect may still be in flight, which destroys the JS context.
-  // Cap at 15s so a stalled load doesn't consume the full test timeout.
   await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
-  // Suppress the "How Planly works" welcome modal that auto-shows on first project creation
   await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1')).catch(() => {});
 
-  await page.evaluate(async (projectName: string) => {
-    const ctl = () => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; };
-    const getHeaders = (): Record<string, string> => {
-      const csrf = document.cookie.split('; ').find((c) => c.startsWith('csrf='))?.split('=')[1];
-      const h: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (csrf) h['X-CSRF-Token'] = csrf;
-      return h;
-    };
+  const meRes = await page.request.get('/api/auth/me');
+  if (!meRes.ok()) throw new Error(`auth/me failed: ${meRes.status()}`);
+  const { id: userId } = await meRes.json();
 
-    const meRes = await fetch('/api/auth/me', { headers: getHeaders(), signal: ctl() });
-    if (!meRes.ok) return;
-    const { id: userId } = await meRes.json();
+  const teamRes = await page.request.post('/api/teams', {
+    data: { name: `${name} Team`, memberIds: [userId] },
+    headers: { Origin: BASE },
+  });
+  if (!teamRes.ok()) throw new Error(`create team failed: ${teamRes.status()}`);
+  const { id: teamId } = await teamRes.json();
 
-    const teamRes = await fetch('/api/teams', {
-      method: 'POST', headers: getHeaders(), signal: ctl(),
-      body: JSON.stringify({ name: `${projectName} Team`, memberIds: [userId] }),
-    });
-    if (!teamRes.ok) return;
-    const { id: teamId } = await teamRes.json();
+  const prodRes = await page.request.post('/api/products', {
+    data: { name, teamId, deadline: '2027-12-31' },
+    headers: { Origin: BASE },
+  });
+  if (!prodRes.ok()) throw new Error(`create product failed: ${prodRes.status()}`);
 
-    await fetch('/api/products', {
-      method: 'POST', headers: getHeaders(), signal: ctl(),
-      body: JSON.stringify({ name: projectName, teamId, deadline: '2027-12-31' }),
-    });
-  }, name).catch(() => {});
-
-  // Reload so React ProductContext fetches the new product and sets it active
   await page.reload({ waitUntil: 'load', timeout: 20_000 }).catch(() => {});
-  // Wait for the app to re-hydrate and show the project in the header
   await page.waitForSelector('header', { timeout: 10_000 }).catch(() => {});
 }
 

@@ -6,43 +6,41 @@
  */
 import { test, expect } from '@playwright/test';
 import path from 'path';
-import { uniqueUser, registerViaUI } from '../fixtures/auth.fixture';
+import { uniqueUser, registerViaUI, BASE } from '../fixtures/auth.fixture';
 
 // ── Shared setup ────────────────────────────────────────────────────────────
 
 async function setupAndNavigateToMessages(browser: import('@playwright/test').Browser) {
   const u = uniqueUser('upload');
   const page = await browser.newPage();
+  await page.context().clearCookies();
   await registerViaUI(page, u.email, u.username, u.password);
 
   // Dismiss onboarding if present
   const skipBtn = page.getByRole('button', { name: /skip|get started|close/i });
   if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) await skipBtn.click();
 
-  // Wait for the page to be stable before evaluating (CI: post-registration redirect may still be in flight)
   await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
-  // Suppress welcome modal for new products
   await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1'));
 
-  // Create project via API — avoids the extra page reload in createProjectViaTopBar
-  await page.evaluate(async () => {
-    const ctl = () => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; };
-    const h = (): Record<string, string> => {
-      const csrf = document.cookie.split('; ').find(c => c.startsWith('csrf='))?.split('=')[1];
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (csrf) headers['X-CSRF-Token'] = csrf;
-      return headers;
-    };
-    const { id: userId } = await fetch('/api/auth/me', { headers: h(), signal: ctl() }).then(r => r.json());
-    const { id: teamId } = await fetch('/api/teams', {
-      method: 'POST', headers: h(), signal: ctl(),
-      body: JSON.stringify({ name: 'Upload Test Project Team', memberIds: [userId] }),
-    }).then(r => r.json());
-    await fetch('/api/products', {
-      method: 'POST', headers: h(), signal: ctl(),
-      body: JSON.stringify({ name: 'Upload Test Project', teamId, deadline: '2027-12-31' }),
-    });
-  }).catch(() => {});
+  // Use page.request — runs Node-side with the page's auth cookies automatically
+  // included. Errors surface clearly instead of being swallowed by evaluate+catch.
+  const meRes = await page.request.get('/api/auth/me');
+  if (!meRes.ok()) throw new Error(`auth/me failed: ${meRes.status()}`);
+  const { id: userId } = await meRes.json();
+
+  const teamRes = await page.request.post('/api/teams', {
+    data: { name: 'Upload Test Project Team', memberIds: [userId] },
+    headers: { Origin: BASE },
+  });
+  if (!teamRes.ok()) throw new Error(`create team failed: ${teamRes.status()}`);
+  const { id: teamId } = await teamRes.json();
+
+  const prodRes = await page.request.post('/api/products', {
+    data: { name: 'Upload Test Project', teamId, deadline: '2027-12-31' },
+    headers: { Origin: BASE },
+  });
+  if (!prodRes.ok()) throw new Error(`create product failed: ${prodRes.status()}`);
 
   // Single navigation to kanban. domcontentloaded fires before lazy JS chunks.
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});

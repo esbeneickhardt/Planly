@@ -26,6 +26,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    actionTimeout: 15_000,
   },
   projects: [
     { name: 'setup', testMatch: /.*\.setup\.ts/ },
@@ -38,4 +39,5 @@ export default defineConfig({
   outputDir: './test-results',
   timeout: 120_000,
   expect: { timeout: 8_000 },
+  navigationTimeout: 30_000,
 });
