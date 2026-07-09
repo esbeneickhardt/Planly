@@ -21,7 +21,7 @@ describe.skipIf(!HAS_DB)('API token routes smoke', () => {
       url: '/api/auth/login',
       payload: { identifier: `token_user_${suffix}@example.com`, password: 'test-password-123' },
     });
-    cookie = (loginRes.headers['set-cookie'] as string).split(';')[0] ?? '';
+    cookie = loginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
   });
 
   afterAll(async () => {

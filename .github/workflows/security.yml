@@ -95,26 +95,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin
       - name: Build backend image
         run: docker build -t planly-backend:ci ./backend
       - name: Build frontend image
         run: docker build -t planly-frontend:ci ./frontend
       - name: Scan backend image
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: planly-backend:ci
-          format: table
-          exit-code: "1"
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
+        run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed planly-backend:ci
       - name: Scan frontend image
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: planly-frontend:ci
-          format: table
-          exit-code: "1"
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
+        run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed planly-frontend:ci
 
   sbom:
     name: Generate SBOM

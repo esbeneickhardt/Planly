@@ -111,6 +111,18 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
         working-directory: e2e
+      - name: Create CI env file
+        run: |
+          {
+            echo "DB_PASSWORD=$(openssl rand -hex 16)"
+            echo "JWT_SECRET=$(openssl rand -hex 32)"
+            echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
+            echo "SMTP_HOST="
+            echo "SMTP_PORT=587"
+            echo "SMTP_USER="
+            echo "SMTP_PASS="
+            echo "ADMIN_EMAIL=${{ secrets.E2E_ADMIN_EMAIL }}"
+          } > .env
       - name: Start app stack
         run: |
           cp docker-compose.yml docker-compose.ci.yml

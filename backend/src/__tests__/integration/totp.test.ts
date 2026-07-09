@@ -40,7 +40,7 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
       url: '/api/auth/login',
       payload: { identifier: email, password: 'pass1234' },
     });
-    const cookie = loginRes.headers['set-cookie'] as string;
+    const cookie = loginRes.headers['set-cookie']?.[0] ?? '';
     token = (cookie.split(';')[0] ?? '').replace('token=', '');
   });
 

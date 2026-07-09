@@ -34,7 +34,7 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
       payload: { identifier: email, password: 'correct-horse' },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.headers['set-cookie']).toMatch(/token=/);
+    expect(res.headers['set-cookie']?.[0] ?? '').toMatch(/token=/);
     const body = JSON.parse(res.body);
     expect(body.email).toBe(email);
   });
@@ -78,7 +78,7 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
       url: '/api/auth/login',
       payload: { identifier: email, password: 'pass1234' },
     });
-    const cookie = loginRes.headers['set-cookie'] as string;
+    const cookie = loginRes.headers['set-cookie']?.[0] ?? '';
     const token = (cookie.split(';')[0] ?? '').replace('token=', '');
 
     const meRes = await app.inject({

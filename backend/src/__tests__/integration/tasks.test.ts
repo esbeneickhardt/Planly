@@ -34,7 +34,7 @@ describe.skipIf(!HAS_DB)('Task CRUD integration', () => {
       url: '/api/auth/login',
       payload: { identifier: ownerEmail, password: 'pass1234' },
     });
-    const cookie = loginRes.headers['set-cookie'] as string;
+    const cookie = loginRes.headers['set-cookie']?.[0] ?? '';
     ownerToken = (cookie.split(';')[0] ?? '').replace('token=', '');
   });
 

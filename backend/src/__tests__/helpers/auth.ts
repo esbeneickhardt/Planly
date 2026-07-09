@@ -8,7 +8,7 @@ export async function loginAs(app: FastifyInstance, identifier: string, password
     payload: { identifier, password },
   });
   if (res.statusCode !== 200) throw new Error(`Login failed for ${identifier}: ${res.statusCode} ${res.body}`);
-  const raw = (res.headers['set-cookie'] as string | undefined) ?? '';
+  const raw = res.headers['set-cookie']?.[0] ?? '';
   return raw.split(';')[0]?.replace('token=', '') ?? '';
 }
 
