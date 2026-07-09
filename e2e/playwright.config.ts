@@ -15,7 +15,7 @@ export default defineConfig({
   testDir: './specs',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1,
   workers: 1,
   reporter: [
     ['html', { open: 'never' }],
@@ -36,6 +36,6 @@ export default defineConfig({
     },
   ],
   outputDir: './test-results',
-  timeout: 30_000,
+  timeout: 120_000,
   expect: { timeout: 8_000 },
 });

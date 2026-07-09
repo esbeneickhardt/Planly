@@ -12,10 +12,11 @@ import { uniqueUser, loginViaUI, registerViaUI } from '../fixtures/auth.fixture'
 test.describe('Registration', () => {
   test('shows validation errors for empty form', async ({ page }) => {
     await page.goto('/register');
-    await page.getByRole('button', { name: /register|sign up/i }).click();
-    // Expect some validation feedback
-    const errors = page.locator('[role="alert"], .error, [data-error]');
-    await expect(errors.first()).toBeVisible({ timeout: 5_000 });
+    await page.getByRole('button', { name: /register|sign up|create account/i }).click();
+    // Browser native validation (required fields) or React error state should show
+    const hasNativeInvalid = await page.locator('input:invalid').count() > 0;
+    const hasAlertEl = await page.locator('[role="alert"], .error, [data-error]').count() > 0;
+    expect(hasNativeInvalid || hasAlertEl).toBe(true);
   });
 
   test('rejects a duplicate email with a clear error', async ({ page }) => {
@@ -63,21 +64,16 @@ test.describe('Login', () => {
     await page.goto('/login');
     await page.getByLabel(/email or username/i).fill(email);
     await page.getByLabel(/^password/i).fill('wrong-password-xyz');
-    await page.getByRole('button', { name: /log in/i }).click();
+    await page.getByRole('button', { name: /log in|sign in/i }).click();
     await expect(page.locator('[role="alert"], .error, [data-error]').first()).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
   });
 
   test('logout redirects to login page', async ({ page }) => {
     await loginViaUI(page, email, password);
-    // Find and click logout — usually in a user menu or settings
-    const logoutBtn = page.getByRole('button', { name: /log out|sign out/i });
-    if (await logoutBtn.isVisible()) {
-      await logoutBtn.click();
-    } else {
-      // Try navigating to /logout directly
-      await page.goto('/logout');
-    }
+    // Account avatar is the last button[title] in the header — click it to open the dropdown
+    await page.locator('header button[title]').last().click();
+    await page.getByRole('button', { name: /sign out/i }).click();
     await expect(page).toHaveURL(/\/login/);
   });
 });
@@ -100,7 +96,7 @@ test.describe('Login lockout', () => {
     for (let i = 0; i < 3; i++) {
       await page.getByLabel(/email or username/i).fill(email);
       await page.getByLabel(/^password/i).fill('wrong-pass');
-      await page.getByRole('button', { name: /log in/i }).click();
+      await page.getByRole('button', { name: /log in|sign in/i }).click();
       await page.waitForTimeout(300);
     }
     // Should see remaining attempts or lockout warning

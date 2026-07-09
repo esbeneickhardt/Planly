@@ -56,7 +56,8 @@ export async function userRoutes(app: FastifyInstance) {
   });
 
   // Registration - public endpoint with tighter rate limit
-  app.post('/api/users', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async (req, reply) => {
+  const registerRateMax = parseInt(process.env.RATE_LIMIT_REGISTER_MAX ?? '10', 10);
+  app.post('/api/users', { config: { rateLimit: { max: registerRateMax, timeWindow: '1 hour' } } }, async (req, reply) => {
     const parsed = validate(registerSchema, req.body, reply);
     if (!parsed) return;
     const { username, email: normalizedEmail, password, realName, phone, avatarEmoji } = parsed;

@@ -18,7 +18,7 @@ COPY prisma ./prisma
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-RUN mkdir -p /data/uploads && chown planly:planly /data/uploads
+RUN mkdir -p /data/uploads && chown planly:planly /data/uploads && chown -R planly:planly /app/node_modules
 USER planly
 
 EXPOSE 3000

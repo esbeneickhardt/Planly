@@ -19,21 +19,46 @@ async function setupAndNavigateToMessages(browser: import('@playwright/test').Br
   const skipBtn = page.getByRole('button', { name: /skip|get started|close/i });
   if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) await skipBtn.click();
 
-  // Create a project if none exists
-  const newProjectBtn = page.getByRole('button', { name: /new project|create project/i });
-  if (await newProjectBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await newProjectBtn.click();
-    await page.getByPlaceholder(/project name|name/i).fill('Upload Test Project');
-    await page.getByRole('button', { name: /create|save/i }).click();
-    await page.waitForURL(/\/products\//, { timeout: 8_000 }).catch(() => {});
-  }
+  // Suppress welcome modal for new products
+  await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1'));
 
-  // Navigate to Messages tab
-  const messagesTab = page
-    .getByRole('tab', { name: /messages/i })
-    .or(page.getByRole('link', { name: /messages/i }))
-    .or(page.locator('[data-testid="messages-tab"]'));
-  await messagesTab.first().click({ timeout: 8_000 });
+  // Create project via API — avoids the extra page reload in createProjectViaTopBar
+  await page.evaluate(async () => {
+    const ctl = () => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; };
+    const h = (): Record<string, string> => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('csrf='))?.split('=')[1];
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (csrf) headers['X-CSRF-Token'] = csrf;
+      return headers;
+    };
+    const { id: userId } = await fetch('/api/auth/me', { headers: h(), signal: ctl() }).then(r => r.json());
+    const { id: teamId } = await fetch('/api/teams', {
+      method: 'POST', headers: h(), signal: ctl(),
+      body: JSON.stringify({ name: 'Upload Test Project Team', memberIds: [userId] }),
+    }).then(r => r.json());
+    await fetch('/api/products', {
+      method: 'POST', headers: h(), signal: ctl(),
+      body: JSON.stringify({ name: 'Upload Test Project', teamId, deadline: '2027-12-31' }),
+    });
+  }).catch(() => {});
+
+  // Single navigation to kanban — React fetches the new product on load
+  await page.goto('/kanban', { waitUntil: 'load' });
+  // Wait for the product name to appear in the header (ProductContext has loaded)
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('header');
+      return el && el.textContent?.includes('Upload Test Project');
+    },
+    { timeout: 25_000 }
+  ).catch(() => {});
+  // Open the chat panel
+  const chatBtn = page.getByTitle('Project chat');
+  await chatBtn.waitFor({ state: 'visible', timeout: 20_000 });
+  await chatBtn.click();
+
+  // Wait for the ChatPanel to open (it renders a textarea for composing)
+  await expect(page.getByPlaceholder(/write a message/i)).toBeVisible({ timeout: 8_000 });
 
   return { page, u };
 }
@@ -91,25 +116,29 @@ test.describe('File attachments in messages', () => {
     // Set the file on the input (works even if hidden)
     await fileInput.setInputFiles(pngFixturePath());
 
-    // Wait for the attachment to appear (preview or filename badge)
+    // Wait for the attachment to appear in the compose area (thumbnail or filename)
+    // PNG files render as <img alt="test-image.png"> thumbnails, not visible text
     const attachmentPreview = page
-      .getByText(/test-image\.png/i)
-      .or(page.locator('[data-testid="attachment-preview"]'))
-      .or(page.locator('.attachment, [class*="attachment"]'));
+      .locator('img[alt*="test-image"]')
+      .or(page.locator('img[src*="/api/uploads/"]'))
+      .or(page.getByText(/test-image\.png/i))
+      .or(page.locator('[data-testid="attachment-preview"]'));
 
     const appeared = await attachmentPreview.first().isVisible({ timeout: 8_000 }).catch(() => false);
     if (!appeared) {
-      // Fallback: the file might have been uploaded immediately and appear in the message
-      // Try sending a message with the attachment
+      // Fallback: send a message with the attachment and check the message bubble
       const msgInput = page
         .getByRole('textbox', { name: /message/i })
         .or(page.locator('[data-testid="message-input"], textarea[placeholder*="message" i]'))
         .first();
       if (await msgInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await msgInput.fill('Here is the file');
-        await page.keyboard.press('Enter');
+        await page.keyboard.press('Control+Enter');
+        // PNG → <img alt="test-image.png"> in MessageBubble; non-image → <a> with filename
         await expect(
-          page.getByText(/test-image\.png/i).or(page.locator('[href*="/api/uploads/"]')),
+          page.locator('img[alt*="test-image"], img[src*="/api/uploads/"]')
+            .or(page.getByText(/test-image\.png/i))
+            .or(page.locator('[href*="/api/uploads/"]')),
         ).toBeVisible({ timeout: 8_000 });
       }
     }
@@ -124,14 +153,11 @@ test.describe('File attachments in messages', () => {
     await fileInput.setInputFiles(pngFixturePath());
 
     // Wait for upload to complete and send the message
-    const msgInput = page
-      .getByRole('textbox', { name: /message/i })
-      .or(page.locator('[data-testid="message-input"], textarea[placeholder*="message" i]'))
-      .first();
+    const msgInput = page.getByPlaceholder(/write a message/i).first();
 
     if (await msgInput.isVisible({ timeout: 4_000 }).catch(() => false)) {
       await msgInput.fill('Attachment link test');
-      await page.keyboard.press('Enter');
+      await page.keyboard.press('Control+Enter');
     }
 
     // The attachment link should reference /api/uploads/
@@ -176,26 +202,21 @@ test.describe('Uploaded file persistence', () => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(pngFixturePath());
 
-    const msgInput = page
-      .getByRole('textbox', { name: /message/i })
-      .or(page.locator('[data-testid="message-input"], textarea[placeholder*="message" i]'))
-      .first();
+    const msgInput = page.getByPlaceholder(/write a message/i).first();
 
     if (await msgInput.isVisible({ timeout: 4_000 }).catch(() => false)) {
       await msgInput.fill('Reload test');
-      await page.keyboard.press('Enter');
+      await page.keyboard.press('Control+Enter');
       await page.waitForTimeout(500); // wait for message to appear
     }
 
-    // Reload and check the attachment link is still there
+    // Reload and re-open the chat panel
     await page.reload();
-
-    // Navigate back to Messages tab after reload
-    const messagesTab = page
-      .getByRole('tab', { name: /messages/i })
-      .or(page.getByRole('link', { name: /messages/i }));
-    if (await messagesTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await messagesTab.first().click();
+    await page.waitForTimeout(1_000);
+    const chatBtn = page.getByTitle('Project chat');
+    if (await chatBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await chatBtn.click();
+      await page.waitForTimeout(500);
     }
 
     const link = page.locator('a[href*="/api/uploads/"]');
