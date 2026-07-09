@@ -427,6 +427,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           <Tooltip content={chatIsAdmin ? 'Admin chat' : 'Project chat'} side="bottom">
           <button
             onClick={onOpenChat}
+            title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
+            aria-label={chatIsAdmin ? 'Admin chat' : 'Project chat'}
             className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
             style={{
               color: (chatIsAdmin || chatOpen) ? 'var(--brand)' : 'var(--text-3)',
