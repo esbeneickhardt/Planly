@@ -70,6 +70,9 @@ export async function loginViaAPI(
  * Reloads the page afterwards so ProductContext picks up the new product.
  */
 export async function createProjectViaTopBar(page: Page, name = 'E2E Project') {
+  // Wait for the current navigation to fully settle before evaluating — in CI the
+  // post-registration redirect may still be in flight, which destroys the JS context.
+  await page.waitForLoadState('load');
   // Suppress the "How Planly works" welcome modal that auto-shows on first project creation
   await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1'));
 

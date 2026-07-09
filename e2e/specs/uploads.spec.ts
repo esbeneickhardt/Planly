@@ -19,6 +19,8 @@ async function setupAndNavigateToMessages(browser: import('@playwright/test').Br
   const skipBtn = page.getByRole('button', { name: /skip|get started|close/i });
   if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) await skipBtn.click();
 
+  // Wait for the page to be stable before evaluating (CI: post-registration redirect may still be in flight)
+  await page.waitForLoadState('load');
   // Suppress welcome modal for new products
   await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1'));
 
@@ -42,8 +44,8 @@ async function setupAndNavigateToMessages(browser: import('@playwright/test').Br
     });
   }).catch(() => {});
 
-  // Single navigation to kanban — React fetches the new product on load
-  await page.goto('/kanban', { waitUntil: 'load' });
+  // Single navigation to kanban. domcontentloaded fires before lazy JS chunks.
+  await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
   // Wait for the product name to appear in the header (ProductContext has loaded)
   await page.waitForFunction(
     () => {
