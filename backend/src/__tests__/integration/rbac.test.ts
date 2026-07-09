@@ -16,7 +16,7 @@ async function loginAs(app: FastifyInstance, email: string, password: string) {
     url: '/api/auth/login',
     payload: { identifier: email, password },
   });
-  const cookie = res.headers['set-cookie'] as string;
+  const cookie = res.headers['set-cookie']?.[0] ?? '';
   return (cookie.split(';')[0] ?? '').replace('token=', '');
 }
 

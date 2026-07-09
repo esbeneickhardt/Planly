@@ -29,7 +29,7 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
       url: '/api/auth/login',
       payload: { identifier: adminEmail, password: 'pass1234' },
     });
-    const cookie = loginRes.headers['set-cookie'] as string;
+    const cookie = loginRes.headers['set-cookie']?.[0] ?? '';
     adminToken = (cookie.split(';')[0] ?? '').replace('token=', '');
   });
 
@@ -118,10 +118,10 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
     teamId = team.id;
 
     const adminLogin = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: adminEmail, password: 'pass1234' } });
-    adminToken = ((adminLogin.headers['set-cookie'] as string).split(';')[0] ?? '').replace('token=', '');
+    adminToken = (adminLogin.headers['set-cookie']?.[0]?.split(';')[0] ?? '').replace('token=', '');
 
     const memberLogin = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: memberEmail, password: 'pass1234' } });
-    memberToken = ((memberLogin.headers['set-cookie'] as string).split(';')[0] ?? '').replace('token=', '');
+    memberToken = (memberLogin.headers['set-cookie']?.[0]?.split(';')[0] ?? '').replace('token=', '');
 
     // Disable project creation for non-admins
     await prisma.serverConfig.upsert({
