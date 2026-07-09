@@ -15,7 +15,7 @@ async function setupUserAndProduct(browser: Parameters<typeof browser.newPage>[0
   const skipBtn = page.getByRole('button', { name: /skip|get started|close/i });
   if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) await skipBtn.click();
   // Wait for the page to be stable before evaluating (CI: post-registration redirect may still be in flight)
-  await page.waitForLoadState('load');
+  await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
   // Suppress welcome modal for new products
   await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1'));
   // Create project + column via API in one round-trip — much faster than UI flow
