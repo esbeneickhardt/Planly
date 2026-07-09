@@ -53,7 +53,7 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
       method: 'POST',
       url: `/api/products/${productId}/canvas-snapshots`,
       headers: { cookie },
-      payload: { name: 'Snapshot v1', data: { nodes: [], edges: [] } },
+      payload: { name: 'Snapshot v1', positions: {}, viewport: { x: 0, y: 0, zoom: 1 } },
     });
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.body);
@@ -65,7 +65,7 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
       method: 'POST',
       url: `/api/products/${productId}/canvas-snapshots`,
       headers: { cookie },
-      payload: { name: 'To Delete', data: {} },
+      payload: { name: 'To Delete', positions: {}, viewport: { x: 0, y: 0, zoom: 1 } },
     });
     const snap = JSON.parse(createRes.body);
 

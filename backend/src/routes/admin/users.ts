@@ -110,6 +110,6 @@ export async function adminUserRoutes(app: FastifyInstance) {
     if (!actor?.isFoundingAdmin) return reply.status(403).send({ error: 'Only the founding admin can delete users.' });
     await prisma.user.delete({ where: { id } });
     await prisma.adminLog.create({ data: { action: 'USER_DELETED', actorName: actor.username, targetName: target.username } });
-    reply.send({ ok: true });
+    reply.status(204).send();
   });
 }

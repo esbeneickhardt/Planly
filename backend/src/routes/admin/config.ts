@@ -97,6 +97,7 @@ export async function adminConfigRoutes(app: FastifyInstance) {
       }
     }
 
-    reply.send({ ok: true, verificationEmailsSent });
+    const updatedConfig = await getServerConfig();
+    reply.send({ ok: true, verificationEmailsSent, ...updatedConfig });
   });
 }

@@ -20,7 +20,8 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    await createTestUser({ email: adminEmail, username: `admin_${suffix}`, password: 'pass1234', isAdmin: true });
+    const adminUser = await createTestUser({ email: adminEmail, username: `admin_${suffix}`, password: 'pass1234', isAdmin: true });
+    await prisma.user.update({ where: { id: adminUser.id }, data: { isFoundingAdmin: true } });
     const target = await createTestUser({ email: targetEmail, username: `target_${suffix}`, password: 'pass1234' });
     targetId = target.id;
 
