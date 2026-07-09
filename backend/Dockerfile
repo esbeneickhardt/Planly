@@ -10,7 +10,7 @@ RUN npm run build
 
 FROM node:26-alpine
 WORKDIR /app
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl && npm install -g npm@latest
 # Run as non-root for defence-in-depth
 RUN addgroup -S planly && adduser -S planly -G planly
 COPY package*.json ./
