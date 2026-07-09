@@ -11,6 +11,7 @@ import { uniqueUser, registerViaUI, createProjectViaTopBar, createColumnOnKanban
 async function loginAndGoToKanban(browser: import('@playwright/test').Browser) {
   const u = uniqueUser('kb');
   const page = await browser.newPage();
+  await page.context().clearCookies();
   await registerViaUI(page, u.email, u.username, u.password);
 
   // Dismiss onboarding modal if present
@@ -19,7 +20,7 @@ async function loginAndGoToKanban(browser: import('@playwright/test').Browser) {
 
   // Create a project via the project picker dropdown in the TopBar
   await createProjectViaTopBar(page, 'Kanban Project');
-  await page.goto('/kanban');
+  await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitForKanbanReady(page);
   // Create one column so the board is not empty
   await createColumnOnKanban(page, 'To Do');
@@ -93,6 +94,7 @@ test.describe('Kanban board', () => {
     // This test only needs the kanban page to load — no column needed
     const u = uniqueUser('kb');
     const page = await browser.newPage();
+    await page.context().clearCookies();
     await registerViaUI(page, u.email, u.username, u.password);
     const skip = page.getByRole('button', { name: /skip|get started|close/i });
     if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) await skip.click();
@@ -107,6 +109,7 @@ test.describe('Kanban board', () => {
     // This test only needs the kanban page to load at mobile viewport — no column needed
     const u = uniqueUser('kb');
     const page = await browser.newPage();
+    await page.context().clearCookies();
     await registerViaUI(page, u.email, u.username, u.password);
     const skip = page.getByRole('button', { name: /skip|get started|close/i });
     if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) await skip.click();

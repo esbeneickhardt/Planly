@@ -5,53 +5,24 @@
  * so tests are fully isolated.
  */
 import { test, expect } from '@playwright/test';
-import { uniqueUser, registerViaUI } from '../fixtures/auth.fixture';
+import { uniqueUser, registerViaUI, createProjectViaTopBar, waitForKanbanReady, createColumnOnKanban } from '../fixtures/auth.fixture';
 
-async function setupUserAndProduct(browser: Parameters<typeof browser.newPage>[0] extends never ? never : import('@playwright/test').Browser) {
+async function setupUserAndProduct(browser: import('@playwright/test').Browser) {
   const u = uniqueUser('task');
   const page = await browser.newPage();
+  await page.context().clearCookies();
   await registerViaUI(page, u.email, u.username, u.password);
-  // Dismiss onboarding modal if present
+
   const skipBtn = page.getByRole('button', { name: /skip|get started|close/i });
   if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) await skipBtn.click();
-  // Wait for the page to be stable before evaluating (CI: post-registration redirect may still be in flight)
-  await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
-  // Suppress welcome modal for new products
-  await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1'));
-  // Create project + column via API in one round-trip — much faster than UI flow
-  await page.evaluate(async () => {
-    const ctl = () => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; };
-    const h = (): Record<string, string> => {
-      const csrf = document.cookie.split('; ').find(c => c.startsWith('csrf='))?.split('=')[1];
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (csrf) headers['X-CSRF-Token'] = csrf;
-      return headers;
-    };
-    const { id: userId } = await fetch('/api/auth/me', { headers: h(), signal: ctl() }).then(r => r.json());
-    const { id: teamId } = await fetch('/api/teams', {
-      method: 'POST', headers: h(), signal: ctl(),
-      body: JSON.stringify({ name: 'E2E Project Team', memberIds: [userId] }),
-    }).then(r => r.json());
-    const { id: productId } = await fetch('/api/products', {
-      method: 'POST', headers: h(), signal: ctl(),
-      body: JSON.stringify({ name: 'E2E Project', teamId, deadline: '2027-12-31' }),
-    }).then(r => r.json());
-    await fetch(`/api/products/${productId}/columns`, {
-      method: 'POST', headers: h(), signal: ctl(),
-      body: JSON.stringify({ label: 'To Do', color: '#64748b' }),
-    });
-  }).catch(() => {});
-  // Single navigation to kanban — React fetches the new product + column on load.
-  // domcontentloaded fires as soon as HTML is parsed (no wait for lazy JS chunks).
-  // Explicit 30s cap so a slow response fails fast and triggers a retry.
-  await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
-  // Wait until both the column and "New task" button are interactive
-  await page.waitForFunction(() => {
-    const col = document.querySelector('.kanban-col');
-    if (!col) return false;
-    const buttons = Array.from(col.querySelectorAll('button'));
-    return buttons.some(b => b.textContent?.includes('New task'));
-  }, { timeout: 35_000 }).catch(() => {});
+
+  // createProjectViaTopBar ends with page.reload(), which forces cookie re-sync
+  // before any subsequent page.request calls — same pattern as loginAndGoToKanban
+  await createProjectViaTopBar(page, 'Task Project');
+  await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await waitForKanbanReady(page);
+  await createColumnOnKanban(page, 'To Do');
+
   return { page, u };
 }
 
