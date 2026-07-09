@@ -122,6 +122,9 @@ jobs:
             echo "SMTP_USER="
             echo "SMTP_PASS="
             echo "ADMIN_EMAIL=${{ secrets.E2E_ADMIN_EMAIL }}"
+            echo "RATE_LIMIT_LOGIN_MAX=1000"
+            echo "RATE_LIMIT_REGISTER_MAX=1000"
+            echo "COOKIE_SECURE=false"
           } > .env
       - name: Start app stack
         run: |

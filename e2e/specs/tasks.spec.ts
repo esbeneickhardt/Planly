@@ -14,6 +14,8 @@ async function setupUserAndProduct(browser: Parameters<typeof browser.newPage>[0
   // Dismiss onboarding modal if present
   const skipBtn = page.getByRole('button', { name: /skip|get started|close/i });
   if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) await skipBtn.click();
+  // Wait for the page to be stable before evaluating (CI: post-registration redirect may still be in flight)
+  await page.waitForLoadState('load');
   // Suppress welcome modal for new products
   await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1'));
   // Create project + column via API in one round-trip — much faster than UI flow
@@ -39,8 +41,10 @@ async function setupUserAndProduct(browser: Parameters<typeof browser.newPage>[0
       body: JSON.stringify({ label: 'To Do', color: '#64748b' }),
     });
   }).catch(() => {});
-  // Single navigation to kanban — React fetches the new product + column on load
-  await page.goto('/kanban', { waitUntil: 'load' });
+  // Single navigation to kanban — React fetches the new product + column on load.
+  // domcontentloaded fires as soon as HTML is parsed (no wait for lazy JS chunks).
+  // Explicit 30s cap so a slow response fails fast and triggers a retry.
+  await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
   // Wait until both the column and "New task" button are interactive
   await page.waitForFunction(() => {
     const col = document.querySelector('.kanban-col');
