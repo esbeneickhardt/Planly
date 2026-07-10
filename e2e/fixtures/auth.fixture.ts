@@ -73,20 +73,28 @@ export async function createProjectViaTopBar(page: Page, name = 'E2E Project') {
   await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
   await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1')).catch(() => {});
 
+  // Read the csrf cookie from Chromium's actual store so we can satisfy the
+  // double-submit CSRF check on POST calls. page.request omits the Origin header
+  // on same-host requests in some CI environments, which skips Layer 1 and
+  // triggers Layer 2 (X-CSRF-Token required). We satisfy Layer 2 explicitly.
+  const csrfToken = await page.evaluate(
+    () => document.cookie.split('; ').find(c => c.startsWith('csrf='))?.split('=')[1] ?? ''
+  );
+
   const meRes = await page.request.get('/api/auth/me');
   if (!meRes.ok()) throw new Error(`auth/me failed: ${meRes.status()}`);
   const { id: userId } = await meRes.json();
 
   const teamRes = await page.request.post('/api/teams', {
     data: { name: `${name} Team`, memberIds: [userId] },
-    headers: { Origin: BASE },
+    headers: { 'X-CSRF-Token': csrfToken },
   });
   if (!teamRes.ok()) throw new Error(`create team failed: ${teamRes.status()}`);
   const { id: teamId } = await teamRes.json();
 
   const prodRes = await page.request.post('/api/products', {
     data: { name, teamId, deadline: '2027-12-31' },
-    headers: { Origin: BASE },
+    headers: { 'X-CSRF-Token': csrfToken },
   });
   if (!prodRes.ok()) throw new Error(`create product failed: ${prodRes.status()}`);
 

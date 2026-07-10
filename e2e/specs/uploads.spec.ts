@@ -6,7 +6,7 @@
  */
 import { test, expect } from '@playwright/test';
 import path from 'path';
-import { uniqueUser, registerViaUI, BASE } from '../fixtures/auth.fixture';
+import { uniqueUser, registerViaUI } from '../fixtures/auth.fixture';
 
 // ── Shared setup ────────────────────────────────────────────────────────────
 
@@ -23,22 +23,27 @@ async function setupAndNavigateToMessages(browser: import('@playwright/test').Br
   await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
   await page.evaluate(() => localStorage.setItem('planly_seen_welcome_v1', '1'));
 
-  // Use page.request — runs Node-side with the page's auth cookies automatically
-  // included. Errors surface clearly instead of being swallowed by evaluate+catch.
+  // Read the csrf cookie from Chromium's actual store to satisfy the double-submit
+  // CSRF check. page.request omits Origin on same-host requests in some CI
+  // environments, triggering Layer 2 (X-CSRF-Token required).
+  const csrfToken = await page.evaluate(
+    () => document.cookie.split('; ').find(c => c.startsWith('csrf='))?.split('=')[1] ?? ''
+  );
+
   const meRes = await page.request.get('/api/auth/me');
   if (!meRes.ok()) throw new Error(`auth/me failed: ${meRes.status()}`);
   const { id: userId } = await meRes.json();
 
   const teamRes = await page.request.post('/api/teams', {
     data: { name: 'Upload Test Project Team', memberIds: [userId] },
-    headers: { Origin: BASE },
+    headers: { 'X-CSRF-Token': csrfToken },
   });
   if (!teamRes.ok()) throw new Error(`create team failed: ${teamRes.status()}`);
   const { id: teamId } = await teamRes.json();
 
   const prodRes = await page.request.post('/api/products', {
     data: { name: 'Upload Test Project', teamId, deadline: '2027-12-31' },
-    headers: { Origin: BASE },
+    headers: { 'X-CSRF-Token': csrfToken },
   });
   if (!prodRes.ok()) throw new Error(`create product failed: ${prodRes.status()}`);
 
