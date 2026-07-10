@@ -22,6 +22,16 @@ async function setupUserAndProduct(browser: import('@playwright/test').Browser) 
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitForKanbanReady(page);
   await createColumnOnKanban(page, 'To Do');
+  // Wait until the "New task" button is rendered inside the column so tests
+  // don't race against React finishing the column's initial render.
+  await page.waitForFunction(
+    () => {
+      const col = document.querySelector('.kanban-col');
+      if (!col) return false;
+      return Array.from(col.querySelectorAll('button')).some(b => b.textContent?.trim().includes('New task'));
+    },
+    { timeout: 20_000 }
+  ).catch(() => {});
 
   return { page, u };
 }

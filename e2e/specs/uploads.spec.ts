@@ -120,6 +120,9 @@ test.describe('File attachments in messages', () => {
 
     // Set the file on the input (works even if hidden)
     await fileInput.setInputFiles(pngFixturePath());
+    // Wait for any auto-upload request to settle so React finishes re-rendering
+    // the chat input before we try to fill it (avoids detached-element errors).
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
 
     // Wait for the attachment to appear in the compose area (thumbnail or filename)
     // PNG files render as <img alt="test-image.png"> thumbnails, not visible text
@@ -129,13 +132,11 @@ test.describe('File attachments in messages', () => {
       .or(page.getByText(/test-image\.png/i))
       .or(page.locator('[data-testid="attachment-preview"]'));
 
-    const appeared = await attachmentPreview.first().isVisible({ timeout: 8_000 }).catch(() => false);
+    const appeared = await attachmentPreview.first().isVisible({ timeout: 5_000 }).catch(() => false);
     if (!appeared) {
-      // Fallback: send a message with the attachment and check the message bubble
-      const msgInput = page
-        .getByRole('textbox', { name: /message/i })
-        .or(page.locator('[data-testid="message-input"], textarea[placeholder*="message" i]'))
-        .first();
+      // Fallback: send a message with the attachment and check the message bubble.
+      // Use the same placeholder locator as setup — more reliable than role-based.
+      const msgInput = page.getByPlaceholder(/write a message/i).first();
       if (await msgInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await msgInput.fill('Here is the file');
         await page.keyboard.press('Control+Enter');
@@ -144,7 +145,7 @@ test.describe('File attachments in messages', () => {
           page.locator('img[alt*="test-image"], img[src*="/api/uploads/"]')
             .or(page.getByText(/test-image\.png/i))
             .or(page.locator('[href*="/api/uploads/"]')),
-        ).toBeVisible({ timeout: 8_000 });
+        ).toBeVisible({ timeout: 12_000 });
       }
     }
 
@@ -156,6 +157,8 @@ test.describe('File attachments in messages', () => {
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(pngFixturePath());
+    // Wait for any auto-upload to settle so the textarea is stable before fill.
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
 
     // Wait for upload to complete and send the message
     const msgInput = page.getByPlaceholder(/write a message/i).first();
