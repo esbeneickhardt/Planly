@@ -15,7 +15,7 @@ export async function getServerConfig(): Promise<ServerConfigValues> {
   return {
     requireEmailVerification: row?.requireEmailVerification ?? false,
     requireWhitelist: row?.requireWhitelist ?? false,
-    allowProjectCreation: row?.allowProjectCreation ?? false,
+    allowProjectCreation: row?.allowProjectCreation ?? true,
     announcementsEnabled: row?.announcementsEnabled ?? false,
     announcementPostRole: row?.announcementPostRole ?? 'admin',
     ipRestrictionMode: row?.ipRestrictionMode ?? 'disabled',
