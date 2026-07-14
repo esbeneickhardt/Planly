@@ -150,7 +150,7 @@ curl -s -b cookies.txt $BASE/api/admin/projects | jq '.[].name'
 
 > Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) (email-config CRUD - password encrypted at rest, not returned in GET) · [frontend/src/pages/admin/AdminEmail.tsx](../../frontend/src/pages/admin/AdminEmail.tsx)
 
-See also [17-settings.md](17-settings.md) for product-level email tests.
+See also [16-settings.md](16-settings.md) for product-level email tests.
 
 ```bash
 # Get current email config
