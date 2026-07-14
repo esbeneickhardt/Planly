@@ -1,31 +1,37 @@
-# 03 - Deployment & Configuration
+# 02 - Deployment & Configuration
 
 ← [Back to index](README.md)
 
----
-
-## Fresh install flow
-
-> Code: [docker-compose.yml](../../docker-compose.yml) · [backend/src/index.ts](../../backend/src/index.ts) (health routes, startup log) · [backend/src/config/env.ts](../../backend/src/config/env.ts) (required-var validation)
-
-- [ ] `cp .env.example .env` and fill in three required secrets
-- [ ] `docker compose up --build` completes without errors
-- [ ] All three containers are running: `docker compose ps` shows `db`, `backend`, `frontend` all healthy
-- [ ] `GET /api/health` returns `{ "ok": true }` within 30 seconds of start
-- [ ] `GET /api/health/ready` returns 200 (database connected)
-- [ ] `http://localhost` shows the login page
-- [ ] Backend logs show startup message and no error stack traces
+> **Note:** Basic startup checks (containers up, app reachable at `http://localhost`, login page shown, backend logs clean, founding admin account created) were all verified in [01-setup.md](01-setup.md). This section covers deployment configuration, health endpoints, and env var behaviour only.
 
 ---
 
-## ADMIN_EMAIL bootstrap
+## Health endpoints
+
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (`/api/health` and `/api/health/ready` route handlers)
+
+```bash
+# Basic health
+curl -s $BASE/api/health | jq .
+# Expected: { "ok": true }
+
+# Readiness (checks DB)
+curl -s $BASE/api/health/ready | jq .
+# Expected: 200 with DB status
+```
+
+- [ ] `GET /api/health` returns 200 with `{ "ok": true }`
+- [ ] `GET /api/health/ready` returns 200 when DB is connected
+- [ ] Stop the DB container: `GET /api/health/ready` returns non-200
+
+---
+
+## ADMIN_EMAIL bootstrap — edge cases
 
 > Code: [backend/src/index.ts](../../backend/src/index.ts) (search for `ADMIN_EMAIL` - promotes/creates the founding admin on startup)
+>
+> Basic bootstrap (set `ADMIN_EMAIL`, backend log confirms creation, shield button visible) was verified in [01-setup.md](01-setup.md). Test the edge cases here:
 
-- [ ] Set `ADMIN_EMAIL=test@example.com` in `.env` before first start
-- [ ] On first start, backend logs show `[admin] Created founding admin: test@example.com` (or similar)
-- [ ] Register with that email → shield button 🛡 appears
-- [ ] Register with a different email → no shield button
 - [ ] Set `ADMIN_EMAIL` to an **already-registered** non-admin email, restart → that user gains admin
 - [ ] After restart, removing `ADMIN_EMAIL` from `.env` does NOT revoke the admin flag
 
@@ -59,27 +65,7 @@ Test that missing each required variable causes a clear startup error:
 > Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) · [backend/src/routes/ip-restrictions.ts](../../backend/src/routes/ip-restrictions.ts) (reads real IP from X-Forwarded-For using the configured depth)
 
 - [ ] Default (`1`) - real IP is read from `X-Forwarded-For` (first hop)
-- [ ] Confirm IP restriction features use the correct real IP (see [23-security.md](23-security.md))
-
----
-
-## Health endpoints
-
-> Code: [backend/src/index.ts](../../backend/src/index.ts) (`/api/health` and `/api/health/ready` route handlers)
-
-```bash
-# Basic health
-curl -s $BASE/api/health | jq .
-# Expected: { "ok": true }
-
-# Readiness (checks DB)
-curl -s $BASE/api/health/ready | jq .
-# Expected: 200 with DB status
-```
-
-- [ ] `GET /api/health` returns 200 with `{ "ok": true }`
-- [ ] `GET /api/health/ready` returns 200 when DB is connected
-- [ ] Stop the DB container: `GET /api/health/ready` returns non-200
+- [ ] Confirm IP restriction features use the correct real IP (see [22-security.md](22-security.md))
 
 ---
 
@@ -187,7 +173,7 @@ FRONTEND_PORT=8080
 
 ## SECURITY_ALERT_WEBHOOK_URL
 
-> Code: [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (fires on account lockout) · [04-auth.md](04-auth.md) (lockout test)
+> Code: [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (fires on account lockout) · [03-auth.md](03-auth.md) (lockout test)
 
 Use a free request inspector like [webhook.site](https://webhook.site) to capture the payload without needing a real Slack setup.
 

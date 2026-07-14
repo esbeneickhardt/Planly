@@ -99,7 +99,7 @@ Navigate to Settings in Alpha Project. Test as Admin (co-owner), then verify res
 
 > Code: [frontend/src/pages/settings/SettingsWebhooks.tsx](../../frontend/src/pages/settings/SettingsWebhooks.tsx) · [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts)
 
-Full webhook test in [19-webhooks.md](19-webhooks.md). Basic UI check here:
+Full webhook test in [18-webhooks.md](18-webhooks.md). Basic UI check here:
 
 - [ ] Webhook list loads without error
 - [ ] "New Webhook" button opens creation form
@@ -115,7 +115,7 @@ Full webhook test in [19-webhooks.md](19-webhooks.md). Basic UI check here:
 
 > Code: [frontend/src/pages/settings/SettingsApps.tsx](../../frontend/src/pages/settings/SettingsApps.tsx) · [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts)
 
-Full app registration tests in [18-api-tokens-and-apps.md](18-api-tokens-and-apps.md). UI check:
+Full app registration tests in [17-api-tokens-and-apps.md](17-api-tokens-and-apps.md). UI check:
 
 - [ ] App registrations list loads
 - [ ] "New App Registration" creates a new one

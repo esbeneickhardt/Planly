@@ -97,7 +97,7 @@ Default permissions per SECURITY.md:
 
 > Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (scope stored on token; middleware enforces `productId` match and blocks admin endpoints for scoped tokens) · [backend/src/middleware/auth.ts](../../backend/src/middleware/auth.ts) (Bearer token lookup and scope check)
 
-See also [18-api-tokens-and-apps.md](18-api-tokens-and-apps.md).
+See also [17-api-tokens-and-apps.md](17-api-tokens-and-apps.md).
 
 ```bash
 # Create PAT scoped to Alpha Project
