@@ -8,6 +8,8 @@ Navigate to `/canvas` in Alpha Project.
 
 ## Canvas nodes
 
+> Code: [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (React Flow canvas: renders nodes from task list) · [frontend/src/components/canvas/nodes/TaskNode.tsx](../../frontend/src/components/canvas/nodes/TaskNode.tsx) (node content: name, status badge, owner avatar, deadline, milestone indicator)
+
 ```bash
 # Get all task connections (canvas positions are part of task objects)
 curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/connections | jq .
@@ -24,6 +26,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/connections | jq .
 
 ## Node creation
 
+> Code: [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (double-click handler creates task, saves position) · [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (POST + PATCH position)
+
 - [ ] Double-click on blank canvas area → creates a new task node
 - [ ] New task modal appears (name required)
 - [ ] After creating, node appears at the double-clicked location
@@ -33,6 +37,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/connections | jq .
 
 ## Node movement
 
+> Code: [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (drag-end handler calls `PATCH /tasks/:id/position`) · [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (position endpoint)
+
 - [ ] Drag a node to a new position → position saved on mouse-up
 - [ ] After reload, node is at the same position
 - [ ] Moving multiple nodes works independently
@@ -40,6 +46,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/connections | jq .
 ---
 
 ## Dependency arrows (connections)
+
+> Code: [backend/src/routes/connections.ts](../../backend/src/routes/connections.ts) (create/delete/list connections; cycle detection rejects reverse edges) · [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (draw handle → drag to target → POST connection)
 
 ```bash
 # Get connections graph
@@ -71,6 +79,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/connections/<tas
 
 ## Canvas snapshots (`/api/products/:productId/canvas-snapshots`)
 
+> Code: [backend/src/routes/canvas-snapshots.ts](../../backend/src/routes/canvas-snapshots.ts) (save named layout, list, delete) · [frontend/src/hooks/useCanvasSnapshots.ts](../../frontend/src/hooks/useCanvasSnapshots.ts) (fetch/restore logic)
+
 ```bash
 # Save a snapshot
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/canvas-snapshots \
@@ -97,6 +107,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/canvas-snapshots
 
 ## Legend modal
 
+> Code: [frontend/src/components/canvas/LegendModal.tsx](../../frontend/src/components/canvas/LegendModal.tsx) · [frontend/src/hooks/useColorLegend.ts](../../frontend/src/hooks/useColorLegend.ts) · [backend/src/routes/color-legend.ts](../../backend/src/routes/color-legend.ts)
+
 - [ ] Open Legend modal (button on canvas toolbar)
 - [ ] Shows colour legend for the product (from `colorLegend` route)
 - [ ] Closing modal returns to canvas
@@ -104,6 +116,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/canvas-snapshots
 ---
 
 ## Color legend (`/api/products/:productId/color-legend`)
+
+> Code: [backend/src/routes/color-legend.ts](../../backend/src/routes/color-legend.ts) (`GET/PUT`) · [frontend/src/pages/settings/SettingsColors.tsx](../../frontend/src/pages/settings/SettingsColors.tsx) (editor UI)
 
 ```bash
 # Get legend

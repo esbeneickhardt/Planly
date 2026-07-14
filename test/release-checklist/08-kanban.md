@@ -8,6 +8,8 @@ Navigate to `/kanban` in Alpha Project as Admin, then repeat key checks as Alice
 
 ## Columns (`/api/products/:productId/columns`)
 
+> Code: [backend/src/routes/columns.ts](../../backend/src/routes/columns.ts) (CRUD + reorder; prevents deleting last column; moves tasks to first column on delete) · [frontend/src/components/kanban/KanbanColumn.tsx](../../frontend/src/components/kanban/KanbanColumn.tsx) (column header: name, sort toggle, add-task button)
+
 ```bash
 # Create column
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/columns \
@@ -47,6 +49,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 
 ### Per-column sort
 
+> Code: [frontend/src/components/kanban/KanbanColumn.tsx](../../frontend/src/components/kanban/KanbanColumn.tsx) (sort-mode toggle cycling through custom / deadline / alphabetical)
+
 - [ ] Click sort icon (⇅) on a column header → cycles through sort modes
 - [ ] "Deadline" sort: tasks with deadline nearest-first, no-deadline last
 - [ ] "Alphabetical" sort works
@@ -57,6 +61,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 
 ## Drag and drop
 
+> Code: [frontend/src/components/kanban/KanbanBoard.tsx](../../frontend/src/components/kanban/KanbanBoard.tsx) (drag-end handler: PATCH task status + PATCH tasks/reorder) · [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (reorder endpoint) · [backend/src/realtime/manager.ts](../../backend/src/realtime/manager.ts) (broadcasts position change to other clients)
+
 - [ ] Drag task card from one column to another → status updates immediately
 - [ ] Dragged task position persists after reload
 - [ ] Drag task within same column to reorder → order persists
@@ -66,6 +72,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 ---
 
 ## Filters
+
+> Code: [frontend/src/pages/KanbanPage.tsx](../../frontend/src/pages/KanbanPage.tsx) (filter state, active-filter count) · [frontend/src/components/kanban/KanbanBoard.tsx](../../frontend/src/components/kanban/KanbanBoard.tsx) (applies filters to task list)
 
 - [ ] **Mine toggle**: click "Mine" → only tasks owned by current user shown; task count updates
 - [ ] **Owner filter**: click owner avatar → filter by that owner; multi-select works
@@ -79,6 +87,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 
 ## Compact view (table)
 
+> Code: [frontend/src/pages/KanbanPage.tsx](../../frontend/src/pages/KanbanPage.tsx) (board/compact toggle, view-mode persisted to localStorage)
+
 - [ ] Click "☰ Compact" toggle → board switches to table view
 - [ ] All tasks shown in table with columns: name, status, owner, deadline, colour
 - [ ] Click table column header → sort by that column
@@ -91,6 +101,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 
 ## Backgrounds (desktop only)
 
+> Code: [frontend/src/constants/kanbanBackgrounds.ts](../../frontend/src/constants/kanbanBackgrounds.ts) (background options) · [frontend/src/pages/KanbanPage.tsx](../../frontend/src/pages/KanbanPage.tsx) (background picker, saved to localStorage)
+
 - [ ] Background picker button visible at ≥ 1024px width
 - [ ] Select a background → board background changes
 - [ ] Background preference persists across reload
@@ -99,6 +111,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 ---
 
 ## New task creation from board
+
+> Code: [frontend/src/components/kanban/KanbanColumn.tsx](../../frontend/src/components/kanban/KanbanColumn.tsx) (inline task input, Enter to submit) · [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (POST handler)
 
 - [ ] Click + button at top of a column → inline task creation or modal
 - [ ] Type task name → press Enter or click "Add" → task appears at top of column
@@ -109,6 +123,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 
 ## Sprint filter on board
 
+> Code: [frontend/src/pages/KanbanPage.tsx](../../frontend/src/pages/KanbanPage.tsx) (sprint filter dropdown) · [frontend/src/hooks/useSprints.ts](../../frontend/src/hooks/useSprints.ts) (sprint list fetch)
+
 - [ ] Select "Sprint 1" in sprint filter → only Sprint 1 tasks shown
 - [ ] Select "No sprint" → tasks not in any sprint shown
 - [ ] Select "All" → all tasks shown
@@ -117,6 +133,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 ---
 
 ## Real-time updates
+
+> Code: [backend/src/realtime/manager.ts](../../backend/src/realtime/manager.ts) (broadcasts to product room) · [frontend/src/hooks/useRealtimeUpdates.ts](../../frontend/src/hooks/useRealtimeUpdates.ts) (handles incoming events, updates React state)
 
 Open the same board in two browser windows (or two users):
 
@@ -129,8 +147,6 @@ Open the same board in two browser windows (or two users):
 ---
 
 ## Mobile responsiveness
-
-Resize browser to 375px width:
 
 - [ ] Board renders without horizontal scroll at page level
 - [ ] Secondary filters (owner, colour, sprint) are hidden

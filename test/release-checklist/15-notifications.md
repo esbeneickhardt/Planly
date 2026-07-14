@@ -6,6 +6,8 @@
 
 ## Notification triggers
 
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (creates notification on task assignment) · [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (creates notification on `@mention` and on comment to assigned task) · [backend/src/routes/access-requests.ts](../../backend/src/routes/access-requests.ts) (notifies product owner on new request)
+
 Perform each action as Admin; verify Alice's bell updates in real time:
 
 - [ ] Assign a task to Alice → Alice gets a notification
@@ -16,6 +18,8 @@ Perform each action as Admin; verify Alice's bell updates in real time:
 ---
 
 ## Notification bell (UI)
+
+> Code: [frontend/src/components/common/NotificationBell.tsx](../../frontend/src/components/common/NotificationBell.tsx) (bell icon, unread badge count, dropdown panel, "Mark all read" button, click-to-navigate)
 
 - [ ] Bell icon visible in top bar for all logged-in users
 - [ ] Unread badge appears with count when Alice has unread notifications
@@ -29,6 +33,8 @@ Perform each action as Admin; verify Alice's bell updates in real time:
 ---
 
 ## Notification APIs
+
+> Code: [backend/src/routes/notifications.ts](../../backend/src/routes/notifications.ts) (list, unread-count, mark-read, mark-all-read, delete one, delete all; all scoped to current user)
 
 ```bash
 # List notifications
@@ -67,12 +73,16 @@ curl -s -b alice-cookies.txt -X DELETE $BASE/api/notifications \
 
 ## Real-time delivery
 
+> Code: [backend/src/realtime/manager.ts](../../backend/src/realtime/manager.ts) (pushes `notification` event over WebSocket to the target user's connection) · [frontend/src/hooks/useRealtimeUpdates.ts](../../frontend/src/hooks/useRealtimeUpdates.ts) (handles `notification` event, increments bell badge)
+
 - [ ] Assign task to Alice → Alice's bell badge increments without page reload (WebSocket)
 - [ ] Bell count is accurate in real time
 
 ---
 
 ## Admin notifications (`/api/admin/notifications`)
+
+> Code: [backend/src/routes/notifications.ts](../../backend/src/routes/notifications.ts) (admin sub-routes: separate feed for server-level events; guarded by `requireAdmin`)
 
 ```bash
 curl -s -b cookies.txt $BASE/api/admin/notifications | jq .
@@ -85,6 +95,8 @@ curl -s -b cookies.txt $BASE/api/admin/notifications/unread-count | jq .
 ---
 
 ## Notification preferences (`PATCH /api/users/:id/notification-preferences`)
+
+> Code: [backend/src/routes/users.ts](../../backend/src/routes/users.ts) (`notification-preferences` endpoint) · [frontend/src/components/common/NotificationPreferencesModal.tsx](../../frontend/src/components/common/NotificationPreferencesModal.tsx) (toggle UI for taskAssigned / mentioned / comments)
 
 ```bash
 curl -s -b alice-cookies.txt -X PATCH $BASE/api/users/<alice-id>/notification-preferences \
