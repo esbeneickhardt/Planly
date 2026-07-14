@@ -125,12 +125,12 @@ Log in as **Admin** and create these:
   - [X] Toast / success state shown
   - [X] Alice's browser now lists "Alpha Project" in the project picker
   - [X] Back in Admin's browser: Alice's row in **Settings → Team** now shows as a full member (no Pending badge)
-- [ ] Invite Bob the same way → Bob accepts → make Bob co-owner via the **Make co-owner** button
-- [ ] Confirm Alice (member) and Bob (co-owner) both appear in the Team tab as active members
+- [X] Invite Bob the same way → Bob accepts → make Bob co-owner via the **Make co-owner** button
+- [X] Confirm Alice (member) and Bob (co-owner) both appear in the Team tab as active members
 
 ### Project 2 - "Beta Project"
-- [ ] Click **New project** → name it "Beta Project" → click **Create project**
-- [ ] Do NOT invite Alice, Bob, or Charlie (Admin is sole member)
+- [X] Click **New project** → name it "Beta Project" → click **Create project**
+- [X] Do NOT invite Alice, Bob, or Charlie (Admin is sole member)
 
 ---
 
@@ -138,19 +138,19 @@ Log in as **Admin** and create these:
 
 > Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) · [backend/src/routes/sprints.ts](../../backend/src/routes/sprints.ts) · [backend/src/routes/columns.ts](../../backend/src/routes/columns.ts)
 
-- [ ] Create 5 tasks in Alpha Project (used throughout tests)
-- [ ] Create 1 sprint "Sprint 1" in Alpha Project
-- [ ] Assign 2 tasks to Sprint 1
-- [ ] Create 1 custom column "Review"
+- [X] Create 5 tasks in Alpha Project (used throughout tests)
+- [X] Create 1 sprint "Sprint 1" in Alpha Project
+- [X] Assign 2 tasks to Sprint 1
+- [X] Create 1 custom column "Review" in the Kanban board
 
 ---
 
 ## Tools checklist
 
-- [ ] Browser open at `http://localhost` with Admin session
-- [ ] Second browser window (or incognito) for Alice session
-- [ ] Third browser window for Charlie (outsider) session
-- [ ] Terminal ready with `BASE`, `ADMIN_EMAIL`, `ADMIN_PASS` variables set
+- [X] Browser open at `http://localhost` with Admin session
+- [X] Second browser window (or incognito) for Alice session
+- [X] Third browser window for Charlie (outsider) session
+- [X] Terminal ready with `BASE`, `ADMIN_EMAIL`, `ADMIN_PASS` variables set
 
 ---
 
