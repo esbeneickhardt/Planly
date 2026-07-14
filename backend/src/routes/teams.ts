@@ -7,6 +7,7 @@
  * Only co-owners can change team settings or manage members.
  */
 import { FastifyInstance } from 'fastify';
+import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
@@ -15,6 +16,7 @@ import { Prisma } from '@prisma/client';
 import { handleNotFound, handleConflict } from '../utils/prisma-errors';
 import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
 import { logAdminEvent } from '../utils/audit';
+import { createNotification } from '../utils/notifications';
 
 const addMemberSchema = z.object({ userId: z.string() });
 const updateRoleSchema = z.object({ role: z.enum(['member', 'co_owner']) });
@@ -92,21 +94,53 @@ export async function teamRoutes(app: FastifyInstance) {
     } catch (e) { handleNotFound(e, reply); }
   });
 
-  // Add a user to the team (admin only)
+  // Invite a user to the team (admin only) - creates a pending invite the user must accept
   app.post('/api/teams/:id/members', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
-    if (!status.isAdmin) return reply.status(403).send({ error: 'Only team admins can add members' });
+    if (!status.isAdmin) return reply.status(403).send({ error: 'Only team admins can invite members' });
     const addBody = validate(addMemberSchema, req.body, reply);
     if (!addBody) return;
     const { userId } = addBody;
-    try {
-      const added = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
-      await prisma.teamMember.create({ data: { teamId: id, userId } });
-      logAdminEvent('TEAM_MEMBER_ADDED', { actorName: req.user.username, targetName: added?.username, metadata: { teamId: id, userId } });
-      reply.send({ ok: true });
-    } catch (e) { handleConflict(e, reply, 'Already a member or user not found'); }
+
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true, email: true, acceptsInvites: true } });
+    if (!target) return reply.status(404).send({ error: 'User not found' });
+    if (!target.acceptsInvites) return reply.status(403).send({ error: 'This user is not accepting project invitations' });
+
+    // Prevent duplicate membership
+    const existing = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: id, userId } } });
+    if (existing) return reply.status(409).send({ error: 'User is already a member' });
+
+    // Prevent duplicate pending invite
+    const existingInvite = await prisma.teamInvite.findFirst({
+      where: { teamId: id, toUserId: userId, usedAt: null, expiresAt: { gt: new Date() } },
+    });
+    if (existingInvite) return reply.status(409).send({ error: 'An invitation is already pending for this user' });
+
+    // Create invite token valid for 7 days
+    const token = randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const invite = await prisma.teamInvite.create({
+      data: { teamId: id, toUserId: userId, email: target.email, token, expiresAt, maxUses: 1 },
+    });
+
+    // Find the project name for the notification body
+    const product = await prisma.product.findFirst({ where: { teamId: id }, select: { id: true, name: true } });
+    const projectName = product?.name ?? status.team.name;
+
+    // productId intentionally omitted — invite notifications must show regardless of which project
+    // the recipient currently has open (backend filter always includes productId: null notifications)
+    await createNotification({
+      userId,
+      type: 'invite_received',
+      title: `You've been invited to "${projectName}"`,
+      body: `${req.user.username} invited you to join the project`,
+      metadata: { inviteToken: invite.token, inviteId: invite.id, teamId: id, inviterName: req.user.username, projectName },
+    });
+
+    logAdminEvent('TEAM_INVITE_SENT', { actorName: req.user.username, targetName: target.username, metadata: { teamId: id, userId } });
+    reply.status(201).send({ pending: true, inviteId: invite.id });
   });
 
   app.delete('/api/teams/:id/members/:userId', { preHandler: requireAuth }, async (req, reply) => {
@@ -146,6 +180,14 @@ export async function teamRoutes(app: FastifyInstance) {
     if (!isOwner) return reply.status(403).send({ error: 'Only the product owner can change roles' });
     const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
     await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role } });
+    const projectName = team.products[0]?.name ?? team.name;
+    const roleLabel = role === 'co_owner' ? 'co-owner' : 'member';
+    await createNotification({
+      userId,
+      type: 'role_changed',
+      title: `Your role in "${projectName}" has been updated`,
+      body: `${req.user.username} made you a ${roleLabel}`,
+    });
     logAdminEvent('TEAM_MEMBER_ROLE_CHANGED', { actorName: req.user.username, targetName: target?.username, metadata: { teamId, userId, newRole: role } });
     reply.send({ ok: true });
   });

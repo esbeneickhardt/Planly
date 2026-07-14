@@ -15,6 +15,7 @@ import DiscoverProjectsModal from './DiscoverProjectsModal';
 import EmojiPicker from './EmojiPicker';
 import ThemePickerModal from './ThemePickerModal';
 import { ADMIN_TABS } from '../../pages/AdminPage';
+import { isBeforeToday } from '../../utils/dates';
 
 const NAV = [
   { to: '/kanban',    label: 'Kanban',    icon: '▦',  tab: 'kanban' },
@@ -55,7 +56,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
 
   // Badge counts shown in nav (raw — not filtered)
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
-  const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < new Date()).length;
+  const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && isBeforeToday(t.deadline)).length;
 
   function setField(f: keyof NewProductForm) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>

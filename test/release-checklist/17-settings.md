@@ -8,14 +8,50 @@ Navigate to Settings in Alpha Project. Test as Admin (co-owner), then verify res
 
 ## Team tab (`SettingsTeam`)
 
-> Code: [frontend/src/pages/settings/SettingsTeam.tsx](../../frontend/src/pages/settings/SettingsTeam.tsx) · [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) (member add/remove/role-change) · [backend/src/routes/access-requests.ts](../../backend/src/routes/access-requests.ts) (pending requests listed here)
+> Code: [frontend/src/pages/settings/SettingsTeam.tsx](../../frontend/src/pages/settings/SettingsTeam.tsx) · [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) (invite/remove/role-change) · [backend/src/routes/invites.ts](../../backend/src/routes/invites.ts) (pending invite list) · [backend/src/routes/access-requests.ts](../../backend/src/routes/access-requests.ts) (pending requests listed here)
 
-- [ ] All team members listed with email, username, role badge
+- [ ] Active members listed with username, role badge (Owner / Co-owner / none)
 - [ ] Pending access requests listed and actionable
-- [ ] "Invite member" button opens invite flow (see [06-teams-products-membership.md](06-teams-products-membership.md))
-- [ ] "Promote to co-owner" button visible for co-owners (not regular members)
-- [ ] "Remove member" button removes the member
-- [ ] Cannot remove yourself if you are the last co-owner → clear error
+
+### Invite flow (from the project owner's side)
+
+- [ ] Type `charlie` in the "Invite member" search → Charlie appears in the dropdown
+- [ ] Click **Invite** → toast "Invitation sent to charlie" shown
+- [ ] Charlie appears in the Members list immediately with a yellow **Pending** badge and an **Uninvite** button
+- [ ] Charlie does NOT appear as a full member (no Owner/Co-owner/member row)
+- [ ] Click **Uninvite** → Charlie's pending row disappears and the invite is revoked
+
+### Notification delivery (from the invited user's side)
+
+- [ ] Log in as Charlie (who has no projects)
+- [ ] Bell badge appears immediately — unread count ≥ 1 even though Charlie's active product is undefined
+- [ ] Open the bell → notification titled `You've been invited to "Alpha Project"` is visible
+- [ ] Notification shows the inviter's username in the body
+- [ ] Notification has **Accept** and **Decline** buttons inline (no separate accept page needed)
+
+### Accept path
+
+- [ ] Charlie clicks **Accept** → joins Alpha Project → bell notification is marked read
+- [ ] Charlie's project picker now includes "Alpha Project"
+- [ ] Back in Admin's browser: Charlie's row in **Settings → Team** is now a regular member row (Pending badge gone)
+
+### Decline path
+
+- [ ] Invite a second test user (or re-invite Charlie after removing them)
+- [ ] Invited user clicks **Decline** → notification is dismissed
+- [ ] Invited user does NOT appear in the project
+- [ ] Admin's Members list no longer shows the Pending row for them
+
+### Opt-out preference
+
+- [ ] As Charlie: open account dropdown → **Privacy** → toggle **Allow project invitations** off → Save
+- [ ] As Admin: type `charlie` in the search → Charlie appears greyed-out with "Not accepting invitations" and the Invite button is disabled
+- [ ] Toggle Charlie's preference back on → Charlie is invitable again
+
+### Other Team tab checks
+
+- [ ] "Make co-owner" button visible for owner; sets co-owner badge on the member row
+- [ ] "Remove member" button removes the member immediately
 - [ ] Alice (regular member) cannot see management buttons in this tab → 403 on API
 
 ---

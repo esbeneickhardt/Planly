@@ -1,9 +1,12 @@
 /**
- * Invite routes - create, revoke, and accept team invite links.
+ * Invite routes - create, revoke, accept, and decline team invite links.
  *
- * Two invite types:
- *   Open invite - shareable URL valid for anyone; multi-use with an optional maxUses cap.
- *   Email invite - targeted to one address; single-use; sends an email if SMTP is configured.
+ * Three invite types:
+ *   Open invite     - shareable URL valid for anyone; multi-use with an optional maxUses cap.
+ *   Email invite    - targeted to one address; single-use; sends an email if SMTP is configured.
+ *   User invite     - targeted to a specific registered user (created via Settings → Team);
+ *                     stored with toUserId; user accepts or declines via notification bell or
+ *                     MembershipsModal rather than visiting a link.
  *
  * useCount tracks redemptions. The invite is exhausted (usedAt set) only when
  * maxUses is set and useCount reaches it - open invites with no maxUses are permanent.
@@ -27,15 +30,19 @@ const createInviteSchema = z.object({
 async function getTeamAdmin(teamId: string, userId: string) {
   const team = await prisma.team.findUnique({
     where: { id: teamId },
-    include: { members: { where: { userId } } },
+    include: {
+      members: { where: { userId } },
+      products: { where: { ownerId: userId }, select: { id: true } },
+    },
   });
   if (!team) return null;
   const membership = team.members[0];
-  return { team, isAdmin: membership?.role === 'co_owner' || false, isMember: !!membership };
+  // Admin = co-owner of the team OR owner of any product in the team (mirrors teams.ts logic)
+  return { team, isAdmin: membership?.role === 'co_owner' || team.products.length > 0, isMember: !!membership };
 }
 
 export async function inviteRoutes(app: FastifyInstance) {
-  // List invites for a team (admins only)
+  // List invites for a team (admins only) - returns both link invites and pending user-targeted invites
   app.get('/api/teams/:teamId/invites', { preHandler: requireAuth }, async (req, reply) => {
     const { teamId } = req.params as { teamId: string };
     const ctx = await getTeamAdmin(teamId, req.user.userId);
@@ -44,18 +51,21 @@ export async function inviteRoutes(app: FastifyInstance) {
 
     const invites = await prisma.teamInvite.findMany({
       where: { teamId, usedAt: null, expiresAt: { gt: new Date() } },
+      include: { toUser: { select: { id: true, username: true, avatarEmoji: true } } },
       orderBy: { createdAt: 'desc' },
     });
     reply.send(invites.map((i) => ({
       id: i.id,
       email: i.email,
+      toUser: i.toUser,
+      token: i.token,
       inviteUrl: `${config.appUrl}/invite/${i.token}`,
       expiresAt: i.expiresAt,
       createdAt: i.createdAt,
     })));
   });
 
-  // Create invite link (admins or members - anyone on the team can invite)
+  // Create invite link (admins only)
   app.post('/api/teams/:teamId/invites', { preHandler: requireAuth }, async (req, reply) => {
     const { teamId } = req.params as { teamId: string };
     const body = validate(createInviteSchema, req.body, reply);
@@ -91,6 +101,8 @@ export async function inviteRoutes(app: FastifyInstance) {
     reply.status(201).send({
       id: invite.id,
       email: invite.email,
+      toUser: null,
+      token: invite.token,
       inviteUrl,
       expiresAt: invite.expiresAt,
       maxUses: invite.maxUses,
@@ -98,7 +110,7 @@ export async function inviteRoutes(app: FastifyInstance) {
     });
   });
 
-  // Revoke invite
+  // Revoke invite (admins only)
   app.delete('/api/teams/:teamId/invites/:inviteId', { preHandler: requireAuth }, async (req, reply) => {
     const { teamId, inviteId } = req.params as { teamId: string; inviteId: string };
     const ctx = await getTeamAdmin(teamId, req.user.userId);
@@ -106,6 +118,29 @@ export async function inviteRoutes(app: FastifyInstance) {
     if (!ctx.isAdmin) return reply.status(403).send({ error: 'Forbidden' });
     await prisma.teamInvite.deleteMany({ where: { id: inviteId, teamId } });
     reply.send({ ok: true });
+  });
+
+  // List pending user-targeted invites addressed to the current user
+  app.get('/api/invites/pending', { preHandler: requireAuth }, async (req, reply) => {
+    const pending = await prisma.teamInvite.findMany({
+      where: { toUserId: req.user.userId, usedAt: null, expiresAt: { gt: new Date() } },
+      include: {
+        team: {
+          include: { products: { select: { id: true, name: true, emoji: true }, take: 1 } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    reply.send(pending.map((i) => ({
+      id: i.id,
+      token: i.token,
+      teamId: i.teamId,
+      projectName: i.team.products[0]?.name ?? i.team.name,
+      projectEmoji: i.team.products[0]?.emoji ?? null,
+      productId: i.team.products[0]?.id ?? null,
+      expiresAt: i.expiresAt,
+      createdAt: i.createdAt,
+    })));
   });
 
   // Get invite info (public - no auth required, used on the accept page)
@@ -132,8 +167,13 @@ export async function inviteRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invite not found or expired' });
     }
 
-    // Email-targeted invites require the accepting user's email to match
-    if (invite.email) {
+    // User-targeted invites: validate by userId
+    if (invite.toUserId) {
+      if (invite.toUserId !== req.user.userId) {
+        return reply.status(403).send({ error: 'This invite was sent to a different user' });
+      }
+    } else if (invite.email) {
+      // Email-targeted invites: validate by email address
       const acceptingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { email: true } });
       if (!acceptingUser || invite.email.toLowerCase() !== acceptingUser.email.toLowerCase()) {
         return reply.status(403).send({ error: 'This invite was sent to a different email address' });
@@ -159,5 +199,15 @@ export async function inviteRoutes(app: FastifyInstance) {
     logAdminEvent('INVITE_ACCEPTED', { actorName: req.user.username, targetName: invite.team.name, metadata: { inviteId: invite.id, teamId: invite.teamId, useCount: newUseCount, maxUses: invite.maxUses } });
 
     reply.send({ ok: true, teamId: invite.teamId, teamName: invite.team.name });
+  });
+
+  // Decline a user-targeted invite (only the intended recipient can decline)
+  app.post('/api/invites/:token/decline', { preHandler: requireAuth }, async (req, reply) => {
+    const { token } = req.params as { token: string };
+    const invite = await prisma.teamInvite.findUnique({ where: { token } });
+    if (!invite) return reply.status(404).send({ error: 'Invite not found' });
+    if (invite.toUserId !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
+    await prisma.teamInvite.delete({ where: { id: invite.id } });
+    reply.send({ ok: true });
   });
 }

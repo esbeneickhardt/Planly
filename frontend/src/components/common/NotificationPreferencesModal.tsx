@@ -11,7 +11,8 @@ const NOTIFICATION_TYPES: { type: string; label: string; description: string; de
   { type: 'access_requested',label: 'Access requests',   description: 'When someone requests project access',  defaultOn: true  },
   { type: 'access_approved', label: 'Access approved',   description: 'When your access request is approved',  defaultOn: true  },
   { type: 'access_rejected', label: 'Access rejected',   description: 'When your access request is declined',  defaultOn: true  },
-  { type: 'invite_received', label: 'Team invite',       description: 'When you are invited to a team',        defaultOn: true  },
+  { type: 'invite_received', label: 'Team invite',       description: 'Get a notification when you are invited to a project', defaultOn: true  },
+  { type: 'role_changed',    label: 'Role change',       description: 'When your role in a project changes',                  defaultOn: true  },
   { type: 'sprint_started',  label: 'Sprint started',    description: 'When a sprint begins',                  defaultOn: false },
 ];
 

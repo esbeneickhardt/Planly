@@ -1,7 +1,8 @@
 /**
  * Settings Team tab managing project membership, co-owner roles, invite links, and access requests.
- * Users are searched from the full user list and added directly; invite links expire after 7 days
- * and can optionally be emailed.  Pending access requests are shown with approve/reject actions.
+ * The "Add member" search now sends an invitation the target user must accept, rather than adding
+ * directly. Pending user-targeted invites appear inline in the Members list with an "Uninvite" button.
+ * Users who have turned off invites are shown greyed-out in the autocomplete with a note.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
@@ -17,12 +18,20 @@ type AccessRequestRow = {
   user: { id: string; username: string; avatarEmoji: string | null; realName: string | null };
 };
 
+type ListUser = { id: string; username: string; avatarEmoji: string | null; acceptsInvites: boolean };
+
 function RoleBadge({ kind }: { kind: 'owner' | 'co_owner' }) {
   if (kind === 'owner') return (
     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>Owner</span>
   );
   return (
     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}>Co-owner</span>
+  );
+}
+
+function PendingBadge() {
+  return (
+    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(234,179,8,0.15)', color: '#ca8a04', border: '1px solid rgba(234,179,8,0.3)' }}>Pending</span>
   );
 }
 
@@ -44,7 +53,7 @@ export default function SettingsTeam({
   onMembersChanged, showToast, confirm, refreshPerms,
 }: Props) {
   const [addSearch, setAddSearch] = useState('');
-  const [allUsers, setAllUsers] = useState<{ id: string; username: string; avatarEmoji?: string | null }[]>([]);
+  const [allUsers, setAllUsers] = useState<ListUser[]>([]);
   const [addingUserId, setAddingUserId] = useState<string | null>(null);
   const [togglingRole, setTogglingRole] = useState<string | null>(null);
   const [invites, setInvites] = useState<TeamInvite[]>([]);
@@ -52,6 +61,7 @@ export default function SettingsTeam({
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [accessRequests, setAccessRequests] = useState<AccessRequestRow[]>([]);
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [uninvitingId, setUninvitingId] = useState<string | null>(null);
 
   const loadInvites = useCallback(async () => {
     try { setInvites(await api.invites.list(team.id)); } catch {}
@@ -62,7 +72,6 @@ export default function SettingsTeam({
     try { setAccessRequests(await api.accessRequests.list(activeProduct.id)); } catch {}
   }, [activeProduct.id, canManage]);
 
-  // Fetch all server users once for the "add member" search autocomplete
   useEffect(() => {
     api.users.list().then(setAllUsers).catch(() => {});
   }, []);
@@ -70,13 +79,13 @@ export default function SettingsTeam({
   useEffect(() => { loadInvites(); }, [loadInvites]);
   useEffect(() => { loadAccessRequests(); }, [loadAccessRequests]);
 
-  async function handleAddMember(userId: string, username: string) {
+  async function handleInviteUser(userId: string, username: string) {
     setAddingUserId(userId);
     try {
       await api.teams.addMember(team.id, userId);
-      showToast(`${username} added to project`, 'success');
+      showToast(`Invitation sent to ${username}`, 'success');
       setAddSearch('');
-      await onMembersChanged();
+      await loadInvites();
     } catch (err) { showToast((err as Error).message, 'error'); }
     finally { setAddingUserId(null); }
   }
@@ -88,6 +97,16 @@ export default function SettingsTeam({
       showToast(`${username} removed`, 'success');
       await onMembersChanged();
     } catch (err) { showToast((err as Error).message, 'error'); }
+  }
+
+  async function handleUninvite(inviteId: string, username: string) {
+    setUninvitingId(inviteId);
+    try {
+      await api.invites.revoke(team.id, inviteId);
+      showToast(`Invitation to ${username} revoked`, 'success');
+      await loadInvites();
+    } catch (err) { showToast((err as Error).message, 'error'); }
+    finally { setUninvitingId(null); }
   }
 
   async function handleToggleCoOwner(userId: string, currentRole: string) {
@@ -113,19 +132,30 @@ export default function SettingsTeam({
     finally { setDecidingId(null); }
   }
 
-  // Filter autocomplete suggestions to users not already on the team; cap at 6 results
+  // Pending user-targeted invites (from the invite list)
+  const pendingInvites = invites.filter((i) => i.toUser !== null);
+  const pendingInviteUserIds = new Set(pendingInvites.map((i) => i.toUser!.id));
+
+  // Filter autocomplete: exclude current members and users with pending invites; cap at 6
   const memberIds = new Set(members.map((m) => m.userId));
   const q = addSearch.toLowerCase().trim();
   const suggestions = q.length >= 1
-    ? allUsers.filter((u) => !memberIds.has(u.id) && u.username.toLowerCase().includes(q)).slice(0, 6)
+    ? allUsers
+        .filter((u) => !memberIds.has(u.id) && !pendingInviteUserIds.has(u.id) && u.username.toLowerCase().includes(q))
+        .slice(0, 6)
     : [];
+
+  // Combined list: active members + pending invites
+  const totalRows = members.length + pendingInvites.length;
 
   return (
     <div className="max-w-2xl space-y-8">
-      {/* Add member */}
+      {/* Invite member */}
       <div>
-        <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Add member</h2>
-        <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>Search for a registered user and add them directly to the project.</p>
+        <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Invite member</h2>
+        <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
+          Search for a registered user and send them an invitation. They will see it in their notifications and can accept or decline.
+        </p>
         <div className="relative">
           <input
             type="text"
@@ -138,31 +168,40 @@ export default function SettingsTeam({
             <div className="absolute top-full left-0 mt-1 w-72 rounded-xl overflow-hidden z-10 shadow-lg" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
               {suggestions.map((u) => (
                 <div key={u.id} className="flex items-center gap-3 px-3 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <span className="text-lg flex-shrink-0">{u.avatarEmoji ?? '👤'}</span>
-                  <span className="flex-1 text-sm" style={{ color: 'var(--text)' }}>{u.username}</span>
+                  <span className="text-lg flex-shrink-0" style={{ opacity: u.acceptsInvites ? 1 : 0.4 }}>{u.avatarEmoji ?? '👤'}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm" style={{ color: u.acceptsInvites ? 'var(--text)' : 'var(--text-3)' }}>{u.username}</span>
+                    {!u.acceptsInvites && (
+                      <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>Not accepting invitations</p>
+                    )}
+                  </div>
                   <button
-                    onClick={() => handleAddMember(u.id, u.username)}
-                    disabled={addingUserId === u.id}
-                    className="btn-primary text-xs px-3 py-1 flex-shrink-0"
-                  >{addingUserId === u.id ? '…' : 'Add'}</button>
+                    onClick={() => u.acceptsInvites && handleInviteUser(u.id, u.username)}
+                    disabled={!u.acceptsInvites || addingUserId === u.id}
+                    className="btn-primary text-xs px-3 py-1 flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >{addingUserId === u.id ? '…' : 'Invite'}</button>
                 </div>
               ))}
             </div>
           )}
           {q.length >= 1 && suggestions.length === 0 && (
-            <p className="mt-2 text-xs" style={{ color: 'var(--text-3)' }}>No users found or all matching users are already members.</p>
+            <p className="mt-2 text-xs" style={{ color: 'var(--text-3)' }}>No users found or all matching users are already members or invited.</p>
           )}
         </div>
       </div>
 
-      {/* Members list */}
+      {/* Members list (includes pending invites) */}
       <div>
         <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Members</h2>
-        <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>Co-owners can manage settings and approve access requests.</p>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+          Co-owners can manage settings and approve access requests. Pending rows show users who haven't accepted yet.
+        </p>
         <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-          {members.length === 0 && (
+          {totalRows === 0 && (
             <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-3)' }}>No members yet.</div>
           )}
+
+          {/* Active members */}
           {members.map(({ userId, user, role }, idx) => {
             const isProductOwner = userId === activeProduct.ownerId;
             const isCoOwner = role === 'co_owner';
@@ -210,6 +249,41 @@ export default function SettingsTeam({
               </div>
             );
           })}
+
+          {/* Pending invites */}
+          {pendingInvites.map((inv, idx) => {
+            const rowIdx = members.length + idx;
+            return (
+              <div
+                key={inv.id}
+                className="flex items-center gap-3 px-4 py-3"
+                style={{
+                  background: rowIdx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
+                  borderTop: rowIdx > 0 ? '1px solid var(--border)' : 'none',
+                  opacity: 0.85,
+                }}
+              >
+                <span className="text-xl flex-shrink-0" style={{ opacity: 0.6 }}>{inv.toUser!.avatarEmoji ?? '👤'}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{inv.toUser!.username}</span>
+                    <PendingBadge />
+                  </div>
+                  <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+                    Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                  </p>
+                </div>
+                {canManage && (
+                  <button
+                    onClick={() => handleUninvite(inv.id, inv.toUser!.username)}
+                    disabled={uninvitingId === inv.id}
+                    className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
+                    style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', background: 'transparent' }}
+                  >{uninvitingId === inv.id ? '…' : 'Uninvite'}</button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -217,8 +291,7 @@ export default function SettingsTeam({
       <div>
         <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Invite links</h2>
         <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-          Generate a link to share with teammates. Anyone with the link can join the team within 7 days.
-          Optionally email it directly.
+          Generate a shareable link anyone can use to join within 7 days. Optionally email it directly.
         </p>
         <div className="flex gap-3 mb-4 flex-wrap">
           <input
@@ -246,9 +319,10 @@ export default function SettingsTeam({
             {creatingInvite ? '…' : 'Create invite'}
           </button>
         </div>
-        {invites.length > 0 && (
+        {/* Only show non-user-targeted invites here (user-targeted appear in the Members section above) */}
+        {invites.filter((i) => !i.toUser).length > 0 && (
           <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-            {invites.map((inv, idx) => (
+            {invites.filter((i) => !i.toUser).map((inv, idx) => (
               <div
                 key={inv.id}
                 className="flex items-center gap-3 px-4 py-2.5"
@@ -277,7 +351,7 @@ export default function SettingsTeam({
             ))}
           </div>
         )}
-        {invites.length === 0 && (
+        {invites.filter((i) => !i.toUser).length === 0 && (
           <p className="text-sm" style={{ color: 'var(--text-3)' }}>No active invite links.</p>
         )}
       </div>

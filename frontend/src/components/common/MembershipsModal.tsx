@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { api, displayName as dn } from '../../api/client';
+import type { PendingInvite } from '../../api/client';
 import Modal from './Modal';
 import type { Product } from '../../types';
 
@@ -20,6 +21,31 @@ export default function MembershipsModal({ onClose }: Props) {
   // When an owner clicks Leave, we expand the row with an owner action panel
   const [ownerAction, setOwnerAction] = useState<OwnerAction | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.invites.pending().then(setPendingInvites).catch(() => {});
+  }, []);
+
+  async function handleAcceptInvite(inv: PendingInvite) {
+    setInviteActionId(inv.id);
+    try {
+      await api.invites.accept(inv.token);
+      setPendingInvites((prev) => prev.filter((i) => i.id !== inv.id));
+      await refreshProducts();
+    } catch (err) { setErrorMsg((err as Error).message); }
+    finally { setInviteActionId(null); }
+  }
+
+  async function handleDeclineInvite(inv: PendingInvite) {
+    setInviteActionId(inv.id);
+    try {
+      await api.invites.decline(inv.token);
+      setPendingInvites((prev) => prev.filter((i) => i.id !== inv.id));
+    } catch (err) { setErrorMsg((err as Error).message); }
+    finally { setInviteActionId(null); }
+  }
 
   function switchAway(p: Product) {
     if (activeProduct?.id === p.id) {
@@ -89,9 +115,41 @@ export default function MembershipsModal({ onClose }: Props) {
 
   return (
     <Modal title="Memberships" onClose={onClose} width="max-w-md">
+      {/* Pending invitations */}
+      {pendingInvites.length > 0 && (
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>Pending invitations</p>
+          <div className="space-y-2">
+            {pendingInvites.map((inv) => (
+              <div key={inv.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid rgba(234,179,8,0.3)' }}>
+                <span className="text-xl flex-shrink-0">{inv.projectEmoji ?? '🎯'}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{inv.projectName}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>Expires {new Date(inv.expiresAt).toLocaleDateString()}</p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleAcceptInvite(inv)}
+                    disabled={inviteActionId === inv.id}
+                    className="btn-primary text-xs px-3 py-1"
+                  >{inviteActionId === inv.id ? '…' : 'Accept'}</button>
+                  <button
+                    onClick={() => handleDeclineInvite(inv)}
+                    disabled={inviteActionId === inv.id}
+                    className="text-xs px-3 py-1 rounded-lg transition-colors"
+                    style={{ color: 'var(--text-3)', border: '1px solid var(--border)', background: 'transparent' }}
+                  >Decline</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-        Projects you belong to. Click "Leave" to exit a project - owners can transfer ownership or delete.
+        Projects you belong to. Click "Leave" to exit a project — owners can transfer ownership or delete.
       </p>
+
       {errorMsg && (
         <div className="mb-3 text-sm px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
           {errorMsg}

@@ -18,6 +18,7 @@ const DEFAULT_ENABLED: Record<string, boolean> = {
   access_approved:  true,
   access_rejected:  true,
   invite_received:  true,
+  role_changed:     true,
   sprint_started:   false, // opt-in only
 };
 

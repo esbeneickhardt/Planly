@@ -17,11 +17,13 @@ import MembershipsModal from './MembershipsModal';
 import IntegrationsModal from './IntegrationsModal';
 import NotificationBell from './NotificationBell';
 import NotificationPreferencesModal from './NotificationPreferencesModal';
+import PrivacyModal from './PrivacyModal';
 import ThemePickerModal from './ThemePickerModal';
 import TotpModal from './TotpModal';
 import ProfileModal from './ProfileModal';
 import DeleteAccountModal from './DeleteAccountModal';
 import SeedDataModal from './SeedDataModal';
+import { isBeforeToday } from '../../utils/dates';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -196,6 +198,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
   const [showMemberships, setShowMemberships] = useState(false);
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [showNotifPrefs, setShowNotifPrefs] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTotp, setShowTotp] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [showSeedData, setShowSeedData] = useState(false);
@@ -220,7 +223,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
-  const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < new Date()).length;
+  const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && isBeforeToday(t.deadline)).length;
   const unassignedCount = tasks.filter((t) => t.status !== 'done' && !t.ownerId).length;
 
   function setField(f: keyof NewProductForm) {
@@ -593,8 +596,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
 
             {showAccountDd && (
               <div
-                className="absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl overflow-hidden py-1.5"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
+                className="absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl overflow-y-auto py-1.5"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50, maxHeight: 'calc(100vh - 72px)' }}
               >
                 {/* User info - click avatar to edit profile */}
                 <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -666,6 +669,16 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 >
                   <span className="w-5 text-center flex-shrink-0">🔔</span>
                   Notifications
+                </button>
+                <button
+                  onClick={() => { setShowPrivacy(true); setShowAccountDd(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: 'var(--text-2)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span className="w-5 text-center flex-shrink-0">🔒</span>
+                  Privacy
                 </button>
                 <button
                   onClick={() => { setShowTotp(true); setShowAccountDd(false); }}
@@ -871,6 +884,13 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                   <span>🔔</span> Notifications
                 </button>
                 <button
+                  onClick={() => { setShowPrivacy(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  <span>🔒</span> Privacy
+                </button>
+                <button
                   onClick={() => { setShowTotp(true); setShowMobileMenu(false); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
                   style={{ color: 'var(--text-2)' }}
@@ -961,6 +981,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
       {showMemberships && <MembershipsModal onClose={() => setShowMemberships(false)} />}
       {showIntegrations && <IntegrationsModal onClose={() => setShowIntegrations(false)} />}
       {showNotifPrefs && <NotificationPreferencesModal onClose={() => setShowNotifPrefs(false)} />}
+      {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
       {showThemePicker && <ThemePickerModal onClose={() => setShowThemePicker(false)} />}
       {showTotp && <TotpModal onClose={() => setShowTotp(false)} />}
       {showProfile && <ProfileModal user={user} onClose={() => setShowProfile(false)} />}

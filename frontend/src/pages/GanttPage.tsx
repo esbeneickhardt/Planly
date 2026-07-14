@@ -13,6 +13,7 @@ import type { Task } from '../types';
 import GanttMobileList, { progressColor } from '../components/gantt/GanttMobileList';
 import { useGanttDragZoom } from '../hooks/useGanttDragZoom';
 import { useGanttData } from '../hooks/useGanttData';
+import { isBeforeToday } from '../utils/dates';
 
 type GanttView = 'milestones' | 'sprints';
 
@@ -466,7 +467,7 @@ export default function GanttPage() {
                 const deadlinePct = pct(new Date(m.deadline), vs, ve) * 100;
                 const fillWidth = m.progress * deadlinePct;
                 const color = progressColor(m);
-                const isOverdue = new Date(m.deadline) < today && m.status !== 'done';
+                const isOverdue = isBeforeToday(m.deadline) && m.status !== 'done';
 
                 // Sort: active tasks first, done tasks at bottom
                 const sortedDeps = [...m.dependencyList].sort((a, b) => {

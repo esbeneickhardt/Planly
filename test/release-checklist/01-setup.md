@@ -106,19 +106,31 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 
 ## Test projects to create
 
-> Code: [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) · [backend/src/routes/products.ts](../../backend/src/routes/products.ts) · [backend/src/utils/server-config.ts](../../backend/src/utils/server-config.ts) (`allowProjectCreation` must be true)
+> Code: [backend/src/routes/products.ts](../../backend/src/routes/products.ts) · [backend/src/utils/server-config.ts](../../backend/src/utils/server-config.ts) (`allowProjectCreation` must be true)
+>
+> Note: "Team" is a backend concept only. Creating a project via the UI automatically creates an invisible backing team with the same name. Users never see or interact with teams directly.
 
 Log in as **Admin** and create these:
 
 ### Project 1 - "Alpha Project"
-- [ ] Create team "Alpha Team" with Admin as owner
-- [ ] Invite Alice (member) and Bob (co-owner) to Alpha Team
-- [ ] Create project "Alpha Project" under Alpha Team
-- [ ] Confirm Alice and Bob both appear in Settings → Team
+- [X] Click **New project** → name it "Alpha Project" → click **Create project**
+- [X] Go to **Settings → Team** → type `alice` in the "Invite member" search box → click **Invite**
+  - [X] Toast shows "Invitation sent to alice"
+  - [X] Alice appears in the Members list with a **Pending** badge and an **Uninvite** button (not as a full member yet)
+- [X] Switch to the **Alice** browser window
+  - [X] Bell icon shows a red badge (unread count ≥ 1) — this must appear even if Alice has no active project
+  - [X] Click the bell → notification titled `You've been invited to "Alpha Project"` is visible
+  - [X] Notification has **Accept** and **Decline** buttons inline
+- [X] Click **Accept** as Alice
+  - [X] Toast / success state shown
+  - [X] Alice's browser now lists "Alpha Project" in the project picker
+  - [X] Back in Admin's browser: Alice's row in **Settings → Team** now shows as a full member (no Pending badge)
+- [ ] Invite Bob the same way → Bob accepts → make Bob co-owner via the **Make co-owner** button
+- [ ] Confirm Alice (member) and Bob (co-owner) both appear in the Team tab as active members
 
 ### Project 2 - "Beta Project"
-- [ ] Create team "Beta Team" with Admin as owner only (Charlie NOT invited)
-- [ ] Create project "Beta Project" under Beta Team
+- [ ] Click **New project** → name it "Beta Project" → click **Create project**
+- [ ] Do NOT invite Alice, Bob, or Charlie (Admin is sole member)
 
 ---
 

@@ -31,6 +31,7 @@ export interface User {
   mustChangePassword?: boolean;
   notificationPreferences?: Record<string, boolean>;
   announcementsEnabled?: boolean;
+  acceptsInvites?: boolean;
 }
 
 export interface TeamMember {
