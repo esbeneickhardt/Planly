@@ -44,7 +44,7 @@ Copy `.env.example` to `.env` at the repo root. Required variables:
 | `JWT_SECRET` | Secret for signing session JWTs (min 32 chars) |
 | `APP_URL` | Public URL of the app (e.g. `http://localhost:5173`) |
 
-SMTP, OIDC SSO, and other integrations are optional — the app runs without them.
+SMTP, OIDC SSO, and other integrations are optional - the app runs without them.
 
 ## Running tests
 
@@ -80,6 +80,6 @@ docker compose build --no-cache backend
 docker compose up -d --force-recreate backend
 ```
 
-**Never use `docker restart`** — it does not apply a new image.
+**Never use `docker restart`** - it does not apply a new image.
 
 See [DECISIONS.md](DECISIONS.md) for the architectural reasoning behind key design choices.

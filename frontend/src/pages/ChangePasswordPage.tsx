@@ -1,3 +1,8 @@
+/**
+ * Forced password-change screen shown to users whose account has mustChangePassword set (e.g. admin-created accounts).
+ * If the flag is not set the component immediately redirects to /kanban, making it safe to render
+ * without a guard in the router as long as RequireAuth wraps the outer route.
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -11,11 +16,13 @@ export default function ChangePasswordPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Redirect away if the flag has been cleared (e.g. after an earlier save refreshed the session)
   if (!user?.mustChangePassword) {
     navigate('/kanban', { replace: true });
     return null;
   }
 
+  // Save new password then refresh the session so mustChangePassword clears before navigation
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');

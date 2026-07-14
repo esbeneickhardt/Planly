@@ -1,3 +1,8 @@
+/**
+ * Provides a `showToast` function that displays auto-dismissing notifications at the bottom-right of the screen.
+ * Toasts are removed after 4000 ms via setTimeout; IDs come from a module-level counter (not React state) to avoid re-renders.
+ * Three types are supported: `error`, `success`, and `info`, each with distinct colours from CSS custom properties.
+ */
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 type ToastType = 'error' | 'success' | 'info';
@@ -10,6 +15,7 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
+// Module-level counter — not state, so incrementing it doesn't cause a re-render
 let nextId = 0;
 
 export function ToastProvider({ children }: { children: ReactNode }) {

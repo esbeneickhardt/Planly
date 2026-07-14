@@ -1,5 +1,5 @@
 /**
- * Sprint routes — manage sprints (create, update, activate, end) and the
+ * Sprint routes - manage sprints (create, update, activate, end) and the
  * sprint planning assignments within a project.
  *
  * Only one sprint can be active at a time per project. Ending a sprint moves
@@ -54,6 +54,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     if (!body) return;
     const { name, startDate, endDate, color, taskIds } = body;
 
+    // Create sprint with optional initial task assignments in a single write
     const sprint = await prisma.sprint.create({
       data: {
         productId, name,
@@ -104,6 +105,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     if (!body) return;
     const { taskIds } = body;
 
+    // Filter to tasks that actually belong to this product before assigning
     const validTasks = await prisma.task.findMany({
       where: { id: { in: taskIds }, productId },
       select: { id: true },

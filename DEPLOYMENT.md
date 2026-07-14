@@ -99,7 +99,7 @@ docker compose -f docker-compose.prod.yml exec backend \
   npx tsx scripts/encrypt-pii-fields.ts
 ```
 
-The script is idempotent — safe to run multiple times.
+The script is idempotent - safe to run multiple times.
 
 ---
 

@@ -1,3 +1,8 @@
+/**
+ * Keyboard-navigable command palette that searches nav destinations, sprints, tasks, and messages.
+ * Nav items and sprints are filtered client-side; tasks and messages are fetched from the API with 300ms debounce.
+ * `allItems` is a flat list in visual order so keyboard navigation (↑/↓/Enter) and `data-idx` attributes stay in sync.
+ */
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProduct } from '../../context/ProductContext';
@@ -49,6 +54,8 @@ export default function SearchModal({ onClose }: Props) {
   const { canRead, canManage } = usePermission();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Search + UI state
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults | null>(null);
   const [searching, setSearching] = useState(false);
@@ -199,7 +206,7 @@ export default function SearchModal({ onClose }: Props) {
   const regular    = tasks.filter((t) => !t.deadline);
   const hasResults = tasks.length > 0 || msgs.length > 0 || matchingNav.length > 0 || matchingSprints.length > 0;
 
-  // Running index that mirrors allItems order — used to assign data-idx to every row
+  // Running index that mirrors allItems order - used to assign data-idx to every row
   let rowIdx = -1;
 
   return (

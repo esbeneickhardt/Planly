@@ -1,3 +1,8 @@
+/**
+ * Forgot-password page that sends a reset link to the user's email address.
+ * On load it probes whether SMTP is configured; if email is not enabled it renders a
+ * static "contact your admin" message instead of the form to avoid misleading the user.
+ */
 import { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -9,6 +14,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [smtpEnabled, setSmtpEnabled] = useState<boolean | null>(null);
 
+  // Check if SMTP is live before showing the form; fall back to false on fetch error
   useEffect(() => {
     api.auth.emailEnabled().then((r) => setSmtpEnabled(r.enabled)).catch(() => setSmtpEnabled(false));
   }, []);

@@ -1,5 +1,11 @@
+/**
+ * Zod schemas for task create and update request bodies.
+ * updateTaskSchema is a partial extension of createTaskSchema so all fields are optional
+ * on update - callers only need to send the fields they want to change.
+ */
 import { z } from 'zod';
 
+// Accepts both full ISO-8601 timestamps and bare date strings (YYYY-MM-DD)
 const isoDate = z.string().datetime({ offset: true }).optional().nullable()
   .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable());
 
@@ -15,6 +21,7 @@ export const createTaskSchema = z.object({
   canvasY: z.number().finite().optional(),
 });
 
+// All fields optional on update; name still has a minimum length when provided
 export const updateTaskSchema = createTaskSchema.partial().extend({
   name: z.string().min(1).max(500).optional(),
 });

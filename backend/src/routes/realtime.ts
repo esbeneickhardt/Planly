@@ -1,5 +1,5 @@
 /**
- * Realtime routes — WebSocket connection endpoint and one-time ticket issuance.
+ * Realtime routes - WebSocket connection endpoint and one-time ticket issuance.
  *
  * Auth flow for browser clients:
  *   1. POST /api/products/:productId/ws-ticket → 30-second single-use ticket
@@ -60,10 +60,10 @@ export async function realtimeRoutes(app: FastifyInstance) {
           return;
         }
         userId = payload.userId;
-      } catch { /* invalid or expired JWT in Authorization header — fall through to ticket auth */ }
+      } catch { /* invalid or expired JWT in Authorization header - fall through to ticket auth */ }
     }
 
-    // 2. One-time ticket (issued via POST /ws-ticket — session JWT never in query string)
+    // 2. One-time ticket (issued via POST /ws-ticket - session JWT never in query string)
     if (!userId) {
       const ticket = (req.query as Record<string, string | undefined>).ticket;
       if (ticket) {
@@ -71,7 +71,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
       }
     }
 
-    // 3. API PAT (for automation/server-to-server — not session JWTs)
+    // 3. API PAT (for automation/server-to-server - not session JWTs)
     if (!userId) {
       const queryToken = (req.query as Record<string, string | undefined>).token;
       if (queryToken) {
@@ -86,6 +86,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
       }
     }
 
+    // Reject unauthenticated connections
     if (!userId) {
       ws.send(JSON.stringify({ event: 'error', data: 'Unauthorized' }));
       ws.close(1008, 'Unauthorized');
@@ -110,9 +111,11 @@ export async function realtimeRoutes(app: FastifyInstance) {
       return;
     }
 
+    // Join the product room and confirm the connection to the client
     joinRoom(productId, ws, userId);
     ws.send(JSON.stringify({ event: 'connected', data: { productId } }));
 
+    // Clean up on disconnect or error
     ws.on('close', () => leaveRoom(productId, ws, userId));
     ws.on('error', () => leaveRoom(productId, ws, userId));
   });

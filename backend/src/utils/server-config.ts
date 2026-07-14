@@ -1,3 +1,9 @@
+/**
+ * Server configuration accessor - reads the singleton `ServerConfig` row from the database.
+ * All feature flags that admins control at runtime (email verification, whitelisting,
+ * project creation, announcements) live in this row. Missing values fall back to safe defaults
+ * so a fresh install works without any admin setup.
+ */
 import prisma from '../db/client';
 
 export interface ServerConfigValues {
@@ -9,7 +15,8 @@ export interface ServerConfigValues {
   ipRestrictionMode: string;
 }
 
-// Reads from DB; falls back to false defaults. Cached per-request by callers.
+// Reads from DB; safe defaults keep the app functional on a fresh install
+// Callers that call this multiple times per request should cache the result themselves
 export async function getServerConfig(): Promise<ServerConfigValues> {
   const row = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
   return {

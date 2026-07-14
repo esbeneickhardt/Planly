@@ -1,3 +1,8 @@
+/**
+ * Admin Users table showing every registered user with their verification status, login-lock state,
+ * and admin role.  Only the founding admin sees the Actions column; promoting/demoting/deleting
+ * calls onUsersChanged so the parent AdminPage refreshes the shared user list.
+ */
 import { api } from '../../api/client';
 import type { AdminUser } from './types';
 
@@ -12,6 +17,7 @@ interface Props {
 export default function AdminUsers({
   users, isFoundingAdmin, currentUserId, onUsersChanged, showToast,
 }: Props) {
+  // Shared error-boundary for mutations so each row button doesn't need try/catch
   async function act(fn: () => Promise<void>) {
     try { await fn(); }
     catch (e) { showToast((e as Error).message, 'error'); }

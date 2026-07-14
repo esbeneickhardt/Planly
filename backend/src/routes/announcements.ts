@@ -1,5 +1,5 @@
 /**
- * Announcement routes — server-wide and team-scoped pinned announcements.
+ * Announcement routes - server-wide and team-scoped pinned announcements.
  *
  * Announcements support markdown content and can be pinned to appear at the
  * top of views for all users. Admins can post server-wide announcements;
@@ -31,6 +31,7 @@ const commentSchema = z.object({ content: z.string().min(1).max(5000) });
 const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true };
 const TEAM_SELECT   = { id: true, name: true };
 
+// Resolve post/manage permissions by checking admin status and server config
 async function resolvePermissions(userId: string): Promise<{ isAdmin: boolean; canPost: boolean; enabled: boolean }> {
   const [cfg, user] = await Promise.all([
     getServerConfig(),
@@ -56,7 +57,7 @@ export async function announcementRoutes(app: FastifyInstance) {
   // List all announcements with comment counts. Always returns data so admins can manage
   // the feature before enabling it for members. Response includes canPost + enabled flags.
   //
-  // INTENTIONAL: All announcements — including those tagged with a specific teamId — are
+  // INTENTIONAL: All announcements - including those tagged with a specific teamId - are
   // visible to every authenticated user in the organisation. Announcements are an org-wide
   // broadcast channel. They are NOT a team-private communication tool; use product chat for
   // that. This means a team announcement reaches the whole organisation by design.
@@ -163,6 +164,7 @@ export async function announcementRoutes(app: FastifyInstance) {
 
   // ── Comments ────────────────────────────────────────────────────────────────
 
+  // List comments on an announcement
   app.get('/api/announcements/:id/comments', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const announcement = await prisma.announcement.findUnique({ where: { id }, select: { commentsEnabled: true } });
@@ -180,6 +182,7 @@ export async function announcementRoutes(app: FastifyInstance) {
     reply.send({ comments, nextCursor });
   });
 
+  // Post a comment (requires commentsEnabled on the announcement)
   app.post('/api/announcements/:id/comments', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const announcement = await prisma.announcement.findUnique({ where: { id }, select: { commentsEnabled: true } });
@@ -197,6 +200,7 @@ export async function announcementRoutes(app: FastifyInstance) {
     reply.status(201).send(comment);
   });
 
+  // Delete a comment (author or admin)
   app.delete('/api/announcements/:id/comments/:commentId', { preHandler: requireAuth }, async (req, reply) => {
     const { commentId } = req.params as { commentId: string };
     const comment = await prisma.announcementComment.findUnique({ where: { id: commentId } });

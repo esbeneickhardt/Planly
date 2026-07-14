@@ -1,3 +1,8 @@
+/**
+ * Renders a single chat message bubble with markdown content, image/file attachments, emoji reactions, and edit/delete controls.
+ * Reactions are grouped by emoji with the current user's own reaction highlighted; `reactionPickerOpen` state is lifted to the parent.
+ * Edit and delete controls are only shown on hover for the message author; `formatTime` is exported for reuse in task list timestamps.
+ */
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -66,6 +71,7 @@ export default function MessageBubble({
     </div>
   );
 
+  // Group reactions by emoji to show counts and highlight current user's own reactions
   const reactionGroups: Record<string, string[]> = {};
   for (const r of (msg.reactions ?? [])) {
     if (!reactionGroups[r.emoji]) reactionGroups[r.emoji] = [];

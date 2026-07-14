@@ -17,8 +17,8 @@ Click **New Team** in the sidebar, give it a name and optional emoji, and save. 
 
 Open the team → **Settings** → **Members** → **Invite**.
 
-- **Open invite link** — anyone with the URL can join. Set a `Max uses` limit if needed.
-- **Email invite** — sends a link directly to one address; that link is single-use and only works for that email.
+- **Open invite link** - anyone with the URL can join. Set a `Max uses` limit if needed.
+- **Email invite** - sends a link directly to one address; that link is single-use and only works for that email.
 
 Invites expire after 7 days.
 
@@ -64,7 +64,7 @@ Timeline view showing tasks with start and end dates.
 
 - Drag the left/right edges of a task bar to change its dates
 - Drag the entire bar to shift the range
-- Task dependencies appear as arrows — create them by dragging from the dot on a task bar to another task
+- Task dependencies appear as arrows - create them by dragging from the dot on a task bar to another task
 - Milestones appear as diamonds
 - Sprint swimlanes group tasks by sprint (toggle in the top toolbar)
 
@@ -114,7 +114,7 @@ Open a task → click **Add subtask**. Subtasks have their own title and complet
 
 ### Comments
 
-Open a task → scroll to the **Comments** section. Type a message and press **Send**. Use `@username` to mention a team member — they'll get an in-app notification and an email (if SMTP is configured).
+Open a task → scroll to the **Comments** section. Type a message and press **Send**. Use `@username` to mention a team member - they'll get an in-app notification and an email (if SMTP is configured).
 
 ### Attachments
 
@@ -160,7 +160,7 @@ Export task due dates to your calendar app.
 2. Copy the subscription URL
 3. Add it as a calendar subscription in Google Calendar, Apple Calendar, Outlook, or any app that supports iCal feeds
 
-The feed updates in real time — changes to due dates appear in your calendar automatically.
+The feed updates in real time - changes to due dates appear in your calendar automatically.
 
 ---
 
@@ -169,10 +169,10 @@ The feed updates in real time — changes to due dates appear in your calendar a
 Open a project → **Analytics** tab.
 
 Charts available:
-- **Throughput** — tasks completed per week
-- **Workload** — open tasks per assignee
-- **Cycle velocity** — average time from start to completion
-- **Activity feed** — recent events in the project
+- **Throughput** - tasks completed per week
+- **Workload** - open tasks per assignee
+- **Cycle velocity** - average time from start to completion
+- **Activity feed** - recent events in the project
 
 ---
 
@@ -180,10 +180,10 @@ Charts available:
 
 Click your avatar or name in the sidebar → **Settings**.
 
-- **Profile** — username, real name, avatar emoji, timezone
-- **Security** — change password, enable TOTP (authenticator app)
-- **Notifications** — toggle email notifications per type
-- **Danger zone** — delete your account (irreversible; removes your data from all teams)
+- **Profile** - username, real name, avatar emoji, timezone
+- **Security** - change password, enable TOTP (authenticator app)
+- **Notifications** - toggle email notifications per type
+- **Danger zone** - delete your account (irreversible; removes your data from all teams)
 
 ### Enabling TOTP (2FA)
 

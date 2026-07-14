@@ -1,9 +1,9 @@
 /**
- * useProductMembers — fetches and caches the members of a team that owns a project.
+ * useProductMembers - fetches and caches the members of a team that owns a project.
  *
  * Fetches once per teamId and caches the result in a module-level Map so
  * component remounts don't trigger redundant network requests. The cache is not
- * automatically invalidated — team membership changes infrequently and the app
+ * automatically invalidated - team membership changes infrequently and the app
  * refreshes on page reload. Pass teamId as null/undefined to skip fetching.
  */
 import { useState, useEffect } from 'react';

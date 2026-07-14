@@ -117,7 +117,7 @@ describe('SearchModal', () => {
 
   it('overlay click calls onClose', () => {
     render(<SearchModal onClose={onClose} />);
-    // The overlay is the first child of the portal — click on the backdrop
+    // The overlay is the first child of the portal - click on the backdrop
     const overlay = document.querySelector('.fixed.inset-0');
     if (overlay) fireEvent.click(overlay as Element);
     expect(onClose).toHaveBeenCalled();

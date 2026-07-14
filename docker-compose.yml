@@ -1,4 +1,6 @@
 services:
+
+  # ── Database ──────────────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -14,102 +16,73 @@ services:
       timeout: 5s
       retries: 10
 
+  # ── Backend ───────────────────────────────────────────────────────────────
   backend:
     build: ./backend
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data/uploads:/data/uploads
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    # Port 3000 is intentionally NOT exposed to the host.
+    # The backend is only reachable through the Nginx reverse proxy.
     environment:
+
+      # ── Mandatory ─────────────────────────────────────────────────────────
       DATABASE_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
       JWT_SECRET: ${JWT_SECRET}
-      # ── Encryption (required) ────────────────────────────────────────────────
-      # Separate 256-bit key for encrypting secrets at rest (SMTP passwords,
-      # webhook secrets). Generate with: openssl rand -hex 32
-      # Add to .env:  ENCRYPTION_KEY=<64-char hex string>
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+
+      # ── Server ────────────────────────────────────────────────────────────
       FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-80}
       UPLOADS_DIR: /data/uploads
-      # Tells the backend how many reverse-proxy hops sit in front of it so it
-      # can read the real client IP from X-Forwarded-For. 1 = one Nginx layer.
-      TRUSTED_PROXY_DEPTH: "1"
-      # Set to "false" for HTTP-only environments (local dev, CI). Defaults to true (HTTPS).
+      # Number of reverse-proxy hops in front of the backend (1 = Nginx layer)
+      TRUSTED_PROXY_DEPTH: "${TRUSTED_PROXY_DEPTH:-1}"
+      # Set to "false" for HTTP-only local dev; defaults to true (HTTPS)
       COOKIE_SECURE: "${COOKIE_SECURE:-true}"
-      # ── Email (optional) ────────────────────────────────────────────────────
-      # RECOMMENDED: configure email through the UI after first login.
-      #   Settings → Email → fill in host/port/credentials → Save.
-      #   Credentials are stored in the database — nothing goes in this file.
-      #
-      # ALTERNATIVE: env vars (credentials go in .env, NOT here — see below).
-      #   Add to .env:        SMTP_HOST=smtp.gmail.com
-      #                       SMTP_PORT=587
-      #                       SMTP_USER=you@gmail.com
-      #                       SMTP_PASS=your-app-password   ← keep out of this file
-      #   Then reference here (no quotes, no plain values):
+
+      # ── Email / SMTP (optional) ────────────────────────────────────────────
+      # Recommended: configure via Admin -> Email in the UI after first login.
+      # Alternative: set SMTP_* in .env and they are picked up here automatically.
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
-      #
-      # The .env file is listed in .gitignore and never committed.
-      # UI config takes priority over env vars when both are present.
-      #
-      # Optional overrides (safe to set here — not secret):
-      #   APP_URL: https://planly.yourdomain.com  # base URL used in email links
-      #
-      # ── Admin (optional) ────────────────────────────────────────────────────
-      # Set ADMIN_EMAIL to designate the founding server admin.
-      # Whoever registers (or already has an account) with this email gets
-      # isAdmin + isFoundingAdmin on startup. The /admin panel becomes visible.
-      #
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      #
-      # ── File uploads: S3-compatible object storage (optional) ────────────────
-      # By default uploads are stored in ./data/uploads on the host (bind mount).
-      # Set AWS_S3_BUCKET in .env to switch to S3-compatible storage instead.
-      # See .env.example for Scaleway Object Storage and MinIO examples.
+
+      # ── Single Sign-On / OIDC (optional) ──────────────────────────────────
+      # Set credentials in .env - see .env.example for provider examples.
+      # Callback URL to register with your provider: <APP_URL>/api/auth/sso/callback
+      # OIDC_ISSUER: ${OIDC_ISSUER}
+      # OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      # OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      # OIDC_PROVIDER_NAME: Google
+      # OIDC_SCOPES: openid email profile
+      # APP_URL: https://planly.yourdomain.com
+
+      # ── File Storage / S3 (optional) ───────────────────────────────────────
+      # By default uploads are stored locally in ./data/uploads.
+      # Set AWS_S3_BUCKET in .env to switch to S3-compatible storage.
+      # See .env.example for AWS, Scaleway, and MinIO examples.
       # AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       # AWS_REGION: ${AWS_REGION}
       # AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
       # AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       # AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       # AWS_S3_PREFIX: ${AWS_S3_PREFIX}
-      #
-      # Higher rate limits so E2E test suites don't exhaust the per-IP budgets.
+
+      # ── Rate limits ────────────────────────────────────────────────────────
+      # Higher limits so E2E test suites don't exhaust the per-IP budgets
       RATE_LIMIT_LOGIN_MAX: "1000"
       RATE_LIMIT_REGISTER_MAX: "1000"
-      # Optionally enforce email verification before users can sign in:
-      #   REQUIRE_EMAIL_VERIFICATION: "true"
-      #
-      # Optionally restrict registration to an allowlist (managed in /admin):
-      #   REQUIRE_WHITELIST: "true"
-      #
-      # ── Single Sign-On / OIDC (optional) ────────────────────────────────────
-      # Enables a "Sign in with <provider>" button on the login page.
-      # Works with any OpenID Connect provider (Google, Microsoft, Auth0, Okta, …).
-      # Credentials go in .env — reference them here:
-      # OIDC_ISSUER: ${OIDC_ISSUER}
-      # OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
-      # OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
-      # OIDC_PROVIDER_NAME: Google         # label shown on the login button (default: SSO)
-      # OIDC_SCOPES: openid email profile  # default — change only if your IdP requires it
-      #
-      # The callback URL to register with your identity provider:
-      #   <APP_URL>/api/auth/sso/callback
-      # Set APP_URL to your public backend URL so the redirect is correct:
-      # APP_URL: https://planly.yourdomain.com
-    volumes:
-      - ./data/uploads:/data/uploads
-    depends_on:
-      db:
-        condition: service_healthy
-    # Port 3000 is intentionally NOT exposed to the host — the backend is only
-    # reachable via the Docker network through the Nginx reverse proxy.
-    # WARNING: this file is for LOCAL DEVELOPMENT ONLY.
-    # In production always use docker-compose.prod.yml (Traefik + TLS, no direct port exposure).
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "5"
 
+  # ── Frontend ──────────────────────────────────────────────────────────────
   frontend:
     build: ./frontend
     restart: unless-stopped
@@ -123,10 +96,9 @@ services:
         max-size: "20m"
         max-file: "3"
 
-  # ── Optional: Redis (required for WebSocket horizontal scaling) ─────────────
-  # When running multiple backend replicas, enable Redis so real-time events are
-  # shared across all instances (no sticky load balancer needed).
-  # After enabling: add REDIS_URL=redis://redis:6379 to the backend environment block.
+  # ── Redis (optional) ──────────────────────────────────────────────────────
+  # Required for WebSocket horizontal scaling across multiple backend replicas.
+  # After enabling: add REDIS_URL=redis://redis:6379 to the backend environment.
   #
   # redis:
   #   image: redis:7-alpine
@@ -140,44 +112,10 @@ services:
   #     timeout: 3s
   #     retries: 5
 
-  # ── Optional: Prometheus metrics scraper ─────────────────────────────────────
-  # Scrapes /api/metrics on the backend. Requires METRICS_SECRET in .env.
-  # Access Prometheus UI at http://localhost:9090
-  #
-  # prometheus:
-  #   image: prom/prometheus:latest
-  #   volumes:
-  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-  #     - prometheus_data:/prometheus
-  #   ports:
-  #     - "9090:9090"
-  #
-  # prometheus.yml example:
-  #   scrape_configs:
-  #     - job_name: planly
-  #       scrape_interval: 15s
-  #       static_configs:
-  #         - targets: ['backend:3000']
-  #       metrics_path: /api/metrics
-  #       params:
-  #         _: [''] # empty param to satisfy URL reuse
-  #       # If METRICS_SECRET is set, uncomment:
-  #       # authorization:
-  #       #   credentials: <your-secret>
-  #       # Use headers instead:
-  #       # params: {}
-  #       # Add X-Metrics-Secret via relabeling or a dedicated proxy
-
-  # ── Optional: MinIO self-hosted object storage ──────────────────────────────
-  # Uncomment to get an S3-compatible local object store with a web UI.
-  # After enabling, set these in .env:
-  #   AWS_S3_BUCKET=planly
-  #   AWS_ENDPOINT_URL=http://minio:9000
-  #   AWS_REGION=us-east-1
-  #   AWS_ACCESS_KEY_ID=planly
-  #   AWS_SECRET_ACCESS_KEY=changeme
-  # The existing storage.ts in the backend picks up AWS_ENDPOINT_URL automatically.
-  # Web UI is available at http://localhost:9001 (login: planly / changeme)
+  # ── MinIO (optional) ──────────────────────────────────────────────────────
+  # Self-hosted S3-compatible object storage with a web UI at http://localhost:9001
+  # After enabling, add to .env: AWS_S3_BUCKET=planly, AWS_ENDPOINT_URL=http://minio:9000
+  # AWS_REGION=us-east-1, AWS_ACCESS_KEY_ID=planly, AWS_SECRET_ACCESS_KEY=changeme
   #
   # minio:
   #   image: minio/minio:latest
@@ -196,8 +134,28 @@ services:
   #     timeout: 5s
   #     retries: 5
 
+  # ── Prometheus (optional) ─────────────────────────────────────────────────
+  # Scrapes /api/metrics on the backend. Requires METRICS_SECRET in .env.
+  # Access Prometheus UI at http://localhost:9090
+  #
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+  #   ports:
+  #     - "9090:9090"
+  #
+  # prometheus.yml example:
+  #   scrape_configs:
+  #     - job_name: planly
+  #       scrape_interval: 15s
+  #       static_configs:
+  #         - targets: ['backend:3000']
+  #       metrics_path: /api/metrics
+
 volumes:
   db_data:
   # redis_data:      # uncomment when enabling Redis above
-  # prometheus_data: # uncomment when enabling Prometheus above
   # minio_data:      # uncomment when enabling MinIO above
+  # prometheus_data: # uncomment when enabling Prometheus above

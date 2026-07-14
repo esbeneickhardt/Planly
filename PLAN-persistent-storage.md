@@ -11,7 +11,7 @@
 
 ---
 
-## Part 1 — Persistent file uploads
+## Part 1 - Persistent file uploads
 
 There are two options. Implement both: bind mount as the default, S3 as the production upgrade path.
 
@@ -19,7 +19,7 @@ There are two options. Implement both: bind mount as the default, S3 as the prod
 
 **What changes:**
 
-1. `docker-compose.yml` — replace the named volume mount with a bind mount:
+1. `docker-compose.yml` - replace the named volume mount with a bind mount:
 
    ```yaml
    # before
@@ -33,7 +33,7 @@ There are two options. Implement both: bind mount as the default, S3 as the prod
 
    Remove `uploads_data:` from the top-level `volumes:` section.
 
-2. `.gitignore` — add the data directory (files should not go into git):
+2. `.gitignore` - add the data directory (files should not go into git):
 
    ```
    data/
@@ -53,11 +53,11 @@ There are two options. Implement both: bind mount as the default, S3 as the prod
 
 ### Option B: S3 / Scaleway Object Storage / MinIO
 
-**No code changes needed** — `storage.ts` already handles this. All that's needed is configuration.
+**No code changes needed** - `storage.ts` already handles this. All that's needed is configuration.
 
 **What changes:**
 
-1. `.env.example` — add a section documenting the S3 env vars. Full snippet to append:
+1. `.env.example` - add a section documenting the S3 env vars. Full snippet to append:
 
    ```bash
    # ── File uploads: S3-compatible object storage (optional) ───────────────────
@@ -88,7 +88,7 @@ There are two options. Implement both: bind mount as the default, S3 as the prod
    # AWS_S3_PREFIX=planly-uploads
    ```
 
-2. `docker-compose.yml` — add the `AWS_*` env vars to the backend service (all commented out, sourced from `.env`):
+2. `docker-compose.yml` - add the `AWS_*` env vars to the backend service (all commented out, sourced from `.env`):
 
    ```yaml
    # ── File uploads: S3-compatible object storage (optional) ───────────────
@@ -111,9 +111,9 @@ There are two options. Implement both: bind mount as the default, S3 as the prod
 
 ---
 
-## Part 2 — Frontend K8s replicas (nginx envsubst)
+## Part 2 - Frontend K8s replicas (nginx envsubst)
 
-The frontend is a static SPA served by Nginx — it is already stateless. Multiple replicas are trivially supported. The only blocker is the hardcoded backend URL.
+The frontend is a static SPA served by Nginx - it is already stateless. Multiple replicas are trivially supported. The only blocker is the hardcoded backend URL.
 
 **What changes:**
 
@@ -150,7 +150,7 @@ CMD ["/bin/sh", "-c", "envsubst '$BACKEND_URL' < /etc/nginx/nginx.conf.template 
 EXPOSE 80
 ```
 
-**Why single-quotes around `'$BACKEND_URL'`:** tells the shell not to expand it, so `envsubst` receives the literal string `$BACKEND_URL` and only substitutes that variable — nginx's own `$host`, `$uri`, etc. are left untouched.
+**Why single-quotes around `'$BACKEND_URL'`:** tells the shell not to expand it, so `envsubst` receives the literal string `$BACKEND_URL` and only substitutes that variable - nginx's own `$host`, `$uri`, etc. are left untouched.
 
 ### 3. No change to `docker-compose.yml`
 
@@ -236,7 +236,7 @@ kind: Deployment
 metadata:
   name: planly-frontend
 spec:
-  replicas: 2          # stateless SPA — scale freely
+  replicas: 2          # stateless SPA - scale freely
   selector:
     matchLabels:
       app: planly-frontend
@@ -291,7 +291,7 @@ spec:
 
 ## What is NOT in scope
 
-**Backend WebSocket multi-replica** — a second backend pod would not receive real-time events fired from the first pod. This requires a Redis pub/sub layer (`redis.ts` with `REDIS_URL`). The `docker-compose.yml` already has a commented-out Redis block. This is medium-high effort and was not requested.
+**Backend WebSocket multi-replica** - a second backend pod would not receive real-time events fired from the first pod. This requires a Redis pub/sub layer (`redis.ts` with `REDIS_URL`). The `docker-compose.yml` already has a commented-out Redis block. This is medium-high effort and was not requested.
 
 ---
 

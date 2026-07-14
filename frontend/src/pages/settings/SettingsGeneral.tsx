@@ -1,3 +1,8 @@
+/**
+ * Settings General (Project) tab allowing managers to edit the project name, emoji, and description,
+ * and giving the owner additional controls: toggling the Analytics tab visibility, exporting the
+ * project as JSON, and transferring ownership to another team member.
+ */
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import type { Product, TeamMember, User } from '../../types';
@@ -28,6 +33,7 @@ export default function SettingsGeneral({
   const [transferTo, setTransferTo] = useState('');
   const [transferring, setTransferring] = useState(false);
 
+  // Reset local form state when the active product changes so stale values don't leak across products
   useEffect(() => {
     setProjName(activeProduct.name);
     setProjEmoji(activeProduct.emoji ?? '');

@@ -1,5 +1,5 @@
 /**
- * Email/SMTP admin routes — manage the SMTP configuration via the Admin UI.
+ * Email/SMTP admin routes - manage the SMTP configuration via the Admin UI.
  *
  * Provides endpoints to read, upsert, test, and delete the SMTP configuration.
  * The SMTP password is stored AES-256-GCM encrypted. The test endpoint sends a
@@ -56,6 +56,7 @@ export async function emailStatusRoutes(app: FastifyInstance) {
     if (!body) return;
     const { host, port, secure, user, pass, from } = body;
 
+    // Update or create depending on whether a config record already exists
     const existing = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
 
     if (existing) {

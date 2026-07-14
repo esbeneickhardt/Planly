@@ -6,13 +6,14 @@ All configuration is done through environment variables in a `.env` file. Copy `
 
 ## Required Variables
 
-These three must be set before the app will start. The backend exits at startup with a clear error message if any are missing.
+These must be set before the app will start. The backend exits at startup with a clear error message if any are missing.
 
 | Variable | Description | How to generate |
 |---|---|---|
 | `DB_PASSWORD` | PostgreSQL container password | Any strong random string |
 | `JWT_SECRET` | JWT signing key (min 32 chars) | `openssl rand -hex 32` |
 | `ENCRYPTION_KEY` | AES-256-GCM key for at-rest secrets | `openssl rand -hex 32` |
+| `ADMIN_EMAIL` | Email of the founding server admin | Your email address |
 
 > `ENCRYPTION_KEY` is used to encrypt webhook secrets and SMTP passwords stored in the database. Losing this key makes those values unreadable. Back it up securely alongside your database.
 
@@ -22,23 +23,24 @@ These three must be set before the app will start. The backend exits at startup 
 
 | Variable | Default | Description |
 |---|---|---|
-| `FRONTEND_ORIGIN` | `http://localhost:80` | Frontend URL — must exactly match what browsers send as the `Origin` header. Used for CORS and CSRF validation. |
+| `FRONTEND_ORIGIN` | `http://localhost:80` | Frontend URL - must exactly match what browsers send as the `Origin` header. Used for CORS and CSRF validation. |
 | `APP_URL` | Same as `FRONTEND_ORIGIN` | Base URL used in email links (password reset, invites). Set to your public domain in production. |
 | `PORT` | `3000` | Backend listen port (internal to Docker network) |
 | `COOKIE_SECURE` | `true` | Set to `false` only for local HTTP-only development. Controls the `Secure` flag on auth cookies. |
 | `TRUSTED_PROXY_DEPTH` | `1` | Number of trusted reverse proxy hops. Used to read the real client IP from `X-Forwarded-For`. `1` for the default Docker Compose Nginx. `0` if exposing the backend directly. |
 | `LOG_LEVEL` | `info` | Fastify log level: `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
 | `UPLOADS_DIR` | `/tmp/planly-uploads` | Directory for file attachment storage |
-| `ADMIN_LOG_RETENTION_DAYS` | `365` | How many days of admin audit logs to retain. Older entries are pruned by the nightly cleanup job. |
+| `ADMIN_LOG_RETENTION_DAYS` | `90` | How many days of admin audit logs to retain. Older entries are pruned by the nightly cleanup job. |
 
 ---
 
 ## Admin Account
 
+`ADMIN_EMAIL` is required (see above). The remaining variables are optional:
+
 | Variable | Description |
 |---|---|
-| `ADMIN_EMAIL` | Email of the founding admin. If the account doesn't exist yet it is created on startup with a random password (printed to the logs). If it already exists the `isAdmin` flag is set. |
-| `ADMIN_PASSWORD` | Initial password for the auto-created admin account. If omitted, a random password is generated and logged. |
+| `ADMIN_PASSWORD` | Initial password for the auto-created admin account. If omitted, a random password is generated and printed to the logs on first start. |
 | `RECROWN_EMAIL` | Emergency: transfers the founding-admin seat to this email on next startup. Remove from `.env` after the restart. |
 
 ---
@@ -53,11 +55,11 @@ SMTP is optional. When not configured, emails are logged to the container consol
 
 | Variable | Default | Description |
 |---|---|---|
-| `SMTP_HOST` | — | SMTP server hostname (e.g. `smtp.gmail.com`) |
+| `SMTP_HOST` | - | SMTP server hostname (e.g. `smtp.gmail.com`) |
 | `SMTP_PORT` | `587` | SMTP port |
 | `SMTP_SECURE` | `false` | `true` for port 465 (SMTPS); `false` for STARTTLS on 587 |
-| `SMTP_USER` | — | SMTP authentication username |
-| `SMTP_PASS` | — | SMTP authentication password / app password |
+| `SMTP_USER` | - | SMTP authentication username |
+| `SMTP_PASS` | - | SMTP authentication password / app password |
 | `SMTP_FROM` | `Planly <noreply@planly.app>` | From address on outgoing emails |
 
 > Store `SMTP_PASS` in `.env`, never directly in `docker-compose.yml`. `.env` is gitignored.

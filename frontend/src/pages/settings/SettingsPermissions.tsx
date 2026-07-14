@@ -1,3 +1,9 @@
+/**
+ * Settings Permissions tab showing a per-member, per-tab access matrix (write / read / none).
+ * Owners and co-owners always have write access and cannot be downgraded via this matrix.
+ * Three preset buttons apply a bulk level to all regular members; changes are sent as a single
+ * PUT to avoid partial-save states.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import type { Product, TeamMember } from '../../types';
@@ -35,6 +41,7 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
   const [matrix, setMatrix] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
 
+  // Seed the matrix with "write" defaults for all member+tab combos, then overwrite with saved rows
   const initMatrix = useCallback(async () => {
     const rows = await api.permissions.list(activeProduct.id);
     const m: Record<string, Record<string, string>> = {};
@@ -52,6 +59,7 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
     setMatrix((prev) => ({ ...prev, [userId]: { ...prev[userId], [tab]: level } }));
   }
 
+  // Apply a preset to all non-privileged members only; owners/co-owners are always left at write
   function applyPreset(preset: 'open' | 'standard' | 'locked') {
     const levelMap: Record<string, Record<string, string>> = {
       open:     { kanban: 'write', backlog: 'write', canvas: 'write', gantt: 'write' },

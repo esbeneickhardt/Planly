@@ -111,6 +111,26 @@ Full app registration tests in [18-api-tokens-and-apps.md](18-api-tokens-and-app
 - [ ] Change username (if allowed) → updates everywhere
 - [ ] Delete account modal: `DELETE /api/users/:id` → account removed; session ended
 
+**After deleting Alice's account, verify data residue (log in as Admin):**
+
+```bash
+# Confirm Alice is gone from user list
+curl -s -b cookies.txt $BASE/api/admin/users | jq '[.[] | select(.username=="alice")]'
+
+# Check a task Alice owned - ownerId should now be null, task should still exist
+curl -s -b cookies.txt $BASE/api/tasks/<alice-task-id> | jq '{name,ownerId,reviewerId}'
+
+# Check announcements panel - any Alice authored should show "Deleted user", not error
+```
+
+- [ ] Alice no longer appears in admin user list
+- [ ] Tasks Alice owned still exist in Alpha Project - `ownerId` is `null` (unassigned), not deleted
+- [ ] Tasks Alice was reviewer on still exist - `reviewerId` is `null`
+- [ ] Messages Alice sent in task chats are **deleted** (gone from the thread)
+- [ ] Announcements Alice authored survive and display as "Deleted user"
+- [ ] Alice's team memberships are removed - she no longer appears in Alpha Team
+- [ ] Session cookie is invalidated - Alice cannot call any API endpoint after deletion
+
 ```bash
 # Get user profile
 curl -s -b alice-cookies.txt $BASE/api/users/<alice-id> | jq .

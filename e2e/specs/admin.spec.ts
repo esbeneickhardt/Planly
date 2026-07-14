@@ -11,7 +11,7 @@ import { test, expect } from '@playwright/test';
 import { getAdminCredentials, loginViaUI, uniqueUser, registerViaUI } from '../fixtures/auth.fixture';
 
 test.describe('Admin panel access', () => {
-  test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set — skipping admin tests');
+  test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set - skipping admin tests');
 
   test('admin shield button is visible for admin user', async ({ page }) => {
     const { email, password } = await getAdminCredentials();
@@ -65,7 +65,7 @@ test.describe('Admin panel access', () => {
 });
 
 test.describe('Admin Users tab', () => {
-  test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set — skipping admin tests');
+  test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set - skipping admin tests');
 
   test('lists registered users', async ({ page }) => {
     const { email, password } = await getAdminCredentials();
@@ -110,7 +110,7 @@ test.describe('Admin Users tab', () => {
 });
 
 test.describe('Admin Server Config tab', () => {
-  test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set — skipping admin tests');
+  test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set - skipping admin tests');
 
   test('can toggle allowProjectCreation setting', async ({ page }) => {
     const { email, password } = await getAdminCredentials();
@@ -131,7 +131,7 @@ test.describe('Admin Server Config tab', () => {
 });
 
 test.describe('Admin Audit Logs tab', () => {
-  test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set — skipping admin tests');
+  test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set - skipping admin tests');
 
   test('shows audit log entries', async ({ page }) => {
     const { email, password } = await getAdminCredentials();

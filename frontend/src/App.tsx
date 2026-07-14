@@ -1,3 +1,8 @@
+/**
+ * Root component that wires up all context providers, React Router routes, and access-control guards.
+ * Every page is lazy-loaded to keep the initial bundle small; auth-protected routes are wrapped by
+ * RequireAuth (checks session) and RequireTab/RequireManage (checks per-tab permissions from the API).
+ */
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
@@ -9,7 +14,7 @@ import { ConfirmProvider } from './context/ConfirmContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import AppLayout from './components/common/AppLayout';
 
-// Auth pages — lazy so they don't bloat the initial bundle
+// Auth pages — lazy to avoid bundling them with the authenticated app shell
 const LoginPage         = lazy(() => import('./pages/LoginPage'));
 const RegisterPage      = lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
@@ -20,7 +25,7 @@ const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'));
 const TermsPage         = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage       = lazy(() => import('./pages/PrivacyPage'));
 
-// App pages — lazy-loaded once user is authenticated
+// App pages - lazy-loaded once user is authenticated
 const KanbanPage       = lazy(() => import('./pages/KanbanPage'));
 const BacklogPage      = lazy(() => import('./pages/BacklogPage'));
 const CanvasPage       = lazy(() => import('./pages/CanvasPage'));
@@ -31,6 +36,7 @@ const AboutPage        = lazy(() => import('./pages/AboutPage'));
 const AdminPage        = lazy(() => import('./pages/AdminPage'));
 const AnnouncementsPage = lazy(() => import('./pages/AnnouncementsPage'));
 
+// Redirects unauthenticated visitors to /login; blocks users who must change their password
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
   if (loading) {
@@ -53,6 +59,7 @@ function PermSpinner() {
   );
 }
 
+// Blocks access to a specific tab unless the user has at least read permission; canManage bypasses all tab checks
 function RequireTab({ tab, children }: { tab: string; children: JSX.Element }) {
   const { canRead, canManage, permissionsLoaded } = usePermission();
   if (!permissionsLoaded) return <PermSpinner />;
@@ -60,6 +67,7 @@ function RequireTab({ tab, children }: { tab: string; children: JSX.Element }) {
   return children;
 }
 
+// Restricts a route to owners and co-owners only (e.g. Settings)
 function RequireManage({ children }: { children: JSX.Element }) {
   const { canManage, permissionsLoaded } = usePermission();
   if (!permissionsLoaded) return <PermSpinner />;
@@ -67,6 +75,7 @@ function RequireManage({ children }: { children: JSX.Element }) {
   return children;
 }
 
+// Sends admins with no projects to /admin, everyone else to /kanban
 function DefaultRoute() {
   const { user } = useAuth();
   const { products, tasksLoaded } = useProduct();

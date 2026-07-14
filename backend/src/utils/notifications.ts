@@ -1,5 +1,5 @@
 /**
- * In-app notification utility — creates per-user notification records
+ * In-app notification utility - creates per-user notification records
  * while respecting each user's stored notification preferences.
  *
  * Notifications appear in the bell-icon dropdown and are retained for 90 days.
@@ -9,6 +9,7 @@
 import prisma from '../db/client';
 import { logger } from './logger';
 
+// Default on/off state for each notification type when the user has not set a preference
 const DEFAULT_ENABLED: Record<string, boolean> = {
   task_assigned:    true,
   task_commented:   true,
@@ -17,7 +18,7 @@ const DEFAULT_ENABLED: Record<string, boolean> = {
   access_approved:  true,
   access_rejected:  true,
   invite_received:  true,
-  sprint_started:   false, // opt-in
+  sprint_started:   false, // opt-in only
 };
 
 /**
@@ -37,12 +38,13 @@ export async function createNotification(data: {
   taskId?: string;
   metadata?: object;
 }) {
-  // Check user's notification preferences before creating
+  // Fetch the user's stored preferences (null-safe: a missing row means all defaults apply)
   const user = await prisma.user.findUnique({
     where: { id: data.userId },
     select: { notificationPreferences: true },
   }).catch(() => null);
 
+  // Merge stored preferences over defaults; unknown types default to enabled
   const prefs = (user?.notificationPreferences as Record<string, boolean> | null) ?? {};
   const typeDefault = DEFAULT_ENABLED[data.type] ?? true;
   const isEnabled = data.type in prefs ? prefs[data.type] : typeDefault;

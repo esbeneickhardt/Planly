@@ -1,3 +1,8 @@
+/**
+ * Admin IP Rules panel for configuring server-level IP access control in one of three modes:
+ * disabled, allowlist (block all except listed CIDRs), or blocklist (block only listed CIDRs).
+ * The admin IP-settings endpoint is always accessible so a misconfiguration can always be undone.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import type { IpRule } from './types';
@@ -25,11 +30,13 @@ export default function AdminIpRules({ showToast }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Shared error-boundary for mode-switch and remove mutations
   async function act(fn: () => Promise<void>) {
     try { await fn(); }
     catch (e) { showToast((e as Error).message, 'error'); }
   }
 
+  // Add a new CIDR rule; guards against double-submission with addingIpRule flag
   async function addRule() {
     if (!newCidr.trim() || addingIpRule) return;
     setAddingIpRule(true);

@@ -67,16 +67,16 @@ Each product member has a per-tab permission level (`write`, `read`, or `none`):
 
 - Stored AES-256-GCM encrypted at rest.
 - Returned in plaintext only to: the user themselves (own profile), admins (admin panel).
-- Team member search returns only `id`, `username`, `avatarEmoji` — no PII.
+- Team member search returns only `id`, `username`, `avatarEmoji` - no PII.
 
 ---
 
 ## Session & Token Security
 
 - Sessions use httpOnly, SameSite=Lax cookies (JWT, 7-day expiry).
-- `tokenVersion` claim in the JWT; incremented on every login — prior sessions are immediately invalidated.
+- `tokenVersion` claim in the JWT; incremented on every login - prior sessions are immediately invalidated.
 - `GET /api/auth/refresh` re-issues the session cookie (sliding expiry).
-- WebSocket connections use short-lived single-use tickets (`POST /api/products/:id/ws-ticket`, 30s TTL) — no JWT in query params.
+- WebSocket connections use short-lived single-use tickets (`POST /api/products/:id/ws-ticket`, 30s TTL) - no JWT in query params.
 - API tokens: stored as SHA-256 hashes; raw token shown only once at creation.
 
 ---

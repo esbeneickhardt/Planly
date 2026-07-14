@@ -1,5 +1,5 @@
 /**
- * useRealtimeUpdates — subscribes to a project's WebSocket event stream and
+ * useRealtimeUpdates - subscribes to a project's WebSocket event stream and
  * calls onEvent for each incoming message.
  *
  * Connects using the cookie session (sent automatically by the browser on the

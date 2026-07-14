@@ -1,5 +1,5 @@
 /**
- * Integration test for rate limiting — verifies that repeated requests beyond the
+ * Integration test for rate limiting - verifies that repeated requests beyond the
  * configured threshold receive 429 Too Many Requests.
  *
  * Uses a test app with a very low limit (3 requests/minute) so we don't need to
@@ -29,7 +29,7 @@ describe.skipIf(!HAS_DB)('Rate limiting', () => {
   it('returns 429 after exceeding the request threshold', async () => {
     const url = '/api/auth/me';
 
-    // First 3 requests should pass (all 401 — unauthenticated, but not rate-limited)
+    // First 3 requests should pass (all 401 - unauthenticated, but not rate-limited)
     for (let i = 0; i < 3; i++) {
       const res = await app.inject({ method: 'GET', url });
       expect(res.statusCode).toBe(401);

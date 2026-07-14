@@ -1,3 +1,8 @@
+/**
+ * Manages the active visual theme, persisting the selection to `planly-theme` in localStorage.
+ * Applies the theme by setting `data-theme` on `document.documentElement` and toggling the `dark` class.
+ * `THEMES` defines 11 built-in themes with swatch colours used in the theme picker UI.
+ */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export type ThemeId =
@@ -51,12 +56,14 @@ function isValidThemeId(v: string): v is ThemeId {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  // State: initialise from localStorage so the correct theme loads before first paint
   const [themeId, setThemeId] = useState<ThemeId>(() => {
     const saved = localStorage.getItem('planly-theme');
     if (saved && isValidThemeId(saved)) return saved;
     return 'dark';
   });
 
+  // Apply theme to DOM and persist on every change
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', themeId);

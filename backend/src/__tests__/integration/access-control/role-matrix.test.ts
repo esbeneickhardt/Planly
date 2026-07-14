@@ -19,7 +19,7 @@ import { loginAs, cookieJar } from '../../helpers/auth';
 
 const HAS_DB = !!process.env.TEST_DATABASE_URL;
 
-describe.skipIf(!HAS_DB)('Role matrix — endpoint access control', () => {
+describe.skipIf(!HAS_DB)('Role matrix - endpoint access control', () => {
   let app: FastifyInstance;
   const suffix = randomSuffix();
   const pw = 'pass-role-matrix';

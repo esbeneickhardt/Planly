@@ -1,3 +1,8 @@
+/**
+ * Client-side filter and sort pipeline for the backlog task list.
+ * `tabCounts` respects the `mineOnly` toggle, so tab badges only count the current user's tasks when that filter is active.
+ * `unassignedCount` and `overdueCount` are raw totals across all tasks, unaffected by the other active filters.
+ */
 import { useState, useMemo } from 'react';
 import type { Task } from '../types';
 
@@ -20,6 +25,7 @@ export interface BacklogFilters {
 }
 
 export function useBacklogFilters(tasks: Task[], userId: string | undefined): BacklogFilters {
+  // Filter + sort state
   const [sortKey, setSortKey] = useState<SortKey>('oldest');
   const [statusTab, setStatusTab] = useState<StatusTab>('backlog');
   const [mineOnly, setMineOnly] = useState(false);
@@ -53,6 +59,7 @@ export function useBacklogFilters(tasks: Task[], userId: string | undefined): Ba
     });
   }, [tasks, statusTab, mineOnly, sortKey, search, userId]);
 
+  // Raw badge counts — not filtered by mineOnly/statusTab/search
   const now = new Date();
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < now).length;

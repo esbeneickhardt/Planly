@@ -1,3 +1,8 @@
+/**
+ * Settings Webhooks tab for registering HTTP POST endpoints that fire on project events.
+ * Each webhook is HMAC-SHA256 signed; the secret is revealed once at creation time and never
+ * shown again.  Webhooks can be individually enabled/disabled without deleting them.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import type { Webhook } from '../../api/client';
@@ -90,7 +95,7 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
           </div>
         </div>
 
-        {/* One-time secret reveal */}
+        {/* Secret is surfaced once after creation; the state is cleared when the user dismisses it */}
         {revealedSecret && (
           <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}>
             <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Save this secret - it will not be shown again.</p>

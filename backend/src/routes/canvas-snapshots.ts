@@ -1,5 +1,5 @@
 /**
- * Canvas snapshot routes — persist and retrieve task node positions on the
+ * Canvas snapshot routes - persist and retrieve task node positions on the
  * Canvas (freeform planning) view.
  *
  * A snapshot stores a map of { taskId → { x, y } } positions for a project.
@@ -23,6 +23,7 @@ const createSnapshotSchema = z.object({
 });
 
 export async function canvasSnapshotRoutes(app: FastifyInstance) {
+  // List all canvas snapshots for a project
   app.get('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -34,6 +35,7 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     reply.send(snapshots);
   });
 
+  // Save a new canvas snapshot (positions + viewport)
   app.post('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -47,6 +49,7 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     reply.status(201).send(snapshot);
   });
 
+  // Delete own snapshot (author only)
   app.delete('/api/products/:productId/canvas-snapshots/:snapshotId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, snapshotId } = req.params as { productId: string; snapshotId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;

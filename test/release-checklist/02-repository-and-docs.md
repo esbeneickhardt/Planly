@@ -68,7 +68,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 - [ ] "Always use `docker-compose.prod.yml` in production" warning is prominent
 - [ ] Required environment variable table matches `.env.example`
 - [ ] "PII Migration" section is present and instructions work
-- [ ] `npx prisma migrate deploy` vs `prisma db push` - **CONTRIBUTING.md says `db push`, DEPLOYMENT.md says `migrate deploy`** - reconcile these
+- [ ] Docs consistently say `prisma db push` (what the Dockerfile actually runs on startup)
 - [ ] Backup and restore section (if present) is accurate
 
 ### .env.example

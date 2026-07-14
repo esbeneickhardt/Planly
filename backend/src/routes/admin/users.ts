@@ -1,5 +1,7 @@
 /**
- * Admin user management — promote, demote, unlock, force-verify, delete, crown transfer.
+ * Admin user management routes - promote, demote, unlock, force-verify, delete, and crown transfer.
+ * Most destructive operations (promote, demote, delete, crown transfer) are gated to the
+ * founding admin; regular admins can only unlock and force-verify.
  */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -69,9 +71,11 @@ export async function adminUserRoutes(app: FastifyInstance) {
 
     const target = await prisma.user.findUnique({ where: { id: targetId }, select: { username: true, isAdmin: true } });
     if (!target) return reply.status(404).send({ error: 'User not found' });
+    // Target must already be an admin so they land in admin state after the transfer
     if (!target.isAdmin) return reply.status(400).send({ error: 'Target must be an admin before receiving the crown.' });
     if (targetId === actorId) return reply.status(400).send({ error: 'You already hold the crown.' });
 
+    // Swap the isFoundingAdmin flag atomically so there is always exactly one founding admin
     await prisma.$transaction([
       prisma.user.update({ where: { id: actorId }, data: { isFoundingAdmin: false } }),
       prisma.user.update({ where: { id: targetId }, data: { isFoundingAdmin: true } }),
@@ -102,6 +106,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
 
   app.delete('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
+    // Self-deletion is blocked to prevent accidental lockout
     if (id === req.user.userId) return reply.status(400).send({ error: 'Cannot delete your own account via admin panel.' });
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true, isFoundingAdmin: true } });
     const target = await prisma.user.findUnique({ where: { id }, select: { username: true, isFoundingAdmin: true } });

@@ -35,7 +35,7 @@ vi.mock('../../utils/storage', async (importOriginal) => {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Minimal PNG magic bytes — enough for verifyMimeBytes. */
+/** Minimal PNG magic bytes - enough for verifyMimeBytes. */
 function pngBytes() {
   return Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 }
@@ -135,7 +135,7 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
     });
 
     it('returns 400 when file content does not match declared MIME type', async () => {
-      // HTML content declared as image/png — verifyMimeBytes rejects it
+      // HTML content declared as image/png - verifyMimeBytes rejects it
       const htmlContent = Buffer.from('<html><body>evil</body></html>');
       const { body, contentType } = multipart(htmlContent, 'evil.png', 'image/png');
       const res = await app.inject({

@@ -1,5 +1,5 @@
 /**
- * WebSocket one-time ticket store — issues and consumes short-lived single-use tokens
+ * WebSocket one-time ticket store - issues and consumes short-lived single-use tokens
  * that allow clients to authenticate a WebSocket upgrade without passing the session JWT
  * in a URL query string (which would be logged by servers and proxies).
  *
@@ -16,9 +16,7 @@ import prisma from '../db/client';
 
 const TICKET_TTL_MS = 30_000;
 
-// Tickets are stored in the DB so WebSocket upgrade requests are correctly validated
-// across every replica — an in-memory map would silently fail in multi-instance deployments.
-
+// Issue a new single-use ticket and store it in the database
 export async function issueTicket(userId: string): Promise<string> {
   const token = randomBytes(32).toString('hex');
   await prisma.wsTicket.create({
@@ -30,7 +28,7 @@ export async function issueTicket(userId: string): Promise<string> {
 export async function consumeTicket(token: string): Promise<string | null> {
   const ticket = await prisma.wsTicket.findUnique({ where: { token } });
   if (!ticket) return null;
-  // Delete immediately — single-use regardless of whether it has expired
+  // Delete immediately - single-use regardless of whether it has expired
   await prisma.wsTicket.delete({ where: { token } }).catch(() => {});
   if (ticket.expiresAt < new Date()) return null;
   return ticket.userId;

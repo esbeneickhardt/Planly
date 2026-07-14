@@ -1,9 +1,9 @@
 /**
- * Auth cookie helpers — issue and clear the paired session cookies.
+ * Auth cookie helpers - issue and clear the paired session cookies.
  *
  * Login sets two cookies simultaneously:
- *   `token`  — httpOnly JWT (7 days). The browser sends it automatically; JS cannot read it.
- *   `csrf`   — non-httpOnly random value (7 days). JS reads it and echoes it as X-CSRF-Token
+ *   `token`  - httpOnly JWT (7 days). The browser sends it automatically; JS cannot read it.
+ *   `csrf`   - non-httpOnly random value (7 days). JS reads it and echoes it as X-CSRF-Token
  *              on every mutating request. An attacker on another origin cannot read this
  *              cookie, so cannot forge the header.
  *

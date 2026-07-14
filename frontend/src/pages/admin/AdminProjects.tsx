@@ -1,3 +1,8 @@
+/**
+ * Admin Projects panel showing a read-only table of every project on the server, including owner,
+ * member count, task count, and deadline.  Overdue deadlines are highlighted in red.
+ * This panel is intentionally read-only — project deletion lives in each project's own Danger Zone settings.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import type { AdminProject } from './types';

@@ -1,3 +1,8 @@
+/**
+ * Manages inline edit state for a single chat message at a time (editingId + editDraft).
+ * `saveEdit` routes to either the admin chat API or the product chat API depending on `isAdminChat`.
+ * On successful save the message is updated optimistically in the caller's `setAllMessages` state.
+ */
 import { useState } from 'react';
 import { api } from '../api/client';
 import type { Message } from '../api/client';

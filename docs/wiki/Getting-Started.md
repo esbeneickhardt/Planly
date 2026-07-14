@@ -12,7 +12,7 @@ This guide walks you from zero to a running Planly instance in under 10 minutes.
 
 ---
 
-## Step 1 — Clone the repository
+## Step 1 - Clone the repository
 
 ```bash
 git clone https://github.com/EsbenEickhardt/planly.git
@@ -21,7 +21,7 @@ cd planly
 
 ---
 
-## Step 2 — Create your `.env` file
+## Step 2 - Create your `.env` file
 
 ```bash
 cp .env.example .env
@@ -30,7 +30,7 @@ cp .env.example .env
 Open `.env` and set the three required secrets. Generate them with `openssl`:
 
 ```bash
-openssl rand -hex 32   # run twice — once for JWT_SECRET, once for ENCRYPTION_KEY
+openssl rand -hex 32   # run twice - once for JWT_SECRET, once for ENCRYPTION_KEY
 ```
 
 Minimum `.env` for development:
@@ -42,11 +42,11 @@ ENCRYPTION_KEY=<64-char hex string>
 ADMIN_EMAIL=you@example.com
 ```
 
-`ADMIN_EMAIL` is optional but strongly recommended — whoever registers with that email becomes the founding admin with access to the `/admin` panel.
+`ADMIN_EMAIL` is optional but strongly recommended - whoever registers with that email becomes the founding admin with access to the `/admin` panel.
 
 ---
 
-## Step 3 — Start the stack
+## Step 3 - Start the stack
 
 ### Development (HTTP, localhost)
 
@@ -77,7 +77,7 @@ Traefik obtains and renews a Let's Encrypt certificate automatically. Open `http
 
 ---
 
-## Step 4 — Register and log in
+## Step 4 - Register and log in
 
 1. Navigate to your Planly URL.
 2. Click **Register** and create an account using the same email as `ADMIN_EMAIL`.
@@ -85,11 +85,11 @@ Traefik obtains and renews a Let's Encrypt certificate automatically. Open `http
 
 If you set `ADMIN_EMAIL`, a crown icon appears next to your username and an **Admin** link appears in the sidebar. Click it to open the admin panel.
 
-> **No `ADMIN_EMAIL` set?** The first registered user does not automatically become admin. Set `ADMIN_EMAIL` in `.env` and restart the stack — the backend grants admin on startup if the account already exists.
+> **No `ADMIN_EMAIL` set?** The first registered user does not automatically become admin. Set `ADMIN_EMAIL` in `.env` and restart the stack - the backend grants admin on startup if the account already exists.
 
 ---
 
-## Step 5 — Create a team and invite people
+## Step 5 - Create a team and invite people
 
 1. Click **New Team** in the sidebar.
 2. Give the team a name and save.
@@ -98,15 +98,15 @@ If you set `ADMIN_EMAIL`, a crown icon appears next to your username and an **Ad
 
 ---
 
-## Step 6 — Configure email (optional but recommended)
+## Step 6 - Configure email (optional but recommended)
 
 Without SMTP, email features (invite emails, password reset, verification, @mention notifications) log to the container console instead of sending. To enable:
 
-**Option A — Admin UI (preferred):**  
+**Option A - Admin UI (preferred):**  
 Admin panel → **Email** → fill in host, port, credentials → **Save**.  
 Credentials are stored encrypted in the database.
 
-**Option B — Environment variables:**  
+**Option B - Environment variables:**  
 Add to `.env`:
 ```env
 SMTP_HOST=smtp.gmail.com
@@ -118,7 +118,7 @@ Then reference them in `docker-compose.yml` (they're already wired up in the fil
 
 ---
 
-## Step 7 — Configure SSO (optional)
+## Step 7 - Configure SSO (optional)
 
 To enable a "Sign in with Google" (or any OIDC provider) button:
 
@@ -141,7 +141,7 @@ See [Configuration](Configuration.md#sso--oidc) for other providers.
 
 ## What's next?
 
-- [Configuration](Configuration.md) — full environment variable reference
-- [User Guide](User-Guide.md) — learn the views, tasks, and collaboration features
-- [API Reference](API-Reference.md) — automate Planly with the REST API
-- [Webhooks](Webhooks.md) — connect Planly to external services
+- [Configuration](Configuration.md) - full environment variable reference
+- [User Guide](User-Guide.md) - learn the views, tasks, and collaboration features
+- [API Reference](API-Reference.md) - automate Planly with the REST API
+- [Webhooks](Webhooks.md) - connect Planly to external services

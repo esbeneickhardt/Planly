@@ -1,5 +1,5 @@
 /**
- * Project (product) routes — CRUD for projects within a team.
+ * Project (product) routes - CRUD for projects within a team.
  *
  * Projects are the main workspace unit. Each project belongs to exactly one team,
  * has its own set of tasks, views (Kanban, Backlog, Gantt, Canvas), columns, sprints,
@@ -32,6 +32,7 @@ const updateProductSchema = z.object({
 });
 
 export async function productRoutes(app: FastifyInstance) {
+  // List all non-deleted projects visible to the authenticated user
   app.get('/api/products', { preHandler: requireAuth }, async (req, reply) => {
     const products = await prisma.product.findMany({
       where: { team: { members: { some: { userId: req.user.userId } } }, deletedAt: null },
@@ -66,6 +67,7 @@ export async function productRoutes(app: FastifyInstance) {
     reply.status(201).send(product);
   });
 
+  // Get a project with full team member list (membership check included)
   app.get('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const product = await prisma.product.findFirst({
@@ -84,6 +86,7 @@ export async function productRoutes(app: FastifyInstance) {
     if (!body) return;
     const { name, emoji, description, deadline, ownerId, analyticsEnabled } = body;
 
+    // Verify the caller is a member and load their role
     const product = await prisma.product.findFirst({
       where: { id, deletedAt: null },
       include: { team: { select: { members: { where: { userId: req.user.userId }, select: { role: true } } } } },
@@ -92,6 +95,7 @@ export async function productRoutes(app: FastifyInstance) {
     const membership = product.team.members[0];
     if (!membership) return reply.status(403).send({ error: 'Forbidden' });
 
+    // Enforce per-field permission rules based on role
     const isProductOwner = product.ownerId === req.user.userId;
     const isCoOwner = membership.role === 'co_owner';
 
@@ -111,6 +115,7 @@ export async function productRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: 'Only the owner can change analytics visibility' });
     }
 
+    // Sync team name if project name changes, then persist product fields
     try {
       if (name !== undefined) {
         await prisma.team.update({ where: { id: product.teamId }, data: { name } });
@@ -131,6 +136,7 @@ export async function productRoutes(app: FastifyInstance) {
     }
   });
 
+  // Soft-delete by setting deletedAt (owner only, cannot be undone via API)
   app.delete('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });

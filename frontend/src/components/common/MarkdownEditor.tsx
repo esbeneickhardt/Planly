@@ -1,3 +1,8 @@
+/**
+ * Textarea-based markdown editor with toolbar (emoji picker, file attach, markdown snippets, preview toggle).
+ * `EMOJI_SET` is exported so ChatPanel and MessageBubble can render the same emoji picker without duplicating the set.
+ * `insertAtCursor` restores the cursor position after each insertion via `requestAnimationFrame`; pasted images trigger an upload.
+ */
 import { useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

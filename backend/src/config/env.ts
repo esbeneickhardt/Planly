@@ -1,12 +1,17 @@
 /**
- * Environment variable validation and typed configuration.
+ * Imports environment variables and validates their formats and if required
+ * variables are set.
  *
- * Imported as the very first line of index.ts so the process exits immediately
- * with a clear error message if any required variable is missing or too short.
- * All other modules import `config` from here instead of reading process.env directly.
+ * This module is imported as the very first line of index.ts so the process exits 
+ * immediately with a clear error message if any required variable is missing or too 
+ * short. All other modules import `config` from here instead of reading the environment
+ * variables directly via process.env.
  */
+
+// Required environment variables
 const REQUIRED = ['JWT_SECRET', 'DATABASE_URL', 'ENCRYPTION_KEY'] as const;
 
+// Checking if environment variables are missing
 for (const key of REQUIRED) {
   if (!process.env[key]) {
     console.error(`FATAL: Missing required environment variable: ${key}`);
@@ -15,12 +20,14 @@ for (const key of REQUIRED) {
   }
 }
 
+// Checking JWT secret format
 const jwtSecret = process.env.JWT_SECRET!;
 if (jwtSecret.length < 32) {
   console.error('FATAL: JWT_SECRET must be at least 32 characters. Generate with: openssl rand -hex 32');
   process.exit(1);
 }
 
+// Creating dictionary with environment variables
 export const config = {
   jwtSecret,
   databaseUrl: process.env.DATABASE_URL!,
@@ -49,4 +56,5 @@ export const config = {
     email: process.env.ADMIN_EMAIL ?? '',
     password: process.env.ADMIN_PASSWORD ?? '',
   },
+  contactEmail: process.env.CONTACT_EMAIL || process.env.ADMIN_EMAIL || '',
 };

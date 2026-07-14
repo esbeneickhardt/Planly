@@ -1,5 +1,5 @@
 /**
- * useSprints — manages sprint list state for a project.
+ * useSprints - manages sprint list state for a project.
  *
  * Provides a sprints array and a refresh() callback. Components call refresh()
  * on mount and after any sprint create/update/delete to keep state current.

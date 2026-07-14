@@ -1,3 +1,9 @@
+/**
+ * Settings Apps tab bundling app registrations (named bots/integrations with scoped API tokens),
+ * an iCal calendar feed generator for subscribing to deadlines in external calendar apps,
+ * and (admin-only) GitHub webhook integration for auto-importing issues and pull requests.
+ * Generated tokens and secrets are revealed once and never fetched again from the server.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import type { ApiToken, AppRegistration } from '../../api/client';
@@ -29,6 +35,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [appTokens, setAppTokens] = useState<ApiToken[]>([]);
   const [newAppTokenName, setNewAppTokenName] = useState('');
+  // Calendar URL is stored in localStorage because the token is not retrievable from the server after creation
   const [calendarUrl, setCalendarUrl] = useState<string | null>(
     () => localStorage.getItem(`planly-calendar-url-${activeProduct.id}`) ?? null
   );
@@ -44,11 +51,13 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
 
   useEffect(() => { loadApps(); }, [loadApps]);
 
+  // Load tokens for the expanded app; clear the list when no app is selected
   useEffect(() => {
     if (!selectedAppId) { setAppTokens([]); return; }
     api.appRegistrations.listTokens(selectedAppId).then(setAppTokens).catch(() => {});
   }, [selectedAppId]);
 
+  // GitHub config is admin-only; skip the fetch for regular users to avoid a 403
   useEffect(() => {
     if (!isAdmin) return;
     api.github.getConfig().then(setGithubConfig).catch(() => {});
@@ -218,7 +227,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
       <div>
         <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Calendar feed (iCal)</h2>
         <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-          Subscribe to project deadlines, milestones, and sprints in any calendar app — Google Calendar, Apple Calendar, Outlook, etc.
+          Subscribe to project deadlines, milestones, and sprints in any calendar app - Google Calendar, Apple Calendar, Outlook, etc.
           The URL contains a private token; keep it secret and regenerate if compromised.
         </p>
 
@@ -281,7 +290,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 const url = api.calendar.feedUrl(activeProduct.id, token);
                 localStorage.setItem(`planly-calendar-url-${activeProduct.id}`, url);
                 setCalendarUrl(url);
-                showToast('Calendar URL generated — copy it now!', 'success');
+                showToast('Calendar URL generated - copy it now!', 'success');
               } catch (err) { showToast((err as Error).message, 'error'); }
               finally { setGeneratingCalendar(false); }
             }}
@@ -314,14 +323,14 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
               >Copy</button>
             </div>
             <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-              {githubConfig.hasSecret ? '🔒 Webhook secret is configured — requests are verified with HMAC-SHA256.' : '⚠ No webhook secret — generate one below to secure incoming requests.'}
+              {githubConfig.hasSecret ? '🔒 Webhook secret is configured - requests are verified with HMAC-SHA256.' : '⚠ No webhook secret - generate one below to secure incoming requests.'}
             </p>
           </div>
 
           {/* One-time secret reveal */}
           {revealedWebhookSecret && (
             <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Copy this secret now — it will not be shown again. Paste it into your GitHub webhook settings.</p>
+              <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Copy this secret now - it will not be shown again. Paste it into your GitHub webhook settings.</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 text-xs break-all px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                   {revealedWebhookSecret}

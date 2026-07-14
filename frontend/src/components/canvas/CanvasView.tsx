@@ -1,3 +1,8 @@
+/**
+ * ReactFlow-based dependency canvas that visualises tasks and their prerequisite relationships as a directed graph.
+ * `buildGraph` converts tasks to nodes+edges; `runAutoLayout` arranges them with dagre LR layout.
+ * All view options (viewMode, simpleMode, sprint filter, viewport) are persisted per product to localStorage via `loadState`/`patchState`.
+ */
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   Background, Controls, MiniMap, Node, Edge, addEdge,
@@ -175,6 +180,8 @@ function CanvasInner() {
   const canWriteCanvas = canWrite('canvas');
   const { showToast } = useToast();
   const { getViewport, setViewport, fitView } = useReactFlow();
+
+  // ReactFlow node + edge state
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -185,7 +192,7 @@ function CanvasInner() {
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [showLegend, setShowLegend] = useState(false);
 
-  // View mode + secondary filters
+  // View mode + secondary filters (all persisted to localStorage)
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [selectedSprintFilter, setSelectedSprintFilter] = useState<string | null>(null);
@@ -210,7 +217,7 @@ function CanvasInner() {
   // Sprints
   const [sprints, setSprints] = useState<Sprint[]>([]);
 
-  // Optimistic sprint membership - updated synchronously on click, synced async to backend
+  // Sprint membership is optimistic: toggled in state immediately, then synced async to the backend
   const [localSprintMemberIds, setLocalSprintMemberIds] = useState<Set<string>>(new Set());
   const sprintInitRef = useRef<string | null>(null);
 

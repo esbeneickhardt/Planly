@@ -1,3 +1,8 @@
+/**
+ * Settings Team tab managing project membership, co-owner roles, invite links, and access requests.
+ * Users are searched from the full user list and added directly; invite links expire after 7 days
+ * and can optionally be emailed.  Pending access requests are shown with approve/reject actions.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import type { TeamInvite } from '../../api/client';
@@ -57,6 +62,7 @@ export default function SettingsTeam({
     try { setAccessRequests(await api.accessRequests.list(activeProduct.id)); } catch {}
   }, [activeProduct.id, canManage]);
 
+  // Fetch all server users once for the "add member" search autocomplete
   useEffect(() => {
     api.users.list().then(setAllUsers).catch(() => {});
   }, []);
@@ -107,6 +113,7 @@ export default function SettingsTeam({
     finally { setDecidingId(null); }
   }
 
+  // Filter autocomplete suggestions to users not already on the team; cap at 6 results
   const memberIds = new Set(members.map((m) => m.userId));
   const q = addSearch.toLowerCase().trim();
   const suggestions = q.length >= 1

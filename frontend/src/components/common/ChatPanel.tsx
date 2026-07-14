@@ -1,3 +1,8 @@
+/**
+ * Floating/dockable chat panel with four tabs: messages, tasks (per-task threads), search, and files.
+ * Polls every 5 seconds for new messages; `EDIT_TIMEOUT_MS` (15 min) gates whether an edit button is shown.
+ * Pinned and dismissed task IDs are persisted to localStorage; reactions are applied optimistically and reverted on the next poll.
+ */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -47,11 +52,15 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const { activeProduct, tasks } = useProduct();
   const { user } = useAuth();
   const { confirm } = useConfirm();
+
+  // Message + tab state
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [tab, setTab] = useState<Tab>('messages');
   const [selectedTask, setSelectedTask] = useState<{ id: string; name: string } | null>(null);
   const [openedTask, setOpenedTask] = useState<Task | null>(null);
   const [openingTask, setOpeningTask] = useState(false);
+
+  // Panel layout state: size + position persisted to localStorage; refs shadow state for pointer closures
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isSidebar, setIsSidebar] = useState(() => { try { return localStorage.getItem('planly-chat-sidebar') === 'true'; } catch { return false; } });

@@ -6,7 +6,7 @@
  * info string, so the raw env var value is never used directly as the cipher key.
  *
  * Ciphertext format stored in the database: "<ivHex>:<authTagHex>:<ciphertextHex>"
- * The GCM auth tag detects tampering — decryptValue throws on a corrupted value.
+ * The GCM auth tag detects tampering - decryptValue throws on a corrupted value.
  *
  * MIGRATION NOTE: Changing ENCRYPTION_KEY breaks decryption of existing rows.
  * Run scripts/rotate-encryption-key.ts to re-encrypt in-place when rotating.
@@ -24,6 +24,8 @@ function getKey(): Buffer {
   );
 }
 
+// Encryption helpers
+
 // Returns "<ivHex>:<authTagHex>:<ciphertextHex>"
 export function encryptValue(plaintext: string): string {
   const key = getKey();
@@ -34,11 +36,13 @@ export function encryptValue(plaintext: string): string {
   return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
 }
 
-// Encrypt an optional field — returns undefined if input is undefined/null.
+// Encrypt an optional field - returns undefined if input is undefined/null.
 export function encryptOptional(value: string | null | undefined): string | undefined {
   if (value == null) return undefined;
   return encryptValue(value);
 }
+
+// PII helpers
 
 // Decrypt user PII fields in-place. Handles nulls and unencrypted legacy values gracefully.
 export function decryptUserPii<T extends { realName?: string | null; phone?: string | null }>(user: T): T {

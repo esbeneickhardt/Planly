@@ -10,7 +10,7 @@ Key decisions made during the design and evolution of Planly. Each entry covers 
 
 **Why**: Fastify is 2–3× faster than Express on the same hardware due to its schema-based serialization, and its TypeScript support is first-class (all routes are fully typed via generics). The plugin system and built-in lifecycle hooks (`preHandler`, `onSend`) map cleanly to the auth + CSRF middleware we need.
 
-**Trade-off**: Smaller ecosystem than Express; fewer third-party middleware plugins. In practice this was never a constraint — every piece we needed (`@fastify/cookie`, `@fastify/cors`, `@fastify/rate-limit`) existed and was well-maintained.
+**Trade-off**: Smaller ecosystem than Express; fewer third-party middleware plugins. In practice this was never a constraint - every piece we needed (`@fastify/cookie`, `@fastify/cors`, `@fastify/rate-limit`) existed and was well-maintained.
 
 ---
 
@@ -26,11 +26,11 @@ Key decisions made during the design and evolution of Planly. Each entry covers 
 
 ## 3. httpOnly JWT cookies over Authorization headers
 
-**Decision**: Auth tokens are stored in httpOnly, Secure, SameSite=Strict cookies — not in localStorage or as Bearer tokens.
+**Decision**: Auth tokens are stored in httpOnly, Secure, SameSite=Strict cookies - not in localStorage or as Bearer tokens.
 
 **Why**: httpOnly cookies are inaccessible to JavaScript, eliminating XSS-based token theft. SameSite=Strict blocks CSRF cross-site submission. The trade-off is that API clients (mobile apps, CLI tools) can't use cookie auth; they use `X-API-Token` bearer tokens minted via the `/api/auth/tokens` endpoint instead.
 
-**Related**: Every JWT carries a `tokenVersion` claim that must match the value stored in the database. When a user changes their password, resets it, or an admin revokes access, `tokenVersion` is incremented on the server and all existing tokens become invalid immediately — without needing a token blocklist.
+**Related**: Every JWT carries a `tokenVersion` claim that must match the value stored in the database. When a user changes their password, resets it, or an admin revokes access, `tokenVersion` is incremented on the server and all existing tokens become invalid immediately - without needing a token blocklist.
 
 ---
 
@@ -38,7 +38,7 @@ Key decisions made during the design and evolution of Planly. Each entry covers 
 
 **Decision**: Use a per-user `tokenVersion` integer column to invalidate sessions rather than maintaining a JWT blocklist.
 
-**Why**: A blocklist requires a persistent store lookup on every request and grows unboundedly. `tokenVersion` only adds a single indexed integer column to the users table and the auth middleware already queries the user row for the `isAdmin` and `emailVerified` flags — the `tokenVersion` check is zero extra latency.
+**Why**: A blocklist requires a persistent store lookup on every request and grows unboundedly. `tokenVersion` only adds a single indexed integer column to the users table and the auth middleware already queries the user row for the `isAdmin` and `emailVerified` flags - the `tokenVersion` check is zero extra latency.
 
 **How it works**: The JWT payload includes `{ userId, username, tokenVersion }`. On every authenticated request, the middleware reads `tokenVersion` from the DB and rejects the token if it doesn't match. `tokenVersion` is incremented on password change, password reset, and admin-forced logout.
 
@@ -48,7 +48,7 @@ Key decisions made during the design and evolution of Planly. Each entry covers 
 
 **Decision**: Use `@dagrejs/dagre` for automatic graph layout on the canvas board.
 
-**Why**: dagre implements the Sugiyama layered layout algorithm, which produces readable left-to-right or top-to-bottom directed graphs — exactly what a task dependency canvas needs. It's pure JS (no native deps), runs in the browser, and is fast enough for graphs up to ~200 nodes.
+**Why**: dagre implements the Sugiyama layered layout algorithm, which produces readable left-to-right or top-to-bottom directed graphs - exactly what a task dependency canvas needs. It's pure JS (no native deps), runs in the browser, and is fast enough for graphs up to ~200 nodes.
 
 **How it works** (`CanvasView.tsx:133`): 
 1. A `dagre.graphlib.Graph` is built from the task list and their `parentId` relationships.
@@ -56,7 +56,7 @@ Key decisions made during the design and evolution of Planly. Each entry covers 
 3. `dagre.layout(g)` assigns `(x, y)` to each node.
 4. Positions are persisted per-user in localStorage so the layout only runs once per fresh board.
 
-**Trade-off**: dagre doesn't handle cycles (circular dependencies). The UI prevents cycles at creation time but doesn't validate existing data — a data import with cycles would produce a degenerate layout.
+**Trade-off**: dagre doesn't handle cycles (circular dependencies). The UI prevents cycles at creation time but doesn't validate existing data - a data import with cycles would produce a degenerate layout.
 
 ---
 

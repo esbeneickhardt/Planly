@@ -1,3 +1,8 @@
+/**
+ * Team invite landing page that validates the token from the URL path and lets the user accept.
+ * Unauthenticated users are shown sign-in/sign-up links that preserve the token in the `next` param;
+ * on acceptance the page auto-redirects to /kanban after a short success delay.
+ */
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, InviteInfo } from '../api/client';
@@ -14,6 +19,7 @@ export default function InvitePage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
+  // Validate the invite token on mount; surface an error immediately if the URL has no token
   useEffect(() => {
     if (!token) { setError('Invalid invite link'); setLoading(false); return; }
     api.invites.getInfo(token)
@@ -22,6 +28,7 @@ export default function InvitePage() {
       .finally(() => setLoading(false));
   }, [token]);
 
+  // Accept the invite and auto-redirect after a 2-second success display
   async function handleAccept() {
     if (!token) return;
     setAccepting(true);

@@ -1,3 +1,8 @@
+/**
+ * Provides an imperative `confirm(message)` API that returns a Promise<boolean>, replacing native dialogs.
+ * The provider renders its own modal overlay so callers never need to manage confirm UI themselves.
+ * `resolveRef` holds the current promise's resolve function so the modal buttons can settle it from JSX.
+ */
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -13,7 +18,9 @@ interface ConfirmContextValue {
 const ConfirmContext = createContext<ConfirmContextValue>({ confirm: async () => false });
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
+  // State: null when no dialog is open
   const [pending, setPending] = useState<PendingConfirm | null>(null);
+  // Ref holds resolve so answer() can call it outside the promise closure
   const resolveRef = useRef<((v: boolean) => void) | null>(null);
 
   const confirm = useCallback((message: string): Promise<boolean> => {

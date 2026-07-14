@@ -1,5 +1,5 @@
 /**
- * useGanttData — loads milestones, sprints, and product data for the Gantt view.
+ * useGanttData - loads milestones, sprints, and product data for the Gantt view.
  * Refreshes whenever the active product or tasks list changes.
  */
 import { useState, useEffect, useRef } from 'react';
@@ -25,11 +25,13 @@ export function useGanttData(
   tasks: Task[],
   onLoaded: (start: Date, end: Date) => void,
 ): GanttData {
+  // State
   const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Refs shadow state so event-handler callbacks read current values without stale closures
   const milestonesRef = useRef(milestones);
   milestonesRef.current = milestones;
   const sprintsRef = useRef(sprints);
@@ -37,6 +39,7 @@ export function useGanttData(
   const productRef = useRef(product);
   productRef.current = product;
 
+  // Load effect: re-runs when tasks change (task completions affect milestone progress)
   useEffect(() => {
     if (!activeProduct) return;
     setLoading(true);
