@@ -1,4 +1,4 @@
-# 07 — Task Management
+# 07 - Task Management
 
 ← [Back to index](README.md)
 
@@ -10,7 +10,7 @@ All tests use **Alpha Project** (see [01-setup.md](01-setup.md)). `PRODUCT_ID` =
 
 ### Create
 
-> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (POST handler — validates name, sets `kanbanOrder`, `createdBy`) · [frontend/src/components/kanban/KanbanColumn.tsx](../../frontend/src/components/kanban/KanbanColumn.tsx) (inline task creation from board)
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (POST handler - validates name, sets `kanbanOrder`, `createdBy`) · [frontend/src/components/kanban/KanbanColumn.tsx](../../frontend/src/components/kanban/KanbanColumn.tsx) (inline task creation from board)
 
 ```bash
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/tasks \
@@ -65,7 +65,7 @@ curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/tasks/<task-id> \
 
 ### Delete
 
-> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (DELETE — cascades to subtasks, removes from sprint)
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (DELETE - cascades to subtasks, removes from sprint)
 
 ```bash
 curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/tasks/<task-id> \
@@ -86,18 +86,18 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/tasks/<task-id> 
 
 Test that each valid status can be set and is reflected in UI:
 
-- [ ] `backlog` — shown in Backlog view and Kanban backlog column
-- [ ] `todo` — shown in Kanban
-- [ ] `in_progress` — shown in Kanban
-- [ ] `done` — shown in Kanban; card may have completed styling
-- [ ] `blocked` — shown in Kanban; may have warning styling
+- [ ] `backlog` - shown in Backlog view and Kanban backlog column
+- [ ] `todo` - shown in Kanban
+- [ ] `in_progress` - shown in Kanban
+- [ ] `done` - shown in Kanban; card may have completed styling
+- [ ] `blocked` - shown in Kanban; may have warning styling
 - [ ] Invalid status value → 400 validation error
 
 ---
 
 ## Task position (`PATCH /tasks/:id/position`)
 
-> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (`/position` endpoint — saves `canvasX`/`canvasY`) · [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (calls on drag-end)
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (`/position` endpoint - saves `canvasX`/`canvasY`) · [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (calls on drag-end)
 
 ```bash
 # Move task to canvas position
@@ -114,7 +114,7 @@ curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/tasks/<task-id>/p
 
 ## Task reorder (`PATCH /tasks/reorder`)
 
-> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (`/reorder` endpoint — bulk-updates `kanbanOrder`) · [frontend/src/components/kanban/KanbanBoard.tsx](../../frontend/src/components/kanban/KanbanBoard.tsx) (drag-and-drop handler)
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (`/reorder` endpoint - bulk-updates `kanbanOrder`) · [frontend/src/components/kanban/KanbanBoard.tsx](../../frontend/src/components/kanban/KanbanBoard.tsx) (drag-and-drop handler)
 
 - [ ] Drag task within a Kanban column → `kanbanOrder` updated
 - [ ] Order persists after page reload

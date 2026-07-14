@@ -1,4 +1,4 @@
-# 14 — Announcements
+# 14 - Announcements
 
 ← [Back to index](README.md)
 
@@ -15,7 +15,7 @@ Requires `announcementsEnabled: true` in Admin → Server Config.
 curl -s -b cookies.txt -X POST $BASE/api/announcements \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: $CSRF" \
-  -d '{"title":"Welcome to Planly!","content":"**Hello world** — this is a test announcement.","pinned":false,"commentsEnabled":true,"teamId":"<team-id>"}' | jq .
+  -d '{"title":"Welcome to Planly!","content":"**Hello world** - this is a test announcement.","pinned":false,"commentsEnabled":true,"teamId":"<team-id>"}' | jq .
 
 # List announcements
 curl -s -b cookies.txt $BASE/api/announcements | jq '.[].title'

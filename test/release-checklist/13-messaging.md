@@ -1,4 +1,4 @@
-# 13 — Messaging & Chat
+# 13 - Messaging & Chat
 
 ← [Back to index](README.md)
 
@@ -51,7 +51,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/messages/<msg-id
 
 ### Reactions (`/messages/:messageId/reactions`)
 
-> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (POST reaction — toggles: adds if absent, removes if present) · [frontend/src/components/common/MessageBubble.tsx](../../frontend/src/components/common/MessageBubble.tsx) (emoji picker, reaction pill display)
+> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (POST reaction - toggles: adds if absent, removes if present) · [frontend/src/components/common/MessageBubble.tsx](../../frontend/src/components/common/MessageBubble.tsx) (emoji picker, reaction pill display)
 
 ```bash
 # Add reaction
@@ -81,7 +81,7 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/messages/<msg-id>/
 
 ## File attachments
 
-> Code: [backend/src/index.ts](../../backend/src/index.ts) or upload route (`POST /api/upload` — multipart, MIME allowlist, 50 MB limit) · [frontend/src/components/common/ChatPanel.tsx](../../frontend/src/components/common/ChatPanel.tsx) (file input, auto-upload on select) · [frontend/src/components/common/MessageBubble.tsx](../../frontend/src/components/common/MessageBubble.tsx) (image thumbnail vs download link)
+> Code: [backend/src/index.ts](../../backend/src/index.ts) or upload route (`POST /api/upload` - multipart, MIME allowlist, 50 MB limit) · [frontend/src/components/common/ChatPanel.tsx](../../frontend/src/components/common/ChatPanel.tsx) (file input, auto-upload on select) · [frontend/src/components/common/MessageBubble.tsx](../../frontend/src/components/common/MessageBubble.tsx) (image thumbnail vs download link)
 
 - [ ] Upload an image file via chat → thumbnail preview shown in message
 - [ ] Click image thumbnail → lightbox opens
@@ -145,7 +145,7 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/ws-ticket \
 curl -s -b cookies.txt "$BASE/api/products/$PRODUCT_ID/messages?limit=5&before=<msg-id>" | jq .
 ```
 
-- [ ] Messages load in batches (most recent first or oldest first — confirm direction)
+- [ ] Messages load in batches (most recent first or oldest first - confirm direction)
 - [ ] Scroll to top of chat → older messages load (infinite scroll)
 - [ ] `before` cursor parameter works
 - [ ] All messages eventually accessible by scrolling

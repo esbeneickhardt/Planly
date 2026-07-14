@@ -1,4 +1,4 @@
-# 20 — Integrations (iCal, Export, GitHub)
+# 20 - Integrations (iCal, Export, GitHub)
 
 ← [Back to index](README.md)
 
@@ -8,7 +8,7 @@
 
 ### Generate a calendar token
 
-> Code: [backend/src/routes/ical.ts](../../backend/src/routes/ical.ts) (calendar token create/revoke — token embedded in URL, no session cookie needed for the `.ics` feed)
+> Code: [backend/src/routes/ical.ts](../../backend/src/routes/ical.ts) (calendar token create/revoke - token embedded in URL, no session cookie needed for the `.ics` feed)
 
 ```bash
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/calendar/token \
@@ -20,10 +20,10 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/calendar/token \
 
 ### Subscribe to calendar
 
-> Code: [backend/src/routes/ical.ts](../../backend/src/routes/ical.ts) (`calendar.ics` handler — generates VCALENDAR from tasks with deadlines; validates token; `Content-Type: text/calendar`)
+> Code: [backend/src/routes/ical.ts](../../backend/src/routes/ical.ts) (`calendar.ics` handler - generates VCALENDAR from tasks with deadlines; validates token; `Content-Type: text/calendar`)
 
 ```bash
-# The .ics URL (no auth required — token is embedded in the URL or passed as query param)
+# The .ics URL (no auth required - token is embedded in the URL or passed as query param)
 curl -s "$BASE/api/products/$PRODUCT_ID/calendar.ics?token=<cal-token>" -o /tmp/planly.ics
 head -20 /tmp/planly.ics
 ```
@@ -34,7 +34,7 @@ head -20 /tmp/planly.ics
 - [ ] Event summary matches task name
 - [ ] Event `DTEND` matches task deadline
 - [ ] Tasks without deadlines do NOT appear
-- [ ] Token required — URL without token → 401 or 403
+- [ ] Token required - URL without token → 401 or 403
 
 ### Delete calendar token
 
@@ -58,7 +58,7 @@ wc -c /tmp/planly-export.json
 cat /tmp/planly-export.json | jq 'keys'
 ```
 
-- [ ] Returns JSON (or ZIP with multiple files — check actual format)
+- [ ] Returns JSON (or ZIP with multiple files - check actual format)
 - [ ] Contains tasks, columns, sprints, team members
 - [ ] Task subtasks and dependencies included
 - [ ] No sensitive data (passwords, token hashes) in the export
@@ -66,7 +66,7 @@ cat /tmp/planly-export.json | jq 'keys'
 
 ### Personal data export (`GET /api/me/export`)
 
-> Code: [backend/src/routes/me-export.ts](../../backend/src/routes/me-export.ts) (GDPR export: current user's profile, tasks created, messages sent — no other users' data)
+> Code: [backend/src/routes/me-export.ts](../../backend/src/routes/me-export.ts) (GDPR export: current user's profile, tasks created, messages sent - no other users' data)
 
 ```bash
 curl -s -b alice-cookies.txt $BASE/api/me/export | jq 'keys'
@@ -79,7 +79,7 @@ curl -s -b alice-cookies.txt $BASE/api/me/export | jq 'keys'
 
 ## GitHub integration (`/api/github/`)
 
-> Code: [backend/src/routes/github.ts](../../backend/src/routes/github.ts) (config CRUD — secret stored AES-256-GCM encrypted, not returned in GET; webhook handler validates GitHub HMAC signature) · [frontend/src/components/common/IntegrationsModal.tsx](../../frontend/src/components/common/IntegrationsModal.tsx) (GitHub config UI)
+> Code: [backend/src/routes/github.ts](../../backend/src/routes/github.ts) (config CRUD - secret stored AES-256-GCM encrypted, not returned in GET; webhook handler validates GitHub HMAC signature) · [frontend/src/components/common/IntegrationsModal.tsx](../../frontend/src/components/common/IntegrationsModal.tsx) (GitHub config UI)
 
 ```bash
 # Get current GitHub config

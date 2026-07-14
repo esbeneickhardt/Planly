@@ -1,4 +1,4 @@
-# 09 — Backlog
+# 09 - Backlog
 
 ← [Back to index](README.md)
 
@@ -48,7 +48,7 @@ Navigate to `/backlog` in Alpha Project.
 
 ## Mine toggle
 
-> Code: [frontend/src/hooks/useBacklogFilters.ts](../../frontend/src/hooks/useBacklogFilters.ts) (`mineOnly` flag — filters by `task.ownerId === currentUser.id`)
+> Code: [frontend/src/hooks/useBacklogFilters.ts](../../frontend/src/hooks/useBacklogFilters.ts) (`mineOnly` flag - filters by `task.ownerId === currentUser.id`)
 
 - [ ] Toggle "Mine only" → only tasks owned by current user shown
 - [ ] Tab counts update to reflect mine-only view

@@ -1,4 +1,4 @@
-# 05 — Admin Panel
+# 05 - Admin Panel
 
 ← [Back to index](README.md)
 
@@ -70,7 +70,7 @@ curl -s -b cookies.txt $BASE/api/admin/users | jq '.[] | {id, username, email, i
 
 ### Promote / demote admin
 
-> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) (`promote`/`demote` endpoints — prevents demoting founding admin or last admin)
+> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) (`promote`/`demote` endpoints - prevents demoting founding admin or last admin)
 
 ```bash
 # Promote Alice
@@ -100,7 +100,7 @@ curl -s -b cookies.txt -X PUT $BASE/api/admin/users/<user-id>/verify-email \
 
 ### Unlock account
 
-> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) (`unlock` — resets `loginFailCount`, `loginLockedUntil`, `loginLockCount`)
+> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) (`unlock` - resets `loginFailCount`, `loginLockedUntil`, `loginLockCount`)
 
 ```bash
 curl -s -b cookies.txt -X PUT $BASE/api/admin/users/<user-id>/unlock \
@@ -140,7 +140,7 @@ curl -s -b cookies.txt $BASE/api/admin/projects | jq '.[].name'
 
 ## Email / SMTP tab
 
-> Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) (email-config CRUD — password encrypted at rest, not returned in GET) · [frontend/src/pages/admin/AdminEmail.tsx](../../frontend/src/pages/admin/AdminEmail.tsx)
+> Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) (email-config CRUD - password encrypted at rest, not returned in GET) · [frontend/src/pages/admin/AdminEmail.tsx](../../frontend/src/pages/admin/AdminEmail.tsx)
 
 See also [17-settings.md](17-settings.md) for product-level email tests.
 
@@ -210,7 +210,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/admin/whitelist/<id> \
 
 ## Audit Logs tab
 
-> Code: [backend/src/routes/admin/logs.ts](../../backend/src/routes/admin/logs.ts) (list with cursor pagination, export CSV/JSONL, prune — founding-admin only) · [frontend/src/pages/admin/AdminLogs.tsx](../../frontend/src/pages/admin/AdminLogs.tsx)
+> Code: [backend/src/routes/admin/logs.ts](../../backend/src/routes/admin/logs.ts) (list with cursor pagination, export CSV/JSONL, prune - founding-admin only) · [frontend/src/pages/admin/AdminLogs.tsx](../../frontend/src/pages/admin/AdminLogs.tsx)
 
 ```bash
 # List logs
@@ -321,7 +321,7 @@ curl -s -b cookies.txt $BASE/api/admin/chat | jq '.[].content'
 
 ## Server config (`GET/PUT /api/admin/server-config`)
 
-> Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) · [backend/src/utils/server-config.ts](../../backend/src/utils/server-config.ts) (defaults — `allowProjectCreation` defaults to `true`)
+> Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) · [backend/src/utils/server-config.ts](../../backend/src/utils/server-config.ts) (defaults - `allowProjectCreation` defaults to `true`)
 
 ```bash
 curl -s -b cookies.txt $BASE/api/admin/server-config | jq .

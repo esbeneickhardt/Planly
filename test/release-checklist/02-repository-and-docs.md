@@ -1,16 +1,16 @@
-# 02 — Repository & Documentation
+# 02 - Repository & Documentation
 
 ← [Back to index](README.md)
 
 > **Code references**
-> - [README.md](../../README.md) — public-facing project description, quick start, tech stack
-> - [CONTRIBUTING.md](../../CONTRIBUTING.md) — dev setup, test commands, deploy workflow, code conventions
-> - [DECISIONS.md](../../DECISIONS.md) — architectural decisions (Fastify, Prisma, httpOnly cookies, tokenVersion)
-> - [DEPLOYMENT.md](../../DEPLOYMENT.md) — production deployment guide, migration steps, backup/restore
-> - [SECURITY.md](../../SECURITY.md) — RBAC table, CSRF layers, encryption-at-rest list, reporting email
-> - [LICENSE](../../LICENSE) — custom license with commercial-sale, competing-product, AI-training restrictions
-> - [docs/wiki/](../../docs/wiki/) — user-facing wiki pages (Configuration, API-Reference, Webhooks, Security…)
-> - [frontend/public/](../../frontend/public/) — public assets, icon directories
+> - [README.md](../../README.md) - public-facing project description, quick start, tech stack
+> - [CONTRIBUTING.md](../../CONTRIBUTING.md) - dev setup, test commands, deploy workflow, code conventions
+> - [DECISIONS.md](../../DECISIONS.md) - architectural decisions (Fastify, Prisma, httpOnly cookies, tokenVersion)
+> - [DEPLOYMENT.md](../../DEPLOYMENT.md) - production deployment guide, migration steps, backup/restore
+> - [SECURITY.md](../../SECURITY.md) - RBAC table, CSRF layers, encryption-at-rest list, reporting email
+> - [LICENSE](../../LICENSE) - custom license with commercial-sale, competing-product, AI-training restrictions
+> - [docs/wiki/](../../docs/wiki/) - user-facing wiki pages (Configuration, API-Reference, Webhooks, Security…)
+> - [frontend/public/](../../frontend/public/) - public assets, icon directories
 
 Read every file listed here and confirm it is accurate, complete, and ready for a public audience.
 
@@ -43,7 +43,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 - [ ] 48-hour acknowledgement pledge is realistic for a solo project
 - [ ] RBAC table matches actual implementation (see [22-access-control.md](22-access-control.md))
 - [ ] Tab permission matrix matches `SECURITY.md` vs actual default grants
-- [ ] "Accepted Risks" table is current — TOTP note says "No TOTP MFA yet" but TOTP IS implemented — **update this**
+- [ ] "Accepted Risks" table is current - TOTP note says "No TOTP MFA yet" but TOTP IS implemented - **update this**
 - [ ] AES-256-GCM encryption section accurately describes what is encrypted
 - [ ] Last-updated date reflects the current release date
 
@@ -59,7 +59,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 
 ### DECISIONS.md
 - [ ] Decision 1 (Fastify) accurately describes current usage
-- [ ] Decision 2 (Prisma `db push`) — note this uses migrations in production? Verify against `DEPLOYMENT.md`
+- [ ] Decision 2 (Prisma `db push`) - note this uses migrations in production? Verify against `DEPLOYMENT.md`
 - [ ] Decision 3 (httpOnly cookies) is accurate
 - [ ] Decision 4 (tokenVersion) is accurate
 - [ ] All decisions still reflect the current architecture
@@ -68,7 +68,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 - [ ] "Always use `docker-compose.prod.yml` in production" warning is prominent
 - [ ] Required environment variable table matches `.env.example`
 - [ ] "PII Migration" section is present and instructions work
-- [ ] `npx prisma migrate deploy` vs `prisma db push` — **CONTRIBUTING.md says `db push`, DEPLOYMENT.md says `migrate deploy`** — reconcile these
+- [ ] `npx prisma migrate deploy` vs `prisma db push` - **CONTRIBUTING.md says `db push`, DEPLOYMENT.md says `migrate deploy`** - reconcile these
 - [ ] Backup and restore section (if present) is accurate
 
 ### .env.example
@@ -165,7 +165,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 - [ ] At least a few default avatar icons exist in the directory
 
 ### `frontend/dist/README.md` and icon READMEs
-- [ ] These are identical copies of the public/ ones — acceptable or should they be removed from git?
+- [ ] These are identical copies of the public/ ones - acceptable or should they be removed from git?
 
 ---
 
@@ -185,7 +185,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 - [ ] Backend is not exposed directly to the internet
 
 ### docker-compose.test.yml
-- [ ] Purpose is clear — used for CI integration tests
+- [ ] Purpose is clear - used for CI integration tests
 - [ ] Postgres service is present with correct credentials
 
 ---

@@ -1,4 +1,4 @@
-# 16 — Search
+# 16 - Search
 
 ← [Back to index](README.md)
 
