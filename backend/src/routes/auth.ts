@@ -172,7 +172,7 @@ export async function authRoutes(app: FastifyInstance) {
     const [user, cfg] = await Promise.all([
       prisma.user.findUnique({
         where: { id: req.user.userId },
-        select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true, mustChangePassword: true, notificationPreferences: true },
+        select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true, mustChangePassword: true, notificationPreferences: true, acceptsInvites: true },
       }),
       getServerConfig(),
     ]);

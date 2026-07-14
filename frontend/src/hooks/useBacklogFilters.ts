@@ -5,6 +5,7 @@
  */
 import { useState, useMemo } from 'react';
 import type { Task } from '../types';
+import { isBeforeToday } from '../utils/dates';
 
 export type SortKey = 'oldest' | 'newest' | 'alpha' | 'unassigned' | 'deadline';
 export type StatusTab = 'all' | 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'done';
@@ -60,9 +61,8 @@ export function useBacklogFilters(tasks: Task[], userId: string | undefined): Ba
   }, [tasks, statusTab, mineOnly, sortKey, search, userId]);
 
   // Raw badge counts — not filtered by mineOnly/statusTab/search
-  const now = new Date();
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
-  const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < now).length;
+  const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && isBeforeToday(t.deadline)).length;
 
   return { sortKey, setSortKey, statusTab, setStatusTab, mineOnly, setMineOnly, search, setSearch, filteredTasks, tabCounts, unassignedCount, overdueCount };
 }

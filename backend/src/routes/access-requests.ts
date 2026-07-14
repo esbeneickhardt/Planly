@@ -10,6 +10,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { decryptUserPii } from '../utils/crypto';
 import { createNotification } from '../utils/notifications';
 import { validate } from '../utils/validate';
 
@@ -115,7 +116,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
       include: { user: { select: { id: true, username: true, avatarEmoji: true, realName: true } } },
       orderBy: { createdAt: 'asc' },
     });
-    reply.send(requests);
+    reply.send(requests.map((r) => ({ ...r, user: decryptUserPii(r.user) })));
   });
 
   // Approve or reject a request (owner or co-owner only)

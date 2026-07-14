@@ -26,6 +26,7 @@ const updateProfileSchema = z.object({
   phone: z.string().max(30).optional(),
   avatarEmoji: z.string().max(8).optional(),
   avatarUrl: z.string().url().max(2048).startsWith('https').nullable().optional(),
+  acceptsInvites: z.boolean().optional(),
 });
 const updatePreferencesSchema = z.object({
   preferences: z.record(z.string().max(100), z.boolean()),
@@ -35,10 +36,10 @@ const updatePreferencesSchema = z.object({
 const USER_SELF_SELECT = {
   id: true, username: true, email: true, realName: true,
   avatarEmoji: true, avatarUrl: true, phone: true, createdAt: true, emailVerified: true,
-  notificationPreferences: true,
+  notificationPreferences: true, acceptsInvites: true,
 };
 // Minimal fields for team member search - no email, phone, or createdAt
-const USER_PUBLIC_SELECT = { id: true, username: true, avatarEmoji: true };
+const USER_PUBLIC_SELECT = { id: true, username: true, avatarEmoji: true, acceptsInvites: true };
 
 export async function userRoutes(app: FastifyInstance) {
   // Global user search: minimal fields only (used for team member lookup)
@@ -143,11 +144,11 @@ export async function userRoutes(app: FastifyInstance) {
     if (id !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
     const profileBody = validate(updateProfileSchema, req.body, reply);
     if (!profileBody) return;
-    const { realName, phone, avatarEmoji, avatarUrl } = profileBody;
+    const { realName, phone, avatarEmoji, avatarUrl, acceptsInvites } = profileBody;
     try {
       const user = await prisma.user.update({
         where: { id },
-        data: { realName: encryptOptional(realName), phone: encryptOptional(phone), avatarEmoji, avatarUrl },
+        data: { realName: encryptOptional(realName), phone: encryptOptional(phone), avatarEmoji, avatarUrl, acceptsInvites },
         select: USER_SELF_SELECT,
       });
       reply.send(decryptUserPii(user));
