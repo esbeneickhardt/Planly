@@ -62,7 +62,7 @@ Navigate to `/backlog` in Alpha Project.
 
 - [ ] Sort by **Oldest** (default) → ascending by `createdAt`
 - [ ] Sort by **Newest** → descending by `createdAt`
-- [ ] Sort by **Alphabetical** → A–Z by task name
+- [ ] Sort by **Alphabetical** → A-Z by task name
 - [ ] Sort by **Unassigned** → tasks without an owner listed first
 - [ ] Sort by **Deadline** → nearest deadline first, no-deadline last
 - [ ] Sort selection persists when switching tabs
