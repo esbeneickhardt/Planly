@@ -1,3 +1,8 @@
+/**
+ * Admin panel shell that fetches the full user list and renders the active sub-panel based on the
+ * `?tab=` search param.  Non-admins are immediately redirected to /kanban.  The user list is
+ * fetched once here and passed down so each sub-panel can share it without duplicate API calls.
+ */
 import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -33,6 +38,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Shared user-list loader; sub-panels call onUsersChanged to trigger a refresh
   const loadUsers = useCallback(async () => {
     try {
       setUsers(await api.admin.users());

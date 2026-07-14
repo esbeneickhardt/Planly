@@ -1,5 +1,5 @@
 /**
- * Auth E2E tests — registration, login, lockout, forgot password, logout.
+ * Auth E2E tests - registration, login, lockout, forgot password, logout.
  *
  * These tests drive the actual browser UI and verify that the complete
  * authentication flows work end-to-end, including error messages.
@@ -72,7 +72,7 @@ test.describe('Login', () => {
 
   test('logout redirects to login page', async ({ page }) => {
     await loginViaUI(page, email, password);
-    // Account avatar is the last button[title] in the header — click it to open the dropdown
+    // Account avatar is the last button[title] in the header - click it to open the dropdown
     await page.locator('header button[title]').last().click();
     await page.getByRole('button', { name: /sign out/i }).click();
     await expect(page).toHaveURL(/\/login/);

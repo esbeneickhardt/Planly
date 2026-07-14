@@ -1,8 +1,8 @@
 /**
- * Connection routes — manage directed relationships between tasks on the Canvas view.
+ * Connection routes - manage directed relationships between tasks on the Canvas view.
  *
  * Connections are visual edges between task nodes in the freeform Canvas.
- * They differ from Gantt dependencies (which enforce scheduling constraints) —
+ * They differ from Gantt dependencies (which enforce scheduling constraints) -
  * connections are purely visual and have no effect on task ordering or dates.
  */
 import { FastifyInstance } from 'fastify';
@@ -16,6 +16,7 @@ import { validate } from '../utils/validate';
 const createConnectionSchema = z.object({ taskId: z.string().uuid() });
 
 export async function connectionRoutes(app: FastifyInstance) {
+  // List connected task IDs for a project's canvas
   app.get('/api/products/:productId/connections', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -23,6 +24,7 @@ export async function connectionRoutes(app: FastifyInstance) {
     reply.send(conns.map((c) => c.taskId));
   });
 
+  // Add a canvas connection edge (idempotent upsert)
   app.post('/api/products/:productId/connections', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -40,6 +42,7 @@ export async function connectionRoutes(app: FastifyInstance) {
     reply.status(201).send({ ok: true });
   });
 
+  // Remove a canvas connection edge
   app.delete('/api/products/:productId/connections/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;

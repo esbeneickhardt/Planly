@@ -1,3 +1,8 @@
+/**
+ * ReactFlow node representing a task or milestone on the canvas.
+ * Visual state (border colour, background, box-shadow) is derived from status, milestone flag, sprint membership, and `CanvasContext`.
+ * Sprint aura is rendered as multi-layer CSS box-shadow using per-sprint colours; `simpleMode` hides status, deadline, and assignee rows.
+ */
 import { memo, useContext } from 'react';
 import { displayName } from '../../../api/client';
 import { Handle, Position, NodeProps } from 'reactflow';
@@ -29,6 +34,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData>) {
   const { showSprintAura, simpleMode } = useContext(CanvasContext);
+
+  // Derived display flags
   const statusColor = STATUS_COLOR[data.status] ?? '#64748b';
   const isDone = data.status === 'done';
   const isBlocked = data.status === 'blocked';
@@ -37,10 +44,12 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
   const sprintMode = !!data.selectedSprintId;
   const inSprint = sprintMode && !!data.inActiveSprint;
 
+  // Sprint aura: multi-layer box-shadow, one ring per sprint the task belongs to
   const auraShadow = showSprintAura && data.sprintColors && data.sprintColors.length > 0
     ? data.sprintColors.map((c, i) => `0 0 ${18 + i * 8}px ${7 + i * 4}px ${c}88`).join(', ')
     : undefined;
 
+  // Left border priority: milestone > task color > status color
   const leftBorderColor = isMilestone
     ? (isOverdue ? '#ef4444' : '#f59e0b')
     : (data.color ?? statusColor);

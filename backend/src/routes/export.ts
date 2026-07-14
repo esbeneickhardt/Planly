@@ -1,5 +1,5 @@
 /**
- * Project data export routes — full JSON export of a project's tasks, columns,
+ * Project data export routes - full JSON export of a project's tasks, columns,
  * sprints, and metadata for backup or migration purposes.
  *
  * Requires co-owner access. The response is a single JSON object containing all
@@ -16,6 +16,7 @@ export async function exportRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
     if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
 
+    // Fetch all project data in parallel
     const [product, tasks, columns, sprints, messages, colorLegend, snapshots] = await Promise.all([
       prisma.product.findFirst({
         where: { id: productId, deletedAt: null },
@@ -48,6 +49,7 @@ export async function exportRoutes(app: FastifyInstance) {
 
     if (!product) return reply.status(404).send({ error: 'Not found' });
 
+    // Return as a named JSON file attachment
     const exportedAt = new Date().toISOString();
     reply
       .header('Content-Disposition', `attachment; filename="planly-export-${product.name.replace(/[^a-z0-9]/gi, '-')}-${exportedAt.slice(0, 10)}.json"`)

@@ -7,6 +7,7 @@
  */
 import pino from 'pino';
 
+// Use pino-pretty for human-readable output when LOG_FORMAT=pretty; default to structured JSON
 const transport =
   process.env.LOG_FORMAT === 'pretty'
     ? { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:standard' } }

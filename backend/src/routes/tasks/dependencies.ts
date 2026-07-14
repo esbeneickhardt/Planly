@@ -1,5 +1,5 @@
 /**
- * Task dependency routes — add/remove DAG edges between tasks, and fetch the full graph.
+ * Task dependency routes - add/remove DAG edges between tasks, and fetch the full graph.
  * Cycle detection uses a single recursive CTE in one DB round-trip.
  */
 import { FastifyInstance } from 'fastify';
@@ -21,12 +21,14 @@ export async function dependencyRoutes(app: FastifyInstance) {
     if (!depBody) return;
     const { prerequisiteId } = depBody;
 
+    // Verify both tasks exist and belong to this product
     const [task, prereq] = await Promise.all([
       prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } }),
       prisma.task.findFirst({ where: { id: prerequisiteId, productId, ...TASK_WHERE_ACTIVE } }),
     ]);
     if (!task || !prereq) return reply.status(404).send({ error: 'Task not found in this product' });
 
+    // Cycle detection via recursive CTE — rejects the edge if taskId is reachable from prerequisiteId
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       WITH RECURSIVE reachable AS (
         SELECT "prerequisiteId" AS id FROM "TaskDependency" WHERE "dependentId" = ${prerequisiteId}
@@ -60,6 +62,7 @@ export async function dependencyRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/graph', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    // Load all active tasks and their dependency edges for canvas graph rendering
     const [tasks, deps] = await Promise.all([
       prisma.task.findMany({ where: { productId, ...TASK_WHERE_ACTIVE }, include: TASK_INCLUDE }),
       prisma.taskDependency.findMany({ where: { dependent: { productId, deletedAt: null } } }),

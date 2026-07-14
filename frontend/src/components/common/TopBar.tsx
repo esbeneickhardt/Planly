@@ -1,3 +1,8 @@
+/**
+ * Top navigation bar with project picker, tab navigation, chat button, notification bell, and account dropdown.
+ * All icon SVG components and the NAV / ADMIN_TABS config arrays are defined in this file to keep icon styles consistent.
+ * `chatIsAdmin` drives visual state of the chat button; `onToggleAdmin` switches between product and admin mode.
+ */
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Tooltip from './Tooltip';
@@ -182,6 +187,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
   const { canRead, canManage } = usePermission();
   const { isDark } = useTheme();
+
+  // Modal + dropdown visibility state
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);

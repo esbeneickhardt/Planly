@@ -1,5 +1,5 @@
 /**
- * Kanban board E2E tests — column management, drag-to-reorder, filters,
+ * Kanban board E2E tests - column management, drag-to-reorder, filters,
  * compact view toggle, and sprint filter.
  *
  * Tests navigate to the kanban board after login and operate the board UI.
@@ -66,7 +66,7 @@ test.describe('Kanban board', () => {
     );
     if (await mineToggle.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await mineToggle.click();
-      // No assertion on card count — just verify no crash and page is still usable
+      // No assertion on card count - just verify no crash and page is still usable
       await expect(page.locator('body')).toBeVisible();
     }
 
@@ -91,7 +91,7 @@ test.describe('Kanban board', () => {
   });
 
   test('background picker is visible on desktop', async ({ browser }) => {
-    // This test only needs the kanban page to load — no column needed
+    // This test only needs the kanban page to load - no column needed
     const u = uniqueUser('kb');
     const page = await browser.newPage();
     await page.context().clearCookies();
@@ -106,7 +106,7 @@ test.describe('Kanban board', () => {
   });
 
   test('mobile view hides secondary filters', async ({ browser }) => {
-    // This test only needs the kanban page to load at mobile viewport — no column needed
+    // This test only needs the kanban page to load at mobile viewport - no column needed
     const u = uniqueUser('kb');
     const page = await browser.newPage();
     await page.context().clearCookies();

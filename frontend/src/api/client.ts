@@ -1,5 +1,5 @@
 /**
- * Typed API client — thin wrapper around fetch() with CSRF token injection,
+ * Typed API client - thin wrapper around fetch() with CSRF token injection,
  * error handling, and typed response interfaces for all backend endpoints.
  *
  * The request() helper:
@@ -10,7 +10,7 @@
  *   - Dispatches a 'planly:email-not-verified' custom event on 403 so the UI
  *     can prompt the user to verify their email without coupling every caller
  *
- * All exported functions above the helpers call request() directly —
+ * All exported functions above the helpers call request() directly -
  * add new ones in the same pattern to keep the client consistent.
  */
 import type { Product, Task, Team, User, Status, Subtask, KanbanColumn } from '../types';
@@ -179,12 +179,12 @@ export type AnnTeam   = { id: string; name: string } | null;
 export type AnnItem   = {
   id: string; title: string; content: string; pinned: boolean;
   commentsEnabled: boolean; createdAt: string; updatedAt: string;
-  author: AnnAuthor; team: AnnTeam;
+  author: AnnAuthor | null; team: AnnTeam;
   _count: { comments: number };
 };
 export type AnnComment = {
   id: string; announcementId: string; content: string;
-  createdAt: string; editedAt: string | null; author: AnnAuthor;
+  createdAt: string; editedAt: string | null; author: AnnAuthor | null;
 };
 
 export const api = {
@@ -489,6 +489,8 @@ export const api = {
       request<{ ok: boolean }>('/api/email-config', { method: 'PUT', body: json(data) }),
     clear: () => request<{ ok: boolean }>('/api/email-config', { method: 'DELETE' }),
   },
+
+  publicConfig: () => request<{ contactEmail: string }>('/api/config'),
 
   me: {
     permissions: () => request<Array<{

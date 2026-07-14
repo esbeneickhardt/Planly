@@ -3,23 +3,23 @@
 ## Current State
 
 **Local (Docker Playwright image `mcr.microsoft.com/playwright:v1.61.1-noble`):**
-- 10 admin tests — SKIP (need E2E_ADMIN_EMAIL/PASSWORD secrets, expected)
-- 9 auth tests — PASS
-- 6 kanban tests — PASS
-- 4 task tests — 1 FLAKY (first attempt hangs 120s, retry passes), 3 PASS
-- 4 upload tests — 1 FLAKY (first attempt hangs 120s, retry passes), 3 PASS
+- 10 admin tests - SKIP (need E2E_ADMIN_EMAIL/PASSWORD secrets, expected)
+- 9 auth tests - PASS
+- 6 kanban tests - PASS
+- 4 task tests - 1 FLAKY (first attempt hangs 120s, retry passes), 3 PASS
+- 4 upload tests - 1 FLAKY (first attempt hangs 120s, retry passes), 3 PASS
 
 **CI (GitHub Actions):**
-- 10 admin tests — SKIP
-- 9 auth tests — PASS
-- 6 kanban tests — ALL FAIL in 1.2–2.2s (all 3 attempts each)
-- Tasks/uploads — hang at 120s or fail
+- 10 admin tests - SKIP
+- 9 auth tests - PASS
+- 6 kanban tests - ALL FAIL in 1.2–2.2s (all 3 attempts each)
+- Tasks/uploads - hang at 120s or fail
 
 ---
 
 ## Root Cause Analysis
 
-### Root Cause 1 — Shared browser context across tests (PRIMARY CAUSE)
+### Root Cause 1 - Shared browser context across tests (PRIMARY CAUSE)
 
 The `{ browser }` fixture in Playwright is **worker-scoped**: the same browser instance (and its **default context**) is reused across all tests in the worker. Every call to `browser.newPage()` creates a page in this shared default context.
 
@@ -38,38 +38,38 @@ After the 9 auth tests complete, the default browser context holds **`lockout_us
 
 When `registerViaUI` navigates to `/register`, the server may see an already-authenticated session. Depending on server behavior:
 - If the app redirects authenticated users away from `/register` → `page.goto('/register')` lands on `/kanban` → `page.getByLabel(/email/i).fill(...)` waits with no timeout → 120s hang
-- If registration proceeds despite existing session → the **token and csrf cookies are overwritten** for the new user — but in CI (slower environment), a race can occur where the product API runs before the new cookies are fully applied → 401 returned → before the `.catch(() => {})` fix, this threw immediately → 1.2s failure
+- If registration proceeds despite existing session → the **token and csrf cookies are overwritten** for the new user - but in CI (slower environment), a race can occur where the product API runs before the new cookies are fully applied → 401 returned → before the `.catch(() => {})` fix, this threw immediately → 1.2s failure
 
-**Evidence:** Both failure screenshots show **"Create a product to get started"** — the user is logged in (avatar visible in header) but has no product. The product API call either ran as the wrong user (lockout_user or a previous kanban user with no product), or silently failed and the page shows the empty state.
+**Evidence:** Both failure screenshots show **"Create a product to get started"** - the user is logged in (avatar visible in header) but has no product. The product API call either ran as the wrong user (lockout_user or a previous kanban user with no product), or silently failed and the page shows the empty state.
 
-### Root Cause 2 — Missing `navigationTimeout` in playwright.config.ts
+### Root Cause 2 - Missing `navigationTimeout` in playwright.config.ts
 
 `playwright.config.ts` sets `timeout: 120_000` but does NOT set `navigationTimeout`. Playwright falls back to using `timeout` for all navigation calls. Any bare `page.goto(url)` (without an explicit `timeout` option) can hang for the full **120 seconds**.
 
 Affected calls:
-- `kanban.spec.ts:22` — `await page.goto('/kanban');` (no options at all)
-- `auth.fixture.ts` reload — `await page.reload({ waitUntil: 'load', timeout: 20_000 })` ✓ (has timeout)
-- `tasks.spec.ts` goto — `await page.goto('/kanban', { ..., timeout: 30_000 })` ✓
-- `uploads.spec.ts` goto — same ✓
+- `kanban.spec.ts:22` - `await page.goto('/kanban');` (no options at all)
+- `auth.fixture.ts` reload - `await page.reload({ waitUntil: 'load', timeout: 20_000 })` ✓ (has timeout)
+- `tasks.spec.ts` goto - `await page.goto('/kanban', { ..., timeout: 30_000 })` ✓
+- `uploads.spec.ts` goto - same ✓
 
-### Root Cause 3 — `waitForLoadState` without timeout
+### Root Cause 3 - `waitForLoadState` without timeout
 
 `page.waitForLoadState(state)` with no `timeout` option inherits `navigationTimeout`, which falls back to `timeout` (120s). A stalled page load consumes the entire test budget.
 
 Affected (before fix commit f80fff0, now fixed):
-- `auth.fixture.ts:createProjectViaTopBar` — `await page.waitForLoadState('load');`
-- `tasks.spec.ts:setupUserAndProduct` — same
-- `uploads.spec.ts:setupAndNavigateToMessages` — same
+- `auth.fixture.ts:createProjectViaTopBar` - `await page.waitForLoadState('load');`
+- `tasks.spec.ts:setupUserAndProduct` - same
+- `uploads.spec.ts:setupAndNavigateToMessages` - same
 
 Status: **FIXED in commit f80fff0** (added `{ timeout: 15_000 }.catch(() => {})`)
 
-### Root Cause 4 — `createProjectViaTopBar` evaluate throws on API failure
+### Root Cause 4 - `createProjectViaTopBar` evaluate throws on API failure
 
 Before commit f80fff0, the `page.evaluate()` in `createProjectViaTopBar` had explicit `throw new Error(...)` calls and no `.catch()`. A fast API error (401, 403, 429) caused an immediate throw that propagated up to the test, failing it in ~1.2s.
 
 Status: **FIXED in commit f80fff0** (removed throws, added early `return`, added `.catch(() => {})`)
 
-### Root Cause 5 — `waitForFunction` swallows its timeout silently
+### Root Cause 5 - `waitForFunction` swallows its timeout silently
 
 ```ts
 await page.waitForFunction(() => {
@@ -79,7 +79,7 @@ await page.waitForFunction(() => {
 
 If the column was NOT created (because the product API silently failed), `waitForFunction` waits 35s then is swallowed by `.catch()`. Execution continues. The test then hits `expect(addTaskBtn).toBeVisible({ timeout: 15_000 })`, waits another 15s, and fails. Combined with other step timeouts, this can consume the full 120s test budget.
 
-### Root Cause 6 — No explicit `actionTimeout` in playwright.config.ts
+### Root Cause 6 - No explicit `actionTimeout` in playwright.config.ts
 
 Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) defaults to `0` (no timeout) when not set. The test-level `timeout` (120s) is the only protection. Actions on missing elements can hang for the full 120s.
 
@@ -87,7 +87,7 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
 
 ## Fix Checklist
 
-### HIGH PRIORITY — Fix the shared context problem (Root Cause 1)
+### HIGH PRIORITY - Fix the shared context problem (Root Cause 1)
 
 - [x] **1a. Add `clearCookies()` after every `browser.newPage()` in setup functions**
 
@@ -124,7 +124,7 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
   }
   ```
 
-### HIGH PRIORITY — Add `navigationTimeout` to playwright.config.ts (Root Cause 2)
+### HIGH PRIORITY - Add `navigationTimeout` to playwright.config.ts (Root Cause 2)
 
 - [x] **2. Set `navigationTimeout: 30_000` in playwright.config.ts**
 
@@ -132,14 +132,14 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
   export default defineConfig({
     timeout: 120_000,
     expect: { timeout: 8_000 },
-    navigationTimeout: 30_000,  // ADD THIS — caps all page.goto() calls at 30s
+    navigationTimeout: 30_000,  // ADD THIS - caps all page.goto() calls at 30s
     // ...
   });
   ```
 
   This caps ALL page navigation (goto, reload, goBack) at 30s without needing to pass `{ timeout }` everywhere.
 
-### HIGH PRIORITY — Fix bare goto in kanban.spec.ts (Root Cause 2)
+### HIGH PRIORITY - Fix bare goto in kanban.spec.ts (Root Cause 2)
 
 - [x] **3. Add options to `page.goto('/kanban')` in `loginAndGoToKanban`**
 
@@ -151,7 +151,7 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   ```
 
-### MEDIUM PRIORITY — Make product creation verifiable (Root Cause 5)
+### MEDIUM PRIORITY - Make product creation verifiable (Root Cause 5)
 
 - [x] **4. After the product-creation evaluate, verify the product exists before navigating**
 
@@ -174,14 +174,14 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
   }).catch(() => false);
 
   if (!hasProduct) {
-    // Product wasn't created — don't proceed, let test fail fast with clear error
+    // Product wasn't created - don't proceed, let test fail fast with clear error
     throw new Error('Setup failed: product not created. Auth cookie may be missing or API call failed.');
   }
   ```
 
   This gives a clear error instead of silently producing the "Create a product to get started" failure.
 
-### MEDIUM PRIORITY — Fix `actionTimeout` (Root Cause 6)
+### MEDIUM PRIORITY - Fix `actionTimeout` (Root Cause 6)
 
 - [x] **5. Set `actionTimeout: 15_000` in playwright.config.ts**
 
@@ -191,7 +191,7 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
     expect: { timeout: 8_000 },
     navigationTimeout: 30_000,
     use: {
-      actionTimeout: 15_000,  // ADD THIS — caps all actions at 15s
+      actionTimeout: 15_000,  // ADD THIS - caps all actions at 15s
       // ...
     },
   });
@@ -199,7 +199,7 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
 
   This prevents element-wait loops from consuming the full 120s.
 
-### LOW PRIORITY — Investigate COOKIE_SECURE in CI
+### LOW PRIORITY - Investigate COOKIE_SECURE in CI
 
 - [ ] **6. Verify COOKIE_SECURE is working correctly after the docker-compose.yml fix**
 
@@ -207,7 +207,7 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
 
   Note: Chrome treats `http://localhost` as a "potentially trustworthy origin" so Secure cookies SHOULD work even without this change, but having it explicit is safer.
 
-### LOW PRIORITY — Investigate uploads "Target page closed" error
+### LOW PRIORITY - Investigate uploads "Target page closed" error
 
 - [ ] **7. Understand why `uploads.spec.ts:201` (persistence test) gets "Target page context or browser has been closed"**
 
@@ -222,7 +222,7 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
 
 ## Implementation Order
 
-1. Fix playwright.config.ts — add `navigationTimeout` and `actionTimeout` (2 lines, no test logic changes)
+1. Fix playwright.config.ts - add `navigationTimeout` and `actionTimeout` (2 lines, no test logic changes)
 2. Fix `clearCookies()` in all setup functions + auth.spec.ts `beforeAll` hooks
 3. Fix `page.goto('/kanban')` in kanban.spec.ts
 4. Add product verification in tasks/uploads setup
@@ -254,7 +254,7 @@ Playwright's `actionTimeout` (for `.click()`, `.fill()`, `.waitFor()`, etc.) def
 | `a4d19f9` | Remove e2e/test-results from git tracking |
 | `f80fff0` | `{ timeout: 15_000 }.catch(() => {})` on all waitForLoadState calls |
 | `f80fff0` | `.catch(() => {})` + AbortController + silent early return in createProjectViaTopBar evaluate |
-| `88b579e` | `apk upgrade --no-cache` in nginx Dockerfile — fixes libexpat CVEs |
+| `88b579e` | `apk upgrade --no-cache` in nginx Dockerfile - fixes libexpat CVEs |
 | `89edb8a` | tasks.spec.ts: replace page.request race w/ createProjectViaTopBar+waitForKanbanReady+createColumnOnKanban |
 | `89edb8a` | uploads.spec.ts: switch to page.request API setup (race doesn't affect uploads, runs later in suite) |
 | `89edb8a` | auth.fixture.ts: extract createProjectViaTopBar/waitForKanbanReady/createColumnOnKanban as exports |

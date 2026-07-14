@@ -1,3 +1,9 @@
+/**
+ * Announcement feed displaying server-wide and team-scoped posts with Markdown rendering,
+ * collapsible bodies, per-post comments, and a compose form for eligible users.
+ * The posting context (admin vs. team) is derived from the current adminMode toggle and
+ * active product; filter pills only appear when announcements span more than one source.
+ */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -201,12 +207,12 @@ function CommentSection({ annId, userId, isAdmin }: { annId: string; userId: str
       )}
       {comments?.map((c) => (
         <div key={c.id} className="flex items-start gap-2">
-          <span className="text-base flex-shrink-0 mt-0.5">{c.author.avatarEmoji ?? '👤'}</span>
+          <span className="text-base flex-shrink-0 mt-0.5">{c.author?.avatarEmoji ?? '👤'}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{displayName(c.author)}</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{c.author ? displayName(c.author) : 'Deleted user'}</span>
               <span className="text-xs" style={{ color: 'var(--text-3)' }}>{formatDate(c.createdAt)}</span>
-              {(isAdmin || c.author.id === userId) && (
+              {(isAdmin || c.author?.id === userId) && (
                 <button onClick={() => deleteComment(c.id)} className="text-xs ml-auto opacity-50 hover:opacity-100" style={{ color: '#ef4444' }}>Delete</button>
               )}
             </div>
@@ -285,8 +291,8 @@ function AnnouncementCard({
               <span>·</span>
             </>
           )}
-          <span>{ann.author.avatarEmoji ?? '👤'} {displayName(ann.author)}</span>
-          {ann.author.isAdmin && <span className="px-1 py-px rounded text-[10px]" style={{ background: '#6366f115', color: '#6366f1' }}>Admin</span>}
+          <span>{ann.author?.avatarEmoji ?? '👤'} {ann.author ? displayName(ann.author) : 'Deleted user'}</span>
+          {ann.author?.isAdmin && <span className="px-1 py-px rounded text-[10px]" style={{ background: '#6366f115', color: '#6366f1' }}>Admin</span>}
           <span>·</span>
           <span>{formatDate(ann.createdAt)}</span>
           {ann.updatedAt !== ann.createdAt && <span>(edited)</span>}
@@ -346,6 +352,7 @@ export default function AnnouncementsPage() {
   const { adminMode } = useChat();
   const { confirm } = useConfirm();
 
+  // When in admin mode post as "Server Admins"; otherwise scope to the active product's team
   // adminMode mirrors the Admin toggle in the TopBar (true = on /admin as admin)
   const contextProduct = adminMode ? null : (activeProduct ?? (products.length === 1 ? products[0] : null));
   const contextTeamId  = contextProduct?.teamId;
@@ -362,6 +369,7 @@ export default function AnnouncementsPage() {
 
   const contextTeamName = teams.find(t => t.id === contextTeamId)?.name;
 
+  // Build filter pill options dynamically from the loaded announcements (deduped by team)
   // Derive which filter pills to show (only teams/sources that have announcements)
   const filterOptions = (() => {
     const opts: { key: string; label: string }[] = [{ key: '__all__', label: 'All' }];
@@ -385,6 +393,7 @@ export default function AnnouncementsPage() {
   const sort = (list: AnnItem[]) =>
     [...list].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  // Fetch announcements and teams in parallel; teams are needed for the "posting as" label
   const load = useCallback(async () => {
     try {
       const [data, allTeams] = await Promise.all([
@@ -557,7 +566,7 @@ export default function AnnouncementsPage() {
               <AnnouncementCard
                 key={ann.id}
                 ann={ann}
-                canEdit={!!(user?.isAdmin || ann.author.id === user?.id)}
+                canEdit={!!(user?.isAdmin || ann.author?.id === user?.id)}
                 onEdit={setEditing}
                 onDelete={handleDelete}
                 userId={user?.id ?? ''}

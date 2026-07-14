@@ -1,3 +1,8 @@
+/**
+ * Settings Danger Zone tab with two mutually exclusive destructive actions: non-owners can leave
+ * the project (removes them from the team), while the owner can permanently delete it.
+ * Both actions require a confirm dialog and call refreshProducts so the sidebar reflects the change.
+ */
 import { api } from '../../api/client';
 import type { Product, TeamMember, User } from '../../types';
 

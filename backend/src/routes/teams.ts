@@ -1,5 +1,5 @@
 /**
- * Team routes — CRUD for teams, member management (add/remove/role changes),
+ * Team routes - CRUD for teams, member management (add/remove/role changes),
  * and access request handling.
  *
  * Teams are the top-level organizational unit. Each team owns one or more
@@ -67,6 +67,7 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.status(201).send(team);
   });
 
+  // Get a single team (requester must be a member)
   app.get('/api/teams/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const status = await getTeamAdmin(id, req.user.userId);
@@ -76,6 +77,7 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.send(team);
   });
 
+  // Rename the team (co-owners and product owners only)
   app.patch('/api/teams/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const status = await getTeamAdmin(id, req.user.userId);
@@ -90,6 +92,7 @@ export async function teamRoutes(app: FastifyInstance) {
     } catch (e) { handleNotFound(e, reply); }
   });
 
+  // Add a user to the team (admin only)
   app.post('/api/teams/:id/members', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const status = await getTeamAdmin(id, req.user.userId);
@@ -131,6 +134,7 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Change a member's role — only product owners (not co-owners) can promote/demote
   app.patch('/api/teams/:id/members/:userId/role', { preHandler: requireAuth }, async (req, reply) => {
     const { id: teamId, userId } = req.params as { id: string; userId: string };
     const roleBody = validate(updateRoleSchema, req.body, reply);
@@ -146,6 +150,7 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Delete the team and all its data (admin only)
   app.delete('/api/teams/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const status = await getTeamAdmin(id, req.user.userId);

@@ -1,5 +1,7 @@
 /**
- * Admin audit log — paginated queries, CSV/JSONL export, prune, and admin notifications.
+ * Admin audit log routes - paginated queries, streaming CSV/JSONL export, pruning,
+ * and the admin notification feed (a filtered view of high-severity audit events).
+ * Exports stream row-by-row in batches of 1000 to avoid loading the full table into memory.
  */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -10,6 +12,7 @@ import { validate } from '../../utils/validate';
 
 const pruneLogsSchema = z.object({ olderThanDays: z.number().int().min(1).optional() });
 
+// Builds the Prisma where clause for log queries shared by GET and export routes
 function buildLogWhere(action?: string, from?: string, to?: string) {
   return {
     ...(action ? { action } : {}),
@@ -17,6 +20,7 @@ function buildLogWhere(action?: string, from?: string, to?: string) {
   };
 }
 
+// Subset of audit actions surfaced in the admin notification bell
 const ADMIN_NOTIF_ACTIONS = [
   'USER_REGISTERED', 'LOGIN_FAILED', 'LOGIN_LOCKED', 'LOGIN_UNLOCKED',
   'USER_PROMOTED', 'USER_DEMOTED', 'CROWN_TRANSFERRED', 'FOUNDING_ADMIN_REGISTERED',
@@ -43,6 +47,7 @@ export async function adminLogRoutes(app: FastifyInstance) {
     const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.${fmt}`;
     const where = buildLogWhere(action, from, to);
 
+    // Start streaming before fetching data so large exports don't buffer in memory
     reply.header('Content-Type', fmt === 'csv' ? 'text/csv; charset=utf-8' : 'application/x-ndjson');
     reply.header('Content-Disposition', `attachment; filename="${filename}"`);
 
@@ -51,6 +56,7 @@ export async function adminLogRoutes(app: FastifyInstance) {
 
     if (fmt === 'csv') readable.push('id,action,actorId,actorName,targetId,targetName,createdAt,metadata\n');
 
+    // Page through the table in batches to avoid loading everything into memory at once
     let batchCursor: string | undefined;
     const BATCH = 1000;
     while (true) {
@@ -60,6 +66,7 @@ export async function adminLogRoutes(app: FastifyInstance) {
       });
       for (const row of batch) {
         if (fmt === 'csv') {
+          // Prefix fields starting with formula-injection characters to prevent spreadsheet attacks
           const csvField = (v: string) => /^[=+\-@]/.test(v) ? `'${v}` : v;
           const meta = row.metadata ? JSON.stringify(row.metadata).replace(/"/g, '""') : '';
           readable.push(`"${row.id}","${row.action}","${row.actorId ?? ''}","${csvField(row.actorName ?? '')}","${row.targetId ?? ''}","${csvField(row.targetName ?? '')}","${row.createdAt.toISOString()}","${meta}"\n`);
@@ -92,9 +99,11 @@ export async function adminLogRoutes(app: FastifyInstance) {
     if (!pruneBody) return;
     const days = Math.max(1, pruneBody.olderThanDays ?? 90);
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true, isFoundingAdmin: true } });
+    // Pruning is restricted to the founding admin to prevent accidental audit trail destruction
     if (!actor?.isFoundingAdmin) return reply.status(403).send({ error: 'Only the founding admin can prune logs.' });
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const { count } = await prisma.adminLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    // Write a prune record after deletion so the action itself is audited
     await prisma.adminLog.create({ data: { action: 'LOGS_PRUNED', actorName: actor.username, metadata: { olderThanDays: days, deletedCount: count, cutoff } } });
     reply.send({ ok: true, deletedCount: count });
   });

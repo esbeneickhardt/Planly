@@ -1,5 +1,5 @@
 /**
- * SSO / OpenID Connect routes — authorize redirect and callback handling.
+ * SSO / OpenID Connect routes - authorize redirect and callback handling.
  *
  * Supports any OIDC-compliant provider (Google, Microsoft, Auth0, Okta, Keycloak, …).
  * Enabled when OIDC_ISSUER, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET are all set.
@@ -55,15 +55,19 @@ export async function ssoRoutes(app: FastifyInstance) {
   // Redirect user to IdP authorization endpoint
   app.get('/api/auth/sso/authorize', async (_req, reply) => {
     const cfg = await getOidcConfig();
+
+    // Generate PKCE params and a one-time nonce for this authorization request
     const state = oidcClient.randomState();
     const nonce = oidcClient.randomNonce();
     const codeVerifier = oidcClient.randomPKCECodeVerifier();
     const codeChallenge = await oidcClient.calculatePKCECodeChallenge(codeVerifier);
 
+    // Persist state to DB for cross-replica callback validation (10-minute TTL)
     await prisma.ssoState.create({
       data: { state, codeVerifier, nonce, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
     });
 
+    // Build and redirect to the IdP authorization URL
     const url = oidcClient.buildAuthorizationUrl(cfg, {
       redirect_uri: callbackUrl(),
       scope: config.oidc.scopes,
@@ -87,9 +91,10 @@ export async function ssoRoutes(app: FastifyInstance) {
         if (pending) await prisma.ssoState.delete({ where: { state } }).catch(() => {});
         return reply.redirect(`${config.frontendOrigin}/login?error=sso_state_mismatch`);
       }
-      // Delete immediately — single-use to prevent replay
+      // Delete immediately - single-use to prevent replay
       await prisma.ssoState.delete({ where: { state } }).catch(() => {});
 
+      // Exchange code for tokens; validates nonce and PKCE code verifier
       const currentUrl = new URL(`${callbackUrl()}?${new URLSearchParams(params).toString()}`);
       const tokens = await oidcClient.authorizationCodeGrant(cfg, currentUrl, {
         expectedState: state,
@@ -114,7 +119,7 @@ export async function ssoRoutes(app: FastifyInstance) {
       });
 
       if (!user) {
-        // Auto-provision new user
+        // Auto-provision a new account for first-time SSO users
         const baseUsername = (rawEmail.split('@')[0] || name || sub).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30) || 'user';
         let username = baseUsername;
         let attempt = 0;
@@ -134,10 +139,11 @@ export async function ssoRoutes(app: FastifyInstance) {
           },
         });
       } else if (!user.ssoSub) {
-        // Link existing account to SSO — only reached when emailForLinking matched (verified)
+        // Link existing account to SSO - only reached when emailForLinking matched (verified)
         await prisma.user.update({ where: { id: user.id }, data: { ssoSub: sub, ssoProvider: config.oidc.providerName } });
       }
 
+      // Issue session cookie and redirect to the app
       const token = jwt.sign(
         { userId: user.id, username: user.username, tokenVersion: user.tokenVersion },
         config.jwtSecret,

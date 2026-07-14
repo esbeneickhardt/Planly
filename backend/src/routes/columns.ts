@@ -1,5 +1,5 @@
 /**
- * Column (Kanban status) routes — manage the custom columns that define task
+ * Column (Kanban status) routes - manage the custom columns that define task
  * statuses within a project's Kanban board.
  *
  * Columns have a label, optional color, and an explicit position for ordering.
@@ -51,11 +51,13 @@ export async function columnRoutes(app: FastifyInstance) {
     if (!body) return;
     const { label, color } = body;
 
+    // Ensure defaults exist and find the "Done" column to insert before it
     await ensureColumns(productId);
     const doneCol = await prisma.kanbanColumn.findFirst({ where: { productId, isDone: true } });
     const maxOrder = await prisma.kanbanColumn.aggregate({ where: { productId }, _max: { order: true } });
     const insertOrder = doneCol ? doneCol.order : (maxOrder._max.order ?? 0) + 1;
 
+    // Bump the "Done" column's order to make room at insertOrder
     if (doneCol) {
       await prisma.kanbanColumn.update({ where: { id: doneCol.id }, data: { order: insertOrder + 1 } });
     }
@@ -99,6 +101,7 @@ export async function columnRoutes(app: FastifyInstance) {
     if (!col) return reply.status(404).send({ error: 'Not found' });
     if (col.isDone) return reply.status(400).send({ error: 'Cannot delete the completion column' });
 
+    // Atomically reset orphaned tasks to 'todo' and remove the column
     await prisma.$transaction([
       prisma.task.updateMany({ where: { productId, status: col.statusKey }, data: { status: 'todo' } }),
       prisma.kanbanColumn.delete({ where: { id: columnId } }),

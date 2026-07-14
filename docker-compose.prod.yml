@@ -57,7 +57,7 @@ services:
       LOG_LEVEL: info
       TRUSTED_PROXY_DEPTH: "1"
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      # SMTP (optional — leave empty to log emails to console)
+      # SMTP (optional - leave empty to log emails to console)
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -75,7 +75,7 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
-    # Port 3000 is intentionally NOT exposed to host — backend only via Docker network
+    # Port 3000 is intentionally NOT exposed to host - backend only via Docker network
 
   frontend:
     build: ./frontend
@@ -94,7 +94,7 @@ services:
         max-size: "20m"
         max-file: "3"
 
-  # Automated hourly backup — dumps DB + uploads to /backups on the host
+  # Automated hourly backup - dumps DB + uploads to /backups on the host
   backup:
     image: docker:cli
     restart: always

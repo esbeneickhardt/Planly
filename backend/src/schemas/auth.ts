@@ -1,10 +1,18 @@
+/**
+ * Zod schemas for authentication request bodies.
+ * loginSchema accepts either an email address or a username as the identifier.
+ * registerSchema enforces password strength rules (minimum length, digit, special character)
+ * and requires explicit TOS acceptance.
+ */
 import { z } from 'zod';
 
+// Login - accepts email or username as identifier
 export const loginSchema = z.object({
   identifier: z.string().min(1, 'Email or username required').max(254),
   password: z.string().min(1, 'Password required').max(1024),
 });
 
+// Registration - username restricted to URL-safe characters; password strength enforced via refinements
 export const registerSchema = z.object({
   username: z
     .string()

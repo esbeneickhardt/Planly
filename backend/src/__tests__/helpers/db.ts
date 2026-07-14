@@ -63,7 +63,7 @@ export async function cleanupTestTeams(names: string[]) {
 }
 
 /** Creates a raw PAT and returns both the plaintext token (for use in Bearer headers)
- *  and the DB record. The token is hashed before storage — the raw value is never saved. */
+ *  and the DB record. The token is hashed before storage - the raw value is never saved. */
 export async function createTestApiToken(userId: string, opts: { productId?: string; name?: string; expiresAt?: Date } = {}) {
   const raw = randomBytes(32).toString('hex');
   const tokenHash = createHash('sha256').update(raw).digest('hex');

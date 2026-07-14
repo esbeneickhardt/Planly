@@ -1,5 +1,8 @@
 /**
- * Task CRUD — create, list, get, update, soft-delete, reorder, and canvas position.
+ * Task CRUD routes - list, create, read, update, soft-delete, bulk reorder, and canvas position.
+ * All mutations go through requireProductMember and requireTabWrite guards. Owner and reviewer
+ * assignments are validated to be project members before writing. Status transitions to 'done'
+ * automatically record completedBy/completedAt; reverting from 'done' clears those fields.
  */
 import { FastifyInstance } from 'fastify';
 import prisma from '../../db/client';
@@ -69,6 +72,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     if (!body) return;
     const { name, description, ownerId, reviewerId, color, deadline, canvasX, canvasY, status } = body;
 
+    // Validate that owner, reviewer, and deadline are well-formed before writing
     if (ownerId) {
       const member = await prisma.teamMember.findFirst({ where: { userId: ownerId, team: { products: { some: { id: productId } } } } });
       if (!member) return reply.status(400).send({ error: 'ownerId must be a project member' });
@@ -86,6 +90,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
       include: TASK_INCLUDE,
     });
 
+    // Fire webhooks, realtime broadcast, activity log, and assignment notifications
     dispatchWebhooks(productId, 'task.created', task).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
     broadcast(productId, 'task.created', task);
     logActivity({ productId, actorId: req.user.userId, action: 'task.created', entityType: 'task', entityId: task.id, entityName: task.name });
@@ -117,6 +122,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (!task) return reply.status(404).send({ error: 'Not found' });
 
+    // Validate that owner, reviewer, and deadline are well-formed before writing
     if (body.ownerId) {
       const member = await prisma.teamMember.findFirst({ where: { userId: body.ownerId, team: { products: { some: { id: productId } } } } });
       if (!member) return reply.status(400).send({ error: 'ownerId must be a project member' });
@@ -129,6 +135,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid deadline date' });
     }
 
+    // Track completion timestamp when status transitions to/from done
     const completedFields =
       body.status === 'done' && task.status !== 'done'
         ? { completedBy: req.user.userId, completedAt: new Date() }
@@ -153,6 +160,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
       include: TASK_INCLUDE,
     });
 
+    // Fire webhooks, realtime broadcast, activity log, and assignment notifications
     const eventName = body.status && body.status !== task.status ? 'task.status_changed' : 'task.updated';
     dispatchWebhooks(productId, eventName, updated).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
     broadcast(productId, eventName, updated);

@@ -1,5 +1,7 @@
 /**
- * Admin stats and projects — server-wide aggregate counts and project listing.
+ * Admin stats and project listing routes.
+ * /api/admin/projects returns a denormalized list (owner, member count, task count) for the admin dashboard.
+ * /api/admin/stats returns aggregate counts for the last 30 days alongside all-time totals.
  */
 import { FastifyInstance } from 'fastify';
 import { requireAdmin } from '../../middleware/auth';
@@ -26,6 +28,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
 
   app.get('/api/admin/stats', { preHandler: requireAdmin }, async (_req, reply) => {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    // Run all six counts in parallel to minimise latency
     const [userCount, projectCount, taskCount, messageCount, newUsers, newProjects] = await Promise.all([
       prisma.user.count(),
       prisma.product.count({ where: { deletedAt: null } }),

@@ -1,5 +1,5 @@
 /**
- * Product (project) authorization guards — reusable preHandler helpers that
+ * Product (project) authorization guards - reusable preHandler helpers that
  * check membership and tab-level permissions before allowing route handlers to run.
  *
  * Permission model:
@@ -20,6 +20,7 @@ export async function requireProductMember(
   userId: string,
   reply: FastifyReply,
 ): Promise<boolean> {
+  // Single query: fetch product existence and membership in one round-trip
   const product = await prisma.product.findFirst({
     where: { id: productId, deletedAt: null },
     select: {
@@ -85,7 +86,7 @@ export async function requireTabWrite(
   // Co-owner always has write
   if (member.role === 'co_owner') return true;
 
-  // Check explicit tab permissions - no row means default write
+  // Check explicit tab permissions for regular members; absent row means write (default)
   const rows = await prisma.tabPermission.findMany({
     where: { productId, userId, tab: { in: tabs } },
     select: { tab: true, level: true },

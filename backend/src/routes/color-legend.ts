@@ -1,5 +1,5 @@
 /**
- * Color legend routes — manage the per-project label color mapping used to
+ * Color legend routes - manage the per-project label color mapping used to
  * visually categorize tasks on the Kanban board and other views.
  *
  * The legend is a list of { colorKey, label } entries. Co-owners define the legend;
@@ -25,6 +25,7 @@ const DEFAULT_NAMES: Record<string, string> = {
 };
 
 export async function colorLegendRoutes(app: FastifyInstance) {
+  // Get the color legend, merging DB entries with defaults for uncustomized keys
   app.get('/api/products/:productId/color-legend', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -37,15 +38,19 @@ export async function colorLegendRoutes(app: FastifyInstance) {
     reply.send(result);
   });
 
+  // Replace the full color legend (co-owner only)
   app.put('/api/products/:productId/color-legend', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
     const entries = validate(colorLegendSchema, req.body, reply);
     if (!entries) return;
+
+    // Validate all submitted colorKeys are in the preset palette
     for (const e of entries) {
       if (!PRESET_COLORS.includes(e.colorKey)) return reply.status(400).send({ error: `Invalid colorKey: ${e.colorKey}` });
     }
 
+    // Upsert each entry
     await Promise.all(entries.map((e) =>
       prisma.colorLegendEntry.upsert({
         where: { productId_colorKey: { productId, colorKey: e.colorKey } },

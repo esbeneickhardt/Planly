@@ -1,5 +1,5 @@
 /**
- * Integration tests for RBAC — verifies that access controls are enforced.
+ * Integration tests for RBAC - verifies that access controls are enforced.
  * Requires a running PostgreSQL with Planly schema.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';

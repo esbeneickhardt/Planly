@@ -1,9 +1,9 @@
 /**
- * Audit logging utility — fire-and-forget helper for writing admin audit log entries.
+ * Audit logging utility - fire-and-forget helper for writing admin audit log entries.
  *
  * All security-relevant actions (auth, tokens, webhooks, permissions, team changes)
  * across the app call logAdminEvent() so they appear in Admin → Audit Log and
- * in CSV/JSONL exports. Failures are warned but never thrown — a logging failure
+ * in CSV/JSONL exports. Failures are warned but never thrown - a logging failure
  * must never break the request that triggered it.
  */
 import prisma from '../db/client';

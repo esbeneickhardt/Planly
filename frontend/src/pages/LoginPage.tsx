@@ -1,3 +1,8 @@
+/**
+ * Login page handling both password-based and SSO sign-in, with a two-step TOTP challenge
+ * when MFA is enabled on the account.  On load it fetches the SSO config and checks the URL
+ * for OAuth error params; if login returns requiresTOTP the form switches to the code-entry step.
+ */
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +25,7 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState('');
   const totpInputRef = useRef<HTMLInputElement>(null);
 
+  // Probe SSO availability and surface any OAuth error codes from query params
   useEffect(() => {
     api.auth.ssoConfig().then(setSso).catch(() => {});
     const params = new URLSearchParams(window.location.search);
@@ -32,6 +38,7 @@ export default function LoginPage() {
     if (mfaToken) totpInputRef.current?.focus();
   }, [mfaToken]);
 
+  // Handle credential submission; pivot to TOTP step if the API signals requiresTOTP
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -52,6 +59,7 @@ export default function LoginPage() {
     }
   }
 
+  // Submit the 6-digit TOTP code using the short-lived mfaToken from the first step
   async function handleTotpSubmit(e: FormEvent) {
     e.preventDefault();
     if (!mfaToken) return;

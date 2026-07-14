@@ -24,7 +24,7 @@ Include a Personal Access Token or App Registration token as a Bearer header:
 Authorization: Bearer planly_<token>
 ```
 
-Bearer auth bypasses CSRF checks — no `X-CSRF-Token` header needed. See [Access Tokens](Access-Tokens.md) for how to create tokens.
+Bearer auth bypasses CSRF checks - no `X-CSRF-Token` header needed. See [Access Tokens](Access-Tokens.md) for how to create tokens.
 
 ---
 
@@ -48,10 +48,10 @@ Create a new user account.
 // Request
 { "email": "alice@example.com", "password": "s3cur3pass" }
 
-// Response 200 — no TOTP
+// Response 200 - no TOTP
 { "user": { "id": "...", "username": "alice", "email": "...", "isAdmin": false } }
 
-// Response 200 — TOTP required
+// Response 200 - TOTP required
 { "mfaRequired": true, "challengeToken": "<short-lived-jwt>" }
 ```
 
@@ -97,7 +97,7 @@ Returns the currently authenticated user.
 { "currentPassword": "old", "newPassword": "new-s3cure" }
 ```
 
-Increments `tokenVersion` — invalidates all existing sessions.
+Increments `tokenVersion` - invalidates all existing sessions.
 
 ### POST /api/auth/forgot-password
 
@@ -341,7 +341,7 @@ Revoke an invite.
 
 ### GET /api/invites/:token
 
-Get invite info (public — no auth required). Used by the accept page to show team name before login.
+Get invite info (public - no auth required). Used by the accept page to show team name before login.
 
 ### POST /api/invites/:token/accept
 
@@ -363,7 +363,7 @@ Join the team using the invite token (auth required).
   "active": true
 }
 
-// Response 201 — secret only returned at creation
+// Response 201 - secret only returned at creation
 {
   "id": "uuid",
   "url": "https://hooks.example.com/planly",
@@ -404,10 +404,10 @@ List your PATs (secrets are not returned).
 {
   "name": "CI deploy script",
   "expiresAt": "2027-01-01T00:00:00Z",  // optional
-  "productId": "uuid"                    // optional — scopes token to one project
+  "productId": "uuid"                    // optional - scopes token to one project
 }
 
-// Response 201 — token only returned at creation
+// Response 201 - token only returned at creation
 { "id": "uuid", "name": "CI deploy script", "token": "planly_<hex>", "expiresAt": "..." }
 ```
 

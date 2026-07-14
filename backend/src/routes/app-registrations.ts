@@ -1,5 +1,5 @@
 /**
- * App Registration routes — named service accounts for server-to-server integrations.
+ * App Registration routes - named service accounts for server-to-server integrations.
  *
  * Unlike PATs which act as a specific user, App Registrations represent an application
  * identity. Each registration can hold multiple tokens (for rotation without downtime).

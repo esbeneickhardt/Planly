@@ -1,3 +1,8 @@
+/**
+ * Generic modal dialog with a title bar, close button, backdrop click-to-close, and Escape key support.
+ * Content scrolls inside the modal up to 90vh; the backdrop is blurred.
+ * `width` defaults to `max-w-lg` and accepts any Tailwind width class.
+ */
 import { ReactNode, useEffect } from 'react';
 
 interface Props {

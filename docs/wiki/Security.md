@@ -12,7 +12,7 @@ Login issues two cookies:
 
 | Cookie | `httpOnly` | Description |
 |---|---|---|
-| `token` | Yes | 7-day JWT signed with HS256 and `JWT_SECRET`. The browser can't read it — only sent automatically with requests. |
+| `token` | Yes | 7-day JWT signed with HS256 and `JWT_SECRET`. The browser can't read it - only sent automatically with requests. |
 | `csrf` | No | 24-byte random value. The browser CAN read it, and must echo it as `X-CSRF-Token` on every mutating request. |
 
 Both cookies are `SameSite=Lax` and `Secure` (HTTPS-only) in production.
@@ -23,7 +23,7 @@ PATs and App Registration tokens are stored as SHA-256 hashes in the database. T
 
 ### Session Invalidation
 
-Each user has a `tokenVersion` integer. When a user changes their password, resets it, or an admin forces a logout, this counter is incremented. Every cookie-based request validates that the JWT's embedded `tokenVersion` matches the current value in the database — a mismatch instantly invalidates the session without maintaining a blocklist.
+Each user has a `tokenVersion` integer. When a user changes their password, resets it, or an admin forces a logout, this counter is incremented. Every cookie-based request validates that the JWT's embedded `tokenVersion` matches the current value in the database - a mismatch instantly invalidates the session without maintaining a blocklist.
 
 ### Email Verification
 
@@ -35,13 +35,13 @@ When enabled (`requireEmailVerification: true` in Server Config), users must ver
 
 Two layers, applied to all state-mutating HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`):
 
-**Layer 1 — Origin header check (browser requests):**  
+**Layer 1 - Origin header check (browser requests):**  
 If an `Origin` header is present, it must match `FRONTEND_ORIGIN`. Mismatches are rejected with `403 CSRF check failed: origin not allowed`.
 
-**Layer 2 — Double-submit cookie (sessionful requests without an Origin header):**  
+**Layer 2 - Double-submit cookie (sessionful requests without an Origin header):**  
 If the request has a session cookie but no Origin header, the `X-CSRF-Token` header must match the `csrf` cookie value. A mismatch is rejected with `403 CSRF check failed`.
 
-Bearer token requests are exempt from CSRF checks entirely — API clients are not subject to CSRF attacks.
+Bearer token requests are exempt from CSRF checks entirely - API clients are not subject to CSRF attacks.
 
 ---
 
@@ -60,9 +60,9 @@ Users can enable TOTP in Settings → Security. Implementation:
 
 Any OpenID Connect provider is supported. Implementation:
 
-- Uses PKCE (Proof Key for Code Exchange, RFC 7636) — `code_challenge` + `code_verifier` pair generated on authorize
+- Uses PKCE (Proof Key for Code Exchange, RFC 7636) - `code_challenge` + `code_verifier` pair generated on authorize
 - Uses a `nonce` claim to bind the ID token to the authorization request
-- OAuth2 state + code verifier stored in the `SsoState` database table (not in-memory) — multi-replica safe
+- OAuth2 state + code verifier stored in the `SsoState` database table (not in-memory) - multi-replica safe
 - State entries expire after 10 minutes and are deleted on use
 - On successful SSO login, Planly creates a local account (with `emailVerified: true`) if one doesn't exist for that email, or links to the existing account
 
@@ -105,8 +105,8 @@ The GCM authentication tag means tampered ciphertext is detected at decrypt time
 
 Configurable via Admin → IP Restrictions.
 
-- **Allowlist mode** — only requests from listed CIDRs are allowed; all others get `403 IP_BLOCKED`
-- **Blocklist mode** — requests from listed CIDRs are denied; all others are allowed
+- **Allowlist mode** - only requests from listed CIDRs are allowed; all others get `403 IP_BLOCKED`
+- **Blocklist mode** - requests from listed CIDRs are denied; all others are allowed
 - Supports both IPv4 and IPv6 CIDR notation
 - Client IP is read from `X-Forwarded-For`, respecting `TRUSTED_PROXY_DEPTH` to skip trusted proxy IPs
 - Localhost is always allowed regardless of mode
@@ -118,9 +118,9 @@ Configurable via Admin → IP Restrictions.
 
 WebSocket connections are authenticated via one of three methods:
 
-1. **Cookie JWT** (preferred for browser clients) — the `token` cookie is sent automatically on the WebSocket upgrade request
-2. **One-time ticket** (`?ticket=<token>`) — a 30-second single-use token issued via `POST /api/products/:productId/ws-ticket`. The full session JWT never appears in a URL query string (which would be logged by servers and proxies). Tickets are stored in the database — multi-replica safe.
-3. **API PAT** (`?token=<pat>`) — for server-to-server streaming consumers. Session JWTs must NOT be passed here.
+1. **Cookie JWT** (preferred for browser clients) - the `token` cookie is sent automatically on the WebSocket upgrade request
+2. **One-time ticket** (`?ticket=<token>`) - a 30-second single-use token issued via `POST /api/products/:productId/ws-ticket`. The full session JWT never appears in a URL query string (which would be logged by servers and proxies). Tickets are stored in the database - multi-replica safe.
+3. **API PAT** (`?token=<pat>`) - for server-to-server streaming consumers. Session JWTs must NOT be passed here.
 
 After authentication, the backend verifies the user is a member of the team that owns the requested product before joining the WebSocket room.
 

@@ -1,5 +1,5 @@
 /**
- * File upload E2E tests — attaching files to messages and verifying they appear.
+ * File upload E2E tests - attaching files to messages and verifying they appear.
  *
  * Each test registers a fresh user, creates a project, navigates to the
  * Messages tab, and exercises the file attachment flow.
@@ -135,7 +135,7 @@ test.describe('File attachments in messages', () => {
     const appeared = await attachmentPreview.first().isVisible({ timeout: 5_000 }).catch(() => false);
     if (!appeared) {
       // Fallback: send a message with the attachment and check the message bubble.
-      // Use the same placeholder locator as setup — more reliable than role-based.
+      // Use the same placeholder locator as setup - more reliable than role-based.
       const msgInput = page.getByPlaceholder(/write a message/i).first();
       if (await msgInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await msgInput.fill('Here is the file');

@@ -1,3 +1,8 @@
+/**
+ * Shared domain types used across the frontend.
+ * `Status` is an open string so custom column `statusKey` values work without an exhaustive enum.
+ * `Task` includes canvas position fields (`canvasX`/`canvasY`) and dependency arrays (`dependsOn`, `requiredBy`).
+ */
 export type Status = string;
 
 export interface KanbanColumn {

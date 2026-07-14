@@ -1,5 +1,5 @@
 /**
- * Task E2E tests — creating, editing, deleting tasks; detail panel; subtasks.
+ * Task E2E tests - creating, editing, deleting tasks; detail panel; subtasks.
  *
  * Each test registers a fresh user and creates a product to work in,
  * so tests are fully isolated.
@@ -17,7 +17,7 @@ async function setupUserAndProduct(browser: import('@playwright/test').Browser) 
   if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) await skipBtn.click();
 
   // createProjectViaTopBar ends with page.reload(), which forces cookie re-sync
-  // before any subsequent page.request calls — same pattern as loginAndGoToKanban
+  // before any subsequent page.request calls - same pattern as loginAndGoToKanban
   await createProjectViaTopBar(page, 'Task Project');
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitForKanbanReady(page);
@@ -69,7 +69,7 @@ test.describe('Task detail panel', () => {
       // Click task to open detail panel (inside guard so test skips cleanly if setup fails)
       await page.getByText('Click me task').click();
 
-      // Detail panel should be visible — TaskDetailPanel renders an h2 "Task detail"
+      // Detail panel should be visible - TaskDetailPanel renders an h2 "Task detail"
       await expect(page.getByRole('heading', { name: 'Task detail' })).toBeVisible({ timeout: 8_000 });
     }
 

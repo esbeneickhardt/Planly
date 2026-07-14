@@ -1,5 +1,5 @@
 /**
- * Search routes — cross-project full-text search over tasks and messages.
+ * Search routes - cross-project full-text search over tasks and messages.
  *
  * Results are scoped to projects where the authenticated user is a team member.
  * Supports an optional productId filter to restrict results to a single project.

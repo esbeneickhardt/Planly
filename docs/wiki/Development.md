@@ -140,8 +140,8 @@ cd backend
 # Create a new migration after editing schema.prisma
 npx prisma migrate dev --name add-my-feature
 
-# Apply pending migrations (runs automatically on backend startup in production)
-npx prisma migrate deploy
+# Sync schema to the database (runs automatically on backend startup via `prisma db push`)
+npx prisma db push
 
 # Regenerate the Prisma client after schema changes
 npx prisma generate
@@ -158,7 +158,7 @@ npx prisma studio
 
 ```typescript
 /**
- * My feature routes — brief description of what this covers.
+ * My feature routes - brief description of what this covers.
  */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -246,7 +246,7 @@ The CI should never merge code that doesn't pass both checks.
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feat/my-feature`
 3. Make your changes, including tests where appropriate
-4. Run `npx tsc --noEmit` in both `backend/` and `frontend/` — zero errors required
+4. Run `npx tsc --noEmit` in both `backend/` and `frontend/` - zero errors required
 5. Open a pull request against `main` with a clear description of what changed and why
 
 For anything non-trivial, open an issue first to discuss the approach.

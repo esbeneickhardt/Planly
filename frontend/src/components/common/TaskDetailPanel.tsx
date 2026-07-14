@@ -1,3 +1,8 @@
+/**
+ * Slide-in detail panel for viewing and editing a single task; supports three layout modes: fullscreen, sidebar-docked, and floating.
+ * Dragging the header un-docks the panel from the sidebar into a freely-positionable floating window; eight resize handles allow resizing in any direction.
+ * `isDirty` tracks unsaved field changes and sprint membership deltas; closing with unsaved changes shows a confirm dialog.
+ */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -37,6 +42,8 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const { confirm } = useConfirm();
   const [minimized, setMinimized] = useState(false);
   const users = useProductMembers(activeProduct?.teamId);
+
+  // Editable field state (mirrors task prop; isDirty compares these back to task)
   const [name, setName] = useState(task.name);
   const [description, setDescription] = useState(task.description ?? '');
   const [ownerId, setOwnerId] = useState(task.ownerId ?? '');
@@ -53,7 +60,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const [uploading, setUploading] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
-  // Floating / sidebar panel state (mirrors ChatPanel behaviour)
+  // Panel layout state: size + position persisted to localStorage; refs shadow state for pointer closures
   const [isSidebar, setIsSidebar] = useState(() => { try { return localStorage.getItem('planly-task-sidebar') !== 'false'; } catch { return true; } });
   const [panelWidth, setPanelWidth] = useState(() => { try { return parseInt(localStorage.getItem('planly-task-width') ?? '480'); } catch { return 480; } });
   const [panelHeight, setPanelHeight] = useState(() => { try { return parseInt(localStorage.getItem('planly-task-height') ?? '650'); } catch { return 650; } });
@@ -67,12 +74,13 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const isSidebarRef   = useRef(isSidebar);
   const headerDragRef  = useRef<{ startX: number; startY: number; px: number; py: number } | null>(null);
 
+  // Subtask state
   const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks ?? []);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtaskName, setNewSubtaskName] = useState('');
   const [subtaskLoading, setSubtaskLoading] = useState<string | null>(null);
 
-  // Sprint membership
+  // Sprint membership: initialSprintIdsRef enables dirty detection without extra API calls
   const { sprints, refresh: refreshSprints } = useSprints(activeProduct?.id);
   const [sprintIds, setSprintIds] = useState<Set<string>>(new Set());
   const initialSprintIdsRef = useRef<Set<string>>(new Set());
@@ -216,6 +224,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     if (file) await insertUploadedImage(file);
   }
 
+  // Resize: 8-directional pointer capture; persists dimensions on pointer-up
   const startResizeDir = useCallback((e: React.PointerEvent, dir: string) => {
     e.preventDefault(); e.stopPropagation();
     const sx = panelPosRef.current.x, sy = panelPosRef.current.y;
@@ -247,6 +256,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     window.addEventListener('pointerup', onUp);
   }, []);
 
+  // Header drag: un-docks from sidebar on first move, then free-positions
   const onHeaderDrag = useCallback((e: React.PointerEvent) => {
     if ((e.target as Element).closest('button')) return;
     e.preventDefault();

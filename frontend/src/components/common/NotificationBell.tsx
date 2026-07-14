@@ -1,3 +1,8 @@
+/**
+ * Bell icon button with dropdown that shows either user notifications (normal mode) or admin audit-log entries (admin mode).
+ * Both modes poll every 30 seconds; admin mode tracks the "seen at" timestamp in `planly:admin_notif_seen_at` localStorage.
+ * In normal mode, clicking a notification with a matching `taskId` and active product opens that task's chat directly.
+ */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, Notification } from '../../api/client';

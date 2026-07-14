@@ -54,7 +54,7 @@ async function main() {
     process.exit(1);
   }
   if (oldKeyRaw === newKeyRaw) {
-    console.error('ERROR: OLD_ENCRYPTION_KEY and NEW_ENCRYPTION_KEY are identical — nothing to rotate');
+    console.error('ERROR: OLD_ENCRYPTION_KEY and NEW_ENCRYPTION_KEY are identical - nothing to rotate');
     process.exit(1);
   }
 
@@ -74,7 +74,7 @@ async function main() {
   for (const wh of webhooks) {
     const plaintext = decryptWith(wh.secret, oldKey);
     if (plaintext === null) {
-      console.warn(`  [webhook ${wh.id}] Could not decrypt with old key — skipping`);
+      console.warn(`  [webhook ${wh.id}] Could not decrypt with old key - skipping`);
       errors++;
       continue;
     }
@@ -92,7 +92,7 @@ async function main() {
     if (!cfg.smtpPass) { skipped++; continue; }
     const plaintext = decryptWith(cfg.smtpPass, oldKey);
     if (plaintext === null) {
-      console.warn(`  [serverConfig ${cfg.id}] Could not decrypt smtpPass with old key — skipping`);
+      console.warn(`  [serverConfig ${cfg.id}] Could not decrypt smtpPass with old key - skipping`);
       smtpRotated.errors++;
       continue;
     }

@@ -1,5 +1,5 @@
 /**
- * Message routes — per-project chat with @mention notifications and file attachments.
+ * Message routes - per-project chat with @mention notifications and file attachments.
  *
  * Messages support rich text content, emoji reactions, replies, and file attachments
  * (images, documents). File uploads are validated by MIME type (magic bytes checked,
@@ -23,7 +23,7 @@ import { MESSAGE_INCLUDE } from '../db/selects';
 import { validate } from '../utils/validate';
 
 const attachmentItemSchema = z.object({
-  url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment — only uploads from this server are allowed'),
+  url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
   name: z.string(),
   type: z.string(),
 });
@@ -113,6 +113,7 @@ export async function messageRoutes(app: FastifyInstance) {
     }
   });
 
+  // List messages for a product (or a specific task)
   app.get('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -128,6 +129,7 @@ export async function messageRoutes(app: FastifyInstance) {
     reply.send(messages);
   });
 
+  // Create a message, broadcast it, dispatch webhooks, and notify @mentions
   app.post('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -185,6 +187,7 @@ export async function messageRoutes(app: FastifyInstance) {
     reply.status(201).send(msg);
   });
 
+  // Edit own message content
   app.patch('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -202,6 +205,7 @@ export async function messageRoutes(app: FastifyInstance) {
     reply.send(updated);
   });
 
+  // Delete own message
   app.delete('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;

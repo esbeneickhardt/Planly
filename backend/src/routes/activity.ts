@@ -1,5 +1,5 @@
 /**
- * Activity feed routes — query the chronological event log for a project.
+ * Activity feed routes - query the chronological event log for a project.
  *
  * Activity events are written by logActivity() throughout the app whenever a
  * significant action occurs (task created, status changed, sprint ended, etc.).
@@ -15,6 +15,7 @@ export async function activityRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
 
+    // Verify the activity feed is accessible (same analytics-enabled gate as /analytics)
     const product = await prisma.product.findUnique({
       where: { id: productId },
       select: { analyticsEnabled: true, ownerId: true, teamId: true },
@@ -33,6 +34,7 @@ export async function activityRoutes(app: FastifyInstance) {
       }
     }
 
+    // Paginated fetch ordered newest-first with cursor-based pagination
     const { cursor, limit = '50' } = req.query as { cursor?: string; limit?: string };
     const take = Math.min(parseInt(limit), 100);
 

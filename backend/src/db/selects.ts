@@ -1,8 +1,10 @@
 /**
  * Shared Prisma select/include fragments used across multiple route files.
- * Centralising them here prevents drift when the schema changes.
+ * Centralising them here prevents drift when the schema changes and avoids
+ * subtle inconsistencies where different routes return different author fields.
  */
 
+// Minimal author fields returned alongside every message
 export const MESSAGE_AUTHOR_SELECT = {
   id: true,
   username: true,

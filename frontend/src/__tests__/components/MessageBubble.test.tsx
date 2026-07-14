@@ -1,7 +1,7 @@
 /**
  * XSS security tests for MessageBubble.
  *
- * ReactMarkdown (without rehype-raw) does not render raw HTML strings —
+ * ReactMarkdown (without rehype-raw) does not render raw HTML strings -
  * it escapes them as text. These tests confirm that attacker-controlled
  * message content cannot inject script elements or event handler attributes
  * into the DOM.
@@ -45,7 +45,7 @@ function renderBubble(content: string) {
   );
 }
 
-describe('MessageBubble — XSS safety', () => {
+describe('MessageBubble - XSS safety', () => {
   it('does not inject <script> tags from message content', () => {
     const { container } = renderBubble('<script>window.__xss=1</script>');
     expect(container.querySelectorAll('script')).toHaveLength(0);

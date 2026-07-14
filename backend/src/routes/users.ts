@@ -1,5 +1,5 @@
 /**
- * User routes — profile management, email verification, notification preferences,
+ * User routes - profile management, email verification, notification preferences,
  * and self-deletion.
  *
  * Sensitive PII fields (realName, phone) are stored AES-256-GCM encrypted and
@@ -77,6 +77,7 @@ export async function userRoutes(app: FastifyInstance) {
       }
     }
 
+    // Hash password and create the user record (409 on duplicate username/email)
     const passwordHash = await bcrypt.hash(password, 12);
     let user: { id: string; username: string; email: string; realName: string | null; avatarEmoji: string | null; avatarUrl: string | null; phone: string | null; createdAt: Date; emailVerified: boolean };
     try {

@@ -1,3 +1,8 @@
+/**
+ * Provides authentication state (current user, loading flag) and auth actions to the app.
+ * `login` may return a TOTP challenge object instead of resolving the user when MFA is enabled.
+ * Listens for the `planly:email-not-verified` window event to force-logout without a user action.
+ */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '../api/client';
 import { clearMembersCache } from '../hooks/useProductMembers';
@@ -15,9 +20,11 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // State
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Initialization: load session user and listen for forced-logout events
   useEffect(() => {
     api.auth.me().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
 
@@ -29,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('planly:email-not-verified', handleEmailNotVerified);
   }, []);
 
+  // Auth actions
   async function login(identifier: string, password: string) {
     const res = await api.auth.login(identifier, password);
     if ('requiresTOTP' in res && res.requiresTOTP) return res;

@@ -1,5 +1,5 @@
 /**
- * Webhook routes — manage webhook subscriptions for a project.
+ * Webhook routes - manage webhook subscriptions for a project.
  *
  * Webhooks push event payloads to external HTTP endpoints signed with HMAC-SHA256.
  * The secret is stored AES-256-GCM encrypted in the database and decrypted at
@@ -57,15 +57,19 @@ export async function webhookRoutes(app: FastifyInstance) {
     if (!body) return;
     const { url, events } = body;
 
+    // Enforce max webhook limit per project
     const webhookCount = await prisma.webhook.count({ where: { productId } });
     if (webhookCount >= 20) return reply.status(400).send({ error: 'Maximum 20 webhooks allowed per project. Delete an existing webhook first.' });
 
+    // Validate requested event types against the supported set
     const invalid = events.filter((e) => !VALID_EVENTS.includes(e));
     if (invalid.length > 0) return reply.status(400).send({ error: `Invalid events: ${invalid.join(', ')}` });
 
+    // Block internal/private-IP targets (SSRF guard)
     const urlError = await validateWebhookUrl(url);
     if (urlError) return reply.status(400).send({ error: urlError });
 
+    // Generate HMAC secret, encrypt for storage, and persist the webhook
     const rawSecret = randomBytes(32).toString('hex');
     const webhook = await prisma.webhook.create({
       data: { productId, url, events, secret: encryptValue(rawSecret) },

@@ -1,5 +1,5 @@
 /**
- * Subtask routes — create, update, and delete subtasks within a task.
+ * Subtask routes - create, update, and delete subtasks within a task.
  */
 import { FastifyInstance } from 'fastify';
 import prisma from '../../db/client';
@@ -37,6 +37,7 @@ export async function subtaskRoutes(app: FastifyInstance) {
     if (!updateStBody) return;
     const { name, completed, order } = updateStBody;
 
+    // Track who completed the subtask (or clear it) when toggling completion
     const completedFields =
       completed === true ? { completedBy: req.user.userId, completedAt: new Date() }
       : completed === false ? { completedBy: null, completedAt: null }

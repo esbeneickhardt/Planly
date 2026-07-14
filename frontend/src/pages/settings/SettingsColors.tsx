@@ -1,3 +1,8 @@
+/**
+ * Settings Color Labels tab that lets managers toggle which preset colors are active for this project
+ * and assign human-readable names to each color (e.g. "Bug", "Feature").
+ * State is managed by useColorLegend which debounces and persists changes to the API.
+ */
 import { useColorLegend, PRESET_COLORS } from '../../hooks/useColorLegend';
 
 interface Props {

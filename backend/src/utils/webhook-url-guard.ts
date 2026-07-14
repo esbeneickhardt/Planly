@@ -1,5 +1,5 @@
 /**
- * Webhook URL SSRF guard — validates that a webhook destination URL points to
+ * Webhook URL SSRF guard - validates that a webhook destination URL points to
  * a public internet address and not to any private, loopback, or reserved range.
  *
  * Called before persisting any webhook URL (create and update) to prevent an
@@ -67,6 +67,7 @@ function isPrivateIpv6(ip: string): boolean {
  * @returns An error string describing the problem, or null if the URL is safe.
  */
 export async function validateWebhookUrl(rawUrl: string): Promise<string | null> {
+  // Validate URL structure and scheme
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
@@ -80,7 +81,7 @@ export async function validateWebhookUrl(rawUrl: string): Promise<string | null>
 
   const hostname = parsed.hostname;
 
-  // Block bare IPs immediately without DNS resolution
+  // Block bare IP addresses immediately without a DNS round-trip
   if (isIPv4(hostname)) {
     if (isPrivateIpv4(hostname)) return 'Webhook URL must point to a public internet address';
     return null; // valid public IPv4
@@ -90,7 +91,7 @@ export async function validateWebhookUrl(rawUrl: string): Promise<string | null>
     return null; // valid public IPv6
   }
 
-  // Resolve hostname → catch DNS rebinding / internal hostnames
+  // Resolve hostname to catch internal hostnames and DNS rebinding attacks
   try {
     const { address, family } = await dns.lookup(hostname);
     if (family === 4 && isPrivateIpv4(address)) {
@@ -103,5 +104,5 @@ export async function validateWebhookUrl(rawUrl: string): Promise<string | null>
     return 'Webhook URL hostname could not be resolved';
   }
 
-  return null; // valid
+  return null; // valid public address
 }

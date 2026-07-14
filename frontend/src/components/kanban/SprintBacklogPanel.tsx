@@ -1,3 +1,8 @@
+/**
+ * Right-side drawer for managing which tasks belong to a sprint (sub-plan).
+ * Shows two columns: tasks in the sprint (left) and all other non-done tasks (right).
+ * Add/remove operations are optimistic — the UI updates immediately and rolls back on API failure.
+ */
 import { useState } from 'react';
 import type { Task } from '../../types';
 import type { Sprint } from '../../api/client';
@@ -19,9 +24,11 @@ interface Props {
 }
 
 export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, onUpdated }: Props) {
+  // Local task-ID set drives optimistic UI; loading holds the ID of the in-flight task
   const [sprintTaskIds, setSprintTaskIds] = useState(new Set(sprint.taskIds));
   const [loading, setLoading] = useState<string | null>(null);
 
+  // Done tasks are intentionally excluded from the backlog (right) column
   const sprintTasks  = tasks.filter((t) => sprintTaskIds.has(t.id));
   const backlogTasks = tasks.filter((t) => !sprintTaskIds.has(t.id) && t.status !== 'done');
 

@@ -1,9 +1,9 @@
 /**
- * Activity event logger — records per-project user actions for the activity feed.
+ * Activity event logger - records per-project user actions for the activity feed.
  *
  * Activity events power the "recent activity" panel visible to all project members.
  * They are retained for 180 days and pruned by the nightly cleanup job.
- * Failures are warned but never thrown — a logging failure must not break the request.
+ * Failures are warned but never thrown - a logging failure must not break the request.
  */
 import prisma from '../db/client';
 import { logger } from './logger';

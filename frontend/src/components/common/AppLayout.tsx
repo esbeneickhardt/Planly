@@ -1,3 +1,8 @@
+/**
+ * Root layout that wraps every authenticated page with TopBar, Sidebar, ChatPanel, and SearchModal.
+ * Provides `ChatContext` so any component can call `openChat` to open the product or admin chat.
+ * `adminMode` persists across navigation once activated; `PermissionGuard` redirects when the current tab becomes inaccessible.
+ */
 import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from './TopBar';
@@ -35,12 +40,13 @@ function PermissionGuard({ children }: { children: ReactNode }) {
 }
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  // State
   const [showSearch, setShowSearch] = useState(false);
   const [showProductChat, setShowProductChat] = useState(false);
   const [chatInitialTask, setChatInitialTask] = useState<{ id: string; name: string } | undefined>();
   const [showAdminChat, setShowAdminChat] = useState(false);
   const [showVision, setShowVision] = useState(false);
-  // Persistent admin mode: survives navigation away from /admin
+  // adminMode persists across navigation away from /admin
   const [adminMode, setAdminMode] = useState(false);
 
   const openProductChat = useCallback((taskId?: string, taskName?: string) => {
@@ -65,6 +71,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }, [products?.length]);
 
+  // Keyboard shortcuts: Ctrl+K opens search; Escape closes it
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true); }

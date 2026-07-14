@@ -1,15 +1,22 @@
 /**
- * Auth routes — login, logout, registration, email verification, session refresh, and /me.
+ * Authentication routes
+ *     - login
+ *     - logout
+ *     - registration
+ *     - email verification
+ *     - session refresh
+ *     - /me.
  *
  * Session lifecycle:
- *   - Login issues a 7-day httpOnly JWT cookie ('token') plus a non-httpOnly CSRF cookie.
- *   - tokenVersion on the User row is incremented on password change/reset/admin logout,
- *     instantly invalidating every outstanding session without maintaining a blocklist.
- *   - TOTP-enabled accounts receive a 5-minute mfa_challenge JWT instead of a full session;
- *     the real session is only issued after POST /api/auth/totp/challenge succeeds.
- *   - Progressive lockout: 5 failures → lock. Lock count drives the duration:
- *     15 min → 60 min → 24 h → 7 days. Resets to 0 on successful login.
+ *    - Login issues a 7-day httpOnly JWT cookie ('token') plus a non-httpOnly CSRF cookie.
+ *    - tokenVersion on the User row is incremented on password change/reset/admin logout,
+ *      instantly invalidating every outstanding session without maintaining a blocklist.
+ *    - TOTP-enabled accounts receive a 5-minute mfa_challenge JWT instead of a full session;
+ *      the real session is only issued after POST /api/auth/totp/challenge succeeds.
+ *    - Progressive lockout: 5 failures → lock. Lock count drives the duration:
+ *      15 min → 60 min → 24 h → 7 days. Resets to 0 on successful login.
  */
+
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -23,6 +30,7 @@ import { loginSchema } from '../schemas/auth';
 import { sendSecurityAlert } from '../utils/security-alert';
 import { decryptUserPii } from '../utils/crypto';
 
+// How many failed login attempts before lockout
 const LOGIN_MAX_ATTEMPTS = 5;
 
 // Progressive lockout: each successive lockout is longer.
@@ -32,12 +40,14 @@ function lockDurationMinutes(lockCount: number): number {
   return schedule[Math.min(lockCount, schedule.length - 1)] ?? 10080;
 }
 
+// Login flow
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (req, reply) => {
     const body = validate(loginSchema, req.body, reply);
     if (!body) return;
     const { identifier, password } = body;
 
+    // Normalize identifier and look up user by email or username
     const trimmed = identifier.trim();
     const normalized = trimmed.toLowerCase();
     const user = await prisma.user.findFirst({
@@ -47,7 +57,7 @@ export async function authRoutes(app: FastifyInstance) {
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
     if (!user.passwordHash) return reply.status(401).send({ error: 'Invalid credentials' });
 
-    // Check lockout
+    // Check lockout status
     if (user.loginLockedUntil && user.loginLockedUntil > new Date()) {
       const remaining = Math.ceil((user.loginLockedUntil.getTime() - Date.now()) / 60000);
       const hours = Math.floor(remaining / 60);
@@ -56,6 +66,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(429).send({ error: `Account temporarily locked. Try again in ${timeStr}.` });
     }
 
+    // Validate password and record failed attempts / lockout
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       const attempts = user.failedLoginAttempts + 1;
@@ -82,6 +93,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.` });
     }
 
+    // Email verification gate — only enforced when the server requires it
     const serverConfig = await getServerConfig();
     if (!user.emailVerified && serverConfig.requireEmailVerification) {
       return reply.status(403).send({ error: 'Please verify your email address before signing in. Check your inbox for a verification link.' });
@@ -102,7 +114,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.send({ requiresTOTP: true, mfaToken });
     }
 
-    // Standard login (no TOTP) — reset lockout counters and rotate tokenVersion
+    // Standard login (no TOTP) - reset lockout counters and rotate tokenVersion
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -127,7 +139,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Incrementing tokenVersion on logout invalidates ALL open sessions on every device.
-  // "Log out here" and "log out everywhere" are intentionally identical — there is no
+  // "Log out here" and "log out everywhere" are intentionally identical - there is no
   // per-device revocation. Clients that still hold a cookie with the old tv value will
   // receive 401 on the next authenticated request.
   app.post('/api/auth/logout', { preHandler: requireAuth }, async (req, reply) => {
@@ -141,7 +153,7 @@ export async function authRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Sliding session refresh — re-issues the cookie with a fresh 7-day maxAge.
+  // Sliding session refresh - re-issues the cookie with a fresh 7-day maxAge.
   // Call when the user has been active and the token is within 24h of expiry.
   app.get('/api/auth/refresh', { preHandler: requireAuth }, async (req, reply) => {
     const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { id: true, username: true, tokenVersion: true } });
@@ -155,6 +167,7 @@ export async function authRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Current user profile - called on every page load to hydrate the auth context
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {
     const [user, cfg] = await Promise.all([
       prisma.user.findUnique({
@@ -164,6 +177,7 @@ export async function authRoutes(app: FastifyInstance) {
       getServerConfig(),
     ]);
     if (!user) return reply.status(404).send({ error: 'Not found' });
+    // Decrypt PII fields (realName, phone stored AES-256-GCM) and append server-config flags the UI needs
     reply.send({ ...decryptUserPii(user), announcementsEnabled: cfg.announcementsEnabled });
   });
 

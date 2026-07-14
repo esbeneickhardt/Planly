@@ -1,5 +1,5 @@
 /**
- * Access request routes — workflow for users to request membership in a closed team.
+ * Access request routes - workflow for users to request membership in a closed team.
  *
  * When a team requires approval for new members, visitors see a "Request Access" button.
  * Requests are queued and reviewed by team co-owners via the admin panel.
@@ -85,6 +85,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     reply.status(201).send(req2);
   });
 
+  // Notify all co-owners of a new access request (fire-and-forget via await at call site)
   async function notifyAdmins(productId: string, productName: string, ownerId: string, coOwnerIds: string[], requesterId: string, requesterName: string) {
     const adminIds = new Set([ownerId, ...coOwnerIds]);
     adminIds.delete(requesterId);
@@ -135,6 +136,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     if (!accessReq) return reply.status(404).send({ error: 'Not found' });
 
     if (action === 'approve') {
+      // Grant team membership and mark request approved
       await prisma.teamMember.upsert({
         where: { teamId_userId: { teamId: product.teamId, userId: accessReq.userId } },
         create: { teamId: product.teamId, userId: accessReq.userId },
@@ -147,6 +149,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
         productId,
       });
     } else {
+      // Mark rejected and notify requester
       await prisma.accessRequest.update({ where: { id: requestId }, data: { status: 'rejected' } });
       createNotification({
         userId: accessReq.userId, type: 'access_rejected',
