@@ -4,6 +4,7 @@
  * assignments are validated to be project members before writing. Status transitions to 'done'
  * automatically record completedBy/completedAt; reverting from 'done' clears those fields.
  */
+
 import { FastifyInstance } from 'fastify';
 import prisma from '../../db/client';
 import { requireAuth } from '../../middleware/auth';
@@ -17,9 +18,13 @@ import { z } from 'zod';
 import { validate } from '../../utils/validate';
 import { createTaskSchema, updateTaskSchema } from '../../schemas/tasks';
 
+// Validation schema for bulk kanban reorder (up to 1000 tasks per call)
 const reorderSchema = z.object({ updates: z.array(z.object({ taskId: z.string(), order: z.number().int() })).max(1000) });
+
+// Validation schema for canvas drag position updates
 const positionSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
 
+// Shared Prisma include shape returned by every task read — keeps all routes consistent
 export const TASK_INCLUDE = {
   owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
   reviewer: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
@@ -29,9 +34,11 @@ export const TASK_INCLUDE = {
   requiredBy: { select: { dependentId: true } },
 };
 
+// Shared filter that excludes soft-deleted tasks from all queries
 export const TASK_WHERE_ACTIVE = { deletedAt: null };
 
 export async function taskCrudRoutes(app: FastifyInstance) {
+  // List all active tasks for a project, cursor-paginated by creation time (max 500 per page)
   app.get('/api/products/:productId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -49,6 +56,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     reply.send(tasks);
   });
 
+  // Bulk-update kanban sort positions in one transaction; must be registered before /:taskId to avoid route conflict
   app.patch('/api/products/:productId/tasks/reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -64,6 +72,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Create a task, then fire webhooks, broadcast, activity log, and assignment notifications
   app.post('/api/products/:productId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -103,6 +112,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     reply.status(201).send(task);
   });
 
+  // Fetch a single task with full relations (owner, reviewer, subtasks, dependencies)
   app.get('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -112,6 +122,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     reply.send(task);
   });
 
+  // Update task fields; handles completion timestamps, webhooks, broadcast, and assignment notifications
   app.patch('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -175,6 +186,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     reply.send(updated);
   });
 
+  // Soft-delete a task (sets deletedAt); returns 204 even if already deleted to keep clients idempotent
   app.delete('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -189,6 +201,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     reply.status(204).send();
   });
 
+  // Update a task's canvas (x, y) coordinates — separate from main PATCH to avoid triggering webhooks on drag
   app.patch('/api/products/:productId/tasks/:taskId/position', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;

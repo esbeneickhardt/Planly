@@ -6,6 +6,7 @@
  * incomplete tasks back to the backlog (unsets sprintId) and archives the sprint.
  * Sprint metadata (start/end dates, color) is used in the Gantt view's sprint swimlanes.
  */
+
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
@@ -14,7 +15,10 @@ import { requireProductMember, requireTabRead, requireTabWrite } from '../utils/
 import { handleNotFound } from '../utils/prisma-errors';
 import { validate } from '../utils/validate';
 
+// Validated color hexes
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'Invalid color (expected hex e.g. #7c3aed)');
+
+// Sprint creation schema
 const createSprintSchema = z.object({
   name: z.string().min(1).max(100),
   startDate: z.string().refine((d) => !isNaN(new Date(d).getTime()), 'Invalid startDate'),
@@ -22,19 +26,25 @@ const createSprintSchema = z.object({
   color: hexColor.optional(),
   taskIds: z.array(z.string()).optional(),
 });
+
+// Sprint update schema
 const updateSprintSchema = z.object({
   name: z.string().max(100).optional(),
   startDate: z.string().refine((d) => !isNaN(new Date(d).getTime()), 'Invalid startDate').optional(),
   endDate: z.string().refine((d) => !isNaN(new Date(d).getTime()), 'Invalid endDate').optional(),
   color: hexColor.optional(),
 });
+
+// Setting max number of tasks in a payload
 const sprintTasksSchema = z.object({ taskIds: z.array(z.string()).max(1000) });
 
+// Returning a sprint also returns taskIDs
 const SPRINT_INCLUDE = {
   sprintTasks: { select: { taskId: true } },
 };
 
 export async function sprintRoutes(app: FastifyInstance) {
+  // List all sprints for a project, ordered by start date
   app.get('/api/products/:productId/sprints', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -47,6 +57,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     reply.send(sprints.map((s) => ({ ...s, taskIds: s.sprintTasks.map((st) => st.taskId) })));
   });
 
+  // Create a sprint, optionally pre-assigning tasks in the same write
   app.post('/api/products/:productId/sprints', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
@@ -68,6 +79,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     reply.status(201).send({ ...sprint, taskIds: sprint.sprintTasks.map((st) => st.taskId) });
   });
 
+  // Update sprint name, dates, or color
   app.patch('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
@@ -89,6 +101,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     } catch (e) { handleNotFound(e, reply, 'Sprint not found'); }
   });
 
+  // Delete a sprint (cascade removes its task assignments, tasks themselves are unaffected)
   app.delete('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
@@ -98,6 +111,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     } catch (e) { handleNotFound(e, reply, 'Sprint not found'); }
   });
 
+  // Assign a batch of tasks to a sprint (silently skips tasks already assigned)
   app.post('/api/products/:productId/sprints/:sprintId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId } = req.params as { productId: string; sprintId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
@@ -117,6 +131,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     reply.send({ ok: true, added: validTasks.length });
   });
 
+  // Remove a single task from a sprint (task itself is not deleted)
   app.delete('/api/products/:productId/sprints/:sprintId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, sprintId, taskId } = req.params as { productId: string; sprintId: string; taskId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;

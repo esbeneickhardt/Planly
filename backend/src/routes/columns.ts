@@ -6,6 +6,7 @@
  * Reordering is done by updating the position field on multiple columns in one request.
  * Only project members with Kanban write access can create, update, or delete columns.
  */
+
 import { FastifyInstance } from 'fastify';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
@@ -15,10 +16,18 @@ import { requireProductMember, requireTabWrite } from '../utils/product-guard';
 import { handleNotFound } from '../utils/prisma-errors';
 import { validate } from '../utils/validate';
 
+// Validation schema for creating a new column
 const createColumnSchema = z.object({ label: z.string().min(1).max(50), color: z.string().optional() });
+
+// Validation schema for reordering: array of { id, order } pairs for bulk position update
 const reorderColumnSchema = z.object({ order: z.array(z.object({ id: z.string(), order: z.number().int() })) });
+
+// Validation schema for updating an existing column's label or color
 const updateColumnSchema = z.object({ label: z.string().max(50).optional(), color: z.string().optional() });
 
+// Seed data for projects that have never had columns set up.
+// isDone marks the column that counts as task completion (used in progress calculations).
+// statusKey is stored on each task as its status value; the Done column uses the built-in 'done' key.
 const DEFAULT_COLUMNS = [
   { label: 'To Do',       color: '#3b82f6', order: 0, isDone: false, statusKey: 'todo'        },
   { label: 'In Progress', color: '#f59e0b', order: 1, isDone: false, statusKey: 'in_progress' },
@@ -26,6 +35,7 @@ const DEFAULT_COLUMNS = [
   { label: 'Done',        color: '#10b981', order: 3, isDone: true,  statusKey: 'done'        },
 ];
 
+// Lazily seeds default columns on first access so projects don't need columns pre-created at setup time
 async function ensureColumns(productId: string) {
   const existing = await prisma.kanbanColumn.findMany({ where: { productId } });
   if (existing.length > 0) return existing;
@@ -37,6 +47,7 @@ async function ensureColumns(productId: string) {
 }
 
 export async function columnRoutes(app: FastifyInstance) {
+  // List columns for a project, seeding defaults if none exist yet
   app.get('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -44,6 +55,7 @@ export async function columnRoutes(app: FastifyInstance) {
     reply.send(columns.sort((a, b) => a.order - b.order));
   });
 
+  // Create a custom column, inserted just before the "Done" column to preserve completion semantics
   app.post('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
@@ -69,7 +81,7 @@ export async function columnRoutes(app: FastifyInstance) {
     reply.status(201).send(column);
   });
 
-  // Must be registered BEFORE /:columnId
+  // Reorder columns by updating all positions in one transaction; must be registered before /:columnId to avoid route conflict
   app.patch('/api/products/:productId/columns/reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
@@ -82,6 +94,7 @@ export async function columnRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Update a single column's label or color
   app.patch('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
@@ -94,6 +107,7 @@ export async function columnRoutes(app: FastifyInstance) {
     } catch (e) { handleNotFound(e, reply); }
   });
 
+  // Delete a column; tasks in it are moved to "todo" atomically — the "Done" column cannot be deleted
   app.delete('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
     if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
