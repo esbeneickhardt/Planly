@@ -10,6 +10,8 @@ All tests require a running app and admin/member accounts from [01-setup.md](01-
 
 ### Create a PAT
 
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (POST — generates raw token shown once; stores SHA-256 hash; accepts optional `productId` for scoping) · [frontend/src/pages/settings/SettingsApps.tsx](../../frontend/src/pages/settings/SettingsApps.tsx) (PAT creation UI)
+
 ```bash
 # Create unscoped PAT (via cookie session)
 curl -s -b cookies.txt -X POST $BASE/api/auth/tokens \
@@ -37,6 +39,8 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/tokens \
 
 ### List PATs
 
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (GET — returns metadata only; raw token field omitted from select)
+
 ```bash
 curl -s -b cookies.txt $BASE/api/auth/tokens | jq '.[] | {id, name, expiresAt, productId}'
 ```
@@ -45,6 +49,8 @@ curl -s -b cookies.txt $BASE/api/auth/tokens | jq '.[] | {id, name, expiresAt, p
 - [ ] Only your own tokens returned (not other users')
 
 ### Use a PAT (Bearer auth)
+
+> Code: [backend/src/middleware/auth.ts](../../backend/src/middleware/auth.ts) (Bearer token path: hashes incoming token, looks up hash in DB, checks expiry, checks scope if `productId` present)
 
 Set `TOKEN=planly_...` to the raw token from creation.
 
@@ -82,6 +88,8 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/tokens \
 
 ### Revoke a PAT
 
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (DELETE — removes DB row; subsequent lookup returns 401)
+
 ```bash
 curl -s -b cookies.txt -X DELETE $BASE/api/auth/tokens/<token-id> \
   -H "X-CSRF-Token: $CSRF" | jq .
@@ -95,6 +103,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/auth/tokens/<token-id> \
 ## App Registrations
 
 ### Create an app registration
+
+> Code: [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) (create registration — optional `productId` scope; owner stored for access control)
 
 ```bash
 # Unscoped registration
@@ -137,6 +147,8 @@ curl -s -b cookies.txt -X PATCH $BASE/api/apps/<app-id> \
 
 ### Issue a token for an app registration
 
+> Code: [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) (issue token — raw shown once, SHA-256 hash stored; non-owner rejected)
+
 ```bash
 curl -s -b cookies.txt -X POST $BASE/api/apps/<app-id>/tokens \
   -H "Content-Type: application/json" \
@@ -157,6 +169,8 @@ curl -s -b cookies.txt $BASE/api/apps/<app-id>/tokens | jq '.[].name'
 - [ ] Returns token metadata (no raw values)
 
 ### Use an app registration token
+
+> Code: [backend/src/middleware/auth.ts](../../backend/src/middleware/auth.ts) (same Bearer lookup path as PATs; app tokens act on behalf of the owner user)
 
 ```bash
 APP_TOKEN=planly_...   # from issue step above
@@ -194,6 +208,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/apps/<app-id> \
 ---
 
 ## Token security properties
+
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) · [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) — raw token hashed with SHA-256 before insert; select never returns the hash field
 
 - [ ] Raw token value never returned in any GET response after creation
 - [ ] Tokens stored as SHA-256 hashes — verify no raw values in database (requires DB access)

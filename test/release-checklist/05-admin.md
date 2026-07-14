@@ -8,6 +8,8 @@ Log in as **Admin** (Account A from [01-setup.md](01-setup.md)) for all checks i
 
 ## Access control
 
+> Code: [middleware/auth.ts](../../backend/src/middleware/auth.ts) (`requireAdmin` guard used on all `/api/admin/*` routes) · [frontend/src/pages/AdminPage.tsx](../../frontend/src/pages/AdminPage.tsx) (redirects non-admins away)
+
 - [ ] Shield button 🛡 visible for Admin, invisible for Alice, Bob, Charlie
 - [ ] Navigating to `/admin` as Alice → silently redirected to `/kanban`
 - [ ] Navigating to `/admin` as Charlie → silently redirected
@@ -17,6 +19,8 @@ Log in as **Admin** (Account A from [01-setup.md](01-setup.md)) for all checks i
 ---
 
 ## Admin mode UX
+
+> Code: [frontend/src/pages/AdminPage.tsx](../../frontend/src/pages/AdminPage.tsx) · [frontend/src/components/common/TopBar.tsx](../../frontend/src/components/common/TopBar.tsx) (shield button, admin-mode styling)
 
 - [ ] Shield button highlighted (brand colour, ring) when on `/admin`
 - [ ] Clicking shield when NOT on admin → navigates to `/admin`, center nav shows admin tabs
@@ -29,6 +33,8 @@ Log in as **Admin** (Account A from [01-setup.md](01-setup.md)) for all checks i
 ---
 
 ## Ownership tab (`GET /api/admin/users` + `PUT /api/admin/transfer-crown`)
+
+> Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) (`transfer-crown` endpoint, `RECROWN_EMAIL` env var handling) · [frontend/src/pages/admin/AdminOwnership.tsx](../../frontend/src/pages/admin/AdminOwnership.tsx)
 
 - [ ] Founding admin shown with 👑 badge
 - [ ] "Transfer server ownership" section visible only to founding admin
@@ -51,6 +57,8 @@ curl -s -b cookies.txt -X PUT $BASE/api/admin/transfer-crown \
 
 ## Users tab
 
+> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) · [frontend/src/pages/admin/AdminUsers.tsx](../../frontend/src/pages/admin/AdminUsers.tsx)
+
 ```bash
 # List all users
 curl -s -b cookies.txt $BASE/api/admin/users | jq '.[] | {id, username, email, isAdmin}'
@@ -61,6 +69,8 @@ curl -s -b cookies.txt $BASE/api/admin/users | jq '.[] | {id, username, email, i
 - [ ] Lock status badge shows for locked accounts
 
 ### Promote / demote admin
+
+> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) (`promote`/`demote` endpoints — prevents demoting founding admin or last admin)
 
 ```bash
 # Promote Alice
@@ -90,6 +100,8 @@ curl -s -b cookies.txt -X PUT $BASE/api/admin/users/<user-id>/verify-email \
 
 ### Unlock account
 
+> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) (`unlock` — resets `loginFailCount`, `loginLockedUntil`, `loginLockCount`)
+
 ```bash
 curl -s -b cookies.txt -X PUT $BASE/api/admin/users/<user-id>/unlock \
   -H "X-CSRF-Token: $CSRF" | jq .
@@ -115,6 +127,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/admin/users/<user-id> \
 
 ## Projects tab (`GET /api/admin/projects`)
 
+> Code: [backend/src/routes/admin/stats.ts](../../backend/src/routes/admin/stats.ts) or admin route (check which file handles `/api/admin/projects`) · [frontend/src/pages/admin/AdminProjects.tsx](../../frontend/src/pages/admin/AdminProjects.tsx)
+
 ```bash
 curl -s -b cookies.txt $BASE/api/admin/projects | jq '.[].name'
 ```
@@ -125,6 +139,8 @@ curl -s -b cookies.txt $BASE/api/admin/projects | jq '.[].name'
 ---
 
 ## Email / SMTP tab
+
+> Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) (email-config CRUD — password encrypted at rest, not returned in GET) · [frontend/src/pages/admin/AdminEmail.tsx](../../frontend/src/pages/admin/AdminEmail.tsx)
 
 See also [17-settings.md](17-settings.md) for product-level email tests.
 
@@ -159,6 +175,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/email-config \
 
 ### Email whitelist
 
+> Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) (whitelist CRUD) · [backend/src/utils/server-config.ts](../../backend/src/utils/server-config.ts) (`requireWhitelist` flag) · [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (whitelist check on registration)
+
 ```bash
 # Enable whitelist
 curl -s -b cookies.txt -X PUT $BASE/api/admin/server-config \
@@ -191,6 +209,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/admin/whitelist/<id> \
 ---
 
 ## Audit Logs tab
+
+> Code: [backend/src/routes/admin/logs.ts](../../backend/src/routes/admin/logs.ts) (list with cursor pagination, export CSV/JSONL, prune — founding-admin only) · [frontend/src/pages/admin/AdminLogs.tsx](../../frontend/src/pages/admin/AdminLogs.tsx)
 
 ```bash
 # List logs
@@ -231,6 +251,8 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/admin/logs/prune?olderThanDays=30" \
 
 ## Statistics tab (`GET /api/admin/stats`)
 
+> Code: [backend/src/routes/admin/stats.ts](../../backend/src/routes/admin/stats.ts) · [frontend/src/pages/admin/AdminStats.tsx](../../frontend/src/pages/admin/AdminStats.tsx)
+
 ```bash
 curl -s -b cookies.txt $BASE/api/admin/stats | jq .
 ```
@@ -243,6 +265,8 @@ curl -s -b cookies.txt $BASE/api/admin/stats | jq .
 ---
 
 ## IP Restrictions tab
+
+> Code: [backend/src/routes/ip-restrictions.ts](../../backend/src/routes/ip-restrictions.ts) (CIDR rule CRUD, mode toggle; admin users exempted) · [frontend/src/pages/admin/AdminIpRules.tsx](../../frontend/src/pages/admin/AdminIpRules.tsx)
 
 ```bash
 # Set mode
@@ -275,6 +299,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/admin/ip-restrictions/<id> \
 
 ## Admin chat (`/api/admin/chat`)
 
+> Code: [backend/src/routes/admin-chat.ts](../../backend/src/routes/admin-chat.ts) (admin-only message CRUD + reactions)
+
 ```bash
 # Post message
 curl -s -b cookies.txt -X POST $BASE/api/admin/chat \
@@ -294,6 +320,8 @@ curl -s -b cookies.txt $BASE/api/admin/chat | jq '.[].content'
 ---
 
 ## Server config (`GET/PUT /api/admin/server-config`)
+
+> Code: [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) · [backend/src/utils/server-config.ts](../../backend/src/utils/server-config.ts) (defaults — `allowProjectCreation` defaults to `true`)
 
 ```bash
 curl -s -b cookies.txt $BASE/api/admin/server-config | jq .

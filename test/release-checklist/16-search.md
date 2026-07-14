@@ -6,6 +6,8 @@
 
 ## Global search (UI)
 
+> Code: [frontend/src/components/common/SearchModal.tsx](../../frontend/src/components/common/SearchModal.tsx) (Cmd+K modal: quick-nav items when empty, live debounced API call, keyboard navigation with arrow keys, result-click routing and close)
+
 - [ ] Open search with keyboard shortcut (Ctrl+K / Cmd+K)
 - [ ] Search button in top bar also opens search
 - [ ] Escape closes the modal
@@ -17,6 +19,8 @@
 ---
 
 ## Search API (`GET /api/search`)
+
+> Code: [backend/src/routes/search.ts](../../backend/src/routes/search.ts) (searches tasks and messages using Prisma `contains`; scopes results to products the user belongs to; special regex chars are safe because Prisma parameterizes)
 
 ```bash
 # Search for a task
@@ -45,6 +49,8 @@ curl -s -b cookies.txt "$BASE/api/search?q=hello+from" | jq .
 ---
 
 ## Result navigation
+
+> Code: [frontend/src/components/common/SearchModal.tsx](../../frontend/src/components/common/SearchModal.tsx) (result click handler: routes to Kanban + opens task panel, or routes to chat + scrolls to message)
 
 - [ ] Click task result → navigates to Kanban and opens that task's detail panel
 - [ ] Click message result → navigates to the product chat and scrolls to that message

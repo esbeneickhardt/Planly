@@ -8,6 +8,8 @@
 
 ### Generate a calendar token
 
+> Code: [backend/src/routes/ical.ts](../../backend/src/routes/ical.ts) (calendar token create/revoke — token embedded in URL, no session cookie needed for the `.ics` feed)
+
 ```bash
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/calendar/token \
   -H "X-CSRF-Token: $CSRF" | jq .
@@ -17,6 +19,8 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/calendar/token \
 - [ ] Token can be regenerated (old one invalidated)
 
 ### Subscribe to calendar
+
+> Code: [backend/src/routes/ical.ts](../../backend/src/routes/ical.ts) (`calendar.ics` handler — generates VCALENDAR from tasks with deadlines; validates token; `Content-Type: text/calendar`)
 
 ```bash
 # The .ics URL (no auth required — token is embedded in the URL or passed as query param)
@@ -46,6 +50,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/calendar/token \
 
 ## Data export (`GET /api/products/:productId/export`)
 
+> Code: [backend/src/routes/export.ts](../../backend/src/routes/export.ts) (returns full product JSON: tasks with subtasks/dependencies, columns, sprints, members; excludes sensitive fields)
+
 ```bash
 curl -s -b cookies.txt "$BASE/api/products/$PRODUCT_ID/export" -o /tmp/planly-export.json
 wc -c /tmp/planly-export.json
@@ -60,6 +66,8 @@ cat /tmp/planly-export.json | jq 'keys'
 
 ### Personal data export (`GET /api/me/export`)
 
+> Code: [backend/src/routes/me-export.ts](../../backend/src/routes/me-export.ts) (GDPR export: current user's profile, tasks created, messages sent — no other users' data)
+
 ```bash
 curl -s -b alice-cookies.txt $BASE/api/me/export | jq 'keys'
 ```
@@ -70,6 +78,8 @@ curl -s -b alice-cookies.txt $BASE/api/me/export | jq 'keys'
 ---
 
 ## GitHub integration (`/api/github/`)
+
+> Code: [backend/src/routes/github.ts](../../backend/src/routes/github.ts) (config CRUD — secret stored AES-256-GCM encrypted, not returned in GET; webhook handler validates GitHub HMAC signature) · [frontend/src/components/common/IntegrationsModal.tsx](../../frontend/src/components/common/IntegrationsModal.tsx) (GitHub config UI)
 
 ```bash
 # Get current GitHub config

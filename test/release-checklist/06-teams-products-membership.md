@@ -6,6 +6,8 @@
 
 ## Teams (`/api/teams`)
 
+> Code: [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) (CRUD + member management) · [frontend/src/components/common/Sidebar.tsx](../../frontend/src/components/common/Sidebar.tsx) (team list in sidebar)
+
 ```bash
 # Create a team
 curl -s -b cookies.txt -X POST $BASE/api/teams \
@@ -37,6 +39,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/teams/<team-id> \
 - [ ] Non-member cannot GET a team they don't belong to → 403 or empty list
 
 ### Team members
+
+> Code: [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) (`/members` sub-routes — add, list, change role, remove; prevents removing the last co_owner)
 
 ```bash
 # Add member
@@ -70,6 +74,8 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/teams/<team-id>/members/<alice-id>" 
 ## Invites
 
 ### Open invite link
+
+> Code: [backend/src/routes/invites.ts](../../backend/src/routes/invites.ts) (create open/email invites, GET public info, POST accept; maxUses and expiry enforced) · [frontend/src/pages/InvitePage.tsx](../../frontend/src/pages/InvitePage.tsx)
 
 ```bash
 # Create open invite
@@ -123,6 +129,8 @@ curl -s $BASE/api/invites/<token> | jq .
 
 ## Products (Projects)
 
+> Code: [backend/src/routes/products.ts](../../backend/src/routes/products.ts) (CRUD; `allowProjectCreation` guard on POST; discover endpoint) · [backend/src/utils/server-config.ts](../../backend/src/utils/server-config.ts) (`allowProjectCreation` default = `true`) · [frontend/src/context/ProductContext.tsx](../../frontend/src/context/ProductContext.tsx) (active product state, project picker)
+
 ```bash
 # Create product
 curl -s -b cookies.txt -X POST $BASE/api/products \
@@ -168,6 +176,8 @@ curl -s -b cookies.txt $BASE/api/products/discover | jq '.[].name'
 
 ## Access Requests
 
+> Code: [backend/src/routes/access-requests.ts](../../backend/src/routes/access-requests.ts) (submit request, owner lists/approves/denies) · [frontend/src/components/common/DiscoverProjectsModal.tsx](../../frontend/src/components/common/DiscoverProjectsModal.tsx)
+
 ```bash
 # Non-member requests access
 curl -s -b cookies-charlie.txt -X POST $BASE/api/products/<product-id>/access-requests \
@@ -202,6 +212,8 @@ curl -s -b cookies.txt -X PATCH "$BASE/api/products/<product-id>/access-requests
 
 ## Memberships modal
 
+> Code: [frontend/src/components/common/MembershipsModal.tsx](../../frontend/src/components/common/MembershipsModal.tsx) · [backend/src/routes/products.ts](../../backend/src/routes/products.ts) (DELETE product, transfer handled via team member role change)
+
 - [ ] Open Memberships modal (profile menu → "My Memberships" or similar)
 - [ ] All products listed with correct role badge (co_owner / member / viewer)
 - [ ] "Leave" button shown for non-owners
@@ -213,6 +225,8 @@ curl -s -b cookies.txt -X PATCH "$BASE/api/products/<product-id>/access-requests
 ---
 
 ## Permissions tab (`GET/PUT /api/products/:productId/permissions`)
+
+> Code: [backend/src/routes/permissions.ts](../../backend/src/routes/permissions.ts) (per-user tab permissions — `none`/`read`/`write`) · [frontend/src/context/PermissionContext.tsx](../../frontend/src/context/PermissionContext.tsx) (loads permissions, hides tabs for `none`)
 
 See [22-access-control.md](22-access-control.md) for the full matrix.
 

@@ -6,6 +6,8 @@
 
 ## Product chat (`/api/products/:productId/messages`)
 
+> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (CRUD + reactions; `?taskId=` param separates task threads from product chat) · [frontend/src/components/common/ChatPanel.tsx](../../frontend/src/components/common/ChatPanel.tsx) (compose textarea, file-attach button, emoji picker, message list) · [frontend/src/components/common/MessageBubble.tsx](../../frontend/src/components/common/MessageBubble.tsx) (individual message: author, timestamp, markdown, reactions, edit/delete)
+
 ```bash
 # Send a message
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/messages \
@@ -37,6 +39,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/messages/<msg-id
 
 ### Edit & delete
 
+> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (PATCH: author-only; DELETE: author or co-owner) · [frontend/src/hooks/useMessageEdit.ts](../../frontend/src/hooks/useMessageEdit.ts) (inline edit state)
+
 - [ ] Hover over own message → edit and delete icons appear
 - [ ] Click edit → message text becomes editable inline
 - [ ] Save edit → "(edited)" suffix shown
@@ -46,6 +50,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/messages/<msg-id
 - [ ] Regular member cannot delete another member's message → 403
 
 ### Reactions (`/messages/:messageId/reactions`)
+
+> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (POST reaction — toggles: adds if absent, removes if present) · [frontend/src/components/common/MessageBubble.tsx](../../frontend/src/components/common/MessageBubble.tsx) (emoji picker, reaction pill display)
 
 ```bash
 # Add reaction
@@ -64,6 +70,8 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/messages/<msg-id>/
 
 ## Task-level comments
 
+> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (`?taskId=<id>` filter on GET/POST isolates task threads) · [frontend/src/components/common/TaskDetailPanel.tsx](../../frontend/src/components/common/TaskDetailPanel.tsx) (comment thread inside detail panel)
+
 - [ ] Task detail panel has a separate comment thread (`taskId` filter)
 - [ ] Messages posted in task thread do NOT appear in product chat
 - [ ] Messages posted in product chat do NOT appear in task thread
@@ -72,6 +80,8 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/messages/<msg-id>/
 ---
 
 ## File attachments
+
+> Code: [backend/src/index.ts](../../backend/src/index.ts) or upload route (`POST /api/upload` — multipart, MIME allowlist, 50 MB limit) · [frontend/src/components/common/ChatPanel.tsx](../../frontend/src/components/common/ChatPanel.tsx) (file input, auto-upload on select) · [frontend/src/components/common/MessageBubble.tsx](../../frontend/src/components/common/MessageBubble.tsx) (image thumbnail vs download link)
 
 - [ ] Upload an image file via chat → thumbnail preview shown in message
 - [ ] Click image thumbnail → lightbox opens
@@ -101,6 +111,8 @@ curl -s -b cookies.txt $BASE/api/uploads/<filename> -o /tmp/test-download.png
 
 ## WebSocket real-time
 
+> Code: [backend/src/realtime/manager.ts](../../backend/src/realtime/manager.ts) (broadcasts message events to all clients in the product room) · [frontend/src/hooks/useRealtimeUpdates.ts](../../frontend/src/hooks/useRealtimeUpdates.ts) (handles `message.created`, `message.updated`, `message.deleted`, `reaction.toggled`)
+
 Open Alpha Project chat in two browser windows (Admin and Alice):
 
 - [ ] Admin sends message → appears in Alice's window without reload
@@ -110,6 +122,8 @@ Open Alpha Project chat in two browser windows (Admin and Alice):
 - [ ] React → reaction count updates in the other window
 
 ### WebSocket ticket (`POST /api/products/:id/ws-ticket`)
+
+> Code: [backend/src/realtime/ws-tickets.ts](../../backend/src/realtime/ws-tickets.ts) (generates short-lived ticket; 30 s TTL; validates membership before issuing) · [backend/src/routes/realtime.ts](../../backend/src/routes/realtime.ts) (WS upgrade validates ticket, then upgrades to WebSocket)
 
 ```bash
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/ws-ticket \
@@ -124,6 +138,8 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/ws-ticket \
 ---
 
 ## Messages pagination
+
+> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (`?limit=N&before=<msgId>` cursor pagination) · [frontend/src/components/common/ChatPanel.tsx](../../frontend/src/components/common/ChatPanel.tsx) (infinite scroll trigger)
 
 ```bash
 curl -s -b cookies.txt "$BASE/api/products/$PRODUCT_ID/messages?limit=5&before=<msg-id>" | jq .
