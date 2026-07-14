@@ -2,6 +2,16 @@
 
 ← [Back to index](README.md)
 
+> **Code references**
+> - [README.md](../../README.md) — public-facing project description, quick start, tech stack
+> - [CONTRIBUTING.md](../../CONTRIBUTING.md) — dev setup, test commands, deploy workflow, code conventions
+> - [DECISIONS.md](../../DECISIONS.md) — architectural decisions (Fastify, Prisma, httpOnly cookies, tokenVersion)
+> - [DEPLOYMENT.md](../../DEPLOYMENT.md) — production deployment guide, migration steps, backup/restore
+> - [SECURITY.md](../../SECURITY.md) — RBAC table, CSRF layers, encryption-at-rest list, reporting email
+> - [LICENSE](../../LICENSE) — custom license with commercial-sale, competing-product, AI-training restrictions
+> - [docs/wiki/](../../docs/wiki/) — user-facing wiki pages (Configuration, API-Reference, Webhooks, Security…)
+> - [frontend/public/](../../frontend/public/) — public assets, icon directories
+
 Read every file listed here and confirm it is accurate, complete, and ready for a public audience.
 
 ---

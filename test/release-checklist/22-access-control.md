@@ -25,6 +25,8 @@ This section tests the full role and permission matrix. Use the four test accoun
 
 ## API access by role — task endpoints
 
+> Code: [backend/src/middleware/auth.ts](../../backend/src/middleware/auth.ts) (`requireAuth` — verifies JWT and membership) · [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (membership check before each handler)
+
 For each endpoint and role, expect the listed HTTP status:
 
 | Endpoint | Unauth | Charlie | Alice (member) | Bob (co-owner) | Admin |
@@ -42,6 +44,8 @@ For each endpoint and role, expect the listed HTTP status:
 
 ## API access by role — admin endpoints
 
+> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) · [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) · [backend/src/routes/admin/logs.ts](../../backend/src/routes/admin/logs.ts) — all guarded by `requireAdmin`; prune and transfer-crown additionally check `isFoundingAdmin`
+
 | Endpoint | Unauth | Alice | Bob | Admin |
 |---|---|---|---|---|
 | GET `/api/admin/users` | 401 | 403 | 403 | 200 |
@@ -56,6 +60,8 @@ For each endpoint and role, expect the listed HTTP status:
 ---
 
 ## Tab permissions
+
+> Code: [backend/src/routes/permissions.ts](../../backend/src/routes/permissions.ts) (stores overrides per user per tab) · [frontend/src/context/PermissionContext.tsx](../../frontend/src/context/PermissionContext.tsx) (loads `GET /api/me/permissions`; hides tabs when `none`; blocks write actions when `read`)
 
 Default permissions per SECURITY.md:
 
@@ -89,6 +95,8 @@ Default permissions per SECURITY.md:
 
 ## Scoped PAT access control
 
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (scope stored on token; middleware enforces `productId` match and blocks admin endpoints for scoped tokens) · [backend/src/middleware/auth.ts](../../backend/src/middleware/auth.ts) (Bearer token lookup and scope check)
+
 See also [18-api-tokens-and-apps.md](18-api-tokens-and-apps.md).
 
 ```bash
@@ -109,6 +117,8 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/tokens \
 ---
 
 ## App Registration access control
+
+> Code: [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) (same scope enforcement as PATs; non-owner cannot issue or delete tokens)
 
 ```bash
 # Scoped app token (only Alpha Project)
@@ -135,6 +145,8 @@ APP_TOKEN=<token>
 
 ## Webhook access control
 
+> Code: [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts) (co-owner-only guard on create/update/delete)
+
 - [ ] Alice (member) cannot create a webhook → 403
 - [ ] Bob (co-owner) can create a webhook → 201
 - [ ] Charlie (outsider) cannot list webhooks → 403
@@ -143,6 +155,8 @@ APP_TOKEN=<token>
 ---
 
 ## Cross-product data isolation
+
+> Code: [backend/src/routes/products.ts](../../backend/src/routes/products.ts) (membership check on all product sub-routes) · [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (taskId is validated against the productId in the URL)
 
 Verify that Alpha Project data is not accessible from Beta Project context:
 
@@ -155,7 +169,7 @@ Verify that Alpha Project data is not accessible from Beta Project context:
 
 ## CSRF protection
 
-All mutating requests from browsers require `X-CSRF-Token`.
+> Code: [backend/src/middleware/csrf.ts](../../backend/src/middleware/csrf.ts) — Layer 1: `Origin` header must match `FRONTEND_ORIGIN`; Layer 2 (no Origin): `X-CSRF-Token` must match `csrf` cookie; Bearer auth bypasses both layers
 
 - [ ] `POST /api/products/$PRODUCT_ID/tasks` without `X-CSRF-Token` (cookie session) → 403 "CSRF check failed"
 - [ ] Same request with correct `X-CSRF-Token` → 201
@@ -166,6 +180,8 @@ All mutating requests from browsers require `X-CSRF-Token`.
 ---
 
 ## Unauthenticated access to public endpoints
+
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (public routes registered without `requireAuth` hook) · [backend/src/routes/invites.ts](../../backend/src/routes/invites.ts) (GET invite info is public)
 
 These should work without auth:
 

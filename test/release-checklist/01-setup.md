@@ -8,6 +8,8 @@ Create these accounts and resources before any other section. Everything in the 
 
 ## Prerequisites
 
+> Code: [.env.example](../../.env.example) · [backend/src/config/env.ts](../../backend/src/config/env.ts) (startup validation of required vars) · [docker-compose.yml](../../docker-compose.yml)
+
 - [ ] App is running: `docker compose up --build` (or prod stack)
 - [ ] You can reach `http://localhost` in a browser
 - [ ] `curl` is available in terminal
@@ -29,6 +31,8 @@ ADMIN_PASS=<admin-password>
 ---
 
 ## Test accounts to create
+
+> Code: [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (registration + admin bootstrap) · [frontend/src/pages/RegisterPage.tsx](../../frontend/src/pages/RegisterPage.tsx)
 
 Create all four accounts via the registration UI, then adjust roles as noted.
 
@@ -74,6 +78,8 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 
 ## Test projects to create
 
+> Code: [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) · [backend/src/routes/products.ts](../../backend/src/routes/products.ts) · [backend/src/utils/server-config.ts](../../backend/src/utils/server-config.ts) (`allowProjectCreation` must be true)
+
 Log in as **Admin** and create these:
 
 ### Project 1 — "Alpha Project"
@@ -89,6 +95,8 @@ Log in as **Admin** and create these:
 ---
 
 ## Test data to create in Alpha Project
+
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) · [backend/src/routes/sprints.ts](../../backend/src/routes/sprints.ts) · [backend/src/routes/columns.ts](../../backend/src/routes/columns.ts)
 
 - [ ] Create 5 tasks in Alpha Project (used throughout tests)
 - [ ] Create 1 sprint "Sprint 1" in Alpha Project

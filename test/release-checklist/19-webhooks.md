@@ -11,6 +11,8 @@ You need a webhook receiver to test deliveries. Options:
 
 ## Webhook CRUD
 
+> Code: [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts) (CRUD + rotate-secret; secret generated and stored AES-256-GCM encrypted; shown raw once on create and rotate; co-owner only for create/update/delete) · [frontend/src/pages/settings/SettingsWebhooks.tsx](../../frontend/src/pages/settings/SettingsWebhooks.tsx)
+
 ```bash
 WEBHOOK_URL=https://webhook.site/your-unique-id
 
@@ -69,6 +71,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/webhooks/<wh-id>
 
 ## Event delivery
 
+> Code: [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts) (delivery function: POSTs payload to URL with `X-Planly-Event` and `X-Planly-Signature: sha256=<hmac>` headers; logs delivery result)
+
 Trigger each event and verify delivery at your receiver:
 
 ### task.created
@@ -122,6 +126,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/tasks/<task-id> 
 
 ## Signature verification
 
+> Code: [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts) (HMAC-SHA256 with the decrypted secret; `crypto.createHmac('sha256', secret).update(body).digest('hex')`)
+
 Copy the `secret` from webhook creation. Verify signatures from received payloads:
 
 ```bash
@@ -141,6 +147,8 @@ Copy the `secret` from webhook creation. Verify signatures from received payload
 ---
 
 ## Delivery log (`GET /webhooks/:webhookId/deliveries`)
+
+> Code: [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts) (deliveries sub-route — returns attempt history with timestamp, event type, HTTP status from receiver)
 
 ```bash
 curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/webhooks/<wh-id>/deliveries | jq .

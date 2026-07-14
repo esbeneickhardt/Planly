@@ -10,6 +10,8 @@ All tests use **Alpha Project** (see [01-setup.md](01-setup.md)). `PRODUCT_ID` =
 
 ### Create
 
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (POST handler — validates name, sets `kanbanOrder`, `createdBy`) · [frontend/src/components/kanban/KanbanColumn.tsx](../../frontend/src/components/kanban/KanbanColumn.tsx) (inline task creation from board)
+
 ```bash
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/tasks \
   -H "Content-Type: application/json" \
@@ -27,6 +29,8 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/tasks \
 
 ### Read
 
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (list includes `subtasks`, `dependsOn`, `requiredBy`) · [backend/src/db/selects.ts](../../backend/src/db/selects.ts) (task select shape)
+
 ```bash
 # List all tasks
 curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/tasks | jq '.[].name'
@@ -41,6 +45,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/tasks/<task-id> | jq .
 - [ ] Unauthenticated → 401
 
 ### Update
+
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (PATCH handler) · [frontend/src/components/common/TaskDetailPanel.tsx](../../frontend/src/components/common/TaskDetailPanel.tsx) (autosave on field change)
 
 ```bash
 curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/tasks/<task-id> \
@@ -59,6 +65,8 @@ curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/tasks/<task-id> \
 
 ### Delete
 
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (DELETE — cascades to subtasks, removes from sprint)
+
 ```bash
 curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/tasks/<task-id> \
   -H "X-CSRF-Token: $CSRF" | jq .
@@ -74,6 +82,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/tasks/<task-id> 
 
 ## Task status values
 
+> Code: [backend/prisma/schema.prisma](../../backend/prisma/schema.prisma) (TaskStatus enum) · [frontend/src/components/kanban/KanbanBoard.tsx](../../frontend/src/components/kanban/KanbanBoard.tsx) (column-to-status mapping)
+
 Test that each valid status can be set and is reflected in UI:
 
 - [ ] `backlog` — shown in Backlog view and Kanban backlog column
@@ -86,6 +96,8 @@ Test that each valid status can be set and is reflected in UI:
 ---
 
 ## Task position (`PATCH /tasks/:id/position`)
+
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (`/position` endpoint — saves `canvasX`/`canvasY`) · [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (calls on drag-end)
 
 ```bash
 # Move task to canvas position
@@ -102,6 +114,8 @@ curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/tasks/<task-id>/p
 
 ## Task reorder (`PATCH /tasks/reorder`)
 
+> Code: [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (`/reorder` endpoint — bulk-updates `kanbanOrder`) · [frontend/src/components/kanban/KanbanBoard.tsx](../../frontend/src/components/kanban/KanbanBoard.tsx) (drag-and-drop handler)
+
 - [ ] Drag task within a Kanban column → `kanbanOrder` updated
 - [ ] Order persists after page reload
 - [ ] Reorder is real-time (second browser sees the new order)
@@ -109,6 +123,8 @@ curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/tasks/<task-id>/p
 ---
 
 ## Subtasks (`/tasks/:taskId/subtasks`)
+
+> Code: [backend/src/routes/tasks/subtasks.ts](../../backend/src/routes/tasks/subtasks.ts) (add, update name/order/completed, delete) · [frontend/src/components/common/TaskDetailPanel.tsx](../../frontend/src/components/common/TaskDetailPanel.tsx) (subtask section) · [frontend/src/components/kanban/KanbanCard.tsx](../../frontend/src/components/kanban/KanbanCard.tsx) (progress fraction display)
 
 ```bash
 # Add subtask
@@ -141,6 +157,8 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/products/$PRODUCT_ID/tasks/<task-id>
 
 ## Dependencies (`/tasks/:taskId/dependencies`)
 
+> Code: [backend/src/routes/tasks/dependencies.ts](../../backend/src/routes/tasks/dependencies.ts) (add prerequisite with cycle detection, remove) · [frontend/src/components/common/TaskDetailPanel.tsx](../../frontend/src/components/common/TaskDetailPanel.tsx) (dependency section) · [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (arrows)
+
 ```bash
 # Add dependency: task B depends on task A (A must finish before B starts)
 curl -s -b cookies.txt -X POST "$BASE/api/products/$PRODUCT_ID/tasks/<task-b-id>/dependencies" \
@@ -164,6 +182,8 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/products/$PRODUCT_ID/tasks/<task-b-i
 
 ## Task detail panel (UI)
 
+> Code: [frontend/src/components/common/TaskDetailPanel.tsx](../../frontend/src/components/common/TaskDetailPanel.tsx) · [frontend/src/components/common/MarkdownEditor.tsx](../../frontend/src/components/common/MarkdownEditor.tsx) (description field)
+
 Open a task card on the Kanban board:
 
 - [ ] Panel slides in from right
@@ -185,6 +205,8 @@ Open a task card on the Kanban board:
 
 ## Task comments / messages
 
+> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (`?taskId=` filter separates task threads from product chat)
+
 Tasks share the `/api/products/:id/messages` endpoint (with `taskId` filter). See [13-messaging.md](13-messaging.md) for full message tests.
 
 - [ ] Task detail panel has a comment thread
@@ -193,6 +215,8 @@ Tasks share the `/api/products/:id/messages` endpoint (with `taskId` filter). Se
 ---
 
 ## Activity log (`GET /api/products/:productId/activity`)
+
+> Code: [backend/src/routes/activity.ts](../../backend/src/routes/activity.ts)
 
 ```bash
 curl -s -b cookies.txt "$BASE/api/products/$PRODUCT_ID/activity?limit=10" | jq .

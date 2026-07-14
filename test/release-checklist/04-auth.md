@@ -6,6 +6,8 @@
 
 ## Registration (`POST /api/users` / UI)
 
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [RegisterPage.tsx](../../frontend/src/pages/RegisterPage.tsx) · [server-config.ts](../../backend/src/utils/server-config.ts) (`requireWhitelist` default)
+
 - [ ] Register with valid email, username, password → redirected to app
 - [ ] Register with duplicate email → clear error "Email already in use"
 - [ ] Register with duplicate username → clear error "Username already taken"
@@ -30,6 +32,8 @@ curl -s -X POST $BASE/api/users \
 ---
 
 ## Login (`POST /api/auth/login`)
+
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [middleware/auth.ts](../../backend/src/middleware/auth.ts) (cookie flags, tokenVersion) · [middleware/csrf.ts](../../backend/src/middleware/csrf.ts) (csrf cookie set on login) · [LoginPage.tsx](../../frontend/src/pages/LoginPage.tsx)
 
 - [ ] Login with email → session cookie set, redirected to app
 - [ ] Login with username → session cookie set
@@ -58,6 +62,8 @@ CSRF=$(grep csrf cookies.txt | awk '{print $NF}')
 
 ## GET /api/auth/me
 
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [db/selects.ts](../../backend/src/db/selects.ts) (controls which fields are returned — password hash must be absent)
+
 ```bash
 curl -s -b cookies.txt $BASE/api/auth/me | jq .
 ```
@@ -70,6 +76,8 @@ curl -s -b cookies.txt $BASE/api/auth/me | jq .
 
 ## Session refresh (`GET /api/auth/refresh`)
 
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [middleware/auth.ts](../../backend/src/middleware/auth.ts) (`tokenVersion` increment check — old token rejected on next request)
+
 ```bash
 curl -s -b cookies.txt -c cookies.txt $BASE/api/auth/refresh | jq .
 ```
@@ -81,6 +89,8 @@ curl -s -b cookies.txt -c cookies.txt $BASE/api/auth/refresh | jq .
 ---
 
 ## Logout (`POST /api/auth/logout`)
+
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [middleware/csrf.ts](../../backend/src/middleware/csrf.ts) (logout requires X-CSRF-Token) · [AuthContext.tsx](../../frontend/src/context/AuthContext.tsx)
 
 ```bash
 curl -s -b cookies.txt -c cookies.txt -X POST $BASE/api/auth/logout \
@@ -95,6 +105,8 @@ curl -s -b cookies.txt -c cookies.txt -X POST $BASE/api/auth/logout \
 
 ## Session invalidation (tokenVersion)
 
+> Code: [middleware/auth.ts](../../backend/src/middleware/auth.ts) — `tokenVersion` field on User; every request checks DB token version matches cookie's claim; increment on password change/reset/admin-force-logout
+
 - [ ] Change password → existing session in second tab/window is immediately invalid on next request
 - [ ] Admin forces logout (via admin panel) → target user's session is immediately invalid
 - [ ] Reset password → all sessions invalidated
@@ -102,6 +114,8 @@ curl -s -b cookies.txt -c cookies.txt -X POST $BASE/api/auth/logout \
 ---
 
 ## Forgot password flow
+
+> Code: [routes/password-reset.ts](../../backend/src/routes/password-reset.ts) · [ForgotPasswordPage.tsx](../../frontend/src/pages/ForgotPasswordPage.tsx) · [ResetPasswordPage.tsx](../../frontend/src/pages/ResetPasswordPage.tsx)
 
 - [ ] Click "Forgot password?" on login page
 - [ ] Enter a registered email → success message shown (no user enumeration)
@@ -122,6 +136,8 @@ curl -s -X POST $BASE/api/auth/forgot-password \
 ---
 
 ## Email verification
+
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) (`send-verification`, `resend-verification`, `verify-email` handlers) · [VerifyEmailPage.tsx](../../frontend/src/pages/VerifyEmailPage.tsx) · [server-config.ts](../../backend/src/utils/server-config.ts) (`requireEmailVerification` flag)
 
 When `requireEmailVerification` is enabled in Admin → Email:
 
@@ -147,6 +163,8 @@ curl -s -X POST $BASE/api/auth/verify-email \
 ---
 
 ## TOTP / Two-factor authentication
+
+> Code: [routes/totp.ts](../../backend/src/routes/totp.ts) (setup → QR, confirm, challenge, disable, backup-codes; TOTP secret stored AES-256-GCM encrypted) · [TotpModal.tsx](../../frontend/src/components/common/TotpModal.tsx)
 
 See also [23-security.md](23-security.md) for security checks.
 
@@ -181,6 +199,8 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/totp/confirm \
 
 ## Progressive login lockout
 
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) (lockout counter logic, `loginFailCount`, `loginLockedUntil`, `loginLockCount`) · [middleware/auth.ts](../../backend/src/middleware/auth.ts) (checks lockout before validating password) · [AdminUsers.tsx](../../frontend/src/pages/admin/AdminUsers.tsx) (locked badge + unlock button)
+
 - [ ] Enter wrong password 5 times → "Account locked for 15 minutes" (HTTP 429)
 - [ ] Try again immediately → shows minutes remaining
 - [ ] Admin panel → Users → locked user shows "Locked Xm" badge
@@ -194,6 +214,8 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/totp/confirm \
 ---
 
 ## Password change (`POST /api/auth/change-password`)
+
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) (`change-password` handler — increments `tokenVersion`, invalidating all other sessions) · [ChangePasswordPage.tsx](../../frontend/src/pages/ChangePasswordPage.tsx)
 
 - [ ] Settings → Security → Change Password → enter current + new → works
 - [ ] Wrong current password → 401 error
@@ -211,6 +233,8 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/change-password \
 ---
 
 ## SSO / OIDC (skip if not configured)
+
+> Code: [routes/sso.ts](../../backend/src/routes/sso.ts) (OIDC authorize redirect, callback, PKCE `code_verifier` validation, state CSRF check, account linking) · [LoginPage.tsx](../../frontend/src/pages/LoginPage.tsx) (SSO button rendered when `ssoEnabled`)
 
 - [ ] SSO button appears on login page only when OIDC env vars are set
 - [ ] Clicking SSO button → redirected to provider

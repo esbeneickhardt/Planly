@@ -17,6 +17,8 @@ Before testing Gantt, create in Alpha Project:
 
 ## Milestones API (`GET /api/products/:productId/milestones`)
 
+> Code: [backend/src/routes/milestones.ts](../../backend/src/routes/milestones.ts) (returns tasks with `deadline` set, includes subtask completion progress and overdue flag)
+
 ```bash
 curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/milestones | jq .
 ```
@@ -28,6 +30,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/milestones | jq .
 ---
 
 ## Gantt chart display
+
+> Code: [frontend/src/pages/GanttPage.tsx](../../frontend/src/pages/GanttPage.tsx) (bar rendering, health-colour logic, hover popover) · [frontend/src/hooks/useGanttData.ts](../../frontend/src/hooks/useGanttData.ts) (maps milestone data to bar positions)
 
 - [ ] Gantt page loads without error
 - [ ] Tasks with deadlines appear as horizontal bars on the timeline
@@ -44,6 +48,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/milestones | jq .
 
 ## Timeline navigation
 
+> Code: [frontend/src/hooks/useGanttDragZoom.ts](../../frontend/src/hooks/useGanttDragZoom.ts) (pan and zoom interaction handlers)
+
 - [ ] Timeline spans a reasonable range (past month to future months)
 - [ ] Horizontal scroll works (timeline can be scrolled left/right)
 - [ ] Zoom in/out (if available) works
@@ -53,6 +59,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/milestones | jq .
 
 ## Sprint lanes
 
+> Code: [frontend/src/pages/GanttPage.tsx](../../frontend/src/pages/GanttPage.tsx) (sprint lane grouping) · [frontend/src/hooks/useSprints.ts](../../frontend/src/hooks/useSprints.ts)
+
 - [ ] Sprint lanes visible if sprints are configured
 - [ ] Tasks assigned to a sprint appear in that sprint's lane
 - [ ] Unassigned tasks appear in a separate lane
@@ -60,6 +68,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/milestones | jq .
 ---
 
 ## Dependencies on Gantt
+
+> Code: [frontend/src/pages/GanttPage.tsx](../../frontend/src/pages/GanttPage.tsx) (renders dependency arrows between bars) · [backend/src/routes/tasks/dependencies.ts](../../backend/src/routes/tasks/dependencies.ts) (data source via task `dependsOn`)
 
 - [ ] Dependency arrows between tasks shown on the Gantt timeline
 - [ ] Arrow points from prerequisite to dependent task
@@ -69,6 +79,8 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/milestones | jq .
 
 ## Mobile view (`GanttMobileList`)
 
+> Code: [frontend/src/components/gantt/GanttMobileList.tsx](../../frontend/src/components/gantt/GanttMobileList.tsx) (plain list with name, deadline, status, health colour shown instead of timeline at narrow widths)
+
 At 375px width:
 - [ ] Mobile list view shown instead of the timeline chart
 - [ ] Tasks listed with name, deadline, status, health colour
@@ -77,6 +89,8 @@ At 375px width:
 ---
 
 ## Analytics (`GET /api/products/:productId/analytics`)
+
+> Code: [backend/src/routes/analytics.ts](../../backend/src/routes/analytics.ts) (task completion over time, workload per member) · [frontend/src/pages/AnalyticsPage.tsx](../../frontend/src/pages/AnalyticsPage.tsx) (summary cards, bar chart with period toggle, top contributors, event log)
 
 ```bash
 curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/analytics | jq .

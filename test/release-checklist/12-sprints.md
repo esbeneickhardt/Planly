@@ -6,6 +6,8 @@
 
 ## Sprint CRUD (`/api/products/:productId/sprints`)
 
+> Code: [backend/src/routes/sprints.ts](../../backend/src/routes/sprints.ts) (CRUD + add/remove task from sprint; removing sprint leaves tasks intact but unassigned) · [frontend/src/hooks/useSprints.ts](../../frontend/src/hooks/useSprints.ts) (sprint list, active-sprint detection)
+
 ```bash
 # Create sprint
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/sprints \
@@ -36,6 +38,8 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/sprints/<sprint-
 
 ## Adding tasks to a sprint (`/sprints/:sprintId/tasks`)
 
+> Code: [backend/src/routes/sprints.ts](../../backend/src/routes/sprints.ts) (`/tasks` sub-route — enforces one sprint per task: adding to a new sprint removes from the old one)
+
 ```bash
 # Add task to sprint
 curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/sprints/<sprint-id>/tasks \
@@ -58,6 +62,8 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/products/$PRODUCT_ID/sprints/<sprint
 
 ## Sprint board UI
 
+> Code: [frontend/src/components/kanban/SprintBacklogPanel.tsx](../../frontend/src/components/kanban/SprintBacklogPanel.tsx) (sprint backlog sidebar — drag to assign tasks to sprints) · [frontend/src/pages/KanbanPage.tsx](../../frontend/src/pages/KanbanPage.tsx) (sprint filter dropdown)
+
 - [ ] Sprint filter on Kanban: select Sprint 1 → only Sprint 1 tasks shown across all columns
 - [ ] Sprint filter "No sprint" → tasks not in any sprint
 - [ ] Sprint filter "All" → all tasks
@@ -67,6 +73,8 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/products/$PRODUCT_ID/sprints/<sprint
 ---
 
 ## Sprint stats / velocity
+
+> Code: [backend/src/routes/analytics.ts](../../backend/src/routes/analytics.ts) (completed-per-sprint breakdown in analytics response) · [frontend/src/pages/AnalyticsPage.tsx](../../frontend/src/pages/AnalyticsPage.tsx)
 
 - [ ] Analytics view shows completed-per-sprint data (if sprint has completed tasks)
 - [ ] Sprint start/end dates affect which sprint is "current" in auto-select

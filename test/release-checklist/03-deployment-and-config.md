@@ -6,6 +6,8 @@
 
 ## Fresh install flow
 
+> Code: [docker-compose.yml](../../docker-compose.yml) · [backend/src/index.ts](../../backend/src/index.ts) (health routes, startup log) · [backend/src/config/env.ts](../../backend/src/config/env.ts) (required-var validation)
+
 - [ ] `cp .env.example .env` and fill in three required secrets
 - [ ] `docker compose up --build` completes without errors
 - [ ] All three containers are running: `docker compose ps` shows `db`, `backend`, `frontend` all healthy
@@ -18,6 +20,8 @@
 
 ## ADMIN_EMAIL bootstrap
 
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (search for `ADMIN_EMAIL` — promotes/creates the founding admin on startup)
+
 - [ ] Set `ADMIN_EMAIL=test@example.com` in `.env` before first start
 - [ ] On first start, backend logs show `[admin] Created founding admin: test@example.com` (or similar)
 - [ ] Register with that email → shield button 🛡 appears
@@ -28,6 +32,8 @@
 ---
 
 ## Required environment variables
+
+> Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) — throws on startup if any required var is missing or fails the length check
 
 Test that missing each required variable causes a clear startup error:
 
@@ -41,6 +47,8 @@ Test that missing each required variable causes a clear startup error:
 
 ## COOKIE_SECURE behaviour
 
+> Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) (`COOKIE_SECURE`) · [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (cookie options passed to `reply.setCookie`)
+
 - [ ] With `COOKIE_SECURE=false` in `.env`: login works over HTTP, cookies are set without `Secure` flag
 - [ ] Without `COOKIE_SECURE` (defaults to `true`): on HTTP login works but cookies have `Secure` flag (browser may block on HTTP — confirm behaviour is documented)
 
@@ -48,12 +56,16 @@ Test that missing each required variable causes a clear startup error:
 
 ## TRUSTED_PROXY_DEPTH
 
+> Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) · [backend/src/routes/ip-restrictions.ts](../../backend/src/routes/ip-restrictions.ts) (reads real IP from X-Forwarded-For using the configured depth)
+
 - [ ] Default (`1`) — real IP is read from `X-Forwarded-For` (first hop)
 - [ ] Confirm IP restriction features use the correct real IP (see [23-security.md](23-security.md))
 
 ---
 
 ## Health endpoints
+
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (`/api/health` and `/api/health/ready` route handlers)
 
 ```bash
 # Basic health
@@ -73,6 +85,8 @@ curl -s $BASE/api/health/ready | jq .
 
 ## Metrics endpoint
 
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (`/api/metrics` route, `METRICS_SECRET` check)
+
 ```bash
 # Without METRICS_SECRET set — should be open
 curl -s $BASE/api/metrics
@@ -91,6 +105,8 @@ curl -s $BASE/api/metrics   # should return 401 or 403
 
 ## Seed data endpoint
 
+> Code: [backend/src/routes/seed.ts](../../backend/src/routes/seed.ts) — confirm whether it has an env guard or should be disabled in production
+
 ```bash
 curl -s -X POST $BASE/api/seed-examples
 ```
@@ -102,6 +118,8 @@ curl -s -X POST $BASE/api/seed-examples
 
 ## Docker build
 
+> Code: [docker-compose.yml](../../docker-compose.yml) · [docker-compose.prod.yml](../../docker-compose.prod.yml)
+
 - [ ] `docker compose build --no-cache` completes without error
 - [ ] Image size is reasonable (document expected size)
 - [ ] `docker compose up -d --force-recreate` picks up the new image (not the old one)
@@ -111,6 +129,8 @@ curl -s -X POST $BASE/api/seed-examples
 
 ## Logging
 
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (Pino logger config, `LOG_FORMAT` env check)
+
 - [ ] Backend logs are JSON format by default (Pino)
 - [ ] Setting `LOG_FORMAT=pretty` produces human-readable colourised output
 - [ ] Log rotation limits are applied (check `docker compose logs --tail=100 backend`)
@@ -119,6 +139,8 @@ curl -s -X POST $BASE/api/seed-examples
 ---
 
 ## Data persistence
+
+> Code: [docker-compose.yml](../../docker-compose.yml) — `db_data` named volume for Postgres; `./data/uploads:/data/uploads` bind-mount for files · [backend/src/config/env.ts](../../backend/src/config/env.ts) (`AWS_S3_BUCKET` switches storage backend)
 
 - [ ] Restart the stack: `docker compose restart`; log in — all data preserved
 - [ ] Stop and start (not restart): `docker compose down && docker compose up -d` — all data preserved
