@@ -91,7 +91,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 - [ ] Quick Reference commands are accurate
 
 ### Getting-Started.md
-- [ ] Step 1–5 are correct end-to-end
+- [ ] Step 1-5 are correct end-to-end
 - [ ] Health check endpoint URL is correct (`GET /api/health`)
 - [ ] First login section describes ADMIN_EMAIL behavior accurately
 
