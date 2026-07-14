@@ -1,16 +1,16 @@
 /**
- * Authentication middleware — validates incoming requests and populates req.user.
+ * Authentication middleware - validates incoming requests and populates req.user.
  *
  * Two authentication paths:
- *   Bearer token — PATs and App Registration tokens stored as SHA-256 hashes.
+ *   Bearer token - PATs and App Registration tokens stored as SHA-256 hashes.
  *                  Checked first; if a Bearer header is present and invalid, the
  *                  request is rejected immediately (no cookie fallback).
- *   Cookie JWT   — httpOnly 'token' cookie set on login. The tokenVersion field
+ *   Cookie JWT   - httpOnly 'token' cookie set on login. The tokenVersion field
  *                  in the JWT payload is compared against the live DB value so that
  *                  password changes and admin logouts take effect instantly.
  *
- * requireAuth — validates token + enforces email verification if enabled.
- * requireAdmin — same as requireAuth plus checks isAdmin: true on the user row.
+ * requireAuth - validates token + enforces email verification if enabled.
+ * requireAdmin - same as requireAuth plus checks isAdmin: true on the user row.
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
@@ -78,7 +78,7 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
         };
         prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
 
-        // Enforce product scope atomically here — the global preHandler hook runs before
+        // Enforce product scope atomically here - the global preHandler hook runs before
         // requireAuth sets req.user so it cannot do this check reliably.
         if (apiToken.productId) {
           const scope = apiToken.productId;

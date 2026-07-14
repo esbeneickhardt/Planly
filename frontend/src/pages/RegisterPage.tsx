@@ -1,3 +1,9 @@
+/**
+ * Registration page that creates a new account, immediately logs the user in, and redirects to
+ * the `next` query param (defaulting to /kanban). Client-side validates password match and ToS
+ * acceptance before hitting the API; server enforces complexity rules.
+ */
+
 import { useState, FormEvent } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -13,10 +19,12 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Generic change handler that updates a single field on the shared form state object
   function set(field: string) {
     return (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [field]: e.target.value }));
   }
 
+  // Create account then auto-login so the user lands in the app without a second form
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');

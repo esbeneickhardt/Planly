@@ -1,13 +1,32 @@
+/**
+ * TermsPage - displays the Terms of Service.
+ *
+ * Fetches the server contact email on mount so every deployment shows the
+ * admin's own address rather than the hardcoded planly.app placeholder.
+ * Back button falls back to '/' when there is no browser history (direct URL).
+ */
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../api/client';
 
 export default function TermsPage() {
   const navigate = useNavigate();
+  const [contactEmail, setContactEmail] = useState('');
+
+  useEffect(() => {
+    api.publicConfig().then(cfg => setContactEmail(cfg.contactEmail)).catch(() => {});
+  }, []);
+
+  function goBack() {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/');
+  }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       <div className="max-w-3xl mx-auto px-6 py-12">
         <button
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="mb-8 text-sm flex items-center gap-1"
           style={{ color: 'var(--text-3)' }}
         >
@@ -72,9 +91,13 @@ export default function TermsPage() {
             <p style={{ color: 'var(--text-2)' }}>
               You are responsible for maintaining the confidentiality of your account credentials and for
               all activity that occurs under your account. Notify us immediately at{' '}
-              <a href="mailto:security@planly.app" style={{ color: 'var(--brand)' }}>
-                security@planly.app
-              </a>{' '}
+              {contactEmail ? (
+                <a href={`mailto:${contactEmail}`} style={{ color: 'var(--brand)' }}>
+                  {contactEmail}
+                </a>
+              ) : (
+                'the administrator'
+              )}{' '}
               if you suspect unauthorised access.
             </p>
           </section>
@@ -119,9 +142,13 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold mb-3">10. Contact</h2>
             <p style={{ color: 'var(--text-2)' }}>
               Questions about these Terms may be directed to{' '}
-              <a href="mailto:legal@planly.app" style={{ color: 'var(--brand)' }}>
-                legal@planly.app
-              </a>
+              {contactEmail ? (
+                <a href={`mailto:${contactEmail}`} style={{ color: 'var(--brand)' }}>
+                  {contactEmail}
+                </a>
+              ) : (
+                'the administrator'
+              )}
               .
             </p>
           </section>

@@ -1,3 +1,9 @@
+/**
+ * Admin Email panel combining SMTP configuration, access controls (email verification, whitelist,
+ * project-creation policy), and announcement settings in one view.
+ * On load it fetches email status, the existing config, whitelist entries, and server config in
+ * parallel; SMTP credentials are never re-hydrated into the password field after initial save.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import { Toggle } from './AdminComponents';
@@ -22,6 +28,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
   const [verifyEmailPrompt, setVerifyEmailPrompt] = useState(false);
   const [newPattern, setNewPattern] = useState('');
 
+  // Load all email-related data in parallel; auto-expand SMTP form when email is not yet configured
   const load = useCallback(async () => {
     try {
       const [status, cfg, wl, scfg] = await Promise.all([
@@ -41,6 +48,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
 
   useEffect(() => { load(); }, [load]);
 
+  // Shared error-boundary for toggle mutations
   async function act(fn: () => Promise<void>) {
     try { await fn(); }
     catch (e) { showToast((e as Error).message, 'error'); }

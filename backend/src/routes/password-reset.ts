@@ -1,5 +1,5 @@
 /**
- * Password reset routes — forgot-password flow and token-based password reset.
+ * Password reset routes - forgot-password flow and token-based password reset.
  *
  * The forgot-password endpoint always returns 200 regardless of whether the email
  * exists to prevent user enumeration. Reset tokens are single-use, expire in 1 hour,
@@ -61,6 +61,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
       data: { usedAt: new Date() },
     });
 
+    // Generate reset token and hash before persisting (1-hour TTL)
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
@@ -87,6 +88,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     if (!body) return;
     const { token, password } = body;
 
+    // Verify token by hash and check it hasn't been used or expired
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const record = await prisma.passwordResetToken.findUnique({
       where: { tokenHash },
@@ -97,6 +99,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid or expired reset link' });
     }
 
+    // Set new password hash and invalidate all existing sessions atomically
     const passwordHash = await bcrypt.hash(password, 12);
     await prisma.$transaction([
       prisma.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } }),
@@ -120,6 +123,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     // Always respond OK to avoid user enumeration
     if (!user || user.emailVerified) return reply.send({ ok: true });
 
+    // Generate and store verification token (24-hour TTL)
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');
     await prisma.emailVerifyToken.create({ data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
@@ -173,6 +177,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
       const valid = await bcrypt.compare(currentPassword, user.passwordHash);
       if (!valid) return reply.status(401).send({ error: 'Current password is incorrect' });
     }
+    // Hash new password and bump tokenVersion to invalidate other active sessions
     const passwordHash = await bcrypt.hash(newPassword, 12);
     const updated = await prisma.user.update({
       where: { id: user.id },

@@ -1,3 +1,8 @@
+/**
+ * Password-reset page reached via the emailed link containing a `?token=` query param.
+ * Validates client-side that passwords match and meet minimum length, then calls the API.
+ * On success it shows a confirmation state and auto-redirects to /login after 3 seconds.
+ */
 import { useState, FormEvent, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -13,6 +18,7 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
 
+  // Surface a clear error immediately if the token is missing from the URL
   useEffect(() => {
     if (!token) setError('Invalid reset link. Please request a new one.');
   }, [token]);

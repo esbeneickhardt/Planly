@@ -6,7 +6,7 @@ Planly has two token types for programmatic access: **Personal Access Tokens (PA
 
 ## Personal Access Tokens (PATs)
 
-A PAT authenticates as you — it has the same permissions as your user account (or a narrower subset if scoped to a project).
+A PAT authenticates as you - it has the same permissions as your user account (or a narrower subset if scoped to a project).
 
 ### Creating a PAT
 
@@ -21,7 +21,7 @@ Content-Type: application/json
 {
   "name": "CI deploy script",
   "expiresAt": "2027-01-01T00:00:00Z",  // optional
-  "productId": "uuid"                    // optional — scope to one project
+  "productId": "uuid"                    // optional - scope to one project
 }
 ```
 
@@ -45,7 +45,7 @@ Include it as a Bearer token on every request:
 Authorization: Bearer planly_a3f8...
 ```
 
-No `X-CSRF-Token` header needed — Bearer auth bypasses CSRF validation.
+No `X-CSRF-Token` header needed - Bearer auth bypasses CSRF validation.
 
 ### Project scoping
 
@@ -76,7 +76,7 @@ Secrets are never returned in list responses.
 
 ## App Registrations
 
-App Registrations are named service accounts designed for server-to-server integrations. Unlike PATs they are not tied to a specific user — they authenticate as the application itself.
+App Registrations are named service accounts designed for server-to-server integrations. Unlike PATs they are not tied to a specific user - they authenticate as the application itself.
 
 ### When to use an App Registration vs a PAT
 
@@ -99,7 +99,7 @@ Content-Type: application/json
 {
   "name": "Slack Integration",
   "description": "Posts task updates to Slack",
-  "productId": "uuid"   // optional — scope to one project
+  "productId": "uuid"   // optional - scope to one project
 }
 ```
 
@@ -163,7 +163,7 @@ DELETE /api/apps/:appId
 
 ## Security Notes
 
-- Store tokens in secrets managers (e.g. GitHub Actions secrets, Vault, AWS Secrets Manager) — never in source code.
+- Store tokens in secrets managers (e.g. GitHub Actions secrets, Vault, AWS Secrets Manager) - never in source code.
 - Use the shortest expiry practical for your use case.
 - Use project-scoped tokens whenever the integration only needs one project.
 - Rotate tokens annually or whenever a team member with access leaves.

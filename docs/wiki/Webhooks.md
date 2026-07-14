@@ -22,7 +22,7 @@ Content-Type: application/json
 }
 ```
 
-The response includes a `secret` field. **Copy it now** — it's only shown at creation. You'll need it to verify signatures.
+The response includes a `secret` field. **Copy it now** - it's only shown at creation. You'll need it to verify signatures.
 
 ---
 
@@ -39,7 +39,7 @@ The response includes a `secret` field. **Copy it now** — it's only shown at c
 | `member.added` | A user joins the team |
 | `member.removed` | A user leaves or is removed from the team |
 
-> Event names follow the `resource.action` pattern. Subscribe only to the events you need — unnecessary subscriptions increase latency and noise.
+> Event names follow the `resource.action` pattern. Subscribe only to the events you need - unnecessary subscriptions increase latency and noise.
 
 ---
 
@@ -60,7 +60,7 @@ Body:
   "event": "task.created",
   "timestamp": "2026-07-07T14:23:00.000Z",
   "payload": {
-    // Event-specific data — see examples below
+    // Event-specific data - see examples below
   }
 }
 ```
@@ -97,7 +97,7 @@ Body:
     "taskId": "task-uuid",
     "taskName": "Fix login bug",
     "commentId": "comment-uuid",
-    "content": "I found the issue — the SSO callback URL was wrong.",
+    "content": "I found the issue - the SSO callback URL was wrong.",
     "authorId": "user-uuid",
     "authorUsername": "alice"
   }
@@ -202,7 +202,7 @@ func verifySignature(body []byte, secret, header string) bool {
 - Planly sends deliveries with a **8-second timeout**.
 - Your endpoint must respond with any `2xx` status within that window.
 - `4xx` and `5xx` responses are logged as failed deliveries.
-- **No automatic retry** — check your delivery log if you miss events.
+- **No automatic retry** - check your delivery log if you miss events.
 
 ### Viewing delivery history
 
@@ -228,13 +228,13 @@ API:
 POST /api/products/:productId/webhooks/:webhookId/rotate-secret
 ```
 
-The new secret is returned in the response. Update your receiver immediately — the old secret is invalidated.
+The new secret is returned in the response. Update your receiver immediately - the old secret is invalidated.
 
 ---
 
 ## Disabling and Re-enabling
 
-Set `active: false` to pause deliveries without deleting the webhook. Events that occur while a webhook is inactive are **not queued** — they are silently dropped.
+Set `active: false` to pause deliveries without deleting the webhook. Events that occur while a webhook is inactive are **not queued** - they are silently dropped.
 
 ```http
 PATCH /api/products/:productId/webhooks/:webhookId

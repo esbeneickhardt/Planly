@@ -21,7 +21,7 @@ After the first build, omit `--build` for faster starts:
 docker compose up
 ```
 
-The backend auto-applies Prisma migrations on startup — no manual `migrate deploy` needed.
+The backend auto-applies schema changes on startup via `prisma db push` - no manual steps needed.
 
 ---
 
@@ -30,8 +30,8 @@ The backend auto-applies Prisma migrations on startup — no manual `migrate dep
 Use `docker-compose.prod.yml`. This adds:
 
 - **Traefik** as a reverse proxy, automatically obtaining and renewing TLS certificates from Let's Encrypt
-- **No exposed backend port** — the backend is reachable only via the Docker internal network
-- **Automated hourly backups** — PostgreSQL dump + uploads archive written to `./backups` (or `BACKUP_DIR`)
+- **No exposed backend port** - the backend is reachable only via the Docker internal network
+- **Automated hourly backups** - PostgreSQL dump + uploads archive written to `./backups` (or `BACKUP_DIR`)
 
 ### Requirements
 
@@ -59,29 +59,87 @@ docker compose -f docker-compose.prod.yml logs traefik
 
 ---
 
+## Secrets Management in Production
+
+The `.env` file is a local development convenience. In production there are better approaches depending on your setup.
+
+### Option 1 - .env file on the server (simplest)
+
+Keep a `.env` at `/srv/planly/.env` on the server - never in the repository, never in backups alongside the database. Docker Compose picks it up automatically when you run from the same directory.
+
+```bash
+# Restrict permissions so only root can read it
+chmod 600 /srv/planly/.env
+```
+
+This is the right choice for a single server with a single operator.
+
+### Option 2 - Shell environment / CI/CD injection
+
+Docker Compose reads `${VAR}` from the shell environment as well as from `.env`. Your CI/CD pipeline (GitHub Actions, GitLab CI, etc.) can inject secrets at deploy time without any file on disk:
+
+```bash
+# GitHub Actions example (secrets set in repo settings)
+DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+JWT_SECRET=${{ secrets.JWT_SECRET }} \
+ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }} \
+ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }} \
+docker compose -f docker-compose.prod.yml up --build --force-recreate -d
+```
+
+### Option 3 - Secrets manager injection (recommended for teams)
+
+Tools like [Doppler](https://doppler.com), HashiCorp Vault, AWS Secrets Manager, or 1Password Secrets Automation inject secrets as environment variables at runtime - nothing is stored on disk. Docker Compose receives them transparently:
+
+**Doppler:**
+```bash
+# Install Doppler CLI, authenticate, link to your project
+doppler run -- docker compose -f docker-compose.prod.yml up --build --force-recreate -d
+```
+
+**HashiCorp Vault (via envconsul):**
+```bash
+envconsul -config=vault.hcl docker compose -f docker-compose.prod.yml up -d
+```
+
+**AWS Secrets Manager (via aws-secrets-manager-env):**
+```bash
+aws-env --secret planly/prod -- docker compose -f docker-compose.prod.yml up -d
+```
+
+This approach means secrets are never on disk, are audited centrally, and can be rotated without touching the server.
+
+### What to never do
+
+- Never commit `.env` to the repository (it is gitignored by default)
+- Never put plaintext secrets in `docker-compose.yml` or `docker-compose.prod.yml`
+- Never store `ENCRYPTION_KEY` in the same place as the database backup - if both are compromised together, encrypted fields are exposed
+
+---
+
 ## Upgrading
 
-Planly uses a rolling upgrade pattern — pull new images and recreate. Always rebuild from scratch to avoid stale layer caches.
+Planly uses a rolling upgrade pattern - pull new images and recreate. Always rebuild from scratch to avoid stale layer caches.
 
 ```bash
 git pull
 
 # Development
-docker compose up --build --no-cache --force-recreate -d
+docker compose build --no-cache && docker compose up --force-recreate -d
 
 # Production
-docker compose -f docker-compose.prod.yml up --build --no-cache --force-recreate -d
+docker compose -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.prod.yml up --force-recreate -d
 ```
 
-> **Important:** `docker compose restart` only restarts existing containers — it does **not** apply updated images. Always use `--force-recreate` when deploying new code.
+> **Important:** `docker compose restart` only restarts existing containers - it does **not** apply updated images. Always use `--force-recreate` when deploying new code.
 
-Database migrations run automatically on backend startup (`prisma migrate deploy`). Migrations are append-only — there is no built-in rollback command.
+Schema changes are applied automatically on backend startup via `prisma db push`.
 
 ### Rolling back a migration
 
 Prisma does not support automatic rollbacks. The safest recovery path is **always a forward migration** (write a new migration that undoes the change). If you must roll back manually:
 
-1. **Reverse the schema change with SQL** — connect to Postgres and undo the DDL:
+1. **Reverse the schema change with SQL** - connect to Postgres and undo the DDL:
    ```sql
    -- Example: undo an ADD COLUMN
    ALTER TABLE "Task" DROP COLUMN IF EXISTS "githubUrl";
@@ -105,8 +163,8 @@ The production compose file includes an automated backup service that runs every
 
 ### What gets backed up
 
-- **PostgreSQL dump** — full `pg_dump` compressed with gzip
-- **Uploads** — `/data/uploads` tarball (file attachments)
+- **PostgreSQL dump** - full `pg_dump` compressed with gzip
+- **Uploads** - `/data/uploads` tarball (file attachments)
 
 ### Where backups go
 

@@ -151,6 +151,101 @@ curl -s -X POST $BASE/api/seed-examples
 
 ---
 
+## ADMIN_PASSWORD
+
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (`ensureAdminAccount` - skips random password when `ADMIN_PASSWORD` is set)
+
+Without `ADMIN_PASSWORD` the server generates a random password and prints it to the log. With it, you set the initial password yourself.
+
+```bash
+# Add to .env before first start (fresh DB only)
+ADMIN_PASSWORD=MyChosenPassword123!
+```
+
+- [ ] Set `ADMIN_PASSWORD` in `.env`, wipe DB (`docker compose down -v`), restart
+- [ ] Backend log does NOT print the password banner (no auto-generated password shown)
+- [ ] Log in with the email from `ADMIN_EMAIL` and the password from `ADMIN_PASSWORD` - works
+- [ ] `mustChangePassword` is NOT set (no forced password-change prompt on login)
+- [ ] Remove `ADMIN_PASSWORD` from `.env` after verifying (it has no effect once the account exists)
+
+---
+
+## FRONTEND_PORT
+
+> Code: [docker-compose.yml](../../docker-compose.yml) (`${FRONTEND_PORT:-80}:80`)
+
+```bash
+# Add to .env
+FRONTEND_PORT=8080
+```
+
+- [ ] Set `FRONTEND_PORT=8080`, restart with `--force-recreate`
+- [ ] App is reachable at `http://localhost:8080` (not port 80)
+- [ ] Reset to `FRONTEND_PORT=80` (or remove it) when done
+
+---
+
+## SECURITY_ALERT_WEBHOOK_URL
+
+> Code: [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (fires on account lockout) · [04-auth.md](04-auth.md) (lockout test)
+
+Use a free request inspector like [webhook.site](https://webhook.site) to capture the payload without needing a real Slack setup.
+
+```bash
+# Add to .env
+SECURITY_ALERT_WEBHOOK_URL=https://webhook.site/your-unique-id
+```
+
+- [ ] Set `SECURITY_ALERT_WEBHOOK_URL`, restart
+- [ ] Trigger an account lockout (5+ failed logins on Alice's account)
+- [ ] Webhook.site (or your endpoint) receives a POST with a JSON payload
+- [ ] Payload contains the locked account email and IP address
+- [ ] Normal login activity does NOT trigger the webhook
+
+---
+
+## ADMIN_LOG_RETENTION_DAYS
+
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (retention cleanup job, defaults to 90 days)
+
+```bash
+# Add to .env to shorten retention for testing
+ADMIN_LOG_RETENTION_DAYS=0
+```
+
+- [ ] Set `ADMIN_LOG_RETENTION_DAYS=0`, restart
+- [ ] Trigger the cleanup by restarting (job runs on startup)
+- [ ] Check `GET /api/admin/logs` - all existing audit log entries are gone (0-day retention deleted everything)
+- [ ] Reset to `ADMIN_LOG_RETENTION_DAYS=90` (or remove the var) when done
+
+---
+
+## ENCRYPTION_KEY rotation
+
+> Code: [scripts/rotate-encryption-key.ts](../../scripts/rotate-encryption-key.ts)
+
+Rotation re-encrypts all secrets at rest (SMTP passwords, webhook secrets, TOTP secrets) from the old key to the new key. Run this outside of Docker against the live database.
+
+```bash
+# Generate a new key
+NEW_KEY=$(openssl rand -hex 32)
+echo "New key: $NEW_KEY"
+
+# Run the rotation script (replace values)
+OLD_ENCRYPTION_KEY=<current-key-from-env> \
+NEW_ENCRYPTION_KEY=$NEW_KEY \
+DATABASE_URL=postgresql://planly:<DB_PASSWORD>@localhost:5432/planly \
+npx tsx scripts/rotate-encryption-key.ts
+```
+
+- [ ] Script completes without errors
+- [ ] Update `ENCRYPTION_KEY` in `.env` to the new key
+- [ ] Restart the backend - no errors on startup
+- [ ] Verify SMTP still works (tests that the re-encrypted password decrypts correctly)
+- [ ] Verify a webhook delivery still works (tests webhook secret re-encryption)
+
+---
+
 ## Upgrades
 
 - [ ] `git pull` + `build --no-cache` + `up --force-recreate` produces a working updated app

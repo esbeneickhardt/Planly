@@ -66,14 +66,20 @@ cat /tmp/planly-export.json | jq 'keys'
 
 ### Personal data export (`GET /api/me/export`)
 
-> Code: [backend/src/routes/me-export.ts](../../backend/src/routes/me-export.ts) (GDPR export: current user's profile, tasks created, messages sent - no other users' data)
+> Code: [backend/src/routes/me-export.ts](../../backend/src/routes/me-export.ts) (GDPR Art. 20 portability export - complete, no pagination cap)
 
 ```bash
 curl -s -b alice-cookies.txt $BASE/api/me/export | jq 'keys'
+# Expected keys: exportedAt, profile, tasks, messages, notifications, apiTokens,
+#                announcements, announcementComments, accessRequests, teamMemberships
 ```
 
-- [ ] Returns Alice's own data: profile, tasks created, messages sent
-- [ ] No other users' private data included
+- [ ] Returns JSON with all expected top-level keys
+- [ ] `profile` contains Alice's email, username, and decrypted realName/phone (not hashed password or token secrets)
+- [ ] `tasks` contains only tasks Alice created, owns, or is reviewer on - not all project tasks
+- [ ] `messages` contains all messages Alice authored (no arbitrary cap)
+- [ ] `teamMemberships` lists every team Alice belongs to
+- [ ] No other users' private data included (no other users' messages, profiles, or tokens)
 
 ---
 

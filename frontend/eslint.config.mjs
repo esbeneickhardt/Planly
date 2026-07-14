@@ -32,7 +32,7 @@ export default tseslint.config(
       'jsx-a11y/no-static-element-interactions': 'warn',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
 
-      // autoFocus is intentional in modals/forms — warn but don't block
+      // autoFocus is intentional in modals/forms - warn but don't block
       'jsx-a11y/no-autofocus': 'warn',
     },
     ignores: ['dist/**', 'node_modules/**'],

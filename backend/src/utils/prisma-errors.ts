@@ -1,3 +1,8 @@
+/**
+ * Prisma error helpers - translate well-known Prisma error codes into HTTP responses.
+ * Use these in route catch blocks to avoid duplicating P2025/P2002 handling everywhere.
+ * Any error that does not match the expected code is re-thrown for the global error handler.
+ */
 import { Prisma } from '@prisma/client';
 import type { FastifyReply } from 'fastify';
 

@@ -33,7 +33,7 @@ export function setStorage(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // ignore — quota exceeded or private browsing
+    // ignore - quota exceeded or private browsing
   }
 }
 

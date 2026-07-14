@@ -1,5 +1,5 @@
 /**
- * useColorLegend — manages the project color legend (label → color mapping).
+ * useColorLegend - manages the project color legend (label → color mapping).
  *
  * Loads the legend on mount and exposes helpers to add, rename, and remove entries.
  * Saves are debounced so rapid UI interactions (e.g. color picker drags) are batched.
@@ -20,6 +20,7 @@ export type ColorLegend = Record<string, string>;
 interface LegendEntry { colorKey: string; name: string; enabled: boolean; }
 
 export function useColorLegend(productId: string) {
+  // State: stateRef mirrors state so debounced save callback always reads current values
   const [legend, setLegend] = useState<ColorLegend>(DEFAULT_NAMES);
   const [enabledSet, setEnabledSet] = useState<Set<string>>(new Set(PRESET_COLORS));
   const [loaded, setLoaded] = useState(false);
@@ -43,6 +44,7 @@ export function useColorLegend(productId: string) {
     }).catch(() => setLoaded(true));
   }, [productId]);
 
+  // Debounced save: batches rapid changes (e.g. color picker drags) into a single API call after 600ms
   function scheduleSave(leg: ColorLegend, ena: Set<string>) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {

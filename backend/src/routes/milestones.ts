@@ -1,5 +1,5 @@
 /**
- * Milestone routes — query tasks that act as milestones (tasks with a deadline)
+ * Milestone routes - query tasks that act as milestones (tasks with a deadline)
  * along with their transitive dependency progress for the Gantt view.
  *
  * Milestones are tasks that have a deadline set. A single recursive CTE fetches
@@ -27,8 +27,7 @@ export async function milestoneRoutes(app: FastifyInstance) {
     if (!product) return reply.status(404).send({ error: 'Not found' });
     if (milestones.length === 0) return reply.send({ milestones: [], product });
 
-    // Single batched query: find all transitive prerequisites for all milestones at once.
-    // We use a UNION of per-milestone CTEs rather than N separate round-trips.
+    // Fetch all transitive prerequisites for every milestone in one recursive CTE
     const milestoneIds = milestones.map((m) => m.id);
 
     const depRows = await prisma.$queryRaw<{ milestoneId: string; id: string; status: string; name: string; ownerId: string | null }[]>`
@@ -49,12 +48,14 @@ export async function milestoneRoutes(app: FastifyInstance) {
       JOIN "Task" t ON t.id = r.id AND t."deletedAt" IS NULL
     `;
 
+    // Group flat dep rows by milestone for O(n) access during result assembly
     const depsByMilestone = new Map<string, typeof depRows>();
     for (const row of depRows) {
       if (!depsByMilestone.has(row.milestoneId)) depsByMilestone.set(row.milestoneId, []);
       depsByMilestone.get(row.milestoneId)!.push(row);
     }
 
+    // Compute progress ratios and unassigned dep counts per milestone
     const result = milestones.map((milestone) => {
       const deps = depsByMilestone.get(milestone.id) ?? [];
       const total = deps.length;

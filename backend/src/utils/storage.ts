@@ -8,16 +8,19 @@ import { writeFile, readFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { config } from '../config/env';
 
+// S3 client is lazily initialised and cached on first use
 let s3Client: import('@aws-sdk/client-s3').S3Client | null = null;
 const S3_BUCKET = process.env.AWS_S3_BUCKET ?? '';
 const S3_PREFIX = process.env.AWS_S3_PREFIX ?? 'planly-uploads';
 
+// Returns a cached S3 client, or null when S3 is not configured (local fallback mode)
 async function getS3() {
   if (!S3_BUCKET) return null;
   if (s3Client) return s3Client;
   const { S3Client } = await import('@aws-sdk/client-s3');
   s3Client = new S3Client({
     region: process.env.AWS_REGION ?? 'us-east-1',
+    // AWS_ENDPOINT_URL enables LocalStack and S3-compatible stores (e.g. MinIO)
     ...(process.env.AWS_ENDPOINT_URL ? { endpoint: process.env.AWS_ENDPOINT_URL, forcePathStyle: true } : {}),
     ...(process.env.AWS_ACCESS_KEY_ID ? {
       credentials: {
@@ -29,6 +32,7 @@ async function getS3() {
   return s3Client;
 }
 
+// Allowlist of accepted MIME types and their canonical file extensions
 const ALLOWED_MIME_TYPES: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -86,10 +90,13 @@ export function fileExtFromMime(mime: string): string | null {
   return ALLOWED_MIME_TYPES[mime] ?? null;
 }
 
+// Content-hashed filename prevents collisions and doubles as an integrity fingerprint
 export function generateFilename(buffer: Buffer, ext: string): string {
   const hash = createHash('sha256').update(buffer).digest('hex').slice(0, 24);
   return `${hash}.${ext}`;
 }
+
+// File storage operations (S3 or local disk)
 
 export async function storeFile(buffer: Buffer, filename: string, mimeType: string): Promise<void> {
   const s3 = await getS3();
@@ -103,12 +110,13 @@ export async function storeFile(buffer: Buffer, filename: string, mimeType: stri
     }));
     return;
   }
-  // Local fallback
+  // Local disk fallback - ensure directory exists before writing
   await mkdir(config.uploadsDir, { recursive: true });
   await writeFile(join(config.uploadsDir, filename), buffer);
 }
 
 export async function deleteFile(filename: string): Promise<void> {
+  // Sanitize filename to prevent path traversal before using it in a file operation
   const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
   const s3 = await getS3();
   if (s3) {
@@ -120,6 +128,7 @@ export async function deleteFile(filename: string): Promise<void> {
 }
 
 export async function getFileBuffer(filename: string): Promise<Buffer> {
+  // Sanitize filename to prevent path traversal before reading
   const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
   const s3 = await getS3();
   if (s3) {
@@ -128,6 +137,7 @@ export async function getFileBuffer(filename: string): Promise<Buffer> {
       Bucket: S3_BUCKET,
       Key: `${S3_PREFIX}/${safe}`,
     }));
+    // Stream the S3 response body into a Buffer
     const chunks: Uint8Array[] = [];
     for await (const chunk of res.Body as AsyncIterable<Uint8Array>) {
       chunks.push(chunk);
@@ -137,6 +147,7 @@ export async function getFileBuffer(filename: string): Promise<Buffer> {
   return readFile(join(config.uploadsDir, safe));
 }
 
+// Reverse map for serving files: derive Content-Type from stored extension
 const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
   gif: 'image/gif', webp: 'image/webp',

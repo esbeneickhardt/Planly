@@ -1,3 +1,8 @@
+/**
+ * Task backlog rendered as a sortable, filterable table with per-status tabs and bulk operations.
+ * Filtering and sorting are delegated to the useBacklogFilters hook; this page handles create,
+ * bulk-move-to-todo, and bulk-delete mutations via the API, refreshing the shared ProductContext after each.
+ */
 import { useState } from 'react';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
@@ -39,6 +44,7 @@ export default function BacklogPage() {
 
   const now = new Date();
 
+  // Toggle a single row in/out of the multi-select set
   function toggleSelect(id: string) {
     setSelected((s) => { const n = new Set(s); if (n.has(id)) { n.delete(id); } else { n.add(id); } return n; });
   }
@@ -47,6 +53,7 @@ export default function BacklogPage() {
     setSelected(selected.size === filteredTasks.length ? new Set() : new Set(filteredTasks.map((t) => t.id)));
   }
 
+  // Bulk-promote selected tasks to "todo"; skips tasks with no owner and shows a count of skipped
   async function bulkMoveTodo() {
     if (!activeProduct) return;
     const eligible = filteredTasks.filter((t) => selected.has(t.id) && t.ownerId);
@@ -58,6 +65,7 @@ export default function BacklogPage() {
     else showToast(`Moved ${eligible.length} task${eligible.length !== 1 ? 's' : ''} to To Do`, 'success');
   }
 
+  // Confirm-then-delete all selected tasks in parallel
   async function bulkDelete() {
     if (!activeProduct || !await confirm(`Delete ${selected.size} task(s)?`)) return;
     await Promise.all(Array.from(selected).map((id) => api.tasks.delete(activeProduct.id, id)));
@@ -66,6 +74,7 @@ export default function BacklogPage() {
     showToast('Tasks deleted', 'info');
   }
 
+  // Create a minimal task (name only); additional fields can be set via TaskDetailPanel afterwards
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
     if (!newTaskName.trim()) return;

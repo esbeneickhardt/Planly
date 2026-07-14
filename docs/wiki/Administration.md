@@ -1,6 +1,6 @@
 # Administration
 
-The admin panel is available at `/admin` to any user with `isAdmin: true`. The first admin is the **founding admin** (also called the "crown" holder) — this seat is unique and transferable.
+The admin panel is available at `/admin` to any user with `isAdmin: true`. The first admin is the **founding admin** (also called the "crown" holder) - this seat is unique and transferable.
 
 ---
 
@@ -27,9 +27,9 @@ Full user list with:
 - Active session count
 - Quick actions: **Unlock** (clear lockout), **Delete** (permanent)
 
-**Unlock** — resets `loginLockCount` to 0 and clears the lockout timestamp. Use this when a user has been locked out after too many failed attempts and can't wait for the lockout to expire.
+**Unlock** - resets `loginLockCount` to 0 and clears the lockout timestamp. Use this when a user has been locked out after too many failed attempts and can't wait for the lockout to expire.
 
-**Whitelist** — if `requireWhitelist` is enabled in Server Config, only whitelisted emails can register. Manage the whitelist here.
+**Whitelist** - if `requireWhitelist` is enabled in Server Config, only whitelisted emails can register. Manage the whitelist here.
 
 ### Teams
 
@@ -55,10 +55,10 @@ Fields:
 ### Audit Log
 
 Full chronological log of admin-relevant events. Each entry records:
-- **Action** — what happened (e.g. `LOGIN_FAILED`, `WEBHOOK_CREATED`, `PERMISSION_UPDATED`)
-- **Actor** — who did it (username or `SYSTEM`)
-- **Target** — who or what was affected
-- **Metadata** — structured details (IP address, old/new values, etc.)
+- **Action** - what happened (e.g. `LOGIN_FAILED`, `WEBHOOK_CREATED`, `PERMISSION_UPDATED`)
+- **Actor** - who did it (username or `SYSTEM`)
+- **Target** - who or what was affected
+- **Metadata** - structured details (IP address, old/new values, etc.)
 - **Timestamp**
 
 #### Filtering
@@ -68,8 +68,8 @@ Filter by action type, actor, target, or date range using the controls above the
 #### Exporting
 
 Click **Export** to download the log as:
-- **CSV** — opens in Excel / Google Sheets
-- **JSONL** — one JSON object per line for log ingestion pipelines
+- **CSV** - opens in Excel / Google Sheets
+- **JSONL** - one JSON object per line for log ingestion pipelines
 
 #### Retention
 
@@ -102,9 +102,9 @@ Log entries older than `ADMIN_LOG_RETENTION_DAYS` (default: 365) are automatical
 Control which IP addresses can reach the app.
 
 **Modes:**
-- **Disabled** — no IP filtering (default)
-- **Allowlist** — only listed CIDRs can access the app
-- **Blocklist** — listed CIDRs are denied
+- **Disabled** - no IP filtering (default)
+- **Allowlist** - only listed CIDRs can access the app
+- **Blocklist** - listed CIDRs are denied
 
 Add rules as CIDR notation: `203.0.113.0/24`, `10.0.0.5/32`, `2001:db8::/32`.
 

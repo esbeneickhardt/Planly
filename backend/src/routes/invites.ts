@@ -1,12 +1,12 @@
 /**
- * Invite routes — create, revoke, and accept team invite links.
+ * Invite routes - create, revoke, and accept team invite links.
  *
  * Two invite types:
- *   Open invite — shareable URL valid for anyone; multi-use with an optional maxUses cap.
- *   Email invite — targeted to one address; single-use; sends an email if SMTP is configured.
+ *   Open invite - shareable URL valid for anyone; multi-use with an optional maxUses cap.
+ *   Email invite - targeted to one address; single-use; sends an email if SMTP is configured.
  *
  * useCount tracks redemptions. The invite is exhausted (usedAt set) only when
- * maxUses is set and useCount reaches it — open invites with no maxUses are permanent.
+ * maxUses is set and useCount reaches it - open invites with no maxUses are permanent.
  * All invites expire after 7 days. Acceptance events are recorded in the audit log.
  */
 import { FastifyInstance } from 'fastify';
@@ -66,6 +66,7 @@ export async function inviteRoutes(app: FastifyInstance) {
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
     if (!ctx.isAdmin) return reply.status(403).send({ error: 'Forbidden' });
 
+    // Generate a 24-byte URL-safe token with a 7-day expiry
     const token = randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -131,6 +132,7 @@ export async function inviteRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invite not found or expired' });
     }
 
+    // Email-targeted invites require the accepting user's email to match
     if (invite.email) {
       const acceptingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { email: true } });
       if (!acceptingUser || invite.email.toLowerCase() !== acceptingUser.email.toLowerCase()) {

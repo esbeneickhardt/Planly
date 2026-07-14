@@ -171,8 +171,8 @@ model Task {
   deletedAt   DateTime?
 
   product            Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
-  owner              User?             @relation("TaskOwner", fields: [ownerId], references: [id])
-  reviewer           User?             @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  owner              User?             @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  reviewer           User?             @relation("TaskReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
   completer          User?             @relation("TaskCompleter", fields: [completedBy], references: [id])
   creator            User?             @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   subtasks           Subtask[]
@@ -529,14 +529,14 @@ model Announcement {
   id              String   @id @default(uuid())
   title           String
   content         String
-  authorId        String
+  authorId        String?
   teamId          String?
   pinned          Boolean  @default(false)
   commentsEnabled Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @default(now()) @updatedAt
 
-  author   User                  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author   User?                 @relation(fields: [authorId], references: [id], onDelete: SetNull)
   team     Team?                 @relation(fields: [teamId], references: [id], onDelete: SetNull)
   comments AnnouncementComment[]
 
@@ -546,13 +546,13 @@ model Announcement {
 model AnnouncementComment {
   id             String    @id @default(uuid())
   announcementId String
-  authorId       String
+  authorId       String?
   content        String
   createdAt      DateTime  @default(now())
   editedAt       DateTime?
 
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author       User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
   @@index([announcementId])
 }

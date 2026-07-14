@@ -6,15 +6,43 @@ Create these accounts and resources before any other section. Everything in the 
 
 ---
 
+## Full reset - start from zero
+
+> Code: [docker-compose.yml](../../docker-compose.yml) · [backend/prisma/migrations/](../../backend/prisma/migrations/) (re-applied on fresh start)
+
+One command - stops everything, deletes all volumes (database + uploads), rebuilds images from scratch, and starts fresh:
+
+```bash
+docker compose down -v && docker compose build --no-cache && docker compose up --force-recreate -d
+```
+
+Wait ~30 seconds, then verify:
+
+```bash
+# All containers should be Up
+docker compose ps
+
+# Backend log should show migrations applied and founding admin created
+docker compose logs backend | tail -30
+```
+
+- [X] All three containers are `Up` (`db`, `backend`, `frontend`)
+- [X] Backend log shows `prisma db push` succeeded (syncs schema to the database)
+- [X] Backend log shows founding admin account created with email and password
+- [X] App is reachable at `http://localhost`
+- [X] Login page shown - no existing users, no existing projects
+
+---
+
 ## Prerequisites
 
 > Code: [.env.example](../../.env.example) · [backend/src/config/env.ts](../../backend/src/config/env.ts) (startup validation of required vars) · [docker-compose.yml](../../docker-compose.yml)
 
-- [ ] App is running: `docker compose up --build` (or prod stack)
-- [ ] You can reach `http://localhost` in a browser
-- [ ] `curl` is available in terminal
-- [ ] SMTP is configured or you have access to the backend logs to see emails
-- [ ] You have set `ADMIN_EMAIL=<your-email>` in `.env` before first start
+- [X] App is running: `docker compose up --build` (or prod stack)
+- [X] You can reach `http://localhost` in a browser
+- [X] `curl` is available in terminal
+- [X] SMTP is configured or you have access to the backend logs to see emails
+- [X] You have set `ADMIN_EMAIL=<your-email>` in `.env` before first start
 
 ---
 
@@ -43,7 +71,7 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 | Username | `admin` |
 | Role | Server admin (set via ADMIN_EMAIL env) |
 
-- [ ] Log in and confirm the shield button 🛡 is visible
+- [X] Log in and confirm the shield button 🛡 is visible
 
 ### Account B - Regular member (Alice)
 | Field | Value |
@@ -52,9 +80,9 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 | Username | `alice` |
 | Role | Regular user, no admin rights |
 
-- [ ] Register via UI
-- [ ] Confirm no shield button
-- [ ] Confirm `/admin` redirects away
+- [X] Register via UI
+- [X] Confirm no shield button
+- [X] Confirm `/admin` redirects away
 
 ### Account C - Co-owner of Project 1 (Bob)
 | Field | Value |
@@ -63,7 +91,7 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 | Username | `bob` |
 | Role | Regular user; will be made co-owner of one project |
 
-- [ ] Register via UI
+- [X] Register via UI
 
 ### Account D - Outsider (Charlie)
 | Field | Value |
@@ -72,7 +100,7 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 | Username | `charlie` |
 | Role | Regular user; NOT a member of any project |
 
-- [ ] Register via UI
+- [X] Register via UI
 
 ---
 

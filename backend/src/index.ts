@@ -1,5 +1,5 @@
 /**
- * Planly backend entrypoint — bootstraps the Fastify application.
+ * Planly backend entrypoint - bootstraps the Fastify application.
  *
  * Startup sequence:
  *   1. Validate required environment variables (exits with clear error if missing)
@@ -147,7 +147,7 @@ async function emergencyRecrown() {
 
   const target = await prisma.user.findUnique({ where: { email } });
   if (!target) {
-    process.stderr.write(JSON.stringify({ level: 50, time: Date.now(), msg: 'RECROWN_EMAIL set but user not found — skipping', email }) + '\n');
+    process.stderr.write(JSON.stringify({ level: 50, time: Date.now(), msg: 'RECROWN_EMAIL set but user not found - skipping', email }) + '\n');
     return;
   }
 
@@ -359,6 +359,11 @@ async function main() {
   await app.register(ipRestrictionRoutes);
   await app.register(icalRoutes);
 
+  // Public config - returns non-sensitive values needed by the frontend without authentication
+  app.get('/api/config', async (_req, reply) => {
+    reply.send({ contactEmail: config.contactEmail });
+  });
+
   // Health check - verifies DB connection
   app.get('/api/health', async (_req, reply) => {
     try {
@@ -410,7 +415,7 @@ async function main() {
       const notifCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
       const activityCutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
       const softDeleteCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-      const adminLogRetentionDays = parseInt(process.env.ADMIN_LOG_RETENTION_DAYS ?? '365', 10);
+      const adminLogRetentionDays = parseInt(process.env.ADMIN_LOG_RETENTION_DAYS ?? '90', 10);
       const adminLogCutoff = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000);
       const [notifResult, activityResult, taskResult, adminLogResult, ssoStateResult] = await Promise.all([
         prisma.notification.deleteMany({ where: { createdAt: { lt: notifCutoff } } }),

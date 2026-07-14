@@ -1,3 +1,9 @@
+/**
+ * Analytics dashboard showing task throughput, status breakdown, cumulative completions,
+ * weekday distribution, sprint velocity, and a personal workload panel — all for the active product.
+ * Chart period preferences are persisted per-product in localStorage.  The page redirects to /kanban
+ * if analytics is disabled and the viewer is not a manager.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -167,7 +173,7 @@ export default function AnalyticsPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // Restore saved preferences per product, fall back to defaults
+  // Load chart period prefs from localStorage so each product remembers its own view settings
   const prefKey = activeProduct ? `planly_analytics_pref_${activeProduct.id}` : null;
   const savedPrefs = prefKey ? (() => { try { return JSON.parse(localStorage.getItem(prefKey) ?? '{}'); } catch { return {}; } })() : {};
   const VALID_PERIODS: Period[] = ['7d', '30d', '90d', 'all'];
@@ -177,7 +183,7 @@ export default function AnalyticsPage() {
   const [cumulativePeriod, setCumulativePeriod] = useState<Period>(validPeriod(savedPrefs.cumulativePeriod) ? savedPrefs.cumulativePeriod : 'all');
   const [weekdayPeriod, setWeekdayPeriod] = useState<Period>(validPeriod(savedPrefs.weekdayPeriod) ? savedPrefs.weekdayPeriod : '30d');
 
-  // Persist preferences whenever they change
+  // Write prefs back whenever they change so the next page load restores them
   useEffect(() => {
     if (!prefKey) return;
     localStorage.setItem(prefKey, JSON.stringify({ period, cumulativePeriod, weekdayPeriod }));
@@ -204,6 +210,7 @@ export default function AnalyticsPage() {
     } catch {/* non-critical activity feed */}
   }, []);
 
+  // Reset all data and kick off three parallel fetches when the active product changes
   useEffect(() => {
     if (!activeProduct) return;
     setData(null); setWorkload(null); setEvents([]); setCursor(null);
@@ -238,7 +245,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  // Throughput chart - bucket by week for 90d, label every 5th day for 30d, every day for 7d
+  // Bucket daily counts into weekly groups for longer periods to keep the bar chart readable
   const allDays = data?.tasksByDay ?? [];
   const periodDays = PERIOD_DAYS[period];
   const filteredDays = period === 'all' ? allDays : allDays.slice(allDays.length - periodDays);
@@ -260,7 +267,7 @@ export default function AnalyticsPage() {
     });
   }
 
-  // Cumulative completions - independent period
+  // Build running-total data for the line chart; period is independent from the bar chart above
   const cumulativeDays = cumulativePeriod === 'all' ? allDays : allDays.slice(allDays.length - PERIOD_DAYS[cumulativePeriod]);
   const cumUseBuckets = cumulativePeriod === '90d' || (cumulativePeriod === 'all' && allDays.length > 60);
   const cumulativeData: { label: string; count: number }[] = [];

@@ -1,3 +1,8 @@
+/**
+ * Main Kanban board: renders columns from the API, wires up dnd-kit drag for both tasks and column reorder.
+ * Sprint filter auto-selects the currently active sprint on product change and persists the selection to localStorage per product.
+ * Board background image, compact list view, and all filter states are kept local (not in global context).
+ */
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import {
   DndContext, DragEndEvent, DragStartEvent, DragOverlay,
@@ -26,6 +31,8 @@ export default function KanbanBoard() {
   const { canWrite } = usePermission();
   const { user } = useAuth();
   const readOnly = !canWrite('kanban');
+
+  // State: columns, dnd active items, modals, task/column forms
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -39,7 +46,7 @@ export default function KanbanBoard() {
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Multi-select filters
+  // Filter state: multi-select owner/color, sprint, mine-only
   const [ownerFilters, setOwnerFilters] = useState<Set<string>>(new Set());
   const [colorFilters, setColorFilters] = useState<Set<string>>(new Set());
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
@@ -79,7 +86,7 @@ export default function KanbanBoard() {
     }
   }
 
-  // Board pan-scroll
+  // Board pan: pointer drag on empty board area scrolls horizontally
   const boardRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, scrollLeft: 0 });
@@ -194,7 +201,7 @@ export default function KanbanBoard() {
     if (boardRef.current) boardRef.current.style.cursor = '';
   }
 
-  // DnD handlers
+  // DnD handlers: `pointerWithin` collision detects both column drops and task-on-task drops
   function onDragStart(event: DragStartEvent) {
     const type = event.active.data.current?.type;
     if (type === 'column') {
@@ -373,7 +380,7 @@ export default function KanbanBoard() {
 
         <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
 
-        {/* Mine toggle — visible on all screen sizes */}
+        {/* Mine toggle - visible on all screen sizes */}
         <button
           onClick={() => setMineOnly((v) => !v)}
           className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
@@ -508,7 +515,7 @@ export default function KanbanBoard() {
         </div>
 
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-          {/* Background picker — desktop only (drag backgrounds aren't useful on touch) */}
+          {/* Background picker - desktop only (drag backgrounds aren't useful on touch) */}
           {!compact && (
             <div ref={bgPickerRef} className="relative hidden md:block">
               <button

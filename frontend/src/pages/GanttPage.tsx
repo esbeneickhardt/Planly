@@ -1,3 +1,8 @@
+/**
+ * Gantt chart page that plots tasks-with-deadlines as milestone bars and sprints as time-window bars
+ * against a zoomable, pannable timeline.  View state (zoom, pan, hide-done) is managed by
+ * useGanttDragZoom and persisted to localStorage; drag-resize handles write deadline/date changes back to the API on pointer-up.
+ */
 import { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { useProduct } from '../context/ProductContext';
@@ -105,6 +110,7 @@ export default function GanttPage() {
   const { milestones, sprints, product, loading, setMilestones, setSprints, setProduct, milestonesRef, sprintsRef, productRef } =
     useGanttData(activeProduct, tasks, (start, end) => { setViewStart(start); setViewEnd(end); });
 
+  // Restore per-product hide-done preference from localStorage; defaults to true (hide done)
   useEffect(() => {
     if (!activeProduct) return;
     try {
@@ -139,7 +145,7 @@ export default function GanttPage() {
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>No milestones yet</p>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-3)' }}>
-              A milestone is any task with a deadline — it shows here as a progress bar against the timeline.
+              A milestone is any task with a deadline - it shows here as a progress bar against the timeline.
             </p>
           </div>
           {tasks.length === 0 ? (
@@ -160,7 +166,7 @@ export default function GanttPage() {
   const fullEnd = new Date(product?.deadline ?? activeProduct.deadline);
   const today = new Date();
 
-  // Sort: active milestones first (soonest deadline first), done milestones last
+  // Sort active milestones soonest-first, done milestones pushed to the bottom
   const sortedMilestones = [...milestones].sort((a, b) => {
     const aDone = a.status === 'done';
     const bDone = b.status === 'done';
@@ -180,7 +186,7 @@ export default function GanttPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Mobile view — simple list */}
+      {/* Mobile view - simple list */}
       <GanttMobileList
         visibleMilestones={visibleMilestones}
         milestones={milestones}
@@ -373,7 +379,7 @@ export default function GanttPage() {
                 <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPct * 100}%`, width: 1, background: 'var(--brand)', zIndex: 3, opacity: 0.5, pointerEvents: 'none' }} />
               )}
 
-              {/* Sprint bars — each sprint occupies one row.
+              {/* Sprint bars - each sprint occupies one row.
                   The bar is rendered as an absolute-positioned track (background) with a
                   progress fill layered on top. Start/end resize handles use data-resize
                   attributes which the useGanttDragZoom hook picks up via closest('[data-resize]'). */}
@@ -493,7 +499,7 @@ export default function GanttPage() {
                         <div style={{ position: 'absolute', top: '50%', left: 0, width: 7, height: 7, background: isOverdue ? '#ef4444' : color, transform: 'translate(-50%, -50%) rotate(45deg)', borderRadius: 1 }} />
                       </div>
                     )}
-                    {/* Resize handle — wide transparent hit target on the deadline */}
+                    {/* Resize handle - wide transparent hit target on the deadline */}
                     {!readOnly && deadlinePct >= 0 && deadlinePct <= 100 && (
                       <div
                         data-resize={m.id}

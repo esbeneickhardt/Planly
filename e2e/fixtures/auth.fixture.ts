@@ -2,9 +2,9 @@
  * Shared auth fixtures and helpers for Playwright E2E tests.
  *
  * Provides:
- *   - loginViaUI(page, identifier, password) — UI-based login
- *   - loginViaAPI(request, identifier, password) → cookie — fast API login
- *   - registerViaUI(page, email, username, password) — UI-based registration
+ *   - loginViaUI(page, identifier, password) - UI-based login
+ *   - loginViaAPI(request, identifier, password) → cookie - fast API login
+ *   - registerViaUI(page, email, username, password) - UI-based registration
  *   - TestUser helpers for unique credentials per test run
  */
 import { type Page, type APIRequestContext, expect } from '@playwright/test';
@@ -41,7 +41,7 @@ export async function registerViaUI(
   await page.getByLabel(/^password/i).fill(password);
   const confirmInput = page.getByLabel(/confirm password/i);
   if (await confirmInput.isVisible()) await confirmInput.fill(password);
-  // Accept TOS — required before submission
+  // Accept TOS - required before submission
   const tos = page.getByRole('checkbox');
   if (await tos.isVisible()) await tos.check();
   await page.getByRole('button', { name: /register|sign up|create account/i }).click();
@@ -66,7 +66,7 @@ export async function loginViaAPI(
 /**
  * Creates a project via direct API calls (teams + products endpoints).
  * Uses page.request so calls run Node-side with the page's auth cookies
- * automatically included — no browser-evaluate complexity or AbortController.
+ * automatically included - no browser-evaluate complexity or AbortController.
  * Reloads the page afterwards so ProductContext picks up the new product.
  */
 export async function createProjectViaTopBar(page: Page, name = 'E2E Project') {

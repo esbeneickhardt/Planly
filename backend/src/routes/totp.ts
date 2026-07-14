@@ -1,10 +1,10 @@
 /**
- * TOTP (Time-based One-Time Password) routes — enable, confirm, and disable
+ * TOTP (Time-based One-Time Password) routes - enable, confirm, and disable
  * authenticator-app two-factor authentication for a user account.
  *
  * Setup flow:
- *   1. POST /api/totp/setup — generates a TOTP secret and returns a QR code (data URI)
- *   2. POST /api/totp/confirm — user enters the 6-digit code from their app to activate
+ *   1. POST /api/totp/setup - generates a TOTP secret and returns a QR code (data URI)
+ *   2. POST /api/totp/confirm - user enters the 6-digit code from their app to activate
  *   3. The TOTP secret is stored AES-256-GCM encrypted in the database
  *
  * Login flow: when TOTP is enabled, the login endpoint issues a short-lived mfa_challenge
@@ -32,6 +32,7 @@ const ISSUER = 'Planly';
 const BACKUP_CODE_COUNT = 8;
 const MFA_TOKEN_TYPE = 'mfa_challenge';
 
+// Build an OTPAuth.TOTP instance for the given secret and user label
 function makeTotp(secret: string, username: string) {
   return new OTPAuth.TOTP({
     issuer: ISSUER,
@@ -43,15 +44,18 @@ function makeTotp(secret: string, username: string) {
   });
 }
 
+// Generate a fresh 20-byte Base32-encoded TOTP secret
 function generateSecret(): string {
   return new OTPAuth.Secret({ size: 20 }).base32;
 }
 
+// Verify a 6-digit TOTP code with ±30-second (window=1) tolerance
 function verifyCode(secret: string, username: string, token: string): boolean {
   const totp = makeTotp(secret, username);
   return totp.validate({ token: token.replace(/\s/g, ''), window: 1 }) !== null;
 }
 
+// Generate 8 one-time backup codes; returns both plain text (to show once) and bcrypt hashes
 async function generateBackupCodes(): Promise<{ plain: string[]; hashes: string[] }> {
   const plain: string[] = [];
   const hashes: string[] = [];
@@ -63,6 +67,7 @@ async function generateBackupCodes(): Promise<{ plain: string[]; hashes: string[
   return { plain, hashes };
 }
 
+// Match a code against stored bcrypt-hashed backup codes; consumes the matched code on success
 async function checkBackupCode(userId: string, code: string): Promise<boolean> {
   const stored = await prisma.totpBackupCode.findMany({ where: { userId } });
   for (const row of stored) {
@@ -85,6 +90,7 @@ export async function totpRoutes(app: FastifyInstance) {
     if (!user) return reply.status(404).send({ error: 'Not found' });
     if (user.totpEnabled) return reply.status(409).send({ error: 'TOTP is already enabled. Disable it first.' });
 
+    // Generate secret and produce QR code data URI for authenticator apps
     const secret = generateSecret();
     const totp = makeTotp(secret, user.username);
     const uri = totp.toString();
@@ -110,11 +116,13 @@ export async function totpRoutes(app: FastifyInstance) {
     if (!user.totpSecret) return reply.status(400).send({ error: 'Run /totp/setup first' });
 
     if (!verifyCode(user.totpSecret, user.username, body.code)) {
-      return reply.status(401).send({ error: 'Invalid code — check your authenticator app and try again' });
+      return reply.status(401).send({ error: 'Invalid code - check your authenticator app and try again' });
     }
 
+    // Generate backup codes to present to the user
     const { plain, hashes } = await generateBackupCodes();
 
+    // Atomically activate TOTP and replace any previous backup codes
     await prisma.$transaction([
       prisma.user.update({ where: { id: user.id }, data: { totpEnabled: true } }),
       prisma.totpBackupCode.deleteMany({ where: { userId: user.id } }),
@@ -126,7 +134,7 @@ export async function totpRoutes(app: FastifyInstance) {
     reply.send({
       ok: true,
       backupCodes: plain,
-      message: 'Two-factor authentication is now enabled. Save these backup codes — they will not be shown again.',
+      message: 'Two-factor authentication is now enabled. Save these backup codes - they will not be shown again.',
     });
   });
 
@@ -167,16 +175,18 @@ export async function totpRoutes(app: FastifyInstance) {
     const body = validate(z.object({ mfaToken: z.string().min(1), code: z.string().min(6).max(10) }), req.body, reply);
     if (!body) return;
 
+    // Verify the short-lived MFA challenge JWT issued during login
     let payload: { userId: string; type: string };
     try {
       payload = jwt.verify(body.mfaToken, config.jwtSecret) as { userId: string; type: string };
     } catch {
-      return reply.status(401).send({ error: 'MFA token expired or invalid — please log in again' });
+      return reply.status(401).send({ error: 'MFA token expired or invalid - please log in again' });
     }
     if (payload.type !== MFA_TOKEN_TYPE) {
       return reply.status(401).send({ error: 'Invalid token type' });
     }
 
+    // Load user and confirm TOTP is active
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user || !user.totpEnabled || !user.totpSecret) {
       return reply.status(401).send({ error: 'MFA not configured for this account' });
@@ -189,19 +199,21 @@ export async function totpRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid code' });
     }
 
-    // Full authentication complete — now increment tokenVersion
+    // Full authentication complete - now increment tokenVersion
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { tokenVersion: { increment: 1 } },
       select: { tokenVersion: true },
     });
 
+    // Sign a full-session JWT with the incremented tokenVersion
     const token = jwt.sign(
       { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
       config.jwtSecret,
       { expiresIn: '7d' },
     );
 
+    // Log successful TOTP login in the audit trail
     await prisma.adminLog.create({
       data: { action: 'LOGIN_TOTP', actorName: user.username, targetName: user.username },
     }).catch(() => {});

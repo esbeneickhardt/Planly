@@ -1,5 +1,5 @@
 /**
- * IP restriction routes — manage the server-wide IP allowlist / blocklist.
+ * IP restriction routes - manage the server-wide IP allowlist / blocklist.
  *
  * Three modes: 'disabled' (default), 'allowlist' (only listed CIDRs allowed),
  * 'blocklist' (listed CIDRs denied). Evaluated in the global preHandler hook in index.ts.
@@ -22,6 +22,7 @@ const addRuleSchema = z.object({ cidr: z.string().min(1), description: z.string(
 
 // ── CIDR matching ──────────────────────────────────────────────────────────────
 
+// Convert a dotted-decimal IPv4 address to a 32-bit unsigned integer for CIDR masking
 function ipToInt(ip: string): number {
   return ip.split('.').reduce((acc, octet) => ((acc << 8) | parseInt(octet, 10)) >>> 0, 0) >>> 0;
 }
@@ -49,7 +50,7 @@ export function getClientIp(req: { headers: Record<string, string | string[] | u
   const raw = process.env.TRUSTED_PROXY_DEPTH;
   const depth = raw === undefined ? config.trustedProxyDepth : parseInt(raw, 10);
 
-  // depth=0 means no trusted proxy — use socket address directly
+  // depth=0 means no trusted proxy - use socket address directly
   if (depth <= 0) return req.socket.remoteAddress ?? '';
 
   const forwarded = req.headers['x-forwarded-for'];

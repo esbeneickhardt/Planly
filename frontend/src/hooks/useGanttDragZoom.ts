@@ -1,3 +1,8 @@
+/**
+ * Handles three interaction types on the Gantt timeline: pointer-drag pan, wheel zoom, and edge-handle resize.
+ * `viewRef` is updated synchronously on every render and inside wheel/pointer callbacks so closures always read the latest view window.
+ * `attachWheel` stamps a `_wheelAttached` flag on the element to prevent duplicate non-passive wheel listeners.
+ */
 import { useState, useRef } from 'react';
 
 type ResizeType = 'milestone' | 'sprint' | 'sprint-start' | 'product';
@@ -13,10 +18,12 @@ interface Options {
 }
 
 export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: Options) {
+  // State: null means no zoom applied (full range shown)
   const [viewStart, setViewStart] = useState<Date | null>(null);
   const [viewEnd, setViewEnd] = useState<Date | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  // Refs hold mutable interaction state so wheel/pointer closures avoid stale values
   const viewRef = useRef({ vs: new Date(), ve: new Date(), fullStart: new Date(), fullEnd: new Date() });
   const dragState = useRef<{ startX: number; vs: Date; ve: Date } | null>(null);
   const resizeState = useRef<{ type: ResizeType; id: string } | null>(null);
@@ -30,6 +37,7 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
   viewRef.current.fullStart = fullStart;
   viewRef.current.fullEnd = fullEnd;
 
+  // Zoom: shrinks/expands the view window around an anchor point (0–1 ratio of timeline width)
   function applyZoom(factor: number, anchorRatio = 0.5) {
     const { vs: v, ve: e, fullStart: fs, fullEnd: fe } = viewRef.current;
     const span = e.getTime() - v.getTime();
@@ -47,6 +55,7 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
     setViewEnd(new Date(newEnd));
   }
 
+  // Wheel: horizontal scroll pans the view; vertical scroll zooms anchored to the mouse position
   const attachWheel = (el: HTMLDivElement | null) => {
     if (!el) return;
     if ((el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached) return;
@@ -95,6 +104,7 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
     }, { passive: false });
   };
 
+  // Pointer handlers: distinguish resize (data-resize element) from pan (empty area)
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     const { vs: v, ve: en } = viewRef.current;
     if (e.button !== 0) return;

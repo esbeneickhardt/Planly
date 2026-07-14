@@ -1,5 +1,5 @@
 /**
- * Notification routes — list, mark-read, and clear in-app notifications for the
+ * Notification routes - list, mark-read, and clear in-app notifications for the
  * authenticated user.
  *
  * Notifications are created by createNotification() throughout the app for events like

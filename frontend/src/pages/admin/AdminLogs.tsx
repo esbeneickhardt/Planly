@@ -1,3 +1,8 @@
+/**
+ * Admin Audit Logs panel displaying a cursor-paginated, filterable list of server audit events.
+ * Supports filtering by action type and date range, cursor-based "load more" pagination,
+ * CSV/JSONL export, and a prune tool (founding admin only) that permanently deletes old entries.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import { ACTION_LABELS, type AdminLogEntry } from './types';
@@ -18,6 +23,7 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
   const [pruneDays, setPruneDays] = useState('90');
   const [pruneConfirm, setPruneConfirm] = useState(false);
 
+  // append=true is used by "Load more" to concatenate pages; false (default) replaces the list
   async function fetchLogs(opts?: { cursor?: string; action?: string; from?: string; to?: string; append?: boolean }) {
     try {
       const res = await api.admin.logs({ cursor: opts?.cursor, action: opts?.action, from: opts?.from, to: opts?.to });

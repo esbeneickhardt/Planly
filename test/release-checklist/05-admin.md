@@ -118,10 +118,18 @@ curl -s -b cookies.txt -X DELETE $BASE/api/admin/users/<user-id> \
   -H "X-CSRF-Token: $CSRF" | jq .
 ```
 
-- [ ] Delete a regular user → removed from list; their data handled gracefully
-- [ ] Cannot delete yourself → clear error
+- [ ] Delete a regular user → removed from admin user list
+- [ ] Cannot delete yourself → 400 with clear error
 - [ ] Cannot delete the founding admin → clear error
 - [ ] Deleted user cannot log in
+
+**Data residue checks after admin-deleting a user:**
+
+- [ ] Tasks the user owned still exist - `ownerId` set to `null` (unassigned), task not deleted
+- [ ] Tasks the user was reviewing still exist - `reviewerId` set to `null`
+- [ ] Messages the user sent in task chats are **deleted**
+- [ ] Announcements they authored survive and display as "Deleted user"
+- [ ] Their team memberships are removed
 
 ---
 

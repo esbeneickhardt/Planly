@@ -1,5 +1,5 @@
 /**
- * Analytics routes — aggregate statistics for a project's Analytics tab.
+ * Analytics routes - aggregate statistics for a project's Analytics tab.
  *
  * Computes throughput (tasks completed per week), workload distribution per assignee,
  * cycle velocity (average days from start to completion), and priority breakdown.
@@ -16,7 +16,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     if (!await requireTabRead(productId, req.user.userId, ['analytics'], reply)) return;
 
-    // If analytics is disabled, only the product owner or team co-owner may view it
+    // Verify analytics access — owners and co-owners can view even when disabled
     const product = await prisma.product.findUnique({
       where: { id: productId },
       select: { analyticsEnabled: true, ownerId: true, teamId: true },
@@ -40,7 +40,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     since90.setDate(since90.getDate() - 89);
     since90.setHours(0, 0, 0, 0);
 
-    // Tasks completed in last 90 days
+    // 90-day throughput: tasks completed per day
     const completedRecent = await prisma.task.findMany({
       where: { productId, deletedAt: null, completedAt: { gte: since90 } },
       select: { completedAt: true, completedBy: true },
@@ -60,7 +60,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     }
     const tasksByDay = Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }));
 
-    // Average cycle time
+    // Average cycle time: creation-to-completion across all completed tasks
     const cycleTimeTasks = await prisma.task.findMany({
       where: { productId, deletedAt: null, completedAt: { not: null } },
       select: { createdAt: true, completedAt: true },
@@ -112,6 +112,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
 
     const userId = req.user.userId;
 
+    // Fetch active task breakdown by status, recent completions, and all-time total in parallel
     const [activeGroups, completedRecent, totalCompleted] = await Promise.all([
       prisma.task.groupBy({
         by: ['status'],

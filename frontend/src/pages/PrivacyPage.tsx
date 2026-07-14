@@ -1,13 +1,37 @@
+/**
+ * PrivacyPage - displays the Privacy Policy.
+ *
+ * Fetches the server contact email on mount so every deployment shows the
+ * admin's own address rather than the hardcoded planly.app placeholder.
+ * Back button falls back to '/' when there is no browser history (direct URL).
+ */
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../api/client';
 
 export default function PrivacyPage() {
   const navigate = useNavigate();
+  const [contactEmail, setContactEmail] = useState('');
+
+  useEffect(() => {
+    api.publicConfig().then(cfg => setContactEmail(cfg.contactEmail)).catch(() => {});
+  }, []);
+
+  function goBack() {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/');
+  }
+
+  function EmailLink() {
+    if (!contactEmail) return <>the administrator</>;
+    return <a href={`mailto:${contactEmail}`} style={{ color: 'var(--brand)' }}>{contactEmail}</a>;
+  }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       <div className="max-w-3xl mx-auto px-6 py-12">
         <button
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="mb-8 text-sm flex items-center gap-1"
           style={{ color: 'var(--text-3)' }}
         >
@@ -26,9 +50,7 @@ export default function PrivacyPage() {
             <p style={{ color: 'var(--text-2)' }}>
               Planly ("we", "our", "the Service") is a project management platform. For questions about
               your personal data, contact us at{' '}
-              <a href="mailto:privacy@planly.app" style={{ color: 'var(--brand)' }}>
-                privacy@planly.app
-              </a>
+              <EmailLink />
               .
             </p>
           </section>
@@ -93,7 +115,7 @@ export default function PrivacyPage() {
               <li>Notifications: deleted after <strong>90 days</strong></li>
               <li>Activity log entries: deleted after <strong>180 days</strong></li>
               <li>Soft-deleted tasks: permanently deleted after <strong>365 days</strong></li>
-              <li>Admin audit logs: deleted after <strong>365 days</strong> (configurable per deployment)</li>
+              <li>Admin audit logs: deleted after <strong>90 days by default</strong> (configurable per deployment via <code>ADMIN_LOG_RETENTION_DAYS</code>)</li>
               <li>Active account data: retained until account deletion is requested</li>
             </ul>
           </section>
@@ -104,7 +126,7 @@ export default function PrivacyPage() {
               <li>
                 Sensitive fields (real name, phone number) are encrypted at rest using AES-256-GCM.
               </li>
-              <li>All traffic is encrypted in transit using TLS 1.2+.</li>
+              <li>All traffic is encrypted in transit using TLS 1.2 or higher (TLS 1.3 negotiated where supported by the client).</li>
               <li>Passwords are hashed using bcrypt (cost factor 12).</li>
               <li>Session tokens are stored in httpOnly, SameSite=Lax cookies.</li>
               <li>Database backups are encrypted before offsite storage.</li>
@@ -118,16 +140,21 @@ export default function PrivacyPage() {
             </p>
             <ul className="mt-2 space-y-1 pl-5 list-disc" style={{ color: 'var(--text-2)' }}>
               <li>
-                <strong>Right of access (Art. 15):</strong> Download a full export of your data at any
-                time via Settings → Export my data.
+                <strong>Right of access (Art. 15):</strong> Request a copy of all personal data held
+                about you — see portability (Art. 20) below for the self-service export option.
               </li>
               <li>
                 <strong>Right to erasure (Art. 17):</strong> Delete your account via Settings → Delete
-                Account. This permanently removes all your personal data.
+                Account. Your profile, messages, and notifications are permanently deleted. Tasks you
+                were assigned to or created remain in the project (they belong to your team) but your
+                name is removed from them. Announcements you authored remain visible but are attributed
+                to "Deleted user".
               </li>
               <li>
-                <strong>Right to data portability (Art. 20):</strong> Your export is provided in
-                machine-readable JSON format.
+                <strong>Right to data portability (Art. 20):</strong> Download a complete JSON export
+                of all data held about you: profile, every task you created or are assigned to, all
+                messages and comments you authored, team memberships, notifications, and API token
+                names. Available any time via Settings → Export my data.
               </li>
               <li>
                 <strong>Right to rectification (Art. 16):</strong> Update your profile at any time via
@@ -135,9 +162,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Right to restriction and objection (Arts. 18–21):</strong> Contact us at{' '}
-                <a href="mailto:privacy@planly.app" style={{ color: 'var(--brand)' }}>
-                  privacy@planly.app
-                </a>
+                <EmailLink />
                 .
               </li>
             </ul>
@@ -176,9 +201,7 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold mb-3">8. Contact & Data Subject Requests</h2>
             <p style={{ color: 'var(--text-2)' }}>
               To exercise your rights or to submit a data subject access request (DSAR), email{' '}
-              <a href="mailto:privacy@planly.app" style={{ color: 'var(--brand)' }}>
-                privacy@planly.app
-              </a>{' '}
+              <EmailLink />{' '}
               with your account email address and a description of your request. We will verify your
               identity and respond within 30 days.
             </p>

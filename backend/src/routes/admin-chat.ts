@@ -1,5 +1,5 @@
 /**
- * Admin chat routes — the private admin-only message channel.
+ * Admin chat routes - the private admin-only message channel.
  *
  * Admin chat is a server-wide message thread visible only to users with isAdmin: true.
  * It supports the same features as project messages (emoji reactions, file attachments)
@@ -12,10 +12,12 @@ import { requireAdmin } from '../middleware/auth';
 import { MESSAGE_INCLUDE } from '../db/selects';
 import { validate } from '../utils/validate';
 
+// Request body schemas
 const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
 
 const attachmentSchema = z.object({
-  url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment — only uploads from this server are allowed'),
+  // Restrict attachment URLs to this server's own upload paths to prevent link-injection
+  url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
   name: z.string(),
   type: z.string(),
 });
@@ -25,6 +27,7 @@ const createMessageSchema = z.object({
 });
 const editMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 
+// 15-minute window after posting during which an author can edit their message
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000;
 
 export async function adminChatRoutes(app: FastifyInstance) {
@@ -85,6 +88,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
 
+    // Toggle: remove if the user already reacted with this emoji, otherwise add
     const key = { messageId, userId: req.user.userId, emoji };
     const existing = await prisma.messageReaction.findUnique({ where: { messageId_userId_emoji: key } });
     if (existing) {
@@ -92,6 +96,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     } else {
       await prisma.messageReaction.create({ data: key });
     }
+    // Return the full updated reaction set so the client can replace its local state
     const reactions = await prisma.messageReaction.findMany({ where: { messageId }, select: { emoji: true, userId: true } });
     reply.send({ reactions });
   });

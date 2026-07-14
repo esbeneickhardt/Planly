@@ -1,5 +1,5 @@
 /**
- * Personal data export route (GDPR portability) — returns a complete JSON
+ * Personal data export route (GDPR portability) - returns a complete JSON
  * document of all data the platform holds about the authenticated user.
  *
  * Includes profile, notification preferences, team memberships, tasks, comments,
@@ -11,12 +11,13 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { decryptUserPii } from '../utils/crypto';
 
-// GDPR data-portability export — returns everything the platform holds about
+// GDPR data-portability export - returns everything the platform holds about
 // the authenticated user as a single JSON document.
 export async function meExportRoutes(app: FastifyInstance) {
   app.get('/api/me/export', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user.userId;
 
+    // Fetch all user data across tables in parallel
     const [user, tasks, messages, notifications, apiTokens, announcements, comments, accessRequests, teamMemberships] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
@@ -38,13 +39,11 @@ export async function meExportRoutes(app: FastifyInstance) {
         where: { authorId: userId },
         select: { id: true, content: true, createdAt: true, productId: true, taskId: true },
         orderBy: { createdAt: 'desc' },
-        take: 2000,
       }),
       prisma.notification.findMany({
         where: { userId },
         select: { id: true, type: true, title: true, body: true, read: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
-        take: 500,
       }),
       prisma.apiToken.findMany({
         where: { userId },
@@ -70,6 +69,7 @@ export async function meExportRoutes(app: FastifyInstance) {
       }),
     ]);
 
+    // Return as a named JSON attachment with PII fields decrypted
     reply
       .header('Content-Type', 'application/json; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="planly-export-${userId}.json"`)

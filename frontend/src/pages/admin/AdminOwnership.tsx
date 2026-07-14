@@ -1,3 +1,8 @@
+/**
+ * Admin Ownership panel displaying the current server owner and all admins, with a crown-transfer
+ * form visible only to the founding admin.  Transferring ownership demotes the current owner
+ * to a regular admin while promoting the chosen target to the protected founding-admin seat.
+ */
 import { useState } from 'react';
 import { api } from '../../api/client';
 import type { AdminUser } from './types';
@@ -14,6 +19,7 @@ export default function AdminOwnership({
   users, isFoundingAdmin, currentUserId, onUsersChanged, showToast,
 }: Props) {
   const [transferTarget, setTransferTarget] = useState('');
+  // Only other admins are valid transfer targets; non-admins must be promoted first
   const otherAdmins = users.filter((u) => u.isAdmin && u.id !== currentUserId);
 
   return (

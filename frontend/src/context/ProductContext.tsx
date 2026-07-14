@@ -1,3 +1,8 @@
+/**
+ * Core data context that owns the product list, active product selection, and task list.
+ * `patchTaskPositions` updates canvas coordinates in the local cache without an API round-trip.
+ * Subscribes to WebSocket task events via `useRealtimeUpdates` and resets tasks when the active product changes.
+ */
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { api } from '../api/client';
 import type { Product, Task } from '../types';
@@ -20,6 +25,7 @@ interface ProductContextValue {
 const ProductContext = createContext<ProductContextValue | null>(null);
 
 export function ProductProvider({ children }: { children: ReactNode }) {
+  // State
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [activeProduct, setActiveProductState] = useState<Product | null>(null);
@@ -52,6 +58,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  // Realtime: refresh task list on any task-related WS event
   useRealtimeUpdates(activeProduct?.id, useCallback((e) => {
     if (e.event === 'task.created' || e.event === 'task.updated' || e.event === 'task.deleted' ||
         e.event === 'task.status_changed' || e.event === 'task.assigned') {
@@ -59,6 +66,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshTasks]));
 
+  // Effects: load products on login; reload tasks when active product changes
   useEffect(() => {
     if (user) refreshProducts();
   }, [user, refreshProducts]);
@@ -68,6 +76,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     else setTasks([]);
   }, [activeProduct, refreshTasks]);
 
+  // Actions
   function setActiveProduct(p: Product) {
     if (activeProduct?.id === p.id) return;
     setActiveProductState(p);

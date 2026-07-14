@@ -1,5 +1,8 @@
 /**
  * Admin server config and email whitelist routes.
+ * Manages the singleton ServerConfig row and the EmailWhitelist table.
+ * When email verification is toggled on, this module immediately sends verification
+ * emails to all currently-unverified users if SMTP is configured.
  */
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -60,8 +63,11 @@ export async function adminConfigRoutes(app: FastifyInstance) {
     if (!cfgBody) return;
     const { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } = cfgBody;
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+
+    // Snapshot the config before the update so we can detect transitions (e.g. verification just turned on)
     const prevConfig = await getServerConfig();
 
+    // Upsert only the fields present in the request body; omit undefined fields to avoid overwriting with nulls
     await prisma.serverConfig.upsert({
       where: { id: 'main' },
       update: {
@@ -77,6 +83,7 @@ export async function adminConfigRoutes(app: FastifyInstance) {
       data: { action: 'SERVER_CONFIG_UPDATED', actorName: actor?.username, metadata: { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } },
     });
 
+    // Bulk-send verification emails when the feature is toggled on for the first time
     let verificationEmailsSent = 0;
     if (requireEmailVerification === true && !prevConfig.requireEmailVerification) {
       const smtp = await getSmtpSettings();
@@ -84,6 +91,7 @@ export async function adminConfigRoutes(app: FastifyInstance) {
         const unverified = await prisma.user.findMany({ where: { emailVerified: false }, select: { id: true, email: true, username: true } });
         req.log.info(`[email-verification] Sending verification emails to ${unverified.length} unverified user(s)`);
         const results = await Promise.allSettled(unverified.map(async (u) => {
+          // Store only the hash; the raw token goes in the email link
           const raw = randomBytes(32).toString('hex');
           const tokenHash = createHash('sha256').update(raw).digest('hex');
           await prisma.emailVerifyToken.create({ data: { userId: u.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });

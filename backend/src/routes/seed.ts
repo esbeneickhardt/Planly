@@ -1,5 +1,5 @@
 /**
- * Seed routes — admin-only endpoint to populate a fresh instance with demo data.
+ * Seed routes - admin-only endpoint to populate a fresh instance with demo data.
  *
  * Creates a sample team, project, columns, sprints, tasks, and users so the app
  * is ready to demo immediately after installation. Requires isAdmin access.
@@ -19,11 +19,11 @@ export async function seedRoutes(app: FastifyInstance) {
     const userId = req.user.userId;
 
     // Create a second demo user with a random unguessable password (never revealed)
-    let demoUser = await prisma.user.findUnique({ where: { username: 'sara' } });
+    let demoUser = await prisma.user.findUnique({ where: { username: 'prof_korolev' } });
     if (!demoUser) {
       const demoPassword = randomBytes(32).toString('hex');
       demoUser = await prisma.user.create({
-        data: { username: 'sara', email: 'sara@planly.dev', passwordHash: await bcrypt.hash(demoPassword, 12), realName: 'Sara Chen', avatarEmoji: '👩‍💻', emailVerified: true },
+        data: { username: 'prof_korolev', email: 'wernher.korolev@planly.dev', passwordHash: await bcrypt.hash(demoPassword, 12), realName: 'Prof. Wernher Korolev', avatarEmoji: '🧑‍🔬', emailVerified: true },
       });
     }
 
@@ -236,6 +236,130 @@ export async function seedRoutes(app: FastifyInstance) {
     // Connect final milestone to the product node
     await prisma.productConnection.create({ data: { productId: p2.id, taskId: bm7.id } });
 
-    reply.send({ ok: true, products: [p1.id, p2.id] });
+    // ── Product 3: Rocket Build (fun demo) ───────────────────────────
+    const team3 = await prisma.team.create({
+      data: { name: 'Rocket Team', members: { create: [{ userId }, { userId: demoUser.id }] } },
+    });
+    const p3deadline = new Date(); p3deadline.setDate(p3deadline.getDate() + 180);
+    const p3 = await prisma.product.create({
+      data: { name: 'Build a Rocket', emoji: '🚀', description: 'Design, build, and launch a single-stage rocket. From concept to launch in 180 days.', deadline: p3deadline, teamId: team3.id, ownerId: userId },
+    });
+
+    const t3 = (data: TaskInput & { canvasX?: number; canvasY?: number }) =>
+      prisma.task.create({ data: { ...data, productId: p3.id, createdBy: userId } });
+
+    // Phase 1 - Concept & Design (done) ── purple
+    const r1  = await t3({ name: 'Define mission objectives',     status: 'done',        ownerId: userId,      color: '#7c3aed', completedAt: new Date(), completedBy: userId, canvasX:  80, canvasY: 250 });
+    const r2  = await t3({ name: 'Payload requirements',          status: 'done',        ownerId: demoUser.id, color: '#7c3aed', completedAt: new Date(), completedBy: userId, canvasX:  80, canvasY: 400 });
+    const r3  = await t3({ name: 'Trajectory simulation',         status: 'done',        ownerId: userId,      color: '#7c3aed', completedAt: new Date(), completedBy: userId, canvasX:  80, canvasY: 550 });
+    const r4  = await t3({ name: 'Design review & sign-off',      status: 'done',        ownerId: userId,      color: '#7c3aed', completedAt: new Date(), completedBy: userId, canvasX: 260, canvasY: 400 });
+
+    // Phase 2 - Propulsion (in_progress / todo) ── red
+    const r5  = await t3({ name: 'Engine specification',          status: 'in_progress', ownerId: userId,      color: '#ef4444', canvasX: 580, canvasY: 150 });
+    const r6  = await t3({ name: 'Fuel system design',            status: 'in_progress', ownerId: demoUser.id, color: '#ef4444', canvasX: 580, canvasY: 300 });
+    const r7  = await t3({ name: 'Thrust chamber fabrication',    status: 'todo',        ownerId: userId,      color: '#ef4444', canvasX: 740, canvasY: 150 });
+    const r8  = await t3({ name: 'Static fire test',              status: 'todo',        ownerId: userId,      color: '#ef4444', canvasX: 740, canvasY: 300 });
+
+    // Phase 3 - Structural Engineering (todo) ── blue
+    const r9  = await t3({ name: 'Airframe design',               status: 'todo',        ownerId: demoUser.id, color: '#3b82f6', canvasX: 580, canvasY: 470 });
+    const r10 = await t3({ name: 'Material selection',            status: 'todo',        ownerId: userId,      color: '#3b82f6', canvasX: 580, canvasY: 620 });
+    const r11 = await t3({ name: 'Nose cone fabrication',         status: 'backlog',     ownerId: demoUser.id, color: '#3b82f6', canvasX: 740, canvasY: 470 });
+    const r12 = await t3({ name: 'Fin & interstage assembly',     status: 'backlog',     ownerId: userId,      color: '#3b82f6', canvasX: 740, canvasY: 620 });
+
+    // Milestones: Engine Test & Structural Complete ── amber
+    const rd60 = new Date(); rd60.setDate(rd60.getDate() + 60);
+    const rd80 = new Date(); rd80.setDate(rd80.getDate() + 80);
+    const rm2 = await t3({ name: 'Engine Test Complete',          status: 'backlog',     ownerId: userId,      color: '#f59e0b', deadline: rd60, canvasX: 900, canvasY: 225 });
+    const rm3 = await t3({ name: 'Structural Complete',           status: 'backlog',     ownerId: demoUser.id, color: '#f59e0b', deadline: rd80, canvasX: 900, canvasY: 545 });
+
+    // Phase 4 - Avionics & Software (backlog) ── green
+    const r13 = await t3({ name: 'Flight computer design',        status: 'backlog',     ownerId: userId,      color: '#10b981', canvasX: 1060, canvasY: 100 });
+    const r14 = await t3({ name: 'Navigation & GPS integration',  status: 'backlog',     ownerId: demoUser.id, color: '#10b981', canvasX: 1060, canvasY: 250 });
+    const r15 = await t3({ name: 'Telemetry system',              status: 'backlog',     ownerId: userId,      color: '#10b981', canvasX: 1060, canvasY: 400 });
+    const r16 = await t3({ name: 'Flight software',               status: 'backlog',     ownerId: demoUser.id, color: '#10b981', canvasX: 1220, canvasY: 250 });
+
+    // Phase 5 - Ground Systems (backlog) ── amber
+    const r17 = await t3({ name: 'Launch pad design',             status: 'backlog',     ownerId: userId,      color: '#f59e0b', canvasX: 1060, canvasY: 580 });
+    const r18 = await t3({ name: 'Fuel loading system',           status: 'backlog',     ownerId: demoUser.id, color: '#f59e0b', canvasX: 1060, canvasY: 730 });
+    const r19 = await t3({ name: 'Range safety system',           status: 'backlog',     ownerId: userId,      color: '#f59e0b', canvasX: 1220, canvasY: 650 });
+
+    // Milestone: Systems Integration
+    const rd120 = new Date(); rd120.setDate(rd120.getDate() + 120);
+    const rm4 = await t3({ name: 'Systems Integration Complete',  status: 'backlog',     ownerId: userId,      color: '#f59e0b', deadline: rd120, canvasX: 1380, canvasY: 400 });
+
+    // Phase 6 - Testing (backlog) ── cyan
+    const r20 = await t3({ name: 'Component integration',         status: 'backlog',     ownerId: userId,      color: '#06b6d4', canvasX: 1540, canvasY: 200 });
+    const r21 = await t3({ name: 'Vibration & acoustic testing',  status: 'backlog',     ownerId: demoUser.id, color: '#06b6d4', canvasX: 1540, canvasY: 380 });
+    const r22 = await t3({ name: 'Full systems test',             status: 'backlog',     ownerId: userId,      color: '#06b6d4', canvasX: 1700, canvasY: 280 });
+    const r23 = await t3({ name: 'Launch rehearsal',              status: 'backlog',     ownerId: demoUser.id, color: '#06b6d4', canvasX: 1700, canvasY: 480 });
+
+    // Final milestones
+    const rd160 = new Date(); rd160.setDate(rd160.getDate() + 160);
+    const rd180 = new Date(); rd180.setDate(rd180.getDate() + 180);
+    const rm5 = await t3({ name: 'Launch Ready',                  status: 'backlog',     ownerId: userId,      color: '#f59e0b', deadline: rd160, canvasX: 1860, canvasY: 380 });
+    const rm6 = await t3({ name: '🚀 Launch Day!',                status: 'backlog',     ownerId: userId,      color: '#f59e0b', deadline: rd180, canvasX: 2020, canvasY: 380 });
+
+    // Design Freeze milestone (placed between phase 1 and rest)
+    const rd20 = new Date(); rd20.setDate(rd20.getDate() + 20);
+    const rm1 = await t3({ name: 'Design Freeze',                 status: 'in_progress', ownerId: userId,      color: '#f59e0b', deadline: rd20, canvasX: 420, canvasY: 400 });
+
+    await prisma.subtask.createMany({ data: [
+      { taskId: r3.id,  name: 'Calculate orbit & delta-v budget',  completed: true,  order: 0 },
+      { taskId: r3.id,  name: 'Re-entry heating analysis',         completed: true,  order: 1 },
+      { taskId: r3.id,  name: 'Apogee & recovery zone mapping',    completed: true,  order: 2 },
+      { taskId: r7.id,  name: 'Machine combustion chamber',        completed: false, order: 0 },
+      { taskId: r7.id,  name: 'Injector plate design',             completed: false, order: 1 },
+      { taskId: r7.id,  name: 'Nozzle fabrication',                completed: false, order: 2 },
+      { taskId: r22.id, name: 'Go/No-go systems checklist',        completed: false, order: 0 },
+      { taskId: r22.id, name: 'Countdown simulation',              completed: false, order: 1 },
+      { taskId: r22.id, name: 'Post-test inspection & sign-off',   completed: false, order: 2 },
+    ]});
+
+    // Phase 1 internal deps
+    await dep(r2.id, r1.id); await dep(r3.id, r1.id);
+    await dep(r4.id, r2.id); await dep(r4.id, r3.id);
+
+    // Design Freeze gates everything
+    await dep(rm1.id, r4.id);
+    await dep(r5.id,  rm1.id); await dep(r6.id,  rm1.id);
+    await dep(r9.id,  rm1.id); await dep(r10.id, rm1.id);
+    await dep(r13.id, rm1.id); await dep(r14.id, rm1.id); await dep(r15.id, rm1.id);
+    await dep(r17.id, rm1.id);
+
+    // Phase 2 - Propulsion
+    await dep(r7.id, r5.id); await dep(r7.id, r6.id);
+    await dep(r8.id, r7.id);
+    await dep(rm2.id, r8.id);
+
+    // Phase 3 - Structural
+    await dep(r11.id, r9.id); await dep(r11.id, r10.id);
+    await dep(r12.id, r11.id);
+    await dep(rm3.id, r12.id);
+
+    // Phase 4 - Avionics
+    await dep(r16.id, r13.id); await dep(r16.id, r14.id);
+
+    // Phase 5 - Ground systems
+    await dep(r18.id, r17.id);
+    await dep(r19.id, r17.id);
+
+    // Systems Integration needs propulsion, structural, and avionics done
+    await dep(rm4.id, rm2.id); await dep(rm4.id, rm3.id);
+    await dep(rm4.id, r16.id); await dep(rm4.id, r15.id);
+    await dep(rm4.id, r18.id); await dep(rm4.id, r19.id);
+
+    // Phase 6 - Testing
+    await dep(r20.id, rm4.id);
+    await dep(r21.id, r20.id);
+    await dep(r22.id, r21.id);
+    await dep(r23.id, r22.id);
+
+    // Final milestones
+    await dep(rm5.id, r23.id);
+    await dep(rm6.id, rm5.id);
+
+    await prisma.productConnection.create({ data: { productId: p3.id, taskId: rm6.id } });
+
+    reply.send({ ok: true, products: [p1.id, p2.id, p3.id] });
   });
 }

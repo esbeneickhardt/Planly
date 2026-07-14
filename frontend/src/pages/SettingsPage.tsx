@@ -1,3 +1,8 @@
+/**
+ * Project settings shell gated to owners and co-owners, rendering sub-panels via a tab strip.
+ * Active tab is synced with the `?tab=` search param so links can deep-link to a specific panel.
+ * The team is fetched here and passed to sub-panels so they share a single up-to-date copy.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -40,6 +45,7 @@ export default function SettingsPage() {
     return PAGE_TABS.some((p) => p.key === t) ? t! : 'project';
   });
 
+  // Keep active tab in sync when the URL changes (e.g. browser back/forward or external link)
   useEffect(() => {
     const t = searchParams.get('tab') as SettingsTab | null;
     if (t && PAGE_TABS.some((p) => p.key === t)) setActiveTab(t);

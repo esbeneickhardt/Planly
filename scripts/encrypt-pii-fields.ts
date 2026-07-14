@@ -5,7 +5,7 @@
  *   ENCRYPTION_KEY=<key> DATABASE_URL=<url> npx tsx scripts/encrypt-pii-fields.ts
  *
  * Run ONCE after deploying the code that uses encryptValue/decryptValue on these fields.
- * The script is idempotent — it skips rows that already look like encrypted values
+ * The script is idempotent - it skips rows that already look like encrypted values
  * (i.e. contain ':' separators from the "<iv>:<tag>:<ciphertext>" format).
  */
 import { PrismaClient } from '@prisma/client';

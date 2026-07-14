@@ -1,9 +1,9 @@
 /**
- * Personal Access Token (PAT) routes — create and revoke long-lived API tokens
+ * Personal Access Token (PAT) routes - create and revoke long-lived API tokens
  * for scripting, CI/CD pipelines, and personal automations.
  *
  * Token values are raw random bytes returned only at creation. The database
- * stores a SHA-256 hash — the raw value can never be recovered from the DB.
+ * stores a SHA-256 hash - the raw value can never be recovered from the DB.
  * Tokens can be optionally scoped to a single project (productId), restricting
  * them from accessing any other project or admin endpoints.
  */
@@ -52,9 +52,11 @@ export async function apiTokenRoutes(app: FastifyInstance) {
       if (!membership) return reply.status(403).send({ error: 'You are not a member of that project' });
     }
 
+    // Enforce per-user token limit
     const existingCount = await prisma.apiToken.count({ where: { userId: req.user.userId } });
     if (existingCount >= 25) return reply.status(400).send({ error: 'Maximum 25 tokens allowed per user. Revoke an existing token first.' });
 
+    // Generate token value and hash for storage
     // Format: planly_<48 hex chars> = 55 chars total, easy to identify in logs
     const rawToken = `planly_${randomBytes(24).toString('hex')}`;
     const tokenHash = hashToken(rawToken);

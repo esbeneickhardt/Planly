@@ -1,9 +1,9 @@
 /**
- * useCanvasSnapshots — loads and saves task node positions for the Canvas view.
+ * useCanvasSnapshots - loads and saves task node positions for the Canvas view.
  *
  * Fetches the stored snapshot on mount and provides a save() function that
  * persists the current node positions. Debounces saves to avoid hammering the
- * API on every drag event — callers should call save() on drag-end.
+ * API on every drag event - callers should call save() on drag-end.
  */
 import { useState } from 'react';
 import type { Node } from 'reactflow';
@@ -38,12 +38,14 @@ export function useCanvasSnapshots({
   activeProduct, nodes, getViewport, setViewport, setNodes,
   patchTaskPositions, viewMode, simpleMode, setViewMode, setSimpleMode, save, showToast,
 }: Options) {
+  // State
   const [showShareModal, setShowShareModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [snapshots, setSnapshots] = useState<CanvasSnapshot[]>([]);
   const [snapshotName, setSnapshotName] = useState('');
   const [savingSnapshot, setSavingSnapshot] = useState(false);
 
+  // Actions
   function openShareModal() {
     setSnapshotName('');
     setShowShareModal(true);

@@ -1,10 +1,10 @@
 /**
- * iCal export routes — generate RFC 5545 calendar feeds for task due dates.
+ * iCal export routes - generate RFC 5545 calendar feeds for task due dates.
  *
  * Each user gets a stable, token-authenticated iCal subscription URL that
  * calendar apps (Google Calendar, Apple Calendar, Outlook) can subscribe to.
  * The feed includes all tasks with due dates across projects the user belongs to.
- * The token is a SHA-256 hash stored in the database — rotation invalidates old URLs.
+ * The token is a SHA-256 hash stored in the database - rotation invalidates old URLs.
  */
 import { FastifyInstance } from 'fastify';
 import { createHash, randomBytes } from 'crypto';
@@ -42,6 +42,7 @@ export async function icalRoutes(app: FastifyInstance) {
 
     if (!token) return reply.status(401).send({ error: 'token required' });
 
+    // Authenticate via hashed PAT
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const apiToken = await prisma.apiToken.findUnique({
       where: { tokenHash },
@@ -52,10 +53,12 @@ export async function icalRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
+    // Enforce token-product scope restriction
     if (apiToken.productId && apiToken.productId !== productId) {
       return reply.status(403).send({ error: 'Token not authorized for this product' });
     }
 
+    // Verify token owner is a member of the requested product
     const product = await prisma.product.findFirst({
       where: { id: productId, team: { members: { some: { userId: apiToken.userId } } } },
       select: { id: true, name: true, deadline: true, createdAt: true },
@@ -65,6 +68,7 @@ export async function icalRoutes(app: FastifyInstance) {
 
     prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
 
+    // Fetch tasks with deadlines and sprint windows in parallel
     const [tasks, sprints] = await Promise.all([
       prisma.task.findMany({
         where: { productId, deadline: { not: null }, deletedAt: null },
@@ -78,6 +82,7 @@ export async function icalRoutes(app: FastifyInstance) {
       }),
     ]);
 
+    // Build the iCalendar header
     const stamp = icalDate(new Date());
     const lines: string[] = [
       'BEGIN:VCALENDAR',
@@ -96,7 +101,7 @@ export async function icalRoutes(app: FastifyInstance) {
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${icalDateOnly(new Date(product.deadline))}`,
       `DTEND;VALUE=DATE:${icalDateOnly(addDay(new Date(product.deadline)))}`,
-      `SUMMARY:🏁 ${esc(product.name)} — Project deadline`,
+      `SUMMARY:🏁 ${esc(product.name)} - Project deadline`,
       'CATEGORIES:PROJECT',
       'END:VEVENT',
     );
@@ -160,6 +165,7 @@ export async function icalRoutes(app: FastifyInstance) {
       await prisma.apiToken.deleteMany({ where: { id: { in: existing.map((t) => t.id) } } });
     }
 
+    // Create a new hashed token and return the raw value (shown once)
     const rawToken = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 

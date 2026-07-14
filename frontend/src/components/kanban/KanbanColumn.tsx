@@ -1,3 +1,8 @@
+/**
+ * Kanban column that is both a dnd-kit sortable item (column reorder) and a droppable zone (task drops).
+ * Two refs are used: `setSortableRef` wires the column drag handle; `setDropRef` wires the task drop zone.
+ * Double-clicking the column header activates inline rename; per-column sort mode cycles through 6 options.
+ */
 import { useState, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
@@ -62,6 +67,7 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
   const { canWrite } = usePermission();
   const readOnly = !canWrite('kanban');
 
+  // Column UI state
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(column.label);
   const [sortMode, setSortMode] = useState<SortMode>('default');

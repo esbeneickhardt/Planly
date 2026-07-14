@@ -17,7 +17,7 @@ export default {
           800: '#5b21b6',
           900: '#4c1d95',
         },
-        // Design token colors — backed by CSS variables so they switch across themes
+        // Design token colors - backed by CSS variables so they switch across themes
         canvas:  'var(--bg)',
         surface: { DEFAULT: 'var(--surface)', 2: 'var(--surface-2)' },
         border:  { DEFAULT: 'var(--border)',  2: 'var(--border-2)' },

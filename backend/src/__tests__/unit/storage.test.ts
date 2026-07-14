@@ -143,7 +143,7 @@ describe('generateFilename', () => {
     expect(name).toMatch(/^[a-f0-9]{24}\.txt$/);
   });
 
-  it('is deterministic — same content always produces the same filename', () => {
+  it('is deterministic - same content always produces the same filename', () => {
     const buf = Buffer.from('consistent');
     expect(generateFilename(buf, 'png')).toBe(generateFilename(buf, 'png'));
   });

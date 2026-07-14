@@ -30,7 +30,7 @@ describe('useGanttDragZoom', () => {
     expect(result.current.isResizing).toBe(false);
   });
 
-  it('applyZoom(0.5) zooms in — narrows the view window', () => {
+  it('applyZoom(0.5) zooms in - narrows the view window', () => {
     const opts = makeOptions();
     const { result } = renderHook(() => useGanttDragZoom(opts));
 
@@ -63,7 +63,7 @@ describe('useGanttDragZoom', () => {
     });
     const { result } = renderHook(() => useGanttDragZoom(opts));
 
-    // Zoom in very aggressively — should hit minimum
+    // Zoom in very aggressively - should hit minimum
     act(() => { result.current.applyZoom(0.01); });
 
     const span = result.current.ve.getTime() - result.current.vs.getTime();

@@ -1,5 +1,5 @@
 /**
- * Tab permission routes — manage per-user, per-tab access levels within a project.
+ * Tab permission routes - manage per-user, per-tab access levels within a project.
  *
  * Permission levels: 'write' (full access), 'read' (view-only), 'none' (hidden).
  * Absent row means default write. Owners and co-owners always have write regardless.
@@ -37,6 +37,7 @@ export async function permissionRoutes(app: FastifyInstance) {
         },
       },
     });
+    // Build per-product permission map; owners/co-owners bypass explicit rows
     const result = memberships.flatMap((m) =>
       m.team.products.map((p) => {
         const role = p.ownerId === userId ? 'owner' : m.role;
@@ -64,6 +65,7 @@ export async function permissionRoutes(app: FastifyInstance) {
     const updates = validate(permissionUpdateSchema, req.body, reply);
     if (!updates) return;
 
+    // Load product and verify the caller is owner or co-owner
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: { team: { include: { members: true } } },
@@ -74,6 +76,7 @@ export async function permissionRoutes(app: FastifyInstance) {
     const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
     if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
 
+    // Reject any target user who is not a member of this project's team
     const memberUserIds = new Set(product.team.members.map(m => m.userId));
     for (const u of updates) {
       if (!memberUserIds.has(u.userId)) {
@@ -81,6 +84,7 @@ export async function permissionRoutes(app: FastifyInstance) {
       }
     }
 
+    // Upsert all permission rows atomically
     await prisma.$transaction(
       updates.map(({ userId, tab, level }) =>
         prisma.tabPermission.upsert({

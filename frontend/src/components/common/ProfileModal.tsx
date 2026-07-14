@@ -1,3 +1,8 @@
+/**
+ * Modal form for editing the current user's display name and avatar (emoji or uploaded image).
+ * When `avatarUrl` is set, `avatarEmoji` is cleared before saving so the two don't conflict.
+ * Reloads the page on success so the new avatar propagates to all rendered instances.
+ */
 import { useState } from 'react';
 import Modal from './Modal';
 import AvatarPicker from './AvatarPicker';

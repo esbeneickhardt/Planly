@@ -1,3 +1,8 @@
+/**
+ * Email verification landing page that fires the verify API call automatically on mount using
+ * the `?token=` query param.  Renders a three-state UI: pending spinner, success, or error message.
+ * Users are expected to reach this page by clicking the link in the verification email.
+ */
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -8,6 +13,7 @@ export default function VerifyEmailPage() {
   const [status, setStatus] = useState<'pending' | 'ok' | 'error'>('pending');
   const [message, setMessage] = useState('');
 
+  // Trigger verification on mount; the token is consumed server-side so this can only succeed once
   useEffect(() => {
     if (!token) { setStatus('error'); setMessage('No token found in URL.'); return; }
     api.auth.verifyEmail(token)

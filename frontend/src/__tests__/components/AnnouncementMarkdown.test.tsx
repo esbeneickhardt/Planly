@@ -12,7 +12,7 @@ import { render, screen } from '@testing-library/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-// Minimal MD component map — mirrors the subset from AnnouncementsPage that
+// Minimal MD component map - mirrors the subset from AnnouncementsPage that
 // is relevant to XSS: link and image rendering.
 const MD = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,7 +35,7 @@ function renderMd(content: string) {
   );
 }
 
-describe('Announcement markdown — XSS safety', () => {
+describe('Announcement markdown - XSS safety', () => {
   it('does not render raw <script> tags', () => {
     const { container } = renderMd('<script>window.__ann_xss=1</script>');
     expect(container.querySelectorAll('script')).toHaveLength(0);

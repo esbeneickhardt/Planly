@@ -1,3 +1,8 @@
+/**
+ * dnd-kit sortable card representing a single task in a Kanban column.
+ * `CardContent` is extracted as an inner component so the same JSX renders both the live card and the drag overlay (which passes static no-op props).
+ * Left border colour comes from `task.color`; subtask expand/add controls live directly on the card without opening the detail panel.
+ */
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -109,10 +114,12 @@ function CardContent({ task, onOpenDetail, expanded, setExpanded, addingSubtask,
 
 export default function KanbanCard({ task, onOpenDetail, isOverlay = false }: Props) {
   const { activeProduct, refreshTasks } = useProduct();
+  // Subtask expand + inline-add state lives here, not in the detail panel
   const [expanded, setExpanded] = useState(false);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newName, setNewName] = useState('');
 
+  // dnd-kit sortable: card fades to 0 opacity while being dragged (overlay renders in its place)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { type: 'task' },
@@ -134,6 +141,7 @@ export default function KanbanCard({ task, onOpenDetail, isOverlay = false }: Pr
 
   const borderStyle = task.color ? `3px solid ${task.color}` : '3px solid transparent';
 
+  // Overlay render: static, non-interactive clone shown under the cursor during drag
   if (isOverlay) {
     return (
       <div className="card rounded-xl overflow-hidden" style={{ borderLeft: borderStyle, cursor: 'grabbing' }}>

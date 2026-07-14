@@ -1,3 +1,8 @@
+/**
+ * Left navigation sidebar with collapsible icon-only mode, project switcher, and inline profile editing.
+ * Shows unassigned and overdue task badge counts next to nav items as quick health indicators.
+ * "Load examples" seeds demo products; saving the profile reloads the page to propagate the new avatar everywhere.
+ */
 import { useState } from 'react';
 import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +37,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   const [searchParams, setSearchParams] = useSearchParams();
   const isAdminPage = location.pathname === '/admin';
   const adminTab = searchParams.get('tab') ?? 'ownership';
+
+  // UI state
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
@@ -46,6 +53,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   const [showProductEmojiPicker, setShowProductEmojiPicker] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
 
+  // Badge counts shown in nav (raw — not filtered)
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && new Date(t.deadline) < new Date()).length;
 

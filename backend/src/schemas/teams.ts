@@ -1,3 +1,8 @@
+/**
+ * Zod schemas for team create and update request bodies.
+ * memberIds on create is optional - a team can be created with no initial members
+ * and members added later via the team membership endpoints.
+ */
 import { z } from 'zod';
 
 export const createTeamSchema = z.object({

@@ -76,7 +76,7 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
     const page1 = await app.inject({ method: 'GET', url: '/api/admin/logs?limit=1', cookies: cookieJar(adminCookie) });
     const { logs, nextCursor } = JSON.parse(page1.body) as { logs: { id: string }[]; nextCursor: string | null };
 
-    if (!nextCursor) return; // not enough log entries to page — skip gracefully
+    if (!nextCursor) return; // not enough log entries to page - skip gracefully
 
     const page2 = await app.inject({
       method: 'GET', url: `/api/admin/logs?limit=1&cursor=${nextCursor}`,

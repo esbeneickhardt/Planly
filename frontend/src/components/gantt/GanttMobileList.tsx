@@ -1,3 +1,8 @@
+/**
+ * Mobile-only (`md:hidden`) scrollable milestone list for the Gantt view, shown in place of the timeline chart.
+ * Each milestone card shows a colour-coded progress bar and done-task count; clicking opens the task detail panel.
+ * `progressColor` is exported for reuse in the desktop Gantt row renderer.
+ */
 import type { MilestoneResult } from '../../api/client';
 import type { Task } from '../../types';
 
@@ -23,7 +28,7 @@ export default function GanttMobileList({ visibleMilestones, milestones, hideDon
   return (
     <div className="md:hidden h-full overflow-y-auto px-4 py-3 space-y-2">
       <p className="text-xs font-semibold uppercase tracking-widest mb-3 text-token-3">
-        Milestones — {doneCount}/{milestones.length} done
+        Milestones - {doneCount}/{milestones.length} done
       </p>
       {visibleMilestones.map((m) => {
         const color = progressColor(m);

@@ -1,3 +1,8 @@
+/**
+ * Admin Statistics panel showing server-wide counts (users, projects, tasks, messages) alongside
+ * 30-day new-user and new-project growth figures.  Admin and unverified-user counts are derived
+ * from the shared user list already loaded by the parent AdminPage to avoid a duplicate fetch.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import { StatCard } from './AdminComponents';
