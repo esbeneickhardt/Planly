@@ -37,7 +37,7 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/milestones | jq .
 - [ ] Tasks with deadlines appear as horizontal bars on the timeline
 - [ ] Bar color reflects health:
   - Green = on track (deadline ≥ 7 days out, not done)
-  - Amber = approaching (deadline 1–7 days out)
+  - Amber = approaching (deadline 1-7 days out)
   - Red = overdue or deadline passed
   - Grey/Blue = completed
 - [ ] Hover over a bar → popover shows task name, deadline, status, assignee
