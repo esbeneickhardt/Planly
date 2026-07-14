@@ -1,4 +1,4 @@
-# 08 — Kanban Board
+# 08 - Kanban Board
 
 ← [Back to index](README.md)
 
@@ -37,7 +37,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
   -H "X-CSRF-Token: $CSRF" | jq .
 ```
 
-- [ ] Default columns exist (Backlog, To Do, In Progress, Done — or similar)
+- [ ] Default columns exist (Backlog, To Do, In Progress, Done - or similar)
 - [ ] Create column "In Review" → appears on board as rightmost column
 - [ ] Rename column → name updates on board header
 - [ ] Drag column to reorder → order persists after reload

@@ -1,9 +1,9 @@
-# 21 — Complete API Endpoint Checklist
+# 21 - Complete API Endpoint Checklist
 
 ← [Back to index](README.md)
 
-> **Code references** — route files to cross-check against the tables below
-> - [backend/src/index.ts](../../backend/src/index.ts) — root registration of all route plugins
+> **Code references** - route files to cross-check against the tables below
+> - [backend/src/index.ts](../../backend/src/index.ts) - root registration of all route plugins
 > - [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) · [totp.ts](../../backend/src/routes/totp.ts) · [sso.ts](../../backend/src/routes/sso.ts) · [password-reset.ts](../../backend/src/routes/password-reset.ts)
 > - [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) · [app-registrations.ts](../../backend/src/routes/app-registrations.ts)
 > - [backend/src/routes/users.ts](../../backend/src/routes/users.ts) · [teams.ts](../../backend/src/routes/teams.ts) · [invites.ts](../../backend/src/routes/invites.ts) · [products.ts](../../backend/src/routes/products.ts)
@@ -15,13 +15,13 @@
 > - [backend/src/routes/admin.ts](../../backend/src/routes/admin.ts) · [admin/users.ts](../../backend/src/routes/admin/users.ts) · [admin/config.ts](../../backend/src/routes/admin/config.ts) · [admin/logs.ts](../../backend/src/routes/admin/logs.ts)
 > - [backend/src/routes/permissions.ts](../../backend/src/routes/permissions.ts) · [color-legend.ts](../../backend/src/routes/color-legend.ts) · [access-requests.ts](../../backend/src/routes/access-requests.ts)
 > - [backend/src/routes/realtime.ts](../../backend/src/routes/realtime.ts) · [activity.ts](../../backend/src/routes/activity.ts) · [seed.ts](../../backend/src/routes/seed.ts)
-> - [backend/src/db/selects.ts](../../backend/src/db/selects.ts) — shared Prisma `select` objects (controls which fields are returned in responses)
+> - [backend/src/db/selects.ts](../../backend/src/db/selects.ts) - shared Prisma `select` objects (controls which fields are returned in responses)
 
 Every route exposed by the backend, grouped by resource. For each endpoint, verify:
-1. **Happy path** — correct input, correct auth → expected 2xx
-2. **Auth** — no cookie/token → 401
-3. **Authorization** — wrong role/scope → 403
-4. **Validation** — malformed input → 400 (not 500)
+1. **Happy path** - correct input, correct auth → expected 2xx
+2. **Auth** - no cookie/token → 401
+3. **Authorization** - wrong role/scope → 403
+4. **Validation** - malformed input → 400 (not 500)
 
 Use `TOKEN` for a PAT (unscoped, admin user) and `ALICE_TOKEN` for Alice's PAT.
 Use `PRODUCT_ID` for Alpha Project.

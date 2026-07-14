@@ -1,4 +1,4 @@
-# 17 — Product Settings
+# 17 - Product Settings
 
 ← [Back to index](README.md)
 
@@ -22,7 +22,7 @@ Navigate to Settings in Alpha Project. Test as Admin (co-owner), then verify res
 
 ## General tab (`SettingsGeneral`)
 
-> Code: [frontend/src/pages/settings/SettingsGeneral.tsx](../../frontend/src/pages/settings/SettingsGeneral.tsx) · [backend/src/routes/products.ts](../../backend/src/routes/products.ts) (`PATCH /api/products/:id` — name, emoji, description, deadline)
+> Code: [frontend/src/pages/settings/SettingsGeneral.tsx](../../frontend/src/pages/settings/SettingsGeneral.tsx) · [backend/src/routes/products.ts](../../backend/src/routes/products.ts) (`PATCH /api/products/:id` - name, emoji, description, deadline)
 
 - [ ] Product name editable → updates in project picker after save
 - [ ] Product emoji editable → updates icon
@@ -90,7 +90,7 @@ Full app registration tests in [18-api-tokens-and-apps.md](18-api-tokens-and-app
 
 ## Danger Zone tab (`SettingsDanger`)
 
-> Code: [frontend/src/pages/settings/SettingsDanger.tsx](../../frontend/src/pages/settings/SettingsDanger.tsx) · [backend/src/routes/products.ts](../../backend/src/routes/products.ts) (`DELETE /api/products/:id` — co-owner only) · [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) (leave = remove self from team members)
+> Code: [frontend/src/pages/settings/SettingsDanger.tsx](../../frontend/src/pages/settings/SettingsDanger.tsx) · [backend/src/routes/products.ts](../../backend/src/routes/products.ts) (`DELETE /api/products/:id` - co-owner only) · [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) (leave = remove self from team members)
 
 - [ ] Non-owner sees "Leave project" button
 - [ ] Owner sees "Delete project" button (red)
@@ -103,7 +103,7 @@ Full app registration tests in [18-api-tokens-and-apps.md](18-api-tokens-and-app
 
 ## User profile settings
 
-> Code: [frontend/src/components/common/ProfileModal.tsx](../../frontend/src/components/common/ProfileModal.tsx) (avatar emoji, realName, username) · [frontend/src/components/common/DeleteAccountModal.tsx](../../frontend/src/components/common/DeleteAccountModal.tsx) · [backend/src/routes/users.ts](../../backend/src/routes/users.ts) (`GET/PATCH/DELETE /api/users/:id` — own profile only; realName stored encrypted)
+> Code: [frontend/src/components/common/ProfileModal.tsx](../../frontend/src/components/common/ProfileModal.tsx) (avatar emoji, realName, username) · [frontend/src/components/common/DeleteAccountModal.tsx](../../frontend/src/components/common/DeleteAccountModal.tsx) · [backend/src/routes/users.ts](../../backend/src/routes/users.ts) (`GET/PATCH/DELETE /api/users/:id` - own profile only; realName stored encrypted)
 
 - [ ] Upload profile photo → photo appears in messages and assignments
 - [ ] Select avatar emoji → emoji shown in lieu of photo

@@ -1,4 +1,4 @@
-# 06 — Teams, Products & Membership
+# 06 - Teams, Products & Membership
 
 ← [Back to index](README.md)
 
@@ -40,7 +40,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/teams/<team-id> \
 
 ### Team members
 
-> Code: [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) (`/members` sub-routes — add, list, change role, remove; prevents removing the last co_owner)
+> Code: [backend/src/routes/teams.ts](../../backend/src/routes/teams.ts) (`/members` sub-routes - add, list, change role, remove; prevents removing the last co_owner)
 
 ```bash
 # Add member
@@ -111,7 +111,7 @@ curl -s -b cookies.txt -X POST $BASE/api/teams/<team-id>/invites \
 
 - [ ] Email invite sent to `charlie@test.local` (or logged to console)
 - [ ] Email invite link works only for that exact email
-- [ ] Email invite is single-use — second click rejected
+- [ ] Email invite is single-use - second click rejected
 - [ ] Another user (different email) cannot use the email invite link
 
 ### Invite landing page
@@ -226,7 +226,7 @@ curl -s -b cookies.txt -X PATCH "$BASE/api/products/<product-id>/access-requests
 
 ## Permissions tab (`GET/PUT /api/products/:productId/permissions`)
 
-> Code: [backend/src/routes/permissions.ts](../../backend/src/routes/permissions.ts) (per-user tab permissions — `none`/`read`/`write`) · [frontend/src/context/PermissionContext.tsx](../../frontend/src/context/PermissionContext.tsx) (loads permissions, hides tabs for `none`)
+> Code: [backend/src/routes/permissions.ts](../../backend/src/routes/permissions.ts) (per-user tab permissions - `none`/`read`/`write`) · [frontend/src/context/PermissionContext.tsx](../../frontend/src/context/PermissionContext.tsx) (loads permissions, hides tabs for `none`)
 
 See [22-access-control.md](22-access-control.md) for the full matrix.
 
