@@ -1,4 +1,4 @@
-# 15 — Notifications
+# 15 - Notifications
 
 ← [Back to index](README.md)
 

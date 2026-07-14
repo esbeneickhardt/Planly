@@ -1,4 +1,4 @@
-# 22 — Access Control & RBAC
+# 22 - Access Control & RBAC
 
 ← [Back to index](README.md)
 
@@ -7,7 +7,7 @@ This section tests the full role and permission matrix. Use the four test accoun
 - **Admin** (founding admin, co-owner of Alpha Project)
 - **Alice** (member of Alpha Project, no admin)
 - **Bob** (co-owner of Alpha Project, no server admin)
-- **Charlie** (outsider — not a member of Alpha Project)
+- **Charlie** (outsider - not a member of Alpha Project)
 
 ---
 
@@ -23,9 +23,9 @@ This section tests the full role and permission matrix. Use the four test accoun
 
 ---
 
-## API access by role — task endpoints
+## API access by role - task endpoints
 
-> Code: [backend/src/middleware/auth.ts](../../backend/src/middleware/auth.ts) (`requireAuth` — verifies JWT and membership) · [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (membership check before each handler)
+> Code: [backend/src/middleware/auth.ts](../../backend/src/middleware/auth.ts) (`requireAuth` - verifies JWT and membership) · [backend/src/routes/tasks/crud.ts](../../backend/src/routes/tasks/crud.ts) (membership check before each handler)
 
 For each endpoint and role, expect the listed HTTP status:
 
@@ -42,9 +42,9 @@ For each endpoint and role, expect the listed HTTP status:
 
 ---
 
-## API access by role — admin endpoints
+## API access by role - admin endpoints
 
-> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) · [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) · [backend/src/routes/admin/logs.ts](../../backend/src/routes/admin/logs.ts) — all guarded by `requireAdmin`; prune and transfer-crown additionally check `isFoundingAdmin`
+> Code: [backend/src/routes/admin/users.ts](../../backend/src/routes/admin/users.ts) · [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) · [backend/src/routes/admin/logs.ts](../../backend/src/routes/admin/logs.ts) - all guarded by `requireAdmin`; prune and transfer-crown additionally check `isFoundingAdmin`
 
 | Endpoint | Unauth | Alice | Bob | Admin |
 |---|---|---|---|---|
@@ -77,13 +77,13 @@ Default permissions per SECURITY.md:
 
 ### Test tab permission enforcement for Alice:
 
-- [ ] Alice sees Kanban (write) — can drag tasks
-- [ ] Alice sees Backlog (write) — can create tasks
-- [ ] Alice sees Gantt (read) — can view; cannot create milestones
-- [ ] Alice sees Canvas (write) — can add nodes
-- [ ] Alice sees Messages (write) — can send messages
-- [ ] Alice sees Analytics (read) — can view charts; cannot edit
-- [ ] Alice does NOT see Settings (none) — tab is hidden
+- [ ] Alice sees Kanban (write) - can drag tasks
+- [ ] Alice sees Backlog (write) - can create tasks
+- [ ] Alice sees Gantt (read) - can view; cannot create milestones
+- [ ] Alice sees Canvas (write) - can add nodes
+- [ ] Alice sees Messages (write) - can send messages
+- [ ] Alice sees Analytics (read) - can view charts; cannot edit
+- [ ] Alice does NOT see Settings (none) - tab is hidden
 
 ### Override tab permissions:
 
@@ -169,7 +169,7 @@ Verify that Alpha Project data is not accessible from Beta Project context:
 
 ## CSRF protection
 
-> Code: [backend/src/middleware/csrf.ts](../../backend/src/middleware/csrf.ts) — Layer 1: `Origin` header must match `FRONTEND_ORIGIN`; Layer 2 (no Origin): `X-CSRF-Token` must match `csrf` cookie; Bearer auth bypasses both layers
+> Code: [backend/src/middleware/csrf.ts](../../backend/src/middleware/csrf.ts) - Layer 1: `Origin` header must match `FRONTEND_ORIGIN`; Layer 2 (no Origin): `X-CSRF-Token` must match `csrf` cookie; Bearer auth bypasses both layers
 
 - [ ] `POST /api/products/$PRODUCT_ID/tasks` without `X-CSRF-Token` (cookie session) → 403 "CSRF check failed"
 - [ ] Same request with correct `X-CSRF-Token` → 201

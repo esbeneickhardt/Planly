@@ -1,4 +1,4 @@
-# 18 — API Tokens & App Registrations
+# 18 - API Tokens & App Registrations
 
 ← [Back to index](README.md)
 
@@ -10,7 +10,7 @@ All tests require a running app and admin/member accounts from [01-setup.md](01-
 
 ### Create a PAT
 
-> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (POST — generates raw token shown once; stores SHA-256 hash; accepts optional `productId` for scoping) · [frontend/src/pages/settings/SettingsApps.tsx](../../frontend/src/pages/settings/SettingsApps.tsx) (PAT creation UI)
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (POST - generates raw token shown once; stores SHA-256 hash; accepts optional `productId` for scoping) · [frontend/src/pages/settings/SettingsApps.tsx](../../frontend/src/pages/settings/SettingsApps.tsx) (PAT creation UI)
 
 ```bash
 # Create unscoped PAT (via cookie session)
@@ -22,7 +22,7 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/tokens \
 
 - [ ] Returns 201 with `{ id, name, token, createdAt, expiresAt, productId }`
 - [ ] `token` value starts with `planly_` (or confirm prefix)
-- [ ] `token` value is only shown in this response — NOT returned in subsequent GETs
+- [ ] `token` value is only shown in this response - NOT returned in subsequent GETs
 - [ ] Cannot create a PAT with an empty name → 400
 
 ### Create a product-scoped PAT
@@ -39,7 +39,7 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/tokens \
 
 ### List PATs
 
-> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (GET — returns metadata only; raw token field omitted from select)
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (GET - returns metadata only; raw token field omitted from select)
 
 ```bash
 curl -s -b cookies.txt $BASE/api/auth/tokens | jq '.[] | {id, name, expiresAt, productId}'
@@ -88,7 +88,7 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/tokens \
 
 ### Revoke a PAT
 
-> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (DELETE — removes DB row; subsequent lookup returns 401)
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) (DELETE - removes DB row; subsequent lookup returns 401)
 
 ```bash
 curl -s -b cookies.txt -X DELETE $BASE/api/auth/tokens/<token-id> \
@@ -104,7 +104,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/auth/tokens/<token-id> \
 
 ### Create an app registration
 
-> Code: [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) (create registration — optional `productId` scope; owner stored for access control)
+> Code: [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) (create registration - optional `productId` scope; owner stored for access control)
 
 ```bash
 # Unscoped registration
@@ -147,7 +147,7 @@ curl -s -b cookies.txt -X PATCH $BASE/api/apps/<app-id> \
 
 ### Issue a token for an app registration
 
-> Code: [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) (issue token — raw shown once, SHA-256 hash stored; non-owner rejected)
+> Code: [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) (issue token - raw shown once, SHA-256 hash stored; non-owner rejected)
 
 ```bash
 curl -s -b cookies.txt -X POST $BASE/api/apps/<app-id>/tokens \
@@ -156,7 +156,7 @@ curl -s -b cookies.txt -X POST $BASE/api/apps/<app-id>/tokens \
   -d '{"name":"v1"}' | jq .
 ```
 
-- [ ] Returns raw token — only shown once
+- [ ] Returns raw token - only shown once
 - [ ] Multiple tokens can be issued for one registration (rotation support)
 - [ ] Non-owner cannot issue tokens → 403
 
@@ -209,10 +209,10 @@ curl -s -b cookies.txt -X DELETE $BASE/api/apps/<app-id> \
 
 ## Token security properties
 
-> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) · [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) — raw token hashed with SHA-256 before insert; select never returns the hash field
+> Code: [backend/src/routes/api-tokens.ts](../../backend/src/routes/api-tokens.ts) · [backend/src/routes/app-registrations.ts](../../backend/src/routes/app-registrations.ts) - raw token hashed with SHA-256 before insert; select never returns the hash field
 
 - [ ] Raw token value never returned in any GET response after creation
-- [ ] Tokens stored as SHA-256 hashes — verify no raw values in database (requires DB access)
+- [ ] Tokens stored as SHA-256 hashes - verify no raw values in database (requires DB access)
 - [ ] Token revocation is immediate (no grace period)
 - [ ] Expired PAT is rejected even if not explicitly revoked
 

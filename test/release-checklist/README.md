@@ -1,4 +1,4 @@
-# Planly — Pre-Release Test Plan
+# Planly - Pre-Release Test Plan
 
 Complete pre-release checklist. Every item must be checked before going public. Cross-reference the section files below for the detailed steps. Where a check says "API:" you should also test the same operation via `curl` with a Bearer token to verify both the UI and the API surface behave identically.
 
@@ -7,7 +7,7 @@ Complete pre-release checklist. Every item must be checked before going public. 
 ## How to use this plan
 
 1. Work through sections in the order below.
-2. Set up the **four test user accounts** described in [01-setup.md](01-setup.md) before starting any other section — most checks depend on them.
+2. Set up the **four test user accounts** described in [01-setup.md](01-setup.md) before starting any other section - most checks depend on them.
 3. Mark each checkbox as you go. Do not skip a section even if you think it "obviously works".
 4. Log any failures in the **Bug Log** at the bottom of the relevant section file.
 5. When all files are fully checked, the release is go.
@@ -78,8 +78,8 @@ Copy and paste into a running note as you work:
 
 ## Known gaps (investigate before release)
 
-- [ ] `POST /api/seed-examples` is exposed in production — confirm it is guarded or disabled
-- [ ] `GET /api/metrics` — confirm `METRICS_SECRET` is required in production build
-- [ ] `docs/screenshots/` directory is empty — README references it
-- [ ] `SECURITY.md` lists reporting email `security@planly.app` — confirm it exists/redirects
-- [ ] Icon directories `public/icons/avatars/` and `public/icons/projects/` — confirm any default icons are present
+- [ ] `POST /api/seed-examples` is exposed in production - confirm it is guarded or disabled
+- [ ] `GET /api/metrics` - confirm `METRICS_SECRET` is required in production build
+- [ ] `docs/screenshots/` directory is empty - README references it
+- [ ] `SECURITY.md` lists reporting email `security@planly.app` - confirm it exists/redirects
+- [ ] Icon directories `public/icons/avatars/` and `public/icons/projects/` - confirm any default icons are present

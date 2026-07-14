@@ -1,4 +1,4 @@
-# 19 — Webhooks
+# 19 - Webhooks
 
 ← [Back to index](README.md)
 
@@ -23,7 +23,7 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/webhooks \
   -d "{\"url\":\"$WEBHOOK_URL\",\"events\":[\"task.created\",\"task.updated\"],\"active\":true}" | jq .
 ```
 
-- [ ] Returns 201 with `{ id, url, events, active, secret }` — secret shown once only
+- [ ] Returns 201 with `{ id, url, events, active, secret }` - secret shown once only
 - [ ] `secret` value is a hex string (from AES-256-GCM encrypted storage)
 - [ ] Cannot create webhook with invalid URL (not `https://`) → 400
 - [ ] Cannot create webhook with empty events list → 400
@@ -148,7 +148,7 @@ Copy the `secret` from webhook creation. Verify signatures from received payload
 
 ## Delivery log (`GET /webhooks/:webhookId/deliveries`)
 
-> Code: [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts) (deliveries sub-route — returns attempt history with timestamp, event type, HTTP status from receiver)
+> Code: [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts) (deliveries sub-route - returns attempt history with timestamp, event type, HTTP status from receiver)
 
 ```bash
 curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/webhooks/<wh-id>/deliveries | jq .

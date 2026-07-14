@@ -1,4 +1,4 @@
-# 04 — Authentication & Accounts
+# 04 - Authentication & Accounts
 
 ← [Back to index](README.md)
 
@@ -62,7 +62,7 @@ CSRF=$(grep csrf cookies.txt | awk '{print $NF}')
 
 ## GET /api/auth/me
 
-> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [db/selects.ts](../../backend/src/db/selects.ts) (controls which fields are returned — password hash must be absent)
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [db/selects.ts](../../backend/src/db/selects.ts) (controls which fields are returned - password hash must be absent)
 
 ```bash
 curl -s -b cookies.txt $BASE/api/auth/me | jq .
@@ -76,7 +76,7 @@ curl -s -b cookies.txt $BASE/api/auth/me | jq .
 
 ## Session refresh (`GET /api/auth/refresh`)
 
-> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [middleware/auth.ts](../../backend/src/middleware/auth.ts) (`tokenVersion` increment check — old token rejected on next request)
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [middleware/auth.ts](../../backend/src/middleware/auth.ts) (`tokenVersion` increment check - old token rejected on next request)
 
 ```bash
 curl -s -b cookies.txt -c cookies.txt $BASE/api/auth/refresh | jq .
@@ -105,7 +105,7 @@ curl -s -b cookies.txt -c cookies.txt -X POST $BASE/api/auth/logout \
 
 ## Session invalidation (tokenVersion)
 
-> Code: [middleware/auth.ts](../../backend/src/middleware/auth.ts) — `tokenVersion` field on User; every request checks DB token version matches cookie's claim; increment on password change/reset/admin-force-logout
+> Code: [middleware/auth.ts](../../backend/src/middleware/auth.ts) - `tokenVersion` field on User; every request checks DB token version matches cookie's claim; increment on password change/reset/admin-force-logout
 
 - [ ] Change password → existing session in second tab/window is immediately invalid on next request
 - [ ] Admin forces logout (via admin panel) → target user's session is immediately invalid
@@ -146,8 +146,8 @@ When `requireEmailVerification` is enabled in Admin → Email:
 - [ ] "Resend verification email" link on login page sends a new email
 - [ ] Verification token in email → clicking it verifies the account
 - [ ] After verification, login works
-- [ ] Verification token is single-use — second click shows "already verified" or "invalid token"
-- [ ] Verification token expires after 24 hours — expired link shows clear error
+- [ ] Verification token is single-use - second click shows "already verified" or "invalid token"
+- [ ] Verification token expires after 24 hours - expired link shows clear error
 
 ```bash
 # Trigger email verification send for currently logged-in user
@@ -215,7 +215,7 @@ curl -s -b cookies.txt -X POST $BASE/api/auth/totp/confirm \
 
 ## Password change (`POST /api/auth/change-password`)
 
-> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) (`change-password` handler — increments `tokenVersion`, invalidating all other sessions) · [ChangePasswordPage.tsx](../../frontend/src/pages/ChangePasswordPage.tsx)
+> Code: [routes/auth.ts](../../backend/src/routes/auth.ts) (`change-password` handler - increments `tokenVersion`, invalidating all other sessions) · [ChangePasswordPage.tsx](../../frontend/src/pages/ChangePasswordPage.tsx)
 
 - [ ] Settings → Security → Change Password → enter current + new → works
 - [ ] Wrong current password → 401 error

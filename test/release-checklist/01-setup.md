@@ -1,4 +1,4 @@
-# 01 — Test Setup
+# 01 - Test Setup
 
 ← [Back to index](README.md)
 
@@ -36,7 +36,7 @@ ADMIN_PASS=<admin-password>
 
 Create all four accounts via the registration UI, then adjust roles as noted.
 
-### Account A — Founding Admin
+### Account A - Founding Admin
 | Field | Value |
 |---|---|
 | Email | your ADMIN_EMAIL |
@@ -45,7 +45,7 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 
 - [ ] Log in and confirm the shield button 🛡 is visible
 
-### Account B — Regular member (Alice)
+### Account B - Regular member (Alice)
 | Field | Value |
 |---|---|
 | Email | `alice@test.local` |
@@ -56,7 +56,7 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 - [ ] Confirm no shield button
 - [ ] Confirm `/admin` redirects away
 
-### Account C — Co-owner of Project 1 (Bob)
+### Account C - Co-owner of Project 1 (Bob)
 | Field | Value |
 |---|---|
 | Email | `bob@test.local` |
@@ -65,7 +65,7 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 
 - [ ] Register via UI
 
-### Account D — Outsider (Charlie)
+### Account D - Outsider (Charlie)
 | Field | Value |
 |---|---|
 | Email | `charlie@test.local` |
@@ -82,13 +82,13 @@ Create all four accounts via the registration UI, then adjust roles as noted.
 
 Log in as **Admin** and create these:
 
-### Project 1 — "Alpha Project"
+### Project 1 - "Alpha Project"
 - [ ] Create team "Alpha Team" with Admin as owner
 - [ ] Invite Alice (member) and Bob (co-owner) to Alpha Team
 - [ ] Create project "Alpha Project" under Alpha Team
 - [ ] Confirm Alice and Bob both appear in Settings → Team
 
-### Project 2 — "Beta Project"
+### Project 2 - "Beta Project"
 - [ ] Create team "Beta Team" with Admin as owner only (Charlie NOT invited)
 - [ ] Create project "Beta Project" under Beta Team
 

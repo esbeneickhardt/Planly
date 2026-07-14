@@ -1,4 +1,4 @@
-# 12 — Sprints
+# 12 - Sprints
 
 ← [Back to index](README.md)
 
@@ -22,7 +22,7 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/sprints | jq '.[].name'
 curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/sprints/<sprint-id> \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: $CSRF" \
-  -d '{"name":"Sprint 1 — renamed","endDate":"2026-07-21"}' | jq .
+  -d '{"name":"Sprint 1 - renamed","endDate":"2026-07-21"}' | jq .
 
 # Delete sprint
 curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/sprints/<sprint-id> \
@@ -38,7 +38,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/sprints/<sprint-
 
 ## Adding tasks to a sprint (`/sprints/:sprintId/tasks`)
 
-> Code: [backend/src/routes/sprints.ts](../../backend/src/routes/sprints.ts) (`/tasks` sub-route — enforces one sprint per task: adding to a new sprint removes from the old one)
+> Code: [backend/src/routes/sprints.ts](../../backend/src/routes/sprints.ts) (`/tasks` sub-route - enforces one sprint per task: adding to a new sprint removes from the old one)
 
 ```bash
 # Add task to sprint
@@ -62,7 +62,7 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/products/$PRODUCT_ID/sprints/<sprint
 
 ## Sprint board UI
 
-> Code: [frontend/src/components/kanban/SprintBacklogPanel.tsx](../../frontend/src/components/kanban/SprintBacklogPanel.tsx) (sprint backlog sidebar — drag to assign tasks to sprints) · [frontend/src/pages/KanbanPage.tsx](../../frontend/src/pages/KanbanPage.tsx) (sprint filter dropdown)
+> Code: [frontend/src/components/kanban/SprintBacklogPanel.tsx](../../frontend/src/components/kanban/SprintBacklogPanel.tsx) (sprint backlog sidebar - drag to assign tasks to sprints) · [frontend/src/pages/KanbanPage.tsx](../../frontend/src/pages/KanbanPage.tsx) (sprint filter dropdown)
 
 - [ ] Sprint filter on Kanban: select Sprint 1 → only Sprint 1 tasks shown across all columns
 - [ ] Sprint filter "No sprint" → tasks not in any sprint

@@ -1,4 +1,4 @@
-# 11 — Canvas View
+# 11 - Canvas View
 
 ← [Back to index](README.md)
 

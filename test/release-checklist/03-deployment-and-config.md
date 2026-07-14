@@ -1,4 +1,4 @@
-# 03 — Deployment & Configuration
+# 03 - Deployment & Configuration
 
 ← [Back to index](README.md)
 
@@ -20,7 +20,7 @@
 
 ## ADMIN_EMAIL bootstrap
 
-> Code: [backend/src/index.ts](../../backend/src/index.ts) (search for `ADMIN_EMAIL` — promotes/creates the founding admin on startup)
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (search for `ADMIN_EMAIL` - promotes/creates the founding admin on startup)
 
 - [ ] Set `ADMIN_EMAIL=test@example.com` in `.env` before first start
 - [ ] On first start, backend logs show `[admin] Created founding admin: test@example.com` (or similar)
@@ -33,7 +33,7 @@
 
 ## Required environment variables
 
-> Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) — throws on startup if any required var is missing or fails the length check
+> Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) - throws on startup if any required var is missing or fails the length check
 
 Test that missing each required variable causes a clear startup error:
 
@@ -50,7 +50,7 @@ Test that missing each required variable causes a clear startup error:
 > Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) (`COOKIE_SECURE`) · [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (cookie options passed to `reply.setCookie`)
 
 - [ ] With `COOKIE_SECURE=false` in `.env`: login works over HTTP, cookies are set without `Secure` flag
-- [ ] Without `COOKIE_SECURE` (defaults to `true`): on HTTP login works but cookies have `Secure` flag (browser may block on HTTP — confirm behaviour is documented)
+- [ ] Without `COOKIE_SECURE` (defaults to `true`): on HTTP login works but cookies have `Secure` flag (browser may block on HTTP - confirm behaviour is documented)
 
 ---
 
@@ -58,7 +58,7 @@ Test that missing each required variable causes a clear startup error:
 
 > Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) · [backend/src/routes/ip-restrictions.ts](../../backend/src/routes/ip-restrictions.ts) (reads real IP from X-Forwarded-For using the configured depth)
 
-- [ ] Default (`1`) — real IP is read from `X-Forwarded-For` (first hop)
+- [ ] Default (`1`) - real IP is read from `X-Forwarded-For` (first hop)
 - [ ] Confirm IP restriction features use the correct real IP (see [23-security.md](23-security.md))
 
 ---
@@ -88,7 +88,7 @@ curl -s $BASE/api/health/ready | jq .
 > Code: [backend/src/index.ts](../../backend/src/index.ts) (`/api/metrics` route, `METRICS_SECRET` check)
 
 ```bash
-# Without METRICS_SECRET set — should be open
+# Without METRICS_SECRET set - should be open
 curl -s $BASE/api/metrics
 
 # With METRICS_SECRET=secret123 set
@@ -96,7 +96,7 @@ curl -s -H "X-Metrics-Secret: secret123" $BASE/api/metrics
 curl -s $BASE/api/metrics   # should return 401 or 403
 ```
 
-- [ ] Without `METRICS_SECRET`: metrics are returned publicly — **confirm this is acceptable or add note to docs**
+- [ ] Without `METRICS_SECRET`: metrics are returned publicly - **confirm this is acceptable or add note to docs**
 - [ ] With `METRICS_SECRET` set: requests without the header are rejected
 - [ ] With `METRICS_SECRET` set: requests with correct header return Prometheus-format text
 - [ ] Metrics include `http_requests_total` and per-status counters
@@ -105,13 +105,13 @@ curl -s $BASE/api/metrics   # should return 401 or 403
 
 ## Seed data endpoint
 
-> Code: [backend/src/routes/seed.ts](../../backend/src/routes/seed.ts) — confirm whether it has an env guard or should be disabled in production
+> Code: [backend/src/routes/seed.ts](../../backend/src/routes/seed.ts) - confirm whether it has an env guard or should be disabled in production
 
 ```bash
 curl -s -X POST $BASE/api/seed-examples
 ```
 
-- [ ] `POST /api/seed-examples` — confirm what this does and whether it should be disabled in production
+- [ ] `POST /api/seed-examples` - confirm what this does and whether it should be disabled in production
 - [ ] If it should be disabled: add env guard or remove the route in production builds
 
 ---
@@ -140,11 +140,11 @@ curl -s -X POST $BASE/api/seed-examples
 
 ## Data persistence
 
-> Code: [docker-compose.yml](../../docker-compose.yml) — `db_data` named volume for Postgres; `./data/uploads:/data/uploads` bind-mount for files · [backend/src/config/env.ts](../../backend/src/config/env.ts) (`AWS_S3_BUCKET` switches storage backend)
+> Code: [docker-compose.yml](../../docker-compose.yml) - `db_data` named volume for Postgres; `./data/uploads:/data/uploads` bind-mount for files · [backend/src/config/env.ts](../../backend/src/config/env.ts) (`AWS_S3_BUCKET` switches storage backend)
 
-- [ ] Restart the stack: `docker compose restart`; log in — all data preserved
-- [ ] Stop and start (not restart): `docker compose down && docker compose up -d` — all data preserved
-- [ ] `docker compose down -v` destroys the **database** (`db_data` named volume) — **confirm this is documented as destructive**
+- [ ] Restart the stack: `docker compose restart`; log in - all data preserved
+- [ ] Stop and start (not restart): `docker compose down && docker compose up -d` - all data preserved
+- [ ] `docker compose down -v` destroys the **database** (`db_data` named volume) - **confirm this is documented as destructive**
 - [ ] Uploaded files survive `docker compose down -v` because they live in `./data/uploads/` on the host (bind mount, not a named volume)
 - [ ] `./data/uploads/` directory exists on the host before first start (created by `mkdir -p data/uploads` or automatically by Docker when bind-mounted)
 - [ ] S3 mode: set `AWS_S3_BUCKET` in `.env` → restart → upload a file → confirm it appears in the S3/Scaleway bucket, not in `./data/uploads/`

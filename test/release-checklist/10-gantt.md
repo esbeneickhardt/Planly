@@ -1,4 +1,4 @@
-# 10 — Gantt / Progress View
+# 10 - Gantt / Progress View
 
 ← [Back to index](README.md)
 
