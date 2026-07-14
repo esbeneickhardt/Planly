@@ -158,7 +158,7 @@ done
 
 > Code: [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (`loginFailCount`, `loginLockedUntil`, `loginLockCount` - escalating durations: 15 min → 1 hr → 24 hr)
 
-(Also covered in [04-auth.md](04-auth.md))
+(Also covered in [03-auth.md](03-auth.md))
 
 - [ ] 5 failed logins → account locked 15 min
 - [ ] Correct password while locked → rejected (lockout takes priority)
@@ -194,7 +194,7 @@ done
 
 > Code: [backend/src/routes/ip-restrictions.ts](../../backend/src/routes/ip-restrictions.ts) (CIDR match against real IP from X-Forwarded-For using `TRUSTED_PROXY_DEPTH`; admin users exempted)
 
-(Also covered in [05-admin.md](05-admin.md))
+(Also covered in [04-admin.md](04-admin.md))
 
 ```bash
 # Enable allowlist with only 127.0.0.1

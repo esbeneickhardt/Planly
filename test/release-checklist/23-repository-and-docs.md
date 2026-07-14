@@ -2,6 +2,8 @@
 
 ← [Back to index](README.md)
 
+> **When to run this section:** After all feature sections (03–23) are fully checked and any bugs found are fixed. Screenshots and doc accuracy checks are meaningless until the app is in its final state.
+
 > **Code references**
 > - [README.md](../../README.md) - public-facing project description, quick start, tech stack
 > - [CONTRIBUTING.md](../../CONTRIBUTING.md) - dev setup, test commands, deploy workflow, code conventions
@@ -41,7 +43,7 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 ### SECURITY.md
 - [ ] Reporting email `security@planly.app` exists or is redirected to your inbox
 - [ ] 48-hour acknowledgement pledge is realistic for a solo project
-- [ ] RBAC table matches actual implementation (see [22-access-control.md](22-access-control.md))
+- [ ] RBAC table matches actual implementation (see [21-access-control.md](21-access-control.md))
 - [ ] Tab permission matrix matches `SECURITY.md` vs actual default grants
 - [ ] "Accepted Risks" table is current - TOTP note says "No TOTP MFA yet" but TOTP IS implemented - **update this**
 - [ ] AES-256-GCM encryption section accurately describes what is encrypted
@@ -121,14 +123,14 @@ Read every file listed here and confirm it is accurate, complete, and ready for 
 - [ ] At least one example per major resource type (task, product, team, user)
 
 ### Webhooks.md
-- [ ] Event catalog is complete and accurate (compare to [19-webhooks.md](19-webhooks.md))
+- [ ] Event catalog is complete and accurate (compare to [18-webhooks.md](18-webhooks.md))
 - [ ] Signature verification example is correct (HMAC-SHA256)
 - [ ] Payload format matches what the server actually sends
 
 ### Access-Tokens.md
 - [ ] PAT creation steps work
 - [ ] App Registration steps work
-- [ ] Scoping behavior description matches [22-access-control.md](22-access-control.md)
+- [ ] Scoping behavior description matches [21-access-control.md](21-access-control.md)
 - [ ] "Token shown once only" warning is present
 
 ### Administration.md

@@ -207,7 +207,7 @@ Open a task card on the Kanban board:
 
 > Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (`?taskId=` filter separates task threads from product chat)
 
-Tasks share the `/api/products/:id/messages` endpoint (with `taskId` filter). See [13-messaging.md](13-messaging.md) for full message tests.
+Tasks share the `/api/products/:id/messages` endpoint (with `taskId` filter). See [12-messaging.md](12-messaging.md) for full message tests.
 
 - [ ] Task detail panel has a comment thread
 - [ ] Messages posted in task thread do NOT appear in the main product chat

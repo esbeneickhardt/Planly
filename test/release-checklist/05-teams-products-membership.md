@@ -228,7 +228,7 @@ curl -s -b cookies.txt -X PATCH "$BASE/api/products/<product-id>/access-requests
 
 > Code: [backend/src/routes/permissions.ts](../../backend/src/routes/permissions.ts) (per-user tab permissions - `none`/`read`/`write`) · [frontend/src/context/PermissionContext.tsx](../../frontend/src/context/PermissionContext.tsx) (loads permissions, hides tabs for `none`)
 
-See [22-access-control.md](22-access-control.md) for the full matrix.
+See [21-access-control.md](21-access-control.md) for the full matrix.
 
 ```bash
 # Get permissions for Alice on Alpha Project

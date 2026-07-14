@@ -166,7 +166,7 @@ curl -s -X POST $BASE/api/auth/verify-email \
 
 > Code: [routes/totp.ts](../../backend/src/routes/totp.ts) (setup → QR, confirm, challenge, disable, backup-codes; TOTP secret stored AES-256-GCM encrypted) · [TotpModal.tsx](../../frontend/src/components/common/TotpModal.tsx)
 
-See also [23-security.md](23-security.md) for security checks.
+See also [22-security.md](22-security.md) for security checks.
 
 - [ ] Settings → Security → "Enable 2FA" shows QR code
 - [ ] Scan QR code in authenticator app (Google Authenticator, Authy, 1Password)

@@ -19,28 +19,28 @@ Complete pre-release checklist. Every item must be checked before going public. 
 | # | File | What it covers |
 |---|------|----------------|
 | 1 | [01-setup.md](01-setup.md) | Test user setup, environment, tools |
-| 2 | [02-repository-and-docs.md](02-repository-and-docs.md) | README, LICENSE, wiki, .env.example, public assets |
-| 3 | [03-deployment-and-config.md](03-deployment-and-config.md) | Docker, .env variables, health, metrics, first-start |
-| 4 | [04-auth.md](04-auth.md) | Register, login, TOTP, SSO, lockout, password reset |
-| 5 | [05-admin.md](05-admin.md) | All admin panel tabs and admin-only API routes |
-| 6 | [06-teams-products-membership.md](06-teams-products-membership.md) | Teams, products, invites, access requests, roles |
-| 7 | [07-task-management.md](07-task-management.md) | Task CRUD, subtasks, dependencies, detail panel |
-| 8 | [08-kanban.md](08-kanban.md) | Columns, drag-drop, filters, compact view, backgrounds |
-| 9 | [09-backlog.md](09-backlog.md) | Backlog list, filters, sort, sprint assignment |
-| 10 | [10-gantt.md](10-gantt.md) | Gantt chart, milestones, timeline, dependencies |
-| 11 | [11-canvas.md](11-canvas.md) | Canvas view, nodes, edges, snapshots |
-| 12 | [12-sprints.md](12-sprints.md) | Sprint management, velocity, carry-over |
-| 13 | [13-messaging.md](13-messaging.md) | Chat, messages, reactions, attachments, WebSocket |
-| 14 | [14-announcements.md](14-announcements.md) | Announcements, comments, pinning |
-| 15 | [15-notifications.md](15-notifications.md) | Notification bell, real-time, preferences |
-| 16 | [16-search.md](16-search.md) | Global search across tasks and messages |
-| 17 | [17-settings.md](17-settings.md) | Product settings (all tabs) |
-| 18 | [18-api-tokens-and-apps.md](18-api-tokens-and-apps.md) | PATs, App Registrations, scoping |
-| 19 | [19-webhooks.md](19-webhooks.md) | Webhook CRUD, events, signatures, deliveries |
-| 20 | [20-integrations.md](20-integrations.md) | iCal, data export, GitHub integration |
-| 21 | [21-api-endpoints.md](21-api-endpoints.md) | Every REST endpoint with curl examples |
-| 22 | [22-access-control.md](22-access-control.md) | Full RBAC matrix, tab permissions, outsider checks |
-| 23 | [23-security.md](23-security.md) | CSRF, headers, XSS, IP rules, rate limits, encryption |
+| 2 | [02-deployment-and-config.md](02-deployment-and-config.md) | Docker, .env variables, health, metrics, first-start |
+| 3 | [03-auth.md](03-auth.md) | Register, login, TOTP, SSO, lockout, password reset |
+| 4 | [04-admin.md](04-admin.md) | All admin panel tabs and admin-only API routes |
+| 5 | [05-teams-products-membership.md](05-teams-products-membership.md) | Teams, products, invites, access requests, roles |
+| 6 | [06-task-management.md](06-task-management.md) | Task CRUD, subtasks, dependencies, detail panel |
+| 7 | [07-kanban.md](07-kanban.md) | Columns, drag-drop, filters, compact view, backgrounds |
+| 8 | [08-backlog.md](08-backlog.md) | Backlog list, filters, sort, sprint assignment |
+| 9 | [09-gantt.md](09-gantt.md) | Gantt chart, milestones, timeline, dependencies |
+| 10 | [10-canvas.md](10-canvas.md) | Canvas view, nodes, edges, snapshots |
+| 11 | [11-sprints.md](11-sprints.md) | Sprint management, velocity, carry-over |
+| 12 | [12-messaging.md](12-messaging.md) | Chat, messages, reactions, attachments, WebSocket |
+| 13 | [13-announcements.md](13-announcements.md) | Announcements, comments, pinning |
+| 14 | [14-notifications.md](14-notifications.md) | Notification bell, real-time, preferences |
+| 15 | [15-search.md](15-search.md) | Global search across tasks and messages |
+| 16 | [16-settings.md](16-settings.md) | Product settings (all tabs) |
+| 17 | [17-api-tokens-and-apps.md](17-api-tokens-and-apps.md) | PATs, App Registrations, scoping |
+| 18 | [18-webhooks.md](18-webhooks.md) | Webhook CRUD, events, signatures, deliveries |
+| 19 | [19-integrations.md](19-integrations.md) | iCal, data export, GitHub integration |
+| 20 | [20-api-endpoints.md](20-api-endpoints.md) | Every REST endpoint with curl examples |
+| 21 | [21-access-control.md](21-access-control.md) | Full RBAC matrix, tab permissions, outsider checks |
+| 22 | [22-security.md](22-security.md) | CSRF, headers, XSS, IP rules, rate limits, encryption |
+| 23 | [23-repository-and-docs.md](23-repository-and-docs.md) | README, LICENSE, wiki, .env.example, public assets — **run last** |
 
 ---
 
@@ -50,28 +50,28 @@ Copy and paste into a running note as you work:
 
 ```
 [ ] 01 Setup
-[ ] 02 Repository & Docs
-[ ] 03 Deployment & Config
-[ ] 04 Auth
-[ ] 05 Admin
-[ ] 06 Teams, Products & Membership
-[ ] 07 Task Management
-[ ] 08 Kanban
-[ ] 09 Backlog
-[ ] 10 Gantt
-[ ] 11 Canvas
-[ ] 12 Sprints
-[ ] 13 Messaging
-[ ] 14 Announcements
-[ ] 15 Notifications
-[ ] 16 Search
-[ ] 17 Settings
-[ ] 18 API Tokens & Apps
-[ ] 19 Webhooks
-[ ] 20 Integrations
-[ ] 21 API Endpoints
-[ ] 22 Access Control
-[ ] 23 Security
+[ ] 02 Deployment & Config
+[ ] 03 Auth
+[ ] 04 Admin
+[ ] 05 Teams, Products & Membership
+[ ] 06 Task Management
+[ ] 07 Kanban
+[ ] 08 Backlog
+[ ] 09 Gantt
+[ ] 10 Canvas
+[ ] 11 Sprints
+[ ] 12 Messaging
+[ ] 13 Announcements
+[ ] 14 Notifications
+[ ] 15 Search
+[ ] 16 Settings
+[ ] 17 API Tokens & Apps
+[ ] 18 Webhooks
+[ ] 19 Integrations
+[ ] 20 API Endpoints
+[ ] 21 Access Control
+[ ] 22 Security
+[ ] 23 Repository & Docs  ← run last
 ```
 
 ---
