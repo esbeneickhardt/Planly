@@ -50,7 +50,21 @@ export interface WebhookDelivery {
 export interface TeamInvite {
   id: string;
   email: string | null;
+  /** Set only for user-targeted invites created via Settings → Team */
+  toUser: { id: string; username: string; avatarEmoji: string | null } | null;
+  token: string;
   inviteUrl: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface PendingInvite {
+  id: string;
+  token: string;
+  teamId: string;
+  projectName: string;
+  projectEmoji: string | null;
+  productId: string | null;
   expiresAt: string;
   createdAt: string;
 }
@@ -190,11 +204,11 @@ export type AnnComment = {
 export const api = {
 
   users: {
-    list: () => request<Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>[]>('/api/users'),
+    list: () => request<{ users: { id: string; username: string; avatarEmoji: string | null; acceptsInvites: boolean }[]; nextCursor: string | null }>('/api/users').then(r => r.users),
     create: (data: { username: string; email: string; password: string; realName?: string; avatarEmoji?: string; tosAccepted: true }) =>
       request<User>('/api/users', { method: 'POST', body: json(data) }),
     get: (id: string) => request<User>(`/api/users/${id}`),
-    update: (id: string, data: Partial<Pick<User, 'realName' | 'phone' | 'avatarEmoji' | 'avatarUrl'>>) =>
+    update: (id: string, data: Partial<Pick<User, 'realName' | 'phone' | 'avatarEmoji' | 'avatarUrl'> & { acceptsInvites: boolean }>) =>
       request<User>(`/api/users/${id}`, { method: 'PATCH', body: json(data) }),
     updateNotificationPreferences: (id: string, preferences: Record<string, boolean>) =>
       request<{ notificationPreferences: Record<string, boolean> }>(`/api/users/${id}/notification-preferences`, { method: 'PATCH', body: json({ preferences }) }),
@@ -336,7 +350,8 @@ export const api = {
     decide: (productId: string, requestId: string, action: 'approve' | 'reject') =>
       request<{ ok: boolean }>(`/api/products/${productId}/access-requests/${requestId}`, { method: 'PATCH', body: json({ action }) }),
     discover: () =>
-      request<(Product & { requestStatus: string | null })[]>('/api/products/discover'),
+      request<{ products: (Product & { requestStatus: string | null })[]; nextCursor: string | null }>('/api/products/discover')
+        .then((r) => r.products),
   },
 
   upload: (file: File) => {
@@ -412,7 +427,9 @@ export const api = {
     revoke: (teamId: string, inviteId: string) =>
       request<{ ok: boolean }>(`/api/teams/${teamId}/invites/${inviteId}`, { method: 'DELETE' }),
     getInfo: (token: string) => request<InviteInfo>(`/api/invites/${token}`),
+    pending: () => request<PendingInvite[]>('/api/invites/pending'),
     accept: (token: string) => request<{ ok: boolean; teamId: string; teamName: string }>(`/api/invites/${token}/accept`, { method: 'POST', body: json({}) }),
+    decline: (token: string) => request<{ ok: boolean }>(`/api/invites/${token}/decline`, { method: 'POST', body: json({}) }),
   },
 
   auth: {
@@ -564,7 +581,9 @@ export const api = {
       request<AnnItem>(`/api/announcements/${id}`, { method: 'PATCH', body: json(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/announcements/${id}`, { method: 'DELETE' }),
     comments: {
-      list: (annId: string) => request<AnnComment[]>(`/api/announcements/${annId}/comments`),
+      list: (annId: string) =>
+        request<{ comments: AnnComment[]; nextCursor: string | null }>(`/api/announcements/${annId}/comments`)
+          .then((r) => r.comments),
       create: (annId: string, content: string) =>
         request<AnnComment>(`/api/announcements/${annId}/comments`, { method: 'POST', body: json({ content }) }),
       delete: (annId: string, commentId: string) =>

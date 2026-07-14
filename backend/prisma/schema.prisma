@@ -48,6 +48,7 @@ model User {
   loginLockedUntil        DateTime?
   loginLockCount          Int      @default(0) // increments on each lockout for progressive penalties
   notificationPreferences Json      @default("{}")
+  acceptsInvites          Boolean   @default(true)
   tokenVersion            Int       @default(0)
   tosAcceptedAt           DateTime?
   tosVersion              String?
@@ -76,6 +77,7 @@ model User {
   announcementComments AnnouncementComment[]
   fileUploads         FileUpload[]
   totpBackupCodes     TotpBackupCode[]
+  receivedInvites     TeamInvite[]         @relation("ReceivedInvites")
 }
 
 model Team {
@@ -434,6 +436,7 @@ model TeamInvite {
   id        String    @id @default(uuid())
   teamId    String
   email     String?
+  toUserId  String?   // set for user-targeted invites sent via Settings → Team; null for open/email links
   token     String    @unique
   expiresAt DateTime
   usedAt    DateTime? // set when consumed (email-bound: first use; open: when useCount >= maxUses)
@@ -441,9 +444,11 @@ model TeamInvite {
   maxUses   Int?      // null = unlimited for open invites; 1 = single-use (default for email invites)
   createdAt DateTime  @default(now())
 
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team   Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  toUser User? @relation("ReceivedInvites", fields: [toUserId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
+  @@index([toUserId])
 }
 
 // ── Auth tokens ───────────────────────────────────────────────────────────────

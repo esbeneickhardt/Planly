@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { isBeforeToday } from '../utils/dates';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +20,7 @@ export default function AboutPage() {
   }
 
   const deadline = new Date(activeProduct.deadline);
-  const isOverdue = deadline < new Date();
+  const isOverdue = isBeforeToday(deadline);
   const deadlineStr = deadline.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
 
   return (

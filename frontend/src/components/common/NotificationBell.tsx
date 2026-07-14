@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, Notification } from '../../api/client';
 import { useChat } from '../../context/ChatContext';
 import { useProduct } from '../../context/ProductContext';
+import { useToast } from '../../context/ToastContext';
 
 const SEEN_KEY = 'admin_notif_seen_at';
 
@@ -53,8 +54,10 @@ const ADMIN_ACTION_ICON: Record<string, string> = {
 export default function NotificationBell({ adminMode, productId }: { adminMode?: boolean; productId?: string }) {
   const navigate = useNavigate();
   const { openChat } = useChat();
-  const { tasks, activeProduct } = useProduct();
+  const { tasks, activeProduct, refreshProducts } = useProduct();
+  const { showToast } = useToast();
   const [open, setOpen] = useState(false);
+  const [inviteActing, setInviteActing] = useState<string | null>(null);
 
   // ── Normal mode state ──
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -161,6 +164,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
   }
 
   function handleNotificationClick(n: Notification) {
+    if (n.type === 'invite_received') return; // handled by Accept/Decline buttons
     if (!n.read) markRead(n.id);
     setOpen(false);
     if (n.taskId && n.productId === activeProduct?.id) {
@@ -169,6 +173,32 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
       return;
     }
     if (n.productId) navigate('/kanban');
+  }
+
+  async function handleAcceptInvite(n: Notification) {
+    const token = (n.metadata as { inviteToken?: string } | null)?.inviteToken;
+    if (!token) return;
+    setInviteActing(n.id);
+    try {
+      await api.invites.accept(token);
+      await markRead(n.id);
+      await refreshProducts();
+      showToast('You have joined the project', 'success');
+      setOpen(false);
+      navigate('/kanban');
+    } catch (err) { showToast((err as Error).message, 'error'); }
+    finally { setInviteActing(null); }
+  }
+
+  async function handleDeclineInvite(n: Notification) {
+    const token = (n.metadata as { inviteToken?: string } | null)?.inviteToken;
+    if (!token) return;
+    setInviteActing(n.id);
+    try {
+      await api.invites.decline(token);
+      await dismiss(n.id);
+    } catch (err) { showToast((err as Error).message, 'error'); }
+    finally { setInviteActing(null); }
   }
 
   const displayUnread = adminMode ? adminUnread : unread;
@@ -289,35 +319,56 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                     No notifications
                   </div>
                 )}
-                {!loading && notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className="group relative flex gap-3 px-4 py-3 cursor-pointer transition-colors"
-                    style={{ background: n.read ? 'transparent' : 'var(--brand-subtle)', borderBottom: '1px solid var(--border)' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = n.read ? 'transparent' : 'var(--brand-subtle)')}
-                    onClick={() => handleNotificationClick(n)}
-                  >
-                    <div className="flex-shrink-0 mt-0.5">
-                      <span className="text-base">{getIcon(n.type)}</span>
+                {!loading && notifications.map((n) => {
+                  const isInvite = n.type === 'invite_received';
+                  const hasToken = !!(n.metadata as { inviteToken?: string } | null)?.inviteToken;
+                  return (
+                    <div
+                      key={n.id}
+                      className={`group relative flex gap-3 px-4 py-3 transition-colors ${isInvite ? '' : 'cursor-pointer'}`}
+                      style={{ background: n.read ? 'transparent' : 'var(--brand-subtle)', borderBottom: '1px solid var(--border)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = n.read ? 'transparent' : 'var(--brand-subtle)')}
+                      onClick={() => handleNotificationClick(n)}
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        <span className="text-base">{getIcon(n.type)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm leading-snug ${n.read ? '' : 'font-medium'}`} style={{ color: 'var(--text)' }}>
+                          {n.title}
+                        </p>
+                        {n.body && <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>{n.body}</p>}
+                        <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
+                          {formatRelative(n.createdAt)}
+                        </p>
+                        {isInvite && hasToken && (
+                          <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => handleAcceptInvite(n)}
+                              disabled={inviteActing === n.id}
+                              className="btn-primary text-xs px-3 py-1"
+                            >{inviteActing === n.id ? '…' : 'Accept'}</button>
+                            <button
+                              onClick={() => handleDeclineInvite(n)}
+                              disabled={inviteActing === n.id}
+                              className="text-xs px-3 py-1 rounded-lg transition-colors"
+                              style={{ color: 'var(--text-3)', border: '1px solid var(--border)', background: 'transparent' }}
+                            >Decline</button>
+                          </div>
+                        )}
+                      </div>
+                      {!isInvite && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
+                          className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-xs transition-all"
+                          style={{ color: 'var(--text-3)' }}
+                          title="Dismiss"
+                        >✕</button>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm leading-snug ${n.read ? '' : 'font-medium'}`} style={{ color: 'var(--text)' }}>
-                        {n.title}
-                      </p>
-                      {n.body && <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>{n.body}</p>}
-                      <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
-                        {formatRelative(n.createdAt)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
-                      className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-xs transition-all"
-                      style={{ color: 'var(--text-3)' }}
-                      title="Dismiss"
-                    >✕</button>
-                  </div>
-                ))}
+                  );
+                })}
               </>
             )}
           </div>

@@ -16,6 +16,7 @@ import Modal from '../components/common/Modal';
 import { useBacklogFilters } from '../hooks/useBacklogFilters';
 import type { StatusTab } from '../hooks/useBacklogFilters';
 import type { SortKey } from '../hooks/useBacklogFilters';
+import { isBeforeToday } from '../utils/dates';
 
 const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
   { key: 'all',         label: 'All',         color: 'var(--text-3)' },
@@ -41,8 +42,6 @@ export default function BacklogPage() {
 
   const { sortKey, setSortKey, statusTab, setStatusTab, mineOnly, setMineOnly, search, setSearch, filteredTasks, tabCounts, unassignedCount, overdueCount } =
     useBacklogFilters(tasks, user?.id);
-
-  const now = new Date();
 
   // Toggle a single row in/out of the multi-select set
   function toggleSelect(id: string) {
@@ -212,7 +211,7 @@ export default function BacklogPage() {
                   key={task.id}
                   task={task}
                   selected={selected.has(task.id)}
-                  isOverdue={!!task.deadline && task.status !== 'done' && new Date(task.deadline) < now}
+                  isOverdue={!!task.deadline && task.status !== 'done' && isBeforeToday(task.deadline)}
                   readOnly={readOnly}
                   onToggle={() => toggleSelect(task.id)}
                   onOpen={() => setSelectedTask(task)}

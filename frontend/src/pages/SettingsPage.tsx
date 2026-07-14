@@ -105,12 +105,15 @@ export default function SettingsPage() {
             {isOwner && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>You</span>}
           </p>
         )}
-        <div className="flex gap-0 border-b overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
+      </div>
+      {/* Tab strip in its own scrollable row so it can overflow on narrow screens */}
+      <div className="flex-shrink-0 overflow-x-auto border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex px-6 min-w-max">
           {PAGE_TABS.map(({ key, label, danger }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className="px-4 py-2 text-sm font-medium transition-colors flex-shrink-0"
+              className="px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap"
               style={{
                 color: danger
                   ? (activeTab === key ? '#ef4444' : 'rgba(239,68,68,0.6)')
