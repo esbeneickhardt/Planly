@@ -3,6 +3,7 @@
  * Importing this module in multiple files always returns the same instance,
  * which keeps connection-pool usage predictable and avoids exhausting the database.
  */
+
 import { PrismaClient } from '@prisma/client';
 
 // Single shared instance - never instantiate PrismaClient elsewhere

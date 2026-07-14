@@ -566,6 +566,9 @@ export const api = {
     pruneLogs: (olderThanDays: number) =>
       request<{ ok: boolean; deletedCount: number }>('/api/admin/logs/prune', { method: 'DELETE', body: json({ olderThanDays }) }),
     projects: () => request<{ id: string; name: string; emoji: string | null; deadline: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number }[]>('/api/admin/projects'),
+    deletedProjects: () => request<{ id: string; name: string; emoji: string | null; deletedAt: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number }[]>('/api/admin/projects/deleted'),
+    restoreProject: (id: string) => request<{ ok: boolean }>(`/api/admin/products/${id}/restore`, { method: 'POST', body: json({}) }),
+    hardDeleteProject: (id: string) => request<{ ok: boolean }>(`/api/admin/products/${id}`, { method: 'DELETE' }),
     stats: () => request<{ userCount: number; projectCount: number; taskCount: number; messageCount: number; newUsers: number; newProjects: number }>('/api/admin/stats'),
   },
 

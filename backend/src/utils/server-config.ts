@@ -4,6 +4,7 @@
  * project creation, announcements) live in this row. Missing values fall back to safe defaults
  * so a fresh install works without any admin setup.
  */
+
 import prisma from '../db/client';
 
 export interface ServerConfigValues {

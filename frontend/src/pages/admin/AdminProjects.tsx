@@ -1,11 +1,12 @@
-/**
- * Admin Projects panel showing a read-only table of every project on the server, including owner,
- * member count, task count, and deadline.  Overdue deadlines are highlighted in red.
- * This panel is intentionally read-only — project deletion lives in each project's own Danger Zone settings.
- */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
+import { isBeforeToday } from '../../utils/dates';
 import type { AdminProject } from './types';
+
+interface DeletedProject {
+  id: string; name: string; emoji: string | null; deletedAt: string; createdAt: string;
+  ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number;
+}
 
 interface Props {
   showToast: (msg: string, type: 'success' | 'error') => void;
@@ -13,54 +14,198 @@ interface Props {
 
 export default function AdminProjects({ showToast }: Props) {
   const [projects, setProjects] = useState<AdminProject[]>([]);
+  const [deleted, setDeleted] = useState<DeletedProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [hardDeleting, setHardDeleting] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  // confirmId: id of the project awaiting hard-delete confirmation; confirmInput: typed name
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [confirmInput, setConfirmInput] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setProjects(await api.admin.projects()); }
-    catch (e) { showToast((e as Error).message, 'error'); }
+    try {
+      const [active, gone] = await Promise.all([api.admin.projects(), api.admin.deletedProjects()]);
+      setProjects(active);
+      setDeleted(gone);
+    } catch (e) { showToast((e as Error).message, 'error'); }
     finally { setLoading(false); }
   }, [showToast]);
 
   useEffect(() => { load(); }, [load]);
 
+  async function handleRestore(id: string, name: string) {
+    setRestoring(id);
+    try {
+      await api.admin.restoreProject(id);
+      showToast(`"${name}" restored`, 'success');
+      setDeleted((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setRestoring(null);
+    }
+  }
+
+  async function handleHardDelete(id: string, name: string) {
+    setHardDeleting(id);
+    try {
+      await api.admin.hardDeleteProject(id);
+      showToast(`"${name}" permanently deleted`, 'success');
+      setDeleted((prev) => prev.filter((p) => p.id !== id));
+      setConfirmId(null);
+      setConfirmInput('');
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setHardDeleting(null);
+    }
+  }
+
   if (loading) return <p className="text-sm" style={{ color: 'var(--text-3)' }}>Loading…</p>;
 
   return (
-    <table className="w-full text-sm border-collapse">
-      <thead>
-        <tr style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
-          <th className="text-left py-2 font-medium">Project</th>
-          <th className="text-left py-2 font-medium">Owner</th>
-          <th className="text-left py-2 font-medium">Members</th>
-          <th className="text-left py-2 font-medium">Tasks</th>
-          <th className="text-left py-2 font-medium">Deadline</th>
-          <th className="text-left py-2 font-medium">Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        {projects.map((p) => (
-          <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-            <td className="py-2.5 pr-4">
-              <span className="font-medium" style={{ color: 'var(--text)' }}>
-                {p.emoji && <span className="mr-1.5">{p.emoji}</span>}{p.name}
-              </span>
-            </td>
-            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-              {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}{p.ownerUsername ?? '-'}
-            </td>
-            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.memberCount}</td>
-            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.taskCount}</td>
-            <td className="py-2.5 pr-4 text-xs" style={{ color: new Date(p.deadline) < new Date() ? '#ef4444' : 'var(--text-3)' }}>
-              {new Date(p.deadline).toLocaleDateString()}
-            </td>
-            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(p.createdAt).toLocaleDateString()}</td>
+    <div className="space-y-8">
+      {/* Active projects */}
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
+            <th className="text-left py-2 font-medium">Project</th>
+            <th className="text-left py-2 font-medium">Owner</th>
+            <th className="text-left py-2 font-medium">Members</th>
+            <th className="text-left py-2 font-medium">Tasks</th>
+            <th className="text-left py-2 font-medium">Deadline</th>
+            <th className="text-left py-2 font-medium">Created</th>
           </tr>
-        ))}
-        {projects.length === 0 && (
-          <tr><td colSpan={6} className="py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No projects yet.</td></tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {projects.map((p) => (
+            <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <td className="py-2.5 pr-4">
+                <span className="font-medium" style={{ color: 'var(--text)' }}>
+                  {p.emoji && <span className="mr-1.5">{p.emoji}</span>}{p.name}
+                </span>
+              </td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}{p.ownerUsername ?? '-'}
+              </td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.memberCount}</td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.taskCount}</td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: p.deadline && isBeforeToday(p.deadline) ? '#ef4444' : 'var(--text-3)' }}>
+                {p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}
+              </td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(p.createdAt).toLocaleDateString()}</td>
+            </tr>
+          ))}
+          {projects.length === 0 && (
+            <tr><td colSpan={6} className="py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No projects yet.</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Deleted projects */}
+      {deleted.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowDeleted((v) => !v)}
+            className="flex items-center gap-2 text-sm font-medium mb-3"
+            style={{ color: 'var(--text-2)' }}
+          >
+            <span>{showDeleted ? '▾' : '▸'}</span>
+            Deleted projects
+            <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>{deleted.length}</span>
+          </button>
+
+          {showDeleted && (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
+                  <th className="text-left py-2 font-medium">Project</th>
+                  <th className="text-left py-2 font-medium">Owner</th>
+                  <th className="text-left py-2 font-medium">Members</th>
+                  <th className="text-left py-2 font-medium">Tasks</th>
+                  <th className="text-left py-2 font-medium">Deleted</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {deleted.map((p) => (
+                  <>
+                    <tr key={p.id} style={{ borderBottom: confirmId === p.id ? 'none' : '1px solid var(--border)', opacity: 0.8 }}>
+                      <td className="py-2.5 pr-4">
+                        <span className="font-medium" style={{ color: 'var(--text)' }}>
+                          {p.emoji && <span className="mr-1.5">{p.emoji}</span>}{p.name}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                        {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}{p.ownerUsername ?? '-'}
+                      </td>
+                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.memberCount}</td>
+                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.taskCount}</td>
+                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(p.deletedAt).toLocaleDateString()}</td>
+                      <td className="py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleRestore(p.id, p.name)}
+                            disabled={!!restoring || !!hardDeleting}
+                            className="text-xs px-3 py-1 rounded-full font-medium transition-colors"
+                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)', border: '1px solid var(--brand)', opacity: restoring === p.id ? 0.6 : 1 }}
+                          >
+                            {restoring === p.id ? 'Restoring…' : 'Restore'}
+                          </button>
+                          <button
+                            onClick={() => { setConfirmId(confirmId === p.id ? null : p.id); setConfirmInput(''); }}
+                            disabled={!!restoring || !!hardDeleting}
+                            className="text-xs px-3 py-1 rounded-full font-medium transition-colors"
+                            style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                          >
+                            Delete permanently
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {confirmId === p.id && (
+                      <tr key={`${p.id}-confirm`} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td colSpan={6} className="pb-3 pt-1 pr-4">
+                          <div className="rounded-lg px-3 py-2.5 text-xs space-y-2" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                            <p style={{ color: '#ef4444' }}>This permanently deletes all tasks, messages, and settings. Type <strong>{p.name}</strong> to confirm.</p>
+                            <div className="flex gap-2">
+                              <input
+                                autoFocus
+                                value={confirmInput}
+                                onChange={(e) => setConfirmInput(e.target.value)}
+                                placeholder={p.name}
+                                className="input text-xs flex-1"
+                                onKeyDown={(e) => { if (e.key === 'Escape') { setConfirmId(null); setConfirmInput(''); } }}
+                              />
+                              <button
+                                onClick={() => handleHardDelete(p.id, p.name)}
+                                disabled={confirmInput !== p.name || hardDeleting === p.id}
+                                className="text-xs px-3 py-1 rounded-lg font-medium"
+                                style={{ background: confirmInput === p.name ? '#ef4444' : 'var(--surface-2)', color: confirmInput === p.name ? 'white' : 'var(--text-3)', transition: 'background 0.15s' }}
+                              >
+                                {hardDeleting === p.id ? 'Deleting…' : 'Confirm'}
+                              </button>
+                              <button
+                                onClick={() => { setConfirmId(null); setConfirmInput(''); }}
+                                className="text-xs px-3 py-1 rounded-lg"
+                                style={{ color: 'var(--text-3)' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

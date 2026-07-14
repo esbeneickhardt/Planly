@@ -1,11 +1,12 @@
 /**
- * Project (product) routes - CRUD for projects within a team.
+ * Project (product) routes - Create, Read, Update, Delete (CRUD) for projects within a team.
  *
  * Projects are the main workspace unit. Each project belongs to exactly one team,
  * has its own set of tasks, views (Kanban, Backlog, Gantt, Canvas), columns, sprints,
  * webhooks, and per-user tab permissions. Soft-deleted projects (deletedAt set) are
- * hidden from all queries but can be restored by admins.
+ * hidden from all queries but remain in the database (no restore path exists today).
  */
+
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
@@ -13,8 +14,10 @@ import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 
+// Validates strings as data format
 const validDate = z.string().refine((s) => !isNaN(new Date(s).getTime()), 'Invalid date');
 
+// Schema for creating a product
 const createProductSchema = z.object({
   name: z.string().min(1).max(100),
   emoji: z.string().optional(),
@@ -22,6 +25,8 @@ const createProductSchema = z.object({
   deadline: validDate,
   teamId: z.string(),
 });
+
+// Schema for adding additional product settings
 const updateProductSchema = z.object({
   name: z.string().max(100).optional(),
   emoji: z.string().optional(),
@@ -42,6 +47,7 @@ export async function productRoutes(app: FastifyInstance) {
     reply.send(products);
   });
 
+  // Creating a product
   app.post('/api/products', { preHandler: requireAuth }, async (req, reply) => {
     const body = validate(createProductSchema, req.body, reply);
     if (!body) return;
@@ -80,6 +86,7 @@ export async function productRoutes(app: FastifyInstance) {
     reply.send(product);
   });
 
+  // Updating a project
   app.patch('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = validate(updateProductSchema, req.body, reply);
