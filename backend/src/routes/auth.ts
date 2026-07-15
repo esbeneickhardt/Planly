@@ -83,7 +83,7 @@ export async function authRoutes(app: FastifyInstance) {
       await prisma.adminLog.create({ data: { action: 'LOGIN_FAILED', targetName: user.username, metadata: { attempts } } }).catch((err) => { console.warn('[auth] Failed to write LOGIN_FAILED audit log:', (err as Error).message); });
       if (shouldLock) {
         await prisma.adminLog.create({ data: { action: 'LOGIN_LOCKED', targetName: user.username, metadata: { lockCount: newLockCount, lockMinutes } } }).catch((err) => { console.warn('[auth] Failed to write LOGIN_LOCKED audit log:', (err as Error).message); });
-        sendSecurityAlert('LOGIN_LOCKED', `Account "${user.username}" locked for ${lockMinutes} min (lockout #${newLockCount}) after ${LOGIN_MAX_ATTEMPTS} failed attempts`);
+        sendSecurityAlert({ event: 'LOGIN_LOCKED', account: user.username, ip: req.ip, lockout_count: newLockCount, lockout_duration_minutes: lockMinutes, failed_attempts: LOGIN_MAX_ATTEMPTS, timestamp: new Date().toISOString() });
         const hours = Math.floor(lockMinutes / 60);
         const mins = lockMinutes % 60;
         const timeStr = hours > 0 ? `${hours} hour${hours === 1 ? '' : 's'}${mins > 0 ? ` ${mins} min` : ''}` : `${lockMinutes} minutes`;

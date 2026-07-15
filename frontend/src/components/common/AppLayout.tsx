@@ -58,10 +58,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Auto-activate when user lands on /admin via direct URL or browser history
+  // Sync adminMode with the current route: activate on /admin, deactivate when navigating away
   const isAdminPage = location.pathname === '/admin';
   useEffect(() => {
     if (isAdminPage && user?.isAdmin) setAdminMode(true);
+    else if (!isAdminPage) setAdminMode(false);
   }, [isAdminPage, user?.isAdmin]);
 
   // Auto-show vision modal for first-time users with no projects
