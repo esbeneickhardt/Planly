@@ -87,6 +87,8 @@ import prisma from './db/client';
 import bcrypt from 'bcryptjs';
 import { randomBytes, randomUUID } from 'crypto';
 
+// Ensures a server admin account exists for ADMIN_EMAIL; creates one on first start, restores 
+// the isAdmin flag if it was revoked
 async function ensureAdminAccount() {
   if (!config.admin.email) return;
   const adminEmail = config.admin.email.toLowerCase();
@@ -107,6 +109,8 @@ async function ensureAdminAccount() {
   const initialPassword = useEnvPassword ? config.admin.password : randomBytes(12).toString('base64url');
   const passwordHash = await bcrypt.hash(initialPassword, 12);
 
+  // Derive a username from the email local-part. If someone has already claimed it, append a
+  // numeric suffix — this is cosmetic only; admin rights come from isFoundingAdmin, not the username.
   const base = (adminEmail.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32) || 'admin';
   let username = base;
   let suffix = 0;
@@ -141,6 +145,7 @@ async function ensureAdminAccount() {
   }
 }
 
+// Transfers the founding-admin crown to RECROWN_EMAIL if set — use when the current founding admin is unavailable
 async function emergencyRecrown() {
   const email = (process.env.RECROWN_EMAIL ?? '').toLowerCase().trim();
   if (!email) return;
@@ -151,6 +156,8 @@ async function emergencyRecrown() {
     return;
   }
 
+  // Atomically strip the existing crown and grant it to the target so there is
+  // never a moment with zero founding admins; also writes an audit trail entry
   await prisma.$transaction([
     prisma.user.updateMany({ where: { isFoundingAdmin: true }, data: { isFoundingAdmin: false } }),
     prisma.user.update({ where: { email }, data: { isAdmin: true, isFoundingAdmin: true } }),
@@ -168,12 +175,14 @@ async function emergencyRecrown() {
   rcrownLines.forEach((line) => process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: line, event: 'recrown' }) + '\n'));
 }
 
+// In-memory counters for /api/metrics - avoids a DB query on every Prometheus scrape
 const metrics = {
   requestsTotal: 0 as number,
   requestsByStatus: {} as Record<string, number>,
   startTime: Date.now(),
 };
 
+// Bootstraps the Fastify app: runs startup tasks, registers all plugins and routes, then starts listening
 async function main() {
   await emergencyRecrown();
   await ensureAdminAccount();
@@ -181,9 +190,6 @@ async function main() {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
-      ...(process.env.LOG_FORMAT === 'pretty'
-        ? { transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:standard', ignore: 'pid,hostname' } } }
-        : {}),
       serializers: {
         req(req) {
           const safeUrl = req.url.replace(/([?&])token=[^&]*/g, '$1token=[redacted]');
@@ -193,6 +199,12 @@ async function main() {
     },
   });
 
+  // Content-Security-Policy (CSP) is a browser security header that restricts which scripts, styles,
+  // and images the browser is allowed to load — a key defence against cross-site scripting (XSS).
+  // Helmet's global CSP is disabled here because:
+  //   • API responses are JSON — browsers never execute them, so a CSP header is meaningless.
+  //   • The React frontend is served by Nginx, which sets its own CSP for those HTML/JS/CSS files.
+  // The only HTML this server ever returns is Fastify error pages; those get a narrow CSP in the onSend hook below.
   await app.register(helmet, {
     contentSecurityPolicy: false,
     hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
@@ -220,6 +232,8 @@ async function main() {
     req.id = sanitized || randomUUID();
     done();
   });
+  
+  // Update in-memory request counters used by /api/metrics
   app.addHook('onResponse', (_req, reply, done) => {
     metrics.requestsTotal++;
     const bucket = String(Math.floor(reply.statusCode / 100) * 100);
@@ -227,6 +241,8 @@ async function main() {
     done();
   });
 
+  // Echo the request ID so the client can correlate errors with server logs;
+  // also inject a narrow Content-Security-Policy (CSP) on any HTML responses (Fastify error pages only — the SPA is served by Nginx)
   app.addHook('onSend', (_req, reply, _payload, done) => {
     reply.header('X-Request-Id', _req.id as string);
     const ct = reply.getHeader('content-type');
@@ -383,12 +399,11 @@ async function main() {
     }
   });
 
+  // Prometheus-format metrics; always requires X-Metrics-Secret header (set METRICS_SECRET in .env)
   app.get('/api/metrics', async (req, reply) => {
     const secret = process.env.METRICS_SECRET;
-    if (secret) {
-      const provided = req.headers['x-metrics-secret'];
-      if (provided !== secret) return reply.status(401).send('Unauthorized');
-    }
+    const provided = req.headers['x-metrics-secret'];
+    if (!secret || provided !== secret) return reply.status(401).send('Unauthorized');
     const uptimeSec = (Date.now() - metrics.startTime) / 1000;
     const wsConns = wsConnectionCount();
     const lines = [
@@ -409,21 +424,21 @@ async function main() {
     reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8').send(lines);
   });
 
-  // Scheduled data-retention cleanup (runs once at startup then every 24h)
+  // Purges old rows across several tables to keep the database lean; runs once at startup then every 24h
   async function runRetentionCleanup() {
     try {
-      const notifCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-      const activityCutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
-      const softDeleteCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+      const notifCutoff        = new Date(Date.now() -  90 * 24 * 60 * 60 * 1000); // notifications: 90 days
+      const activityCutoff     = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000); // activity feed: 180 days
+      const softDeleteCutoff   = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // soft-deleted tasks: 1 year
       const adminLogRetentionDays = parseInt(process.env.ADMIN_LOG_RETENTION_DAYS ?? '90', 10);
-      const adminLogCutoff = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000);
+      const adminLogCutoff     = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000); // audit log: configurable (default 90d)
       const [notifResult, activityResult, taskResult, adminLogResult, ssoStateResult] = await Promise.all([
         prisma.notification.deleteMany({ where: { createdAt: { lt: notifCutoff } } }),
         prisma.activityEvent.deleteMany({ where: { createdAt: { lt: activityCutoff } } }),
-        prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }),
+        prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }),    // hard-delete tasks soft-deleted over a year ago
         prisma.adminLog.deleteMany({ where: { createdAt: { lt: adminLogCutoff } } }),
-        prisma.ssoState.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
-        prisma.wsTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
+        prisma.ssoState.deleteMany({ where: { expiresAt: { lt: new Date() } } }),      // OIDC flow nonces (short-lived, expire on their own)
+        prisma.wsTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }),      // WebSocket auth tickets (short-lived, expire on their own)
       ]);
       if (notifResult.count > 0 || activityResult.count > 0 || taskResult.count > 0 || adminLogResult.count > 0 || ssoStateResult.count > 0) {
         app.log.info({ notificationsDeleted: notifResult.count, activityEventsDeleted: activityResult.count, tasksHardDeleted: taskResult.count, adminLogsDeleted: adminLogResult.count, ssoStatesDeleted: ssoStateResult.count }, 'Retention cleanup completed');

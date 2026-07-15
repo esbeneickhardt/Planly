@@ -28,9 +28,12 @@ const attachmentItemSchema = z.object({
   type: z.string(),
 });
 const createMessageSchema = z.object({
-  content: z.string().min(1).max(10000),
+  content: z.string().max(10000),
   taskId: z.string().optional(),
   attachments: z.array(attachmentItemSchema).max(20).optional(),
+}).refine((d) => d.content.trim().length > 0 || (d.attachments?.length ?? 0) > 0, {
+  message: 'Message must have content or at least one attachment',
+  path: ['content'],
 });
 const updateMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });

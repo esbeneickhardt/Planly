@@ -26,11 +26,12 @@ These must be set before the app will start. The backend exits at startup with a
 | `FRONTEND_ORIGIN` | `http://localhost:80` | Frontend URL - must exactly match what browsers send as the `Origin` header. Used for CORS and CSRF validation. |
 | `APP_URL` | Same as `FRONTEND_ORIGIN` | Base URL used in email links (password reset, invites). Set to your public domain in production. |
 | `PORT` | `3000` | Backend listen port (internal to Docker network) |
-| `COOKIE_SECURE` | `true` | Set to `false` only for local HTTP-only development. Controls the `Secure` flag on auth cookies. |
+| `COOKIE_SECURE` | `true` | Controls the `Secure` flag on session cookies. When `true`, browsers only send the cookie over HTTPS — a session set on HTTP will be silently dropped on every subsequent request, causing instant logouts. Set to `false` if the backend only sees plain HTTP (e.g. behind a load balancer or reverse proxy that terminates TLS externally). Note: `localhost` is treated as a secure context by all major browsers, so this setting has no visible effect in local development. |
 | `TRUSTED_PROXY_DEPTH` | `1` | Number of trusted reverse proxy hops. Used to read the real client IP from `X-Forwarded-For`. `1` for the default Docker Compose Nginx. `0` if exposing the backend directly. |
 | `LOG_LEVEL` | `info` | Fastify log level: `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
 | `UPLOADS_DIR` | `/tmp/planly-uploads` | Directory for file attachment storage |
 | `ADMIN_LOG_RETENTION_DAYS` | `90` | How many days of admin audit logs to retain. Older entries are pruned by the nightly cleanup job. |
+| `METRICS_SECRET` | - | Required to access `GET /api/metrics`. Pass as `X-Metrics-Secret: <value>` header. When unset, the endpoint returns 401 for everyone — it is never public. |
 
 ---
 

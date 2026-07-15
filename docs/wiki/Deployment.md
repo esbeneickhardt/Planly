@@ -249,4 +249,4 @@ If you run Planly behind your own reverse proxy (Nginx, Caddy, etc.) instead of 
 2. Proxy `/api/*` and `/docs/*` to the backend on port 3000 (internal network only).
 3. Pass `X-Forwarded-For` and `X-Forwarded-Proto` headers.
 4. Set `TRUSTED_PROXY_DEPTH` in `.env` to match the number of proxy hops (default `1`).
-5. Set `COOKIE_SECURE=true` (the default) if the proxy terminates TLS.
+5. If the proxy terminates TLS (HTTPS) and forwards plain HTTP to the backend, set `COOKIE_SECURE=false` — the backend only sees HTTP so the `Secure` cookie flag would cause instant logouts. If the backend itself serves HTTPS, keep the default `COOKIE_SECURE=true`.

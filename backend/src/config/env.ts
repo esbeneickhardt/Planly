@@ -27,11 +27,25 @@ if (jwtSecret.length < 32) {
   process.exit(1);
 }
 
+// Checking ENCRYPTION_KEY format (must be exactly 64 lowercase hex characters = 32 bytes)
+const encryptionKey = process.env.ENCRYPTION_KEY!;
+if (!/^[0-9a-f]{64}$/.test(encryptionKey)) {
+  console.error('FATAL: ENCRYPTION_KEY must be exactly 64 lowercase hex characters (32 bytes). Generate with: openssl rand -hex 32');
+  process.exit(1);
+}
+
+// Checking DATABASE_URL contains a non-empty password (catches DB_PASSWORD missing from .env)
+const dbUrl = process.env.DATABASE_URL!;
+if (/:@/.test(dbUrl)) {
+  console.error('FATAL: DATABASE_URL contains an empty password. Check that DB_PASSWORD is set in .env');
+  process.exit(1);
+}
+
 // Creating dictionary with environment variables
 export const config = {
   jwtSecret,
-  databaseUrl: process.env.DATABASE_URL!,
-  encryptionKey: process.env.ENCRYPTION_KEY!,
+  databaseUrl: dbUrl,
+  encryptionKey: encryptionKey,
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
   uploadsDir: process.env.UPLOADS_DIR ?? '/tmp/planly-uploads',
   port: parseInt(process.env.PORT ?? '3000'),

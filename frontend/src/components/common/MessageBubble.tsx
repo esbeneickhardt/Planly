@@ -107,7 +107,7 @@ export default function MessageBubble({
         {msg.attachments.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {msg.attachments.map((att, i) =>
-              att.type.startsWith('image/') ? (
+              att.type?.startsWith('image/') ? (
                 <button key={i} onClick={() => onImageClick(att.url)} className="block">
                   <img src={att.url} alt={att.name} className="rounded-lg object-cover cursor-zoom-in hover:opacity-90 transition-opacity" style={{ maxWidth: 200, maxHeight: 160 }} />
                 </button>
