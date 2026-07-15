@@ -68,6 +68,9 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
   const [adminEntries, setAdminEntries] = useState<AdminEntry[]>([]);
   const [adminUnread, setAdminUnread] = useState(0);
   const [adminLoading, setAdminLoading] = useState(false);
+  // Snapshot of the seen-at timestamp captured at open time, used to highlight new entries
+  const [adminSeenAt, setAdminSeenAt] = useState<string | null>(null);
+  const [hasNewAdmin, setHasNewAdmin] = useState(false);
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -122,10 +125,12 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
     if (adminMode) {
       setAdminLoading(true);
       try {
+        // Capture seenAt BEFORE loading so new-entry highlighting and "Mark all read" are correct
+        const seenAt = localStorage.getItem(SEEN_KEY) ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        setAdminSeenAt(seenAt);
         const { entries } = await api.admin.adminNotifications();
         setAdminEntries(entries);
-        // Mark all as seen
-        localStorage.setItem(SEEN_KEY, new Date().toISOString());
+        setHasNewAdmin(entries.some((e) => new Date(e.createdAt) > new Date(seenAt)));
         setAdminUnread(0);
       } catch {}
       finally { setAdminLoading(false); }
@@ -242,6 +247,30 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
             <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
               {adminMode ? 'Admin notifications' : 'Notifications'}
             </span>
+            {adminMode && adminEntries.length > 0 && (
+              <div className="flex items-center gap-3">
+                {hasNewAdmin && (
+                  <button
+                    onClick={() => { const now = new Date().toISOString(); localStorage.setItem(SEEN_KEY, now); setAdminSeenAt(now); setHasNewAdmin(false); }}
+                    className="text-xs transition-opacity"
+                    style={{ color: 'var(--brand)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <button
+                  onClick={() => { const now = new Date().toISOString(); localStorage.setItem(SEEN_KEY, now); setAdminUnread(0); setHasNewAdmin(false); setAdminEntries([]); setOpen(false); }}
+                  className="text-xs transition-opacity"
+                  style={{ color: 'var(--text-3)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
             {!adminMode && notifications.length > 0 && (
               <div className="flex items-center gap-3">
                 {notifications.some((n) => !n.read) && (
@@ -283,8 +312,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                   </div>
                 )}
                 {!adminLoading && adminEntries.map((entry) => {
-                  const seen = localStorage.getItem(SEEN_KEY);
-                  const isNew = seen ? new Date(entry.createdAt) > new Date(seen) : false;
+                  const isNew = adminSeenAt ? new Date(entry.createdAt) > new Date(adminSeenAt) : false;
                   const body = [entry.actorName, entry.targetName].filter(Boolean).join(' → ');
                   return (
                     <div

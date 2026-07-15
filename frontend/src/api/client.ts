@@ -357,14 +357,19 @@ export const api = {
   upload: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return fetch('/api/upload', { method: 'POST', credentials: 'include', body: form })
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error((body as { error?: string }).error ?? `HTTP ${r.status}`);
-        }
-        return r.json() as Promise<{ url: string; name: string; type: string }>;
-      });
+    const csrf = getCsrfToken();
+    return fetch('/api/upload', {
+      method: 'POST',
+      credentials: 'include',
+      headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+      body: form,
+    }).then(async (r) => {
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error ?? `HTTP ${r.status}`);
+      }
+      return r.json() as Promise<{ url: string; name: string; type: string }>;
+    });
   },
 
   deleteUpload: (filename: string) =>
@@ -537,6 +542,10 @@ export const api = {
     setIpMode: (mode: string) => request<{ ok: boolean }>('/api/admin/ip-restrictions/mode', { method: 'PUT', body: json({ mode }) }),
     addIpRule: (cidr: string, description?: string) => request<{ id: string; cidr: string; description: string | null; createdAt: string }>('/api/admin/ip-restrictions', { method: 'POST', body: json({ cidr, description }) }),
     removeIpRule: (id: string) => request<{ ok: boolean }>(`/api/admin/ip-restrictions/${id}`, { method: 'DELETE' }),
+    adminIpRestrictions: () => request<{ mode: string; rules: { id: string; cidr: string; description: string | null; createdAt: string }[]; yourIp: string }>('/api/admin/admin-ip-restrictions'),
+    setAdminIpMode: (mode: string) => request<{ ok: boolean }>('/api/admin/admin-ip-restrictions/mode', { method: 'PUT', body: json({ mode }) }),
+    addAdminIpRule: (cidr: string, description?: string) => request<{ id: string; cidr: string; description: string | null; createdAt: string }>('/api/admin/admin-ip-restrictions', { method: 'POST', body: json({ cidr, description }) }),
+    removeAdminIpRule: (id: string) => request<{ ok: boolean }>(`/api/admin/admin-ip-restrictions/${id}`, { method: 'DELETE' }),
     adminNotifications: () => request<{ entries: { id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string }[] }>('/api/admin/notifications'),
     adminNotificationCount: (since: string) => request<{ count: number }>(`/api/admin/notifications/unread-count?since=${encodeURIComponent(since)}`),
     logs: (params?: { cursor?: string; action?: string; from?: string; to?: string }) => {

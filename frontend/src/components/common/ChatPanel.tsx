@@ -356,6 +356,8 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
       setAttachments([]);
       setPreview(false);
       setMentionSearch(null);
+    } catch (err) {
+      alert((err as Error).message ?? 'Failed to send message');
     } finally {
       setSending(false);
       setTimeout(() => textRef.current?.focus(), 0);
@@ -369,6 +371,8 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     try {
       const uploaded = await Promise.all(files.map((f) => api.upload(f)));
       setAttachments((prev) => [...prev, ...uploaded]);
+    } catch (err) {
+      alert((err as Error).message ?? 'Upload failed');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -384,6 +388,8 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
       const files = imageItems.map((i) => i.getAsFile()).filter(Boolean) as File[];
       const uploaded = await Promise.all(files.map((f) => api.upload(f)));
       setAttachments((prev) => [...prev, ...uploaded]);
+    } catch (err) {
+      alert((err as Error).message ?? 'Upload failed');
     } finally { setUploading(false); }
   }
 
@@ -674,7 +680,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
           <div className="pb-2 flex gap-2 flex-wrap">
             {attachments.map((att, i) => (
               <div key={i} className="relative group/att">
-                {att.type.startsWith('image/') ? (
+                {att.type?.startsWith('image/') ? (
                   <img src={att.url} alt={att.name} className="h-14 w-14 rounded-lg object-cover" />
                 ) : (
                   <div className="h-14 px-3 flex items-center text-xs rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>📎 {att.name}</div>
@@ -1067,8 +1073,8 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
               <p className="text-sm">No attachments yet.</p>
             </div>
           ) : (() => {
-            const images = allAttachments.filter((x) => x.att.type.startsWith('image/'));
-            const docs = allAttachments.filter((x) => !x.att.type.startsWith('image/'));
+            const images = allAttachments.filter((x) => x.att.type?.startsWith('image/'));
+            const docs = allAttachments.filter((x) => !x.att.type?.startsWith('image/'));
             return (
               <div className="space-y-4">
                 {images.length > 0 && (

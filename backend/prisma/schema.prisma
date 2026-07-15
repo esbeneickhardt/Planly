@@ -513,6 +513,7 @@ model ServerConfig {
   announcementsEnabled     Boolean @default(false)
   announcementPostRole     String  @default("admin")
   ipRestrictionMode        String  @default("disabled")
+  adminIpRestrictionMode   String  @default("disabled")
   githubWebhookSecret      String?
   githubImportIssues       Boolean @default(false)
   githubImportPrs          Boolean @default(false)
@@ -522,6 +523,13 @@ model ServerConfig {
 // ── IP access restrictions ─────────────────────────────────────────────────────
 
 model IpRestriction {
+  id          String   @id @default(uuid())
+  cidr        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model AdminIpRestriction {
   id          String   @id @default(uuid())
   cidr        String   @unique
   description String?
