@@ -110,12 +110,18 @@ https://planly.yourdomain.com/api/auth/sso/callback
 
 | Variable | Description |
 |---|---|
-| `SECURITY_ALERT_WEBHOOK_URL` | POST endpoint for high-severity security events (account lockouts, suspicious logins). Supports Slack incoming webhooks, Discord webhooks, or any JSON HTTP endpoint. |
+| `SECURITY_ALERT_WEBHOOK_URL` | POST endpoint for high-severity security events. Fires on: `LOGIN_LOCKED` (account lockout), `ADMIN_GRANTED`, `ADMIN_REVOKED`, `CROWN_TRANSFERRED`, `TOTP_DISABLED`. Supports Slack incoming webhooks, Discord webhooks, or any JSON HTTP endpoint. |
 
-Example Slack payload sent on a lockout event:
+Example payload sent on a lockout event:
 ```json
 {
-  "text": "🔒 Account locked: user@example.com (5 failed attempts) from IP 203.0.113.42"
+  "event": "LOGIN_LOCKED",
+  "account": "alice",
+  "ip": "203.0.113.42",
+  "lockout_count": 1,
+  "lockout_duration_minutes": 15,
+  "failed_attempts": 5,
+  "timestamp": "2026-07-15T19:46:42.985Z"
 }
 ```
 

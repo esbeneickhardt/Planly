@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { requireAdmin } from '../../middleware/auth';
 import prisma from '../../db/client';
 import { validate } from '../../utils/validate';
+import { sendSecurityAlert } from '../../utils/security-alert';
 
 const transferCrownSchema = z.object({ userId: z.string() });
 const updateUserSchema = z.object({ isAdmin: z.boolean() });
@@ -42,6 +43,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     if (target.isAdmin) return reply.status(400).send({ error: 'User is already an admin' });
     await prisma.user.update({ where: { id }, data: { isAdmin: true } });
     await prisma.adminLog.create({ data: { action: 'USER_PROMOTED', actorName: actor?.username, targetName: target.username } });
+    sendSecurityAlert({ event: 'ADMIN_GRANTED', account: target.username, ip: req.ip, actor: actor?.username ?? 'unknown', timestamp: new Date().toISOString() });
     reply.send({ ok: true });
   });
 
@@ -57,6 +59,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     if (adminCount <= 1) return reply.status(400).send({ error: 'Cannot remove the last admin' });
     await prisma.user.update({ where: { id }, data: { isAdmin: false } });
     await prisma.adminLog.create({ data: { action: 'USER_DEMOTED', actorName: actor?.username, targetName: target.username } });
+    sendSecurityAlert({ event: 'ADMIN_REVOKED', account: target.username, ip: req.ip, actor: actor?.username ?? 'unknown', timestamp: new Date().toISOString() });
     reply.send({ ok: true });
   });
 
@@ -81,6 +84,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
       prisma.user.update({ where: { id: targetId }, data: { isFoundingAdmin: true } }),
     ]);
     await prisma.adminLog.create({ data: { action: 'CROWN_TRANSFERRED', actorName: actor.username, targetName: target.username } });
+    sendSecurityAlert({ event: 'CROWN_TRANSFERRED', account: target.username, ip: req.ip, actor: actor.username, timestamp: new Date().toISOString() });
     reply.send({ ok: true });
   });
 

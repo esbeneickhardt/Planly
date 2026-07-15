@@ -9,15 +9,15 @@
 // Not configured → silently no-op; alerting is optional
 const WEBHOOK_URL = process.env.SECURITY_ALERT_WEBHOOK_URL;
 
-export async function sendSecurityAlert(event: string, detail: string) {
+export type SecurityAlertPayload = { event: string; account: string; ip: string; timestamp: string } & Record<string, unknown>;
+
+export async function sendSecurityAlert(payload: SecurityAlertPayload) {
   if (!WEBHOOK_URL) return;
   try {
-    // Slack/Discord-compatible payload format (text key)
-    const text = `[Planly Security] *${event}*: ${detail} - ${new Date().toISOString()}`;
     await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(5000),
     });
   } catch {
