@@ -186,11 +186,11 @@ Without `ADMIN_PASSWORD` the server generates a random password and prints it to
 ADMIN_PASSWORD=MyChosenPassword123!
 ```
 
-- [ ] Set `ADMIN_PASSWORD` in `.env`, wipe DB (`docker compose down -v`), restart
-- [ ] Backend log does NOT print the password banner (no auto-generated password shown)
-- [ ] Log in with the email from `ADMIN_EMAIL` and the password from `ADMIN_PASSWORD` - works
-- [ ] `mustChangePassword` is NOT set (no forced password-change prompt on login)
-- [ ] Remove `ADMIN_PASSWORD` from `.env` after verifying (it has no effect once the account exists)
+- [X] Set `ADMIN_PASSWORD` in `.env`, wipe DB (`docker compose down -v`), restart
+- [X] Backend log does NOT print the password banner (no auto-generated password shown)
+- [X] Log in with the email from `ADMIN_EMAIL` and the password from `ADMIN_PASSWORD` - works
+- [X] `mustChangePassword` is NOT set (no forced password-change prompt on login)
+- [X] Remove `ADMIN_PASSWORD` from `.env` after verifying (it has no effect once the account exists)
 
 ---
 
@@ -203,9 +203,9 @@ ADMIN_PASSWORD=MyChosenPassword123!
 FRONTEND_PORT=8080
 ```
 
-- [ ] Set `FRONTEND_PORT=8080`, restart with `--force-recreate`
-- [ ] App is reachable at `http://localhost:8080` (not port 80)
-- [ ] Reset to `FRONTEND_PORT=80` (or remove it) when done
+- [X] Set `FRONTEND_PORT=8080`, restart with `--force-recreate`
+- [X] App is reachable at `http://localhost:8080` (not port 80)
+- [X] Reset to `FRONTEND_PORT=80` (or remove it) when done
 
 ---
 
@@ -220,11 +220,11 @@ Use a free request inspector like [webhook.site](https://webhook.site) to captur
 SECURITY_ALERT_WEBHOOK_URL=https://webhook.site/your-unique-id
 ```
 
-- [ ] Set `SECURITY_ALERT_WEBHOOK_URL`, restart
-- [ ] Trigger an account lockout (5+ failed logins on Alice's account)
-- [ ] Webhook.site (or your endpoint) receives a POST with a JSON payload
-- [ ] Payload contains the locked account email and IP address
-- [ ] Normal login activity does NOT trigger the webhook
+- [X] Set `SECURITY_ALERT_WEBHOOK_URL`, restart
+- [X] Trigger an account lockout (5+ failed logins on Bob's account)
+- [X] Webhook.site receives a POST with a JSON payload
+- [X] Payload contains the locked account username, lockout duration, and timestamp
+- [X] Normal login activity does NOT trigger the webhook
 
 ---
 

@@ -27,6 +27,7 @@ import { issueAuthCookie } from '../utils/auth-cookie';
 import { decryptUserPii } from '../utils/crypto';
 import { logAdminEvent } from '../utils/audit';
 import { z } from 'zod';
+import { sendSecurityAlert } from '../utils/security-alert';
 
 const ISSUER = 'Planly';
 const BACKUP_CODE_COUNT = 8;
@@ -165,6 +166,7 @@ export async function totpRoutes(app: FastifyInstance) {
     ]);
 
     logAdminEvent('TOTP_DISABLED', { actorName: user.username, targetName: user.username });
+    sendSecurityAlert({ event: 'TOTP_DISABLED', account: user.username, ip: req.ip, timestamp: new Date().toISOString() });
 
     reply.send({ ok: true });
   });
