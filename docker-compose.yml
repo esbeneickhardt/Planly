@@ -24,7 +24,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./data/uploads:/data/uploads
+      - uploads_data:/data/uploads
     logging:
       driver: json-file
       options:
@@ -39,6 +39,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
+      # Emergency crown transfer - set to an existing user's email, restart once, then remove
+      RECROWN_EMAIL: ${RECROWN_EMAIL:-}
 
       # ── Server ────────────────────────────────────────────────────────────
       FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-80}
@@ -48,13 +50,19 @@ services:
       # Set to "false" for HTTP-only local dev; defaults to true (HTTPS)
       COOKIE_SECURE: "${COOKIE_SECURE:-true}"
 
+      # ── Admin account ─────────────────────────────────────────────────────
+      # Set before first start to use a known password instead of a generated one
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+
       # ── Email / SMTP (optional) ────────────────────────────────────────────
       # Recommended: configure via Admin -> Email in the UI after first login.
       # Alternative: set SMTP_* in .env and they are picked up here automatically.
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM:-}
 
       # ── Single Sign-On / OIDC (optional) ──────────────────────────────────
       # Set credentials in .env - see .env.example for provider examples.
@@ -76,6 +84,18 @@ services:
       # AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       # AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       # AWS_S3_PREFIX: ${AWS_S3_PREFIX}
+
+      # ── Security alerting (optional) ──────────────────────────────────────
+      # POST webhook fired on account lockouts; supports Slack, Discord, or any JSON endpoint
+      SECURITY_ALERT_WEBHOOK_URL: ${SECURITY_ALERT_WEBHOOK_URL:-}
+
+      # ── Observability ─────────────────────────────────────────────────────
+      # Required to access GET /api/metrics — omitting this blocks the endpoint entirely
+      METRICS_SECRET: ${METRICS_SECRET:-}
+      # trace / debug / info / warn / error / fatal (default: info)
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # How many days of admin audit logs to retain (default: 90)
+      ADMIN_LOG_RETENTION_DAYS: ${ADMIN_LOG_RETENTION_DAYS:-90}
 
       # ── Rate limits ────────────────────────────────────────────────────────
       # Higher limits so E2E test suites don't exhaust the per-IP budgets
@@ -156,6 +176,7 @@ services:
 
 volumes:
   db_data:
+  uploads_data:
   # redis_data:      # uncomment when enabling Redis above
   # minio_data:      # uncomment when enabling MinIO above
   # prometheus_data: # uncomment when enabling Prometheus above

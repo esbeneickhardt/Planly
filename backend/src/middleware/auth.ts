@@ -18,6 +18,7 @@ import { createHash } from 'crypto';
 import prisma from '../db/client';
 import { config } from '../config/env';
 import { getServerConfig } from '../utils/server-config';
+import { getClientIp, matchesCidr, isLocalhost } from '../utils/ip';
 
 // Routes where an authenticated but unverified user must still be allowed through
 // (so they can verify themselves or change their password)
@@ -142,5 +143,22 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   await enforceEmailVerification(req, reply);
   if (reply.sent) return;
   const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
-  if (!user?.isAdmin) reply.status(403).send({ error: 'Admin access required' });
+  if (!user?.isAdmin) return reply.status(403).send({ error: 'Admin access required' });
+
+  // Admin-scope IP restriction — always exempt the management endpoints so admins can never
+  // lock themselves out of the controls needed to fix a misconfiguration
+  const url = req.routeOptions?.url ?? req.url.split('?')[0] ?? '';
+  if (!url.startsWith('/api/admin/admin-ip-restrictions')) {
+    const cfg = await prisma.serverConfig.findUnique({ where: { id: 'main' }, select: { adminIpRestrictionMode: true } });
+    const mode = cfg?.adminIpRestrictionMode ?? 'disabled';
+    if (mode !== 'disabled') {
+      const ip = getClientIp(req as never);
+      if (!isLocalhost(ip)) {
+        const rules = await prisma.adminIpRestriction.findMany({ select: { cidr: true } });
+        const matches = rules.some((r) => matchesCidr(ip, r.cidr));
+        if (mode === 'allowlist' && !matches) return reply.status(403).send({ error: 'Admin access denied: your IP is not on the admin allowlist.', code: 'ADMIN_IP_BLOCKED' });
+        if (mode === 'blocklist' && matches)  return reply.status(403).send({ error: 'Admin access denied: your IP has been blocked from admin access.', code: 'ADMIN_IP_BLOCKED' });
+      }
+    }
+  }
 }

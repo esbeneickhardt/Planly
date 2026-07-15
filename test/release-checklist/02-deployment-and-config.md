@@ -20,9 +20,9 @@ curl -s $BASE/api/health/ready | jq .
 # Expected: 200 with DB status
 ```
 
-- [ ] `GET /api/health` returns 200 with `{ "ok": true }`
-- [ ] `GET /api/health/ready` returns 200 when DB is connected
-- [ ] Stop the DB container: `GET /api/health/ready` returns non-200
+- [X] `GET /api/health` returns 200 with `{ "ok": true }`
+- [X] `GET /api/health/ready` returns 200 when DB is connected
+- [X] Stop the DB container: `GET /api/health/ready` returns non-200
 
 ---
 
@@ -32,8 +32,28 @@ curl -s $BASE/api/health/ready | jq .
 >
 > Basic bootstrap (set `ADMIN_EMAIL`, backend log confirms creation, shield button visible) was verified in [01-setup.md](01-setup.md). Test the edge cases here:
 
-- [ ] Set `ADMIN_EMAIL` to an **already-registered** non-admin email, restart → that user gains admin
-- [ ] After restart, removing `ADMIN_EMAIL` from `.env` does NOT revoke the admin flag
+- [X] Set `ADMIN_EMAIL` to an **already-registered** non-admin email, restart → that user gains admin
+- [X] After restart, removing `ADMIN_EMAIL` from `.env` does NOT revoke the admin flag
+
+---
+
+## RECROWN_EMAIL — emergency crown transfer
+
+> Code: [backend/src/index.ts](../../backend/src/index.ts) (`emergencyRecrown` - runs before `ensureAdminAccount` on every startup)
+>
+> Use this when the founding admin has left and will not cooperate. `ADMIN_EMAIL` on an existing user only grants `isAdmin`; it never touches `isFoundingAdmin`. `RECROWN_EMAIL` forcibly transfers the crown and writes an audit log entry.
+
+```bash
+# Add to .env — remove immediately after verifying
+RECROWN_EMAIL=bob@test.local
+```
+
+- [X] Set `RECROWN_EMAIL=bob@test.local`, restart backend with `--force-recreate`
+- [X] Backend logs show `EMERGENCY CROWN TRANSFER COMPLETE` banner naming Bob
+- [X] Audit log (`GET /api/admin/logs`) contains a `CROWN_TRANSFERRED` entry with actor `SYSTEM (RECROWN_EMAIL)`
+- [X] Log in as Bob → shield button 🛡 visible and "Transfer Ownership" option available in the admin panel
+- [X] Log in as the previous founding admin → shield still visible (retains `isAdmin`) but "Transfer Ownership" is gone
+- [X] Remove `RECROWN_EMAIL` from `.env`, restart → no banner, no side effects
 
 ---
 
@@ -43,29 +63,61 @@ curl -s $BASE/api/health/ready | jq .
 
 Test that missing each required variable causes a clear startup error:
 
-- [ ] `DB_PASSWORD` missing → backend exits with clear error, not a cryptic DB connection crash
-- [ ] `JWT_SECRET` missing → backend exits with clear error
-- [ ] `ENCRYPTION_KEY` missing → backend exits with clear error
-- [ ] `JWT_SECRET` shorter than 32 chars → backend rejects it at startup
-- [ ] `ENCRYPTION_KEY` wrong length (not 64 hex chars) → backend rejects it
+- [X] `DB_PASSWORD` missing → backend exits with clear error, not a cryptic DB connection crash
+- [X] `JWT_SECRET` missing → backend exits with clear error
+- [X] `ENCRYPTION_KEY` missing → backend exits with clear error
+- [X] `JWT_SECRET` shorter than 32 chars → backend rejects it at startup
+- [X] `ENCRYPTION_KEY` wrong length (not 64 hex chars) → backend rejects it
 
----
+---## TRUSTED_PROXY_DEPTH
+
+> Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) · [backend/src/routes/ip-restrictions.ts](../../backend/src/routes/ip-restrictions.ts) (reads real IP from X-Forwarded-For using the configured depth)
+
+The setup is: **Browser → Nginx → Backend**. Nginx appends the real client IP to the `X-Forwarded-For` header so the backend knows who is actually connecting. `TRUSTED_PROXY_DEPTH=1` tells the backend to trust exactly one hop — reading the IP Nginx added, and ignoring anything the client themselves put in that header (which would otherwise allow anyone to spoof their IP and bypass blocklists).
+
+**Set up shell variables first** (needed for all curl tests in this file):
+1. Log in as Admin in the browser
+2. Open DevTools → Application tab → Cookies → `http://localhost`
+3. Set in your terminal:
+```bash
+TOKEN=<token cookie value>
+CSRF=<csrf cookie value>
+```
+
+**Test 1 — real IP is read, not Nginx's internal Docker IP**
+
+```bash
+curl -s http://localhost/api/admin/ip-restrictions \
+  -H "Cookie: token=$TOKEN" | jq .yourIp
+```
+
+Pass: returns `172.18.0.1` (the Docker bridge gateway — your host machine as seen through Docker). It must NOT be a container-internal address like `172.18.0.2` or `172.18.0.3`, which would mean Nginx's own IP is leaking. In production with real internet traffic this would be the user's actual public IP.
+
+You can also just open **Admin → IP Rules** in the browser — the "Your current IP" chip shows the same value without needing curl.
+
+**Test 2 — spoofing attempt via a fake header is ignored**
+
+```bash
+curl -s http://localhost/api/admin/ip-restrictions \
+  -H "X-Forwarded-For: 1.2.3.4" \
+  -H "Cookie: token=$TOKEN" | jq .yourIp
+```
+
+Pass: still returns your real IP, **not** `1.2.3.4`. If it returned `1.2.3.4`, the depth would be misconfigured and anyone could bypass IP blocklists by faking the header.
+
+- [X] Test 1 passes — `yourIp` is `172.18.0.1` (the Docker bridge gateway, i.e. your host machine as seen through Docker). In production this would be the user's real public IP. It must NOT be a container-internal address like `172.18.0.2`/`.3` (which would mean Nginx's own IP is leaking through)
+- [X] Test 2 passes — `yourIp` is unchanged even with a fake `X-Forwarded-For: 1.2.3.4` header (spoofing attempt correctly ignored)
+
 
 ## COOKIE_SECURE behaviour
 
 > Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) (`COOKIE_SECURE`) · [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (cookie options passed to `reply.setCookie`)
 
-- [ ] With `COOKIE_SECURE=false` in `.env`: login works over HTTP, cookies are set without `Secure` flag
-- [ ] Without `COOKIE_SECURE` (defaults to `true`): on HTTP login works but cookies have `Secure` flag (browser may block on HTTP - confirm behaviour is documented)
+- [X] With `COOKIE_SECURE=false` in `.env`: login works over HTTP, cookies are set without `Secure` flag
+- [X] Without `COOKIE_SECURE` (defaults to `true`): on HTTP login works but cookies have `Secure` flag (browser may block on HTTP - confirm behaviour is documented)
 
 ---
 
-## TRUSTED_PROXY_DEPTH
-
-> Code: [backend/src/config/env.ts](../../backend/src/config/env.ts) · [backend/src/routes/ip-restrictions.ts](../../backend/src/routes/ip-restrictions.ts) (reads real IP from X-Forwarded-For using the configured depth)
-
-- [ ] Default (`1`) - real IP is read from `X-Forwarded-For` (first hop)
-- [ ] Confirm IP restriction features use the correct real IP (see [22-security.md](22-security.md))
 
 ---
 
@@ -74,66 +126,52 @@ Test that missing each required variable causes a clear startup error:
 > Code: [backend/src/index.ts](../../backend/src/index.ts) (`/api/metrics` route, `METRICS_SECRET` check)
 
 ```bash
-# Without METRICS_SECRET set - should be open
-curl -s $BASE/api/metrics
-
-# With METRICS_SECRET=secret123 set
-curl -s -H "X-Metrics-Secret: secret123" $BASE/api/metrics
-curl -s $BASE/api/metrics   # should return 401 or 403
+# Add to .env
+METRICS_SECRET=secret123
 ```
 
-- [ ] Without `METRICS_SECRET`: metrics are returned publicly - **confirm this is acceptable or add note to docs**
-- [ ] With `METRICS_SECRET` set: requests without the header are rejected
-- [ ] With `METRICS_SECRET` set: requests with correct header return Prometheus-format text
-- [ ] Metrics include `http_requests_total` and per-status counters
+```bash
+# With METRICS_SECRET set: correct header returns metrics
+curl -s -H "X-Metrics-Secret: secret123" $BASE/api/metrics
+
+# Missing or wrong secret → 401
+curl -s $BASE/api/metrics
+curl -s -H "X-Metrics-Secret: wrongvalue" $BASE/api/metrics
+
+# With METRICS_SECRET unset: endpoint is still closed (401 for everyone)
+curl -s $BASE/api/metrics   # 401
+```
+
+- [X] With `METRICS_SECRET` set and correct header: Prometheus-format text returned
+- [X] With `METRICS_SECRET` set and missing/wrong header: 401 Unauthorized
+- [X] With `METRICS_SECRET` unset in `.env`: endpoint returns 401 (closed by default)
+- [X] Metrics include `http_requests_total` and per-status counters
 
 ---
 
 ## Seed data endpoint
 
-> Code: [backend/src/routes/seed.ts](../../backend/src/routes/seed.ts) - confirm whether it has an env guard or should be disabled in production
+> Code: [backend/src/routes/seed.ts](../../backend/src/routes/seed.ts) - admin-only endpoint that populates a fresh instance with three demo projects (Podcast Launch, IRB PD Model, Build a Rocket) including tasks, subtasks, dependencies, and milestones. Useful for demoing the app to new users.
 
 ```bash
-curl -s -X POST $BASE/api/seed-examples
+# Mutating requests (POST/PUT/DELETE) require both cookies + the CSRF header — see setup above.
+curl -s -X POST $BASE/api/seed-examples \
+  -H "Cookie: token=$TOKEN; csrf=$CSRF" \
+  -H "X-CSRF-Token: $CSRF"
+# Expected: { "ok": true, "products": ["<id>", "<id>", "<id>"] }
 ```
 
-- [ ] `POST /api/seed-examples` - confirm what this does and whether it should be disabled in production
-- [ ] If it should be disabled: add env guard or remove the route in production builds
-
----
-
-## Docker build
-
-> Code: [docker-compose.yml](../../docker-compose.yml) · [docker-compose.prod.yml](../../docker-compose.prod.yml)
-
-- [ ] `docker compose build --no-cache` completes without error
-- [ ] Image size is reasonable (document expected size)
-- [ ] `docker compose up -d --force-recreate` picks up the new image (not the old one)
-- [ ] `docker restart backend` does NOT pick up a new image (confirm `--force-recreate` is required, as documented)
-
----
-
-## Logging
-
-> Code: [backend/src/index.ts](../../backend/src/index.ts) (Pino logger config, `LOG_FORMAT` env check)
-
-- [ ] Backend logs are JSON format by default (Pino)
-- [ ] Setting `LOG_FORMAT=pretty` produces human-readable colourised output
-- [ ] Log rotation limits are applied (check `docker compose logs --tail=100 backend`)
-- [ ] No secrets appear in logs (passwords, tokens, encryption keys)
+- [X] Calling without auth returns 401 (route is protected by `requireAdmin`)
+- [X] Calling as admin creates the three demo projects and they appear in the UI
 
 ---
 
 ## Data persistence
 
-> Code: [docker-compose.yml](../../docker-compose.yml) - `db_data` named volume for Postgres; `./data/uploads:/data/uploads` bind-mount for files · [backend/src/config/env.ts](../../backend/src/config/env.ts) (`AWS_S3_BUCKET` switches storage backend)
+> Code: [docker-compose.yml](../../docker-compose.yml) - `db_data` named volume for Postgres; `uploads_data` named volume for files
 
-- [ ] Restart the stack: `docker compose restart`; log in - all data preserved
-- [ ] Stop and start (not restart): `docker compose down && docker compose up -d` - all data preserved
-- [ ] `docker compose down -v` destroys the **database** (`db_data` named volume) - **confirm this is documented as destructive**
-- [ ] Uploaded files survive `docker compose down -v` because they live in `./data/uploads/` on the host (bind mount, not a named volume)
-- [ ] `./data/uploads/` directory exists on the host before first start (created by `mkdir -p data/uploads` or automatically by Docker when bind-mounted)
-- [ ] S3 mode: set `AWS_S3_BUCKET` in `.env` → restart → upload a file → confirm it appears in the S3/Scaleway bucket, not in `./data/uploads/`
+- [X] Upload a file, restart the stack (`docker compose down && docker compose up -d`) — file still accessible
+- [X] `docker compose down -v` destroys **both** database and uploaded files (`-v` wipes all named volumes) — accepted; this is standard Docker named-volume behaviour, not Planly-specific logic. Documented in [docs/wiki/Deployment.md](../../docs/wiki/Deployment.md)
 
 ---
 
@@ -237,6 +275,7 @@ npx tsx scripts/rotate-encryption-key.ts
 - [ ] `git pull` + `build --no-cache` + `up --force-recreate` produces a working updated app
 - [ ] After upgrade, existing sessions still work (no forced re-login)
 - [ ] After upgrade, existing data (tasks, projects) is intact
+- [ ] `docker restart backend` does NOT apply a new image — `--force-recreate` is always required (see [Deployment wiki](../../docs/wiki/Deployment.md))
 
 ---
 

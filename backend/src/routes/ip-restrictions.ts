@@ -13,60 +13,15 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { isIPv4 } from 'net';
 import prisma from '../db/client';
-import { config } from '../config/env';
 import { requireAdmin } from '../middleware/auth';
 import { validate } from '../utils/validate';
+import { matchesCidr, getClientIp } from '../utils/ip';
+
+// Re-export so index.ts can import from this module as before
+export { matchesCidr, getClientIp };
 
 const setModeSchema = z.object({ mode: z.enum(['disabled', 'allowlist', 'blocklist']) });
 const addRuleSchema = z.object({ cidr: z.string().min(1), description: z.string().optional() });
-
-// ── CIDR matching ──────────────────────────────────────────────────────────────
-
-// Convert a dotted-decimal IPv4 address to a 32-bit unsigned integer for CIDR masking
-function ipToInt(ip: string): number {
-  return ip.split('.').reduce((acc, octet) => ((acc << 8) | parseInt(octet, 10)) >>> 0, 0) >>> 0;
-}
-
-export function matchesCidr(clientIp: string, cidr: string): boolean {
-  // Strip IPv6-mapped IPv4 prefix
-  const ip = clientIp.startsWith('::ffff:') ? clientIp.slice(7) : clientIp;
-
-  if (!cidr.includes('/')) {
-    // Exact match (supports IPv6)
-    return ip === cidr;
-  }
-
-  const [network, prefixStr] = cidr.split('/') as [string, string];
-  const prefix = parseInt(prefixStr, 10);
-
-  if (!isIPv4(ip) || !isIPv4(network)) return false;
-  if (isNaN(prefix) || prefix < 0 || prefix > 32) return false;
-
-  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
-  return (ipToInt(ip) & mask) === (ipToInt(network) & mask);
-}
-
-export function getClientIp(req: { headers: Record<string, string | string[] | undefined>; socket: { remoteAddress?: string } }): string {
-  const raw = process.env.TRUSTED_PROXY_DEPTH;
-  const depth = raw === undefined ? config.trustedProxyDepth : parseInt(raw, 10);
-
-  // depth=0 means no trusted proxy - use socket address directly
-  if (depth <= 0) return req.socket.remoteAddress ?? '';
-
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    const list = (Array.isArray(forwarded) ? forwarded.join(',') : forwarded)
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (list.length > 0) {
-      // Proxies append to the right; the client IP sits depth entries from the right
-      const idx = Math.max(0, list.length - depth);
-      return list[idx] ?? '';
-    }
-  }
-  return req.socket.remoteAddress ?? '';
-}
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
 
@@ -137,6 +92,72 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     await prisma.ipRestriction.delete({ where: { id } });
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
     await prisma.adminLog.create({ data: { action: 'IP_RULE_REMOVED', actorName: actor?.username, metadata: { cidr: rule.cidr } } });
+    reply.send({ ok: true });
+  });
+
+  // ── Admin-scope IP restrictions ────────────────────────────────────────────
+  // These rules gate /api/admin/* access only — independent of the user-facing rules above.
+  // The management endpoints below are always exempt from the admin IP check so admins
+  // can never lock themselves out of the controls needed to fix a misconfiguration.
+
+  // Get current admin IP rules + mode + caller's IP
+  app.get('/api/admin/admin-ip-restrictions', { preHandler: requireAdmin }, async (req, reply) => {
+    const [rules, cfg] = await Promise.all([
+      prisma.adminIpRestriction.findMany({ orderBy: { createdAt: 'asc' } }),
+      prisma.serverConfig.findUnique({ where: { id: 'main' }, select: { adminIpRestrictionMode: true } }),
+    ]);
+    reply.send({ mode: cfg?.adminIpRestrictionMode ?? 'disabled', rules, yourIp: getClientIp(req as never) });
+  });
+
+  // Update admin IP restriction mode (disabled / allowlist / blocklist)
+  app.put('/api/admin/admin-ip-restrictions/mode', { preHandler: requireAdmin }, async (req, reply) => {
+    const body = validate(setModeSchema, req.body, reply);
+    if (!body) return;
+    const { mode } = body;
+    await prisma.serverConfig.upsert({
+      where: { id: 'main' },
+      update: { adminIpRestrictionMode: mode },
+      create: { id: 'main', adminIpRestrictionMode: mode },
+    });
+    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+    await prisma.adminLog.create({ data: { action: 'ADMIN_IP_RESTRICTION_MODE_CHANGED', actorName: actor?.username, metadata: { mode } } });
+    reply.send({ ok: true });
+  });
+
+  // Add an admin IP rule
+  app.post('/api/admin/admin-ip-restrictions', { preHandler: requireAdmin }, async (req, reply) => {
+    const ruleBody = validate(addRuleSchema, req.body, reply);
+    if (!ruleBody) return;
+    const { cidr, description } = ruleBody;
+
+    const normalized = cidr.trim();
+    const [host, prefix] = normalized.split('/') as [string, string | undefined];
+    const validIp = isIPv4(host) || host.includes(':');
+    if (!validIp) return reply.status(400).send({ error: 'Invalid IP address or CIDR range' });
+    if (prefix !== undefined) {
+      const p = parseInt(prefix, 10);
+      const maxPrefix = host.includes(':') ? 128 : 32;
+      if (isNaN(p) || p < 0 || p > maxPrefix) return reply.status(400).send({ error: `CIDR prefix must be 0–${maxPrefix}` });
+    }
+
+    try {
+      const rule = await prisma.adminIpRestriction.create({ data: { cidr: normalized, description: description?.trim() || null } });
+      const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+      await prisma.adminLog.create({ data: { action: 'ADMIN_IP_RULE_ADDED', actorName: actor?.username, metadata: { cidr: normalized } } });
+      reply.status(201).send(rule);
+    } catch {
+      reply.status(409).send({ error: 'That IP / CIDR range is already in the admin list' });
+    }
+  });
+
+  // Remove an admin IP rule
+  app.delete('/api/admin/admin-ip-restrictions/:id', { preHandler: requireAdmin }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const rule = await prisma.adminIpRestriction.findUnique({ where: { id } });
+    if (!rule) return reply.status(404).send({ error: 'Not found' });
+    await prisma.adminIpRestriction.delete({ where: { id } });
+    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+    await prisma.adminLog.create({ data: { action: 'ADMIN_IP_RULE_REMOVED', actorName: actor?.username, metadata: { cidr: rule.cidr } } });
     reply.send({ ok: true });
   });
 }
