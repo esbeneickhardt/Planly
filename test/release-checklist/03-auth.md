@@ -8,26 +8,26 @@
 
 > Code: [routes/auth.ts](../../backend/src/routes/auth.ts) · [RegisterPage.tsx](../../frontend/src/pages/RegisterPage.tsx) · [server-config.ts](../../backend/src/utils/server-config.ts) (`requireWhitelist` default)
 
-- [ ] Register with valid email, username, password → redirected to app
-- [ ] Register with duplicate email → clear error "Email already in use"
-- [ ] Register with duplicate username → clear error "Username already taken"
-- [ ] Register with invalid email format → form validation error
-- [ ] Register with password < 8 chars → form validation error
-- [ ] Empty form submit → field-level validation errors, not a 500
-- [ ] Username with special characters (spaces, `@`, `/`) → rejected or sanitised
-- [ ] Very long email (300+ chars) → rejected gracefully
-- [ ] If `requireWhitelist` is on: register with non-whitelisted email → rejected with clear message
-- [ ] If `requireWhitelist` is on: register with whitelisted email → succeeds
+- [X] Register with valid email, username, password → redirected to app (verified in [01-setup.md](01-setup.md))
+- [X] Register with duplicate email → clear error "Email already in use"
+- [X] Register with duplicate username → clear error "Username already taken"
+- [X] Register with invalid email format → form validation error
+- [X] Register with password < 8 chars → form validation error
+- [X] Empty form submit → field-level validation errors, not a 500
+- [X] Username with special characters (spaces, `@`, `/`) → rejected or sanitised
+- [X] Very long email (300+ chars) → rejected gracefully
+- [X] If `requireWhitelist` is on: register with non-whitelisted email → rejected with clear message
+- [X] If `requireWhitelist` is on: register with whitelisted email → succeeds
 
 ```bash
-# API registration
+# API registration (tosAccepted is required)
 curl -s -X POST $BASE/api/users \
   -H "Content-Type: application/json" \
-  -d '{"email":"api_test@example.com","username":"api_test","password":"Str0ngPass!"}' | jq .
+  -d '{"email":"api_test@example.com","username":"api_test","password":"Str0ngPass!","tosAccepted":true}' | jq .
 ```
 
-- [ ] Returns 201 with success message
-- [ ] Returns 409 on duplicate email/username
+- [X] Returns 201 with success message
+- [X] Returns 409 on duplicate email/username
 
 ---
 

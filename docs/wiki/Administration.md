@@ -73,7 +73,7 @@ Click **Export** to download the log as:
 
 #### Retention
 
-Log entries older than `ADMIN_LOG_RETENTION_DAYS` (default: 365) are automatically deleted by the nightly cleanup job.
+Log entries older than `ADMIN_LOG_RETENTION_DAYS` (default: 90) are automatically deleted by the nightly cleanup job.
 
 #### Logged actions
 
@@ -147,6 +147,6 @@ The backend runs a cleanup job 30 seconds after startup and then every 24 hours:
 | Notifications | 90 days |
 | Activity events | 180 days |
 | Soft-deleted tasks | 365 days (then hard-deleted) |
-| Admin audit logs | Configurable (`ADMIN_LOG_RETENTION_DAYS`, default 365) |
+| Admin audit logs | Configurable (`ADMIN_LOG_RETENTION_DAYS`, default 90) |
 | Expired SSO states | Cleaned immediately on expiry |
 | Expired WebSocket tickets | Cleaned immediately on expiry |

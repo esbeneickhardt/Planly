@@ -509,6 +509,7 @@ model ServerConfig {
   id                       String  @id @default("main")
   requireEmailVerification Boolean @default(false)
   requireWhitelist         Boolean @default(false)
+  requireBlocklist         Boolean @default(false)
   allowProjectCreation     Boolean @default(false)
   announcementsEnabled     Boolean @default(false)
   announcementPostRole     String  @default("admin")
@@ -575,6 +576,7 @@ model AnnouncementComment {
 model EmailWhitelist {
   id        String   @id @default(uuid())
   pattern   String   @unique
+  type      String   @default("allow")
   createdAt DateTime @default(now())
 }
 

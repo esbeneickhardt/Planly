@@ -14,10 +14,11 @@ import { getServerConfig } from '../../utils/server-config';
 import { getSmtpSettings, sendEmail, verifyEmailTemplate } from '../../utils/email';
 import { validate } from '../../utils/validate';
 
-const addWhitelistSchema = z.object({ pattern: z.string().min(1) });
+const addWhitelistSchema = z.object({ pattern: z.string().min(1), type: z.enum(['allow', 'deny']).optional() });
 const serverConfigSchema = z.object({
   requireEmailVerification: z.boolean().optional(),
   requireWhitelist: z.boolean().optional(),
+  requireBlocklist: z.boolean().optional(),
   allowProjectCreation: z.boolean().optional(),
   announcementsEnabled: z.boolean().optional(),
   announcementPostRole: z.string().optional(),
@@ -37,8 +38,9 @@ export async function adminConfigRoutes(app: FastifyInstance) {
     if (!p.startsWith('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)) {
       return reply.status(400).send({ error: 'Pattern must be an email address or a domain starting with @ (e.g. @company.com)' });
     }
+    const type = wlBody.type ?? 'allow';
     try {
-      const entry = await prisma.emailWhitelist.create({ data: { pattern: p } });
+      const entry = await prisma.emailWhitelist.create({ data: { pattern: p, type } });
       reply.status(201).send(entry);
     } catch {
       reply.status(409).send({ error: 'Pattern already exists' });
@@ -61,7 +63,7 @@ export async function adminConfigRoutes(app: FastifyInstance) {
   app.put('/api/admin/server-config', { preHandler: requireAdmin }, async (req, reply) => {
     const cfgBody = validate(serverConfigSchema, req.body, reply);
     if (!cfgBody) return;
-    const { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } = cfgBody;
+    const { requireEmailVerification, requireWhitelist, requireBlocklist, allowProjectCreation, announcementsEnabled, announcementPostRole } = cfgBody;
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
 
     // Snapshot the config before the update so we can detect transitions (e.g. verification just turned on)
@@ -73,11 +75,12 @@ export async function adminConfigRoutes(app: FastifyInstance) {
       update: {
         ...(requireEmailVerification !== undefined ? { requireEmailVerification } : {}),
         ...(requireWhitelist !== undefined ? { requireWhitelist } : {}),
+        ...(requireBlocklist !== undefined ? { requireBlocklist } : {}),
         ...(allowProjectCreation !== undefined ? { allowProjectCreation } : {}),
         ...(announcementsEnabled !== undefined ? { announcementsEnabled } : {}),
         ...(announcementPostRole !== undefined ? { announcementPostRole } : {}),
       },
-      create: { id: 'main', requireEmailVerification: requireEmailVerification ?? false, requireWhitelist: requireWhitelist ?? false, allowProjectCreation: allowProjectCreation ?? false, announcementsEnabled: announcementsEnabled ?? false, announcementPostRole: announcementPostRole ?? 'admin' },
+      create: { id: 'main', requireEmailVerification: requireEmailVerification ?? false, requireWhitelist: requireWhitelist ?? false, requireBlocklist: requireBlocklist ?? false, allowProjectCreation: allowProjectCreation ?? false, announcementsEnabled: announcementsEnabled ?? false, announcementPostRole: announcementPostRole ?? 'admin' },
     });
     await prisma.adminLog.create({
       data: { action: 'SERVER_CONFIG_UPDATED', actorName: actor?.username, metadata: { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } },
