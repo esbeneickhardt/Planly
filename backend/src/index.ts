@@ -111,7 +111,7 @@ async function ensureAdminAccount() {
 
   // Derive a username from the email local-part. If someone has already claimed it, append a
   // numeric suffix — this is cosmetic only; admin rights come from isFoundingAdmin, not the username.
-  const base = (adminEmail.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32) || 'admin';
+  const base = (adminEmail.split('@')[0] ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 32) || 'admin';
   let username = base;
   let suffix = 0;
   while (await prisma.user.findUnique({ where: { username } })) username = `${base}${++suffix}`;

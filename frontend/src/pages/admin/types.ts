@@ -35,6 +35,7 @@ export type ServerConfig = {
   adminEmail: string | null;
   requireEmailVerification: boolean;
   requireWhitelist: boolean;
+  requireBlocklist: boolean;
   allowProjectCreation: boolean;
   announcementsEnabled: boolean;
   announcementPostRole: string;

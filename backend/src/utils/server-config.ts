@@ -10,6 +10,7 @@ import prisma from '../db/client';
 export interface ServerConfigValues {
   requireEmailVerification: boolean;
   requireWhitelist: boolean;
+  requireBlocklist: boolean;
   allowProjectCreation: boolean;
   announcementsEnabled: boolean;
   announcementPostRole: string;
@@ -23,6 +24,7 @@ export async function getServerConfig(): Promise<ServerConfigValues> {
   return {
     requireEmailVerification: row?.requireEmailVerification ?? false,
     requireWhitelist: row?.requireWhitelist ?? false,
+    requireBlocklist: row?.requireBlocklist ?? false,
     allowProjectCreation: row?.allowProjectCreation ?? true,
     announcementsEnabled: row?.announcementsEnabled ?? false,
     announcementPostRole: row?.announcementPostRole ?? 'admin',

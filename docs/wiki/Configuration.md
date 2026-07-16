@@ -141,14 +141,12 @@ Used only with `docker-compose.prod.yml`:
 
 ## Key Rotation
 
-If you need to rotate `ENCRYPTION_KEY` (recommended annually or when a key-holder leaves):
+Rotate `ENCRYPTION_KEY` annually or when a key-holder leaves. Run the rotation script from the repo root — it generates a new key, re-encrypts all DB secrets, updates `.env`, and restarts the backend automatically:
 
 ```bash
-# Set both old and new keys, then run the rotation script
-OLD_ENCRYPTION_KEY=<old-hex-key> \
-NEW_ENCRYPTION_KEY=<new-hex-key> \
-DATABASE_URL=<your-database-url> \
-npx tsx scripts/rotate-encryption-key.ts
+bash scripts/rotate-encryption-key.sh
 ```
 
-The script re-encrypts all affected values in-place and exits. Update `.env` to `ENCRYPTION_KEY=<new-hex-key>` and restart.
+The script aborts without touching `.env` if re-encryption fails, so there is no window where DB values and the active key are out of sync.
+
+After it completes, verify SMTP still works (Admin → Email → Send test email) to confirm the re-encrypted password decrypts correctly.

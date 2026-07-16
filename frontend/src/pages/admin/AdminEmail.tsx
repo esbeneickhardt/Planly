@@ -19,7 +19,7 @@ interface Props {
 export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, showToast }: Props) {
   const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null);
-  const [whitelist, setWhitelist] = useState<{ id: string; pattern: string; createdAt: string }[]>([]);
+  const [whitelist, setWhitelist] = useState<{ id: string; pattern: string; type: string; createdAt: string }[]>([]);
   const [smtpForm, setSmtpForm] = useState({ host: '', port: 587, secure: false, user: '', pass: '', from: '' });
   const [smtpDirty, setSmtpDirty] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
@@ -27,6 +27,9 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
   const [showSmtpForm, setShowSmtpForm] = useState(false);
   const [verifyEmailPrompt, setVerifyEmailPrompt] = useState(false);
   const [newPattern, setNewPattern] = useState('');
+  const [newDenyPattern, setNewDenyPattern] = useState('');
+  const [wlExpanded, setWlExpanded] = useState(false);
+  const [blExpanded, setBlExpanded] = useState(false);
 
   // Load all email-related data in parallel; auto-expand SMTP form when email is not yet configured
   const load = useCallback(async () => {
@@ -235,7 +238,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
 
           <Toggle
             label="Enforce email whitelist"
-            description="Only addresses or domains on the allowlist below can register."
+            description="Only addresses or domains on the allowlist can register."
             value={serverConfig.requireWhitelist}
             onChange={(v) => act(async () => {
               await api.admin.updateServerConfig({ requireWhitelist: v });
@@ -243,6 +246,100 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
               showToast(`Whitelist ${v ? 'enabled' : 'disabled'}`, 'success');
             })}
           />
+          {serverConfig.requireWhitelist && (() => {
+            const entries = whitelist.filter(e => e.type === 'allow');
+            const LIMIT = 5;
+            const shown = wlExpanded ? entries : entries.slice(0, LIMIT);
+            return (
+              <div className="ml-2 pl-3 space-y-2" style={{ borderLeft: '2px solid var(--border)' }}>
+                <div className="flex gap-2">
+                  <input className="input flex-1 text-sm" placeholder="@company.com or user@example.com"
+                    value={newPattern} onChange={(e) => setNewPattern(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newPattern.trim())
+                        act(async () => { await api.admin.addWhitelist(newPattern, 'allow'); setNewPattern(''); setWhitelist(await api.admin.whitelist()); });
+                    }} />
+                  <button disabled={!newPattern.trim()} className="btn-primary text-sm px-4"
+                    onClick={() => act(async () => { await api.admin.addWhitelist(newPattern, 'allow'); setNewPattern(''); setWhitelist(await api.admin.whitelist()); })}>
+                    Add
+                  </button>
+                </div>
+                {entries.length === 0 ? (
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>No entries yet — all registrations are blocked while this is empty.</p>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      {shown.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                          <span className="text-sm font-mono" style={{ color: 'var(--text)' }}>{entry.pattern}</span>
+                          <button onClick={() => act(async () => { await api.admin.removeWhitelist(entry.id); setWhitelist(await api.admin.whitelist()); })}
+                            className="text-xs opacity-50 hover:opacity-100" style={{ color: '#ef4444' }}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                    {entries.length > LIMIT && (
+                      <button className="text-xs" style={{ color: 'var(--text-3)' }} onClick={() => setWlExpanded(x => !x)}>
+                        {wlExpanded ? 'Show less' : `Show ${entries.length - LIMIT} more`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          <Toggle
+            label="Enforce email blocklist"
+            description="Addresses and domains on the blocklist cannot register."
+            value={serverConfig.requireBlocklist}
+            onChange={(v) => act(async () => {
+              await api.admin.updateServerConfig({ requireBlocklist: v });
+              setServerConfig((c) => c ? { ...c, requireBlocklist: v } : c);
+              showToast(`Blocklist ${v ? 'enabled' : 'disabled'}`, 'success');
+            })}
+          />
+          {serverConfig.requireBlocklist && (() => {
+            const entries = whitelist.filter(e => e.type === 'deny');
+            const LIMIT = 5;
+            const shown = blExpanded ? entries : entries.slice(0, LIMIT);
+            return (
+              <div className="ml-2 pl-3 space-y-2" style={{ borderLeft: '2px solid var(--border)' }}>
+                <div className="flex gap-2">
+                  <input className="input flex-1 text-sm" placeholder="@badactor.com or spam@example.com"
+                    value={newDenyPattern} onChange={(e) => setNewDenyPattern(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newDenyPattern.trim())
+                        act(async () => { await api.admin.addWhitelist(newDenyPattern, 'deny'); setNewDenyPattern(''); setWhitelist(await api.admin.whitelist()); });
+                    }} />
+                  <button disabled={!newDenyPattern.trim()} className="text-sm px-4 rounded-lg font-medium"
+                    style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444440', opacity: newDenyPattern.trim() ? 1 : 0.5 }}
+                    onClick={() => act(async () => { await api.admin.addWhitelist(newDenyPattern, 'deny'); setNewDenyPattern(''); setWhitelist(await api.admin.whitelist()); })}>
+                    Block
+                  </button>
+                </div>
+                {entries.length === 0 ? (
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>No blocked entries yet.</p>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      {shown.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                          <span className="text-sm font-mono" style={{ color: 'var(--text)' }}>{entry.pattern}</span>
+                          <button onClick={() => act(async () => { await api.admin.removeWhitelist(entry.id); setWhitelist(await api.admin.whitelist()); })}
+                            className="text-xs opacity-50 hover:opacity-100" style={{ color: '#ef4444' }}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                    {entries.length > LIMIT && (
+                      <button className="text-xs" style={{ color: 'var(--text-3)' }} onClick={() => setBlExpanded(x => !x)}>
+                        {blExpanded ? 'Show less' : `Show ${entries.length - LIMIT} more`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           <Toggle
             label="Allow members to create projects"
@@ -298,44 +395,6 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Whitelist entries */}
-      {serverConfig?.requireWhitelist && (
-        <div className="space-y-3">
-          <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Email allowlist</p>
-          <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-            Add exact addresses (<code className="text-xs px-1 rounded" style={{ background: 'var(--surface)' }}>user@co.com</code>) or domains (<code className="text-xs px-1 rounded" style={{ background: 'var(--surface)' }}>@co.com</code>).
-          </p>
-          <div className="flex gap-2">
-            <input className="input flex-1 text-sm" placeholder="@company.com or user@example.com"
-              value={newPattern} onChange={(e) => setNewPattern(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newPattern.trim()) {
-                  act(async () => { await api.admin.addWhitelist(newPattern); setNewPattern(''); setWhitelist(await api.admin.whitelist()); });
-                }
-              }} />
-            <button disabled={!newPattern.trim()} className="btn-primary text-sm px-4"
-              onClick={() => act(async () => { await api.admin.addWhitelist(newPattern); setNewPattern(''); setWhitelist(await api.admin.whitelist()); })}>
-              Add
-            </button>
-          </div>
-          {whitelist.length === 0 ? (
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>No entries yet - all registrations are blocked while this is empty.</p>
-          ) : (
-            <div className="space-y-1">
-              {whitelist.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between px-4 py-2 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                  <span className="text-sm font-mono" style={{ color: 'var(--text)' }}>{entry.pattern}</span>
-                  <button onClick={() => act(async () => { await api.admin.removeWhitelist(entry.id); setWhitelist(await api.admin.whitelist()); })}
-                    className="text-xs opacity-50 hover:opacity-100" style={{ color: '#ef4444' }}>
-                    Remove
-                  </button>
-                </div>
-              ))}
             </div>
           )}
         </div>
