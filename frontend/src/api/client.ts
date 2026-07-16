@@ -532,11 +532,11 @@ export const api = {
     verifyEmail: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/verify-email`, { method: 'PUT', body: json({}) }),
     deleteUser: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
     unlock: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/unlock`, { method: 'PUT', body: json({}) }),
-    whitelist: () => request<{ id: string; pattern: string; createdAt: string }[]>('/api/admin/whitelist'),
-    addWhitelist: (pattern: string) => request<{ id: string; pattern: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern }) }),
+    whitelist: () => request<{ id: string; pattern: string; type: string; createdAt: string }[]>('/api/admin/whitelist'),
+    addWhitelist: (pattern: string, type: 'allow' | 'deny' = 'allow') => request<{ id: string; pattern: string; type: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern, type }) }),
     removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
-    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string; ipRestrictionMode: string }>('/api/admin/server-config'),
-    updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean; allowProjectCreation?: boolean; announcementsEnabled?: boolean; announcementPostRole?: string }) =>
+    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; requireBlocklist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string; ipRestrictionMode: string }>('/api/admin/server-config'),
+    updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean; requireBlocklist?: boolean; allowProjectCreation?: boolean; announcementsEnabled?: boolean; announcementPostRole?: string }) =>
       request<{ ok: boolean; verificationEmailsSent?: number }>('/api/admin/server-config', { method: 'PUT', body: json(data) }),
     ipRestrictions: () => request<{ mode: string; rules: { id: string; cidr: string; description: string | null; createdAt: string }[]; yourIp: string }>('/api/admin/ip-restrictions'),
     setIpMode: (mode: string) => request<{ ok: boolean }>('/api/admin/ip-restrictions/mode', { method: 'PUT', body: json({ mode }) }),

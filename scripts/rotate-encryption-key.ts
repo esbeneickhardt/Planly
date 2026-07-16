@@ -12,13 +12,13 @@
  * to NEW_ENCRYPTION_KEY and restart the backend.
  */
 
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
 
 function deriveKey(secret: string): Buffer {
-  return createHash('sha256').update('planly-enc-key:' + secret).digest();
+  return Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), 'planly-v1', 'aes-256-gcm-key', 32));
 }
 
 function decryptWith(value: string, key: Buffer): string | null {
@@ -85,23 +85,41 @@ async function main() {
   }
   console.log(`  Webhooks: ${rotated} to rotate, ${errors} errors, ${skipped} skipped`);
 
-  // Rotate server config SMTP password (if stored encrypted)
+  // Rotate SmtpConfig passwords (UI-configured SMTP, stored encrypted in SmtpConfig.pass)
   const smtpRotated = { count: 0, errors: 0 };
-  const smtpConfigs = await prisma.serverConfig.findMany({ select: { id: true, smtpPass: true } });
+  const smtpConfigs = await prisma.smtpConfig.findMany({ select: { id: true, pass: true } });
   for (const cfg of smtpConfigs) {
-    if (!cfg.smtpPass) { skipped++; continue; }
-    const plaintext = decryptWith(cfg.smtpPass, oldKey);
+    if (!cfg.pass) { skipped++; continue; }
+    const plaintext = decryptWith(cfg.pass, oldKey);
     if (plaintext === null) {
-      console.warn(`  [serverConfig ${cfg.id}] Could not decrypt smtpPass with old key - skipping`);
+      console.warn(`  [smtpConfig ${cfg.id}] Could not decrypt pass with old key - skipping`);
       smtpRotated.errors++;
       continue;
     }
     updates.push(
-      prisma.serverConfig.update({ where: { id: cfg.id }, data: { smtpPass: encryptWith(plaintext, newKey) } })
+      prisma.smtpConfig.update({ where: { id: cfg.id }, data: { pass: encryptWith(plaintext, newKey) } })
     );
     smtpRotated.count++;
   }
   console.log(`  SMTP passwords: ${smtpRotated.count} to rotate, ${smtpRotated.errors} errors`);
+
+  // Rotate TOTP secrets
+  const totpRotated = { count: 0, errors: 0 };
+  const totpUsers = await prisma.user.findMany({ where: { totpSecret: { not: null } }, select: { id: true, totpSecret: true } });
+  for (const u of totpUsers) {
+    if (!u.totpSecret) continue;
+    const plaintext = decryptWith(u.totpSecret, oldKey);
+    if (plaintext === null) {
+      console.warn(`  [user ${u.id}] Could not decrypt totpSecret with old key - skipping`);
+      totpRotated.errors++;
+      continue;
+    }
+    updates.push(
+      prisma.user.update({ where: { id: u.id }, data: { totpSecret: encryptWith(plaintext, newKey) } })
+    );
+    totpRotated.count++;
+  }
+  console.log(`  TOTP secrets: ${totpRotated.count} to rotate, ${totpRotated.errors} errors`);
 
   if (updates.length === 0) {
     console.log('Nothing to rotate. Exiting.');

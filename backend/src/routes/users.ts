@@ -66,19 +66,30 @@ export async function userRoutes(app: FastifyInstance) {
 
     const serverConfig = await getServerConfig();
 
-    // Whitelist check
-    if (serverConfig.requireWhitelist) {
-      const patterns = await prisma.emailWhitelist.findMany();
-      const allowed = patterns.some(({ pattern }) => {
-        if (pattern.startsWith('@')) return normalizedEmail.endsWith(pattern);
-        return normalizedEmail === pattern.toLowerCase();
-      });
-      if (!allowed) {
-        return reply.status(403).send({ error: 'This email address is not on the allowed list. Contact the server administrator.' });
+    // Email access rules: each list only enforced when its toggle is on
+    if (serverConfig.requireBlocklist || serverConfig.requireWhitelist) {
+      const emailRules = await prisma.emailWhitelist.findMany();
+      const matches = (pattern: string) =>
+        pattern.startsWith('@') ? normalizedEmail.endsWith(pattern) : normalizedEmail === pattern;
+      if (serverConfig.requireBlocklist) {
+        const isDenied = emailRules.filter(r => r.type === 'deny').some(r => matches(r.pattern));
+        if (isDenied) {
+          return reply.status(403).send({ error: 'This email address is not permitted to register. Contact the server administrator.' });
+        }
+      }
+      if (serverConfig.requireWhitelist) {
+        const isAllowed = emailRules.filter(r => r.type === 'allow').some(r => matches(r.pattern));
+        if (!isAllowed) {
+          return reply.status(403).send({ error: 'This email address is not on the allowed list. Contact the server administrator.' });
+        }
       }
     }
 
-    // Hash password and create the user record (409 on duplicate username/email)
+    // Case-insensitive username uniqueness check (DB unique index is case-sensitive)
+    const existingUsername = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+    if (existingUsername) return reply.status(409).send({ error: 'Username already taken' });
+
+    // Hash password and create the user record (409 on duplicate email)
     const passwordHash = await bcrypt.hash(password, 12);
     let user: { id: string; username: string; email: string; realName: string | null; avatarEmoji: string | null; avatarUrl: string | null; phone: string | null; createdAt: Date; emailVerified: boolean };
     try {
