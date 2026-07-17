@@ -9,6 +9,10 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { safeDecryptValue } from '../utils/crypto';
+
+const dec = (u: { realName: string | null } | null | undefined) =>
+  u ? { ...u, realName: u.realName ? safeDecryptValue(u.realName) : null } : u;
 
 export async function searchRoutes(app: FastifyInstance) {
   // Search across all products the user is a member of
@@ -87,8 +91,8 @@ export async function searchRoutes(app: FastifyInstance) {
     const allTasks = [...taskMap.values()];
 
     reply.send({
-      tasks: allTasks.map((t) => ({ ...t, product: productMap[t.productId] })),
-      messages: messages.filter((m) => m.productId).map((m) => ({ ...m, product: productMap[m.productId!] })),
+      tasks: allTasks.map((t) => ({ ...t, owner: dec(t.owner), product: productMap[t.productId] })),
+      messages: messages.filter((m) => m.productId).map((m) => ({ ...m, author: dec(m.author)!, product: productMap[m.productId!] })),
     });
   });
 }

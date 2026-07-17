@@ -31,11 +31,21 @@ interface Props {
   currentUserId: string | null;
   reactionPickerOpen: boolean;
   onToggleReactionPicker: () => void;
+  onReply?: () => void;
+  onScrollToReply?: (id: string) => void;
+  authorRole?: string | null;
 }
+
+const ROLE_STYLE: Record<string, { background: string; color: string }> = {
+  'Server Owner':     { background: 'rgba(245,158,11,0.15)', color: '#d97706' },
+  'Server Admin':     { background: 'rgba(99,102,241,0.12)', color: '#6366f1' },
+  'Project Owner':    { background: 'rgba(22,163,74,0.12)',  color: '#16a34a' },
+  'Project Co-Owner': { background: 'rgba(13,148,136,0.12)', color: '#0d9488' },
+};
 
 export default function MessageBubble({
   msg, isOwn, onEdit, onDelete, onImageClick, canEdit, onReact,
-  currentUserId, reactionPickerOpen, onToggleReactionPicker,
+  currentUserId, reactionPickerOpen, onToggleReactionPicker, onReply, onScrollToReply, authorRole,
 }: Props) {
   const renderContent = (content: string, own: boolean) => (
     <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5 }}>
@@ -58,6 +68,10 @@ export default function MessageBubble({
             <a href={href} target="_blank" rel="noreferrer" style={{ color: own ? 'rgba(255,255,255,0.85)' : 'var(--brand)', textDecoration: 'underline' }}>{children}</a>
           ),
           p: ({ children }) => <p style={{ margin: '2px 0' }}>{children}</p>,
+          h1: ({ children }) => <h1 style={{ margin: '6px 0 2px', fontSize: '1.3em', fontWeight: 700, lineHeight: 1.3 }}>{children}</h1>,
+          h2: ({ children }) => <h2 style={{ margin: '5px 0 2px', fontSize: '1.15em', fontWeight: 700, lineHeight: 1.3 }}>{children}</h2>,
+          h3: ({ children }) => <h3 style={{ margin: '4px 0 2px', fontSize: '1.05em', fontWeight: 600, lineHeight: 1.3 }}>{children}</h3>,
+          h4: ({ children }) => <h4 style={{ margin: '3px 0 2px', fontSize: '1em', fontWeight: 600 }}>{children}</h4>,
           ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ul>,
           ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ol>,
           li: ({ children }) => <li style={{ margin: '2px 0' }}>{children}</li>,
@@ -87,11 +101,14 @@ export default function MessageBubble({
       <div className={`flex-1 min-w-0 ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative`}>
         <div className={`flex items-baseline gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
           <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{displayName(msg.author)}</span>
+          {authorRole && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ ...(ROLE_STYLE[authorRole] ?? ROLE_STYLE['Server Admin']), lineHeight: 1.2 }}>{authorRole}</span>
+          )}
           <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
             {formatTime(msg.createdAt)}{msg.editedAt ? ' (edited)' : ''}
           </span>
         </div>
-        {msg.content && (
+        {(msg.content || msg.replyTo) && (
           <div
             className={`px-3 py-2 rounded-2xl text-sm max-w-[280px] ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
             style={{
@@ -101,7 +118,26 @@ export default function MessageBubble({
               wordBreak: 'break-word',
             }}
           >
-            {renderContent(msg.content, isOwn)}
+            {/* Quote block inside the bubble, clicking jumps to original */}
+            {msg.replyTo && (
+              <button
+                onClick={() => onScrollToReply?.(msg.replyTo!.id)}
+                className="w-full text-left mb-2 px-2 py-1.5 rounded-lg block"
+                style={{
+                  background: isOwn ? 'rgba(0,0,0,0.15)' : 'var(--surface)',
+                  borderLeft: `3px solid ${isOwn ? 'rgba(255,255,255,0.5)' : 'var(--brand)'}`,
+                }}
+                title="Jump to original message"
+              >
+                <span className="text-[10px] font-semibold block" style={{ color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--brand)' }}>
+                  {displayName(msg.replyTo.author)}
+                </span>
+                <span className="text-[10px] block truncate" style={{ color: isOwn ? 'rgba(255,255,255,0.65)' : 'var(--text-3)', maxWidth: 220 }}>
+                  {msg.replyTo.content.slice(0, 120)}
+                </span>
+              </button>
+            )}
+            {msg.content && renderContent(msg.content, isOwn)}
           </div>
         )}
         {msg.attachments.length > 0 && (
@@ -162,13 +198,12 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* Edit / delete actions */}
-        {isOwn && (
-          <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {canEdit && <button onClick={onEdit} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-3)' }}>Edit</button>}
-            <button onClick={onDelete} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#ef4444' }}>Delete</button>
-          </div>
-        )}
+        {/* Message actions: reply (all), edit/delete (own only) */}
+        <div className={`flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isOwn ? 'flex-row-reverse' : ''}`}>
+          {onReply && <button onClick={onReply} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-3)' }}>↩ Reply</button>}
+          {isOwn && canEdit && <button onClick={onEdit} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-3)' }}>Edit</button>}
+          {isOwn && <button onClick={onDelete} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#ef4444' }}>Delete</button>}
+        </div>
       </div>
     </div>
   );

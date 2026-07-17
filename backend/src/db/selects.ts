@@ -10,10 +10,13 @@ export const MESSAGE_AUTHOR_SELECT = {
   username: true,
   realName: true,
   avatarEmoji: true,
+  isAdmin: true,
+  isFoundingAdmin: true,
 } as const;
 
 export const MESSAGE_INCLUDE = {
   author: { select: MESSAGE_AUTHOR_SELECT },
   task: { select: { id: true, name: true } },
   reactions: { select: { emoji: true, userId: true } },
+  replyTo: { select: { id: true, content: true, author: { select: MESSAGE_AUTHOR_SELECT } } },
 } as const;

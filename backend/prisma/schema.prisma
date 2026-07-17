@@ -78,6 +78,8 @@ model User {
   fileUploads         FileUpload[]
   totpBackupCodes     TotpBackupCode[]
   receivedInvites     TeamInvite[]         @relation("ReceivedInvites")
+  conversations       ConversationParticipant[]
+  directMessages      DirectMessage[]
 }
 
 model Team {
@@ -267,24 +269,29 @@ model SprintTask {
 }
 
 model Message {
-  id          String    @id @default(uuid())
-  productId   String?
-  taskId      String?
-  authorId    String
-  content     String
-  attachments Json      @default("[]")
-  isAdminChat Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  editedAt    DateTime?
+  id           String    @id @default(uuid())
+  productId    String?
+  taskId       String?
+  authorId     String
+  content      String
+  attachments  Json      @default("[]")
+  isAdminChat  Boolean   @default(false)
+  replyToId    String?
+  postedAsRole String?
+  createdAt    DateTime  @default(now())
+  editedAt     DateTime?
 
   product   Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
   task      Task?             @relation(fields: [taskId],    references: [id], onDelete: Cascade)
   author    User              @relation(fields: [authorId],  references: [id], onDelete: Cascade)
+  replyTo   Message?          @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[]         @relation("MessageReplies")
   reactions MessageReaction[]
 
   @@index([productId])
   @@index([taskId])
   @@index([isAdminChat])
+  @@index([replyToId])
 }
 
 model MessageReaction {
@@ -547,6 +554,7 @@ model Announcement {
   teamId          String?
   pinned          Boolean  @default(false)
   commentsEnabled Boolean  @default(true)
+  postedAsRole    String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @default(now()) @updatedAt
 
@@ -562,6 +570,7 @@ model AnnouncementComment {
   announcementId String
   authorId       String?
   content        String
+  postedAsRole   String?
   createdAt      DateTime  @default(now())
   editedAt       DateTime?
 
@@ -634,6 +643,43 @@ model FileUpload {
 }
 
 // ── Activity log ──────────────────────────────────────────────────────────────
+
+model Conversation {
+  id           String                    @id @default(uuid())
+  isAdminChat  Boolean                   @default(false)
+  closed       Boolean                   @default(false)
+  createdAt    DateTime                  @default(now())
+  participants ConversationParticipant[]
+  messages     DirectMessage[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model DirectMessage {
+  id             String        @id @default(uuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content        String
+  replyToId      String?
+  replyTo        DirectMessage? @relation("DmReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        DirectMessage[] @relation("DmReplies")
+  createdAt      DateTime      @default(now())
+  editedAt       DateTime?
+
+  @@index([conversationId])
+}
 
 model ActivityEvent {
   id        String   @id @default(uuid())

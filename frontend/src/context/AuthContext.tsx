@@ -1,7 +1,8 @@
 /**
  * Provides authentication state (current user, loading flag) and auth actions to the app.
  * `login` may return a TOTP challenge object instead of resolving the user when MFA is enabled.
- * Listens for the `planly:email-not-verified` window event to force-logout without a user action.
+ * Listens for `planly:email-not-verified` and `planly:session-expired` window events to
+ * force-logout without a user action (e.g. when another browser logs out and invalidates the session).
  */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '../api/client';
@@ -32,20 +33,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.auth.logout().catch(() => {});
       setUser(null);
     }
+    // Session was invalidated server-side (e.g. logout in another tab/browser incremented tokenVersion)
+    function handleSessionExpired() {
+      clearMembersCache();
+      setUser(null);
+    }
     window.addEventListener('planly:email-not-verified', handleEmailNotVerified);
-    return () => window.removeEventListener('planly:email-not-verified', handleEmailNotVerified);
+    window.addEventListener('planly:session-expired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('planly:email-not-verified', handleEmailNotVerified);
+      window.removeEventListener('planly:session-expired', handleSessionExpired);
+    };
   }, []);
 
   // Auth actions
   async function login(identifier: string, password: string) {
     const res = await api.auth.login(identifier, password);
     if ('requiresTOTP' in res && res.requiresTOTP) return res;
-    setUser(res as User);
+    // Fetch the full profile so server-config flags like announcementsEnabled are included
+    const full = await api.auth.me();
+    setUser(full);
   }
 
   async function totpChallenge(mfaToken: string, code: string) {
-    const u = await api.auth.totpChallenge(mfaToken, code);
-    setUser(u);
+    await api.auth.totpChallenge(mfaToken, code);
+    const full = await api.auth.me();
+    setUser(full);
   }
 
   async function logout() {

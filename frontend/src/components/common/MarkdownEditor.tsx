@@ -6,6 +6,7 @@
 import { useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { api } from '../../api/client';
 
 export const EMOJI_SET = [
@@ -183,7 +184,7 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
           }}
         >
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkBreaks]}
             components={{
               h1: ({ children }) => <h1 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 10px' }}>{children}</h1>,
               h2: ({ children }) => <h2 style={{ fontSize: 15, fontWeight: 600, margin: '14px 0 6px' }}>{children}</h2>,

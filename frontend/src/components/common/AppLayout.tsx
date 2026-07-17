@@ -58,12 +58,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Sync adminMode with the current route: activate on /admin, deactivate when navigating away
+  // Sync adminMode with the current route: activate on /admin; deactivate on non-admin pages
+  // Announcements is a neutral page — keep adminMode while navigating to/from it
   const isAdminPage = location.pathname === '/admin';
+  const isAdminNeutralPage = location.pathname === '/announcements';
   useEffect(() => {
     if (isAdminPage && user?.isAdmin) setAdminMode(true);
-    else if (!isAdminPage) setAdminMode(false);
-  }, [isAdminPage, user?.isAdmin]);
+    else if (!isAdminPage && !isAdminNeutralPage) setAdminMode(false);
+  }, [isAdminPage, isAdminNeutralPage, user?.isAdmin]);
 
   // Auto-show vision modal for first-time users with no projects
   useEffect(() => {

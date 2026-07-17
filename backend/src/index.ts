@@ -74,6 +74,7 @@ import { githubRoutes } from './routes/github';
 // Admin
 import { adminRoutes } from './routes/admin';
 import { adminChatRoutes } from './routes/admin-chat';
+import { conversationRoutes } from './routes/conversations';
 import { emailStatusRoutes } from './routes/email-status';
 import { ipRestrictionRoutes, matchesCidr, getClientIp } from './routes/ip-restrictions';
 
@@ -371,6 +372,7 @@ async function main() {
   await app.register(adminRoutes);
   await app.register(githubRoutes);
   await app.register(adminChatRoutes);
+  await app.register(conversationRoutes);
   await app.register(announcementRoutes);
   await app.register(ipRestrictionRoutes);
   await app.register(icalRoutes);
