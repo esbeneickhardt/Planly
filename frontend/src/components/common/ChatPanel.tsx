@@ -100,7 +100,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [mentionSearch, setMentionSearch] = useState<string | null>(null);
   const [mentionCursorStart, setMentionCursorStart] = useState<number>(0);
   const [mentionHighlight, setMentionHighlight] = useState(0);
-  type TeamMemberEntry = { id: string; username: string; avatarEmoji?: string | null; isAdmin?: boolean; role?: string };
+  type TeamMemberEntry = { id: string; username: string; realName?: string | null; avatarEmoji?: string | null; isAdmin?: boolean; role?: string };
   const [teamMembers, setTeamMembers] = useState<TeamMemberEntry[]>([]);
 
   // Pin/dismiss state for Tasks tab
@@ -385,7 +385,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const mentionCandidates = useMemo(() => {
     if (mentionSearch === null) return [];
     const q = mentionSearch.toLowerCase();
-    return teamMembers.filter((m) => m.username.toLowerCase().startsWith(q) && m.id !== user?.id).slice(0, 6);
+    return teamMembers.filter((m) => m.id !== user?.id && (m.username.toLowerCase().startsWith(q) || (m.realName?.trim().toLowerCase().startsWith(q)))).slice(0, 6);
   }, [mentionSearch, teamMembers, user?.id]);
 
   function handleDraftChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -722,7 +722,10 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                 <span className="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                   {m.avatarEmoji ?? '👤'}
                 </span>
-                <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>@{m.username}</span>
+                <div className="flex flex-col min-w-0">
+                  {m.realName?.trim() && <span className="text-sm font-medium leading-tight" style={{ color: 'var(--text)' }}>{m.realName.trim()}</span>}
+                  <span className={m.realName?.trim() ? 'text-xs leading-tight' : 'text-sm font-medium'} style={{ color: m.realName?.trim() ? 'var(--text-3)' : 'var(--text)' }}>@{m.username}</span>
+                </div>
               </button>
             ))}
           </div>

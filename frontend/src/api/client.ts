@@ -145,7 +145,7 @@ const json = (body: unknown) => JSON.stringify(body);
 
 export interface MilestoneResult {
   id: string; name: string; status: Status; deadline: string;
-  owner?: Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+  owner?: Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>;
   totalDependencies: number; doneDependencies: number; progress: number; unassignedDeps: number;
   dependencyList: { id: string; name: string; status: string; ownerId: string | null }[];
 }
@@ -232,7 +232,7 @@ export type AnnComment = {
 export const api = {
 
   users: {
-    list: () => request<{ users: { id: string; username: string; avatarEmoji: string | null; acceptsInvites: boolean; isAdmin: boolean }[]; nextCursor: string | null }>('/api/users').then(r => r.users),
+    list: () => request<{ users: { id: string; username: string; realName: string | null; avatarEmoji: string | null; acceptsInvites: boolean; isAdmin: boolean }[]; nextCursor: string | null }>('/api/users').then(r => r.users),
     create: (data: { username: string; email: string; password: string; realName?: string; avatarEmoji?: string; tosAccepted: true }) =>
       request<User>('/api/users', { method: 'POST', body: json(data) }),
     get: (id: string) => request<User>(`/api/users/${id}`),

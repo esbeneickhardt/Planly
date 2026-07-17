@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
-import { api } from '../../api/client';
+import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
@@ -594,8 +594,8 @@ export default function KanbanBoard() {
           }
           if (key === 'name') return a.name.localeCompare(b.name) * dir;
           if (key === 'owner') {
-            const an = users.find((u) => u.id === a.ownerId)?.username ?? '';
-            const bn = users.find((u) => u.id === b.ownerId)?.username ?? '';
+            const an = users.find((u) => u.id === a.ownerId) ? displayName(users.find((u) => u.id === a.ownerId)!) : '';
+            const bn = users.find((u) => u.id === b.ownerId) ? displayName(users.find((u) => u.id === b.ownerId)!) : '';
             return an.localeCompare(bn) * dir;
           }
           if (key === 'deadline') {
@@ -697,7 +697,7 @@ export default function KanbanBoard() {
                         {owner ? (
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm">{owner.avatarEmoji ?? '👤'}</span>
-                            <span className="text-xs truncate" style={{ color: 'var(--text-2)' }}>{owner.username}</span>
+                            <span className="text-xs truncate" style={{ color: 'var(--text-2)' }}>{displayName(owner)}</span>
                           </div>
                         ) : (
                           <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>-</span>

@@ -5,7 +5,7 @@
  * Users who have turned off invites are shown greyed-out in the autocomplete with a note.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../../api/client';
+import { api, displayName } from '../../api/client';
 import type { TeamInvite } from '../../api/client';
 import type { Product, Team, TeamMember, User } from '../../types';
 
@@ -18,7 +18,7 @@ type AccessRequestRow = {
   user: { id: string; username: string; avatarEmoji: string | null; realName: string | null };
 };
 
-type ListUser = { id: string; username: string; avatarEmoji: string | null; acceptsInvites: boolean };
+type ListUser = { id: string; username: string; realName: string | null; avatarEmoji: string | null; acceptsInvites: boolean };
 
 function RoleBadge({ kind }: { kind: 'owner' | 'co_owner' }) {
   if (kind === 'owner') return (
@@ -170,7 +170,8 @@ export default function SettingsTeam({
                 <div key={u.id} className="flex items-center gap-3 px-3 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
                   <span className="text-lg flex-shrink-0" style={{ opacity: u.acceptsInvites ? 1 : 0.4 }}>{u.avatarEmoji ?? '👤'}</span>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm" style={{ color: u.acceptsInvites ? 'var(--text)' : 'var(--text-3)' }}>{u.username}</span>
+                    <span className="text-sm" style={{ color: u.acceptsInvites ? 'var(--text)' : 'var(--text-3)' }}>{displayName(u)}</span>
+                    {u.realName?.trim() && <span className="text-xs" style={{ color: 'var(--text-3)' }}>@{u.username}</span>}
                     {!u.acceptsInvites && (
                       <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>Not accepting invitations</p>
                     )}
@@ -217,7 +218,7 @@ export default function SettingsTeam({
                 <span className="text-xl flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{user.username}</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{displayName(user)}</span>
                     {isProductOwner && <RoleBadge kind="owner" />}
                     {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
                     {userId === currentUser?.id && (
@@ -266,7 +267,7 @@ export default function SettingsTeam({
                 <span className="text-xl flex-shrink-0" style={{ opacity: 0.6 }}>{inv.toUser!.avatarEmoji ?? '👤'}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{inv.toUser!.username}</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{displayName(inv.toUser!)}</span>
                     <PendingBadge />
                   </div>
                   <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>
@@ -372,8 +373,8 @@ export default function SettingsTeam({
               <div key={req.id} className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                 <span className="text-xl flex-shrink-0">{req.user.avatarEmoji ?? '👤'}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{req.user.username}</p>
-                  {req.user.realName && <p className="text-xs" style={{ color: 'var(--text-3)' }}>{req.user.realName}</p>}
+                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{displayName(req.user)}</p>
+                  {req.user.realName?.trim() && <p className="text-xs" style={{ color: 'var(--text-3)' }}>@{req.user.username}</p>}
                   {req.note && <p className="text-xs mt-0.5 italic" style={{ color: 'var(--text-2)' }}>"{req.note}"</p>}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">

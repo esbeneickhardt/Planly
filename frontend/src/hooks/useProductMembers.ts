@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import type { User } from '../types';
 
-type Member = Pick<User, 'id' | 'username' | 'avatarEmoji'>;
+type Member = Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>;
 
 // Module-level cache: avoids re-fetching the same team on component remounts.
 const membersCache = new Map<string, Member[]>();

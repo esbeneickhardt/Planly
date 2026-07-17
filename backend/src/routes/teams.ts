@@ -17,11 +17,17 @@ import { handleNotFound, handleConflict } from '../utils/prisma-errors';
 import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
 import { logAdminEvent } from '../utils/audit';
 import { createNotification } from '../utils/notifications';
+import { decryptUserPii } from '../utils/crypto';
 
 const addMemberSchema = z.object({ userId: z.string() });
 const updateRoleSchema = z.object({ role: z.enum(['member', 'co_owner']) });
 
-const MEMBER_INCLUDE = { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true, isAdmin: true } } } } };
+const MEMBER_INCLUDE = { members: { include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true } } } } };
+
+// Decrypt realName for every member in a team before sending to the client
+function decryptTeam<T extends { members: { user: { realName: string | null } }[] }>(team: T): T {
+  return { ...team, members: team.members.map((m) => ({ ...m, user: decryptUserPii(m.user) })) };
+}
 
 async function getTeamAdmin(teamId: string, userId: string) {
   const team = await prisma.team.findUnique({
@@ -48,7 +54,7 @@ export async function teamRoutes(app: FastifyInstance) {
       where: { members: { some: { userId: req.user.userId } } },
       include: MEMBER_INCLUDE,
     });
-    reply.send(teams);
+    reply.send(teams.map(decryptTeam));
   });
 
   app.post('/api/teams', { preHandler: requireAuth }, async (req, reply) => {
@@ -66,7 +72,7 @@ export async function teamRoutes(app: FastifyInstance) {
       },
       include: MEMBER_INCLUDE,
     });
-    reply.status(201).send(team);
+    reply.status(201).send(decryptTeam(team));
   });
 
   // Get a single team (requester must be a member)
@@ -76,7 +82,7 @@ export async function teamRoutes(app: FastifyInstance) {
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isMember) return reply.status(403).send({ error: 'Forbidden' });
     const team = await prisma.team.findUnique({ where: { id }, include: MEMBER_INCLUDE });
-    reply.send(team);
+    reply.send(team ? decryptTeam(team) : null);
   });
 
   // Rename the team (co-owners and product owners only)
@@ -90,7 +96,7 @@ export async function teamRoutes(app: FastifyInstance) {
     const { name } = body;
     try {
       const team = await prisma.team.update({ where: { id }, data: { name }, include: MEMBER_INCLUDE });
-      reply.send(team);
+      reply.send(decryptTeam(team));
     } catch (e) { handleNotFound(e, reply); }
   });
 
