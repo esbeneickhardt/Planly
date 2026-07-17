@@ -12,6 +12,7 @@
  * requireAuth - validates token + enforces email verification if enabled.
  * requireAdmin - same as requireAuth plus checks isAdmin: true on the user row.
  */
+
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
@@ -32,13 +33,18 @@ const EMAIL_VERIFY_EXEMPT = new Set([
   '/api/admin/server-config', // admins must be able to turn off verification even if unverified
 ]);
 
+// Claims decoded from a verified JWT or resolved from a PAT lookup.
+// The raw token string is never stored here - it stays in the HttpOnly cookie
+// and is consumed only inside validateToken below.
 export interface AuthPayload {
   userId: string;
   username: string;
   scopedProductId?: string; // set when the Bearer token is locked to a specific project
-  tokenVersion?: number;
+  tokenVersion?: number;    // absent on PAT-authenticated requests; checked against DB on cookie auth
 }
 
+// Augments FastifyRequest so req.user is typed everywhere without casting.
+// Set by validateToken before any route handler runs.
 declare module 'fastify' {
   interface FastifyRequest {
     user: AuthPayload;
@@ -110,10 +116,13 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
       // tokenVersion is an incrementing integer on the user row.
       // Password change, password reset, and admin logout all increment it,
       // instantly invalidating every outstanding session without maintaining a blocklist.
+      // Tokens issued before tokenVersion was introduced won't have this field; treat them as expired.
       if (typeof payload.tokenVersion !== 'number') {
         reply.clearCookie('token', { path: '/' }).clearCookie('csrf', { path: '/' }).status(401).send({ error: 'Session expired, please log in again' });
         return false;
       }
+      // One DB hit per request to catch invalidations that happened after the JWT was issued.
+      // !userRow means the account was deleted; version mismatch means password changed / forced logout.
       const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
       if (!userRow || userRow.tokenVersion !== payload.tokenVersion) {
         reply.clearCookie('token', { path: '/' }).clearCookie('csrf', { path: '/' }).status(401).send({ error: 'Unauthorized' });
@@ -130,12 +139,14 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
   return false;
 }
 
+// Validates the session and enforces email verification if the server requires it.
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   const ok = await validateToken(req, reply);
   if (!ok) return;
   await enforceEmailVerification(req, reply);
 }
 
+// Same as requireAuth plus an isAdmin check; also enforces admin-scoped IP restrictions.
 export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   const ok = await validateToken(req, reply);
   if (!ok) return;

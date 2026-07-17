@@ -22,7 +22,10 @@ function makeMsg(content: string): Message {
     createdAt: new Date().toISOString(),
     editedAt: null,
     reactions: [],
-    author: { id: 'u-1', username: 'alice', realName: null, avatarEmoji: null },
+    replyToId: null,
+    replyTo: null,
+    postedAsRole: null,
+    author: { id: 'u-1', username: 'alice', realName: null, avatarEmoji: null, isAdmin: false, isFoundingAdmin: false },
   };
 }
 

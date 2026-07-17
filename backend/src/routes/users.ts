@@ -39,7 +39,7 @@ const USER_SELF_SELECT = {
   notificationPreferences: true, acceptsInvites: true,
 };
 // Minimal fields for team member search - no email, phone, or createdAt
-const USER_PUBLIC_SELECT = { id: true, username: true, avatarEmoji: true, acceptsInvites: true };
+const USER_PUBLIC_SELECT = { id: true, username: true, avatarEmoji: true, acceptsInvites: true, isAdmin: true };
 
 export async function userRoutes(app: FastifyInstance) {
   // Global user search: minimal fields only (used for team member lookup)

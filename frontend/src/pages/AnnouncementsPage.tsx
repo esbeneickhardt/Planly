@@ -7,8 +7,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { api, displayName } from '../api/client';
 import type { AnnItem, AnnComment } from '../api/client';
+import type { Team } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useProduct } from '../context/ProductContext';
@@ -160,7 +162,21 @@ const ComposeIcon = () => (
 
 // ── Comment section ────────────────────────────────────────────────────────────
 
-function CommentSection({ annId, userId, isAdmin }: { annId: string; userId: string; isAdmin: boolean }) {
+const ROLE_STYLE: Record<string, { background: string; color: string }> = {
+  'Server Owner':     { background: 'rgba(245,158,11,0.15)', color: '#d97706' },
+  'Server Admin':     { background: 'rgba(99,102,241,0.12)', color: '#6366f1' },
+  'Project Owner':    { background: 'rgba(22,163,74,0.12)',  color: '#16a34a' },
+  'Project Co-Owner': { background: 'rgba(13,148,136,0.12)', color: '#0d9488' },
+};
+
+function RoleBadge({ role }: { role: string | null }) {
+  if (!role) return null;
+  const s = ROLE_STYLE[role] ?? ROLE_STYLE['Server Admin']!;
+  return <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ ...s, lineHeight: 1.2 }}>{role}</span>;
+}
+
+// myRole is the pre-computed role for the current user when posting a comment here (null = no badge)
+function CommentSection({ annId, userId, isAdmin, myRole, onCountChange }: { annId: string; userId: string; isAdmin: boolean; myRole: string | null; onCountChange: (delta: number) => void }) {
   const { showToast } = useToast();
   const [comments, setComments] = useState<AnnComment[] | null>(null);
   const [loading,  setLoading]  = useState(true);
@@ -178,8 +194,9 @@ function CommentSection({ annId, userId, isAdmin }: { annId: string; userId: str
     if (!draft.trim()) return;
     setSending(true);
     try {
-      const c = await api.announcements.comments.create(annId, draft.trim());
+      const c = await api.announcements.comments.create(annId, draft.trim(), myRole);
       setComments(prev => [...(prev ?? []), c]);
+      onCountChange(+1);
       setDraft('');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Failed to post comment', 'error');
@@ -193,6 +210,7 @@ function CommentSection({ annId, userId, isAdmin }: { annId: string; userId: str
     try {
       await api.announcements.comments.delete(annId, commentId);
       setComments(prev => prev?.filter(c => c.id !== commentId) ?? []);
+      onCountChange(-1);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Failed to delete', 'error');
     }
@@ -211,6 +229,7 @@ function CommentSection({ annId, userId, isAdmin }: { annId: string; userId: str
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{c.author ? displayName(c.author) : 'Deleted user'}</span>
+              <RoleBadge role={c.postedAsRole} />
               <span className="text-xs" style={{ color: 'var(--text-3)' }}>{formatDate(c.createdAt)}</span>
               {(isAdmin || c.author?.id === userId) && (
                 <button onClick={() => deleteComment(c.id)} className="text-xs ml-auto opacity-50 hover:opacity-100" style={{ color: '#ef4444' }}>Delete</button>
@@ -246,11 +265,13 @@ function CommentSection({ annId, userId, isAdmin }: { annId: string; userId: str
 
 const COLLAPSED_HEIGHT = 96;
 
+// commentMyRole: the pre-computed role for the current user when commenting on this announcement
 function AnnouncementCard({
-  ann, canEdit, onEdit, onDelete, userId, isAdmin,
+  ann, canEdit, onEdit, onDelete, userId, isAdmin, commentMyRole, onCommentCountChange,
 }: {
   ann: AnnItem; canEdit: boolean; onEdit: (a: AnnItem) => void;
   onDelete: (id: string) => void; userId: string; isAdmin: boolean;
+  commentMyRole: string | null; onCommentCountChange: (delta: number) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [expanded,     setExpanded]     = useState(false);
@@ -292,7 +313,7 @@ function AnnouncementCard({
             </>
           )}
           <span>{ann.author?.avatarEmoji ?? '👤'} {ann.author ? displayName(ann.author) : 'Deleted user'}</span>
-          {ann.author?.isAdmin && <span className="px-1 py-px rounded text-[10px]" style={{ background: '#6366f115', color: '#6366f1' }}>Admin</span>}
+          <RoleBadge role={ann.postedAsRole} />
           <span>·</span>
           <span>{formatDate(ann.createdAt)}</span>
           {ann.updatedAt !== ann.createdAt && <span>(edited)</span>}
@@ -310,7 +331,7 @@ function AnnouncementCard({
             WebkitMaskImage: (!expanded && overflows) ? 'linear-gradient(to bottom, black 60%, transparent 100%)' : undefined,
           }}
         >
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>{ann.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MD}>{ann.content}</ReactMarkdown>
         </div>
         {overflows && (
           <button onClick={() => setExpanded(e => !e)} className="mt-1 text-xs font-medium" style={{ color: 'var(--brand)' }}>
@@ -336,7 +357,7 @@ function AnnouncementCard({
 
       {ann.commentsEnabled && commentsOpen && (
         <div className="px-5 pb-4">
-          <CommentSection annId={ann.id} userId={userId} isAdmin={isAdmin} />
+          <CommentSection annId={ann.id} userId={userId} isAdmin={isAdmin} myRole={commentMyRole} onCountChange={onCommentCountChange} />
         </div>
       )}
     </article>
@@ -352,13 +373,14 @@ export default function AnnouncementsPage() {
   const { adminMode } = useChat();
   const { confirm } = useConfirm();
 
+
   // When in admin mode post as "Server Admins"; otherwise scope to the active product's team
   // adminMode mirrors the Admin toggle in the TopBar (true = on /admin as admin)
   const contextProduct = adminMode ? null : (activeProduct ?? (products.length === 1 ? products[0] : null));
   const contextTeamId  = contextProduct?.teamId;
 
   const [announcements, setAnnouncements] = useState<AnnItem[]>([]);
-  const [teams,    setTeams]    = useState<{ id: string; name: string }[]>([]);
+  const [teams,    setTeams]    = useState<Team[]>([]);
   const [canPost,  setCanPost]  = useState(false);
   const [enabled,  setEnabled]  = useState(true);
   const [loading,  setLoading]  = useState(true);
@@ -403,7 +425,7 @@ export default function AnnouncementsPage() {
       setAnnouncements(sort(data.announcements));
       setCanPost(data.canPost);
       setEnabled(data.enabled);
-      setTeams(allTeams.map(t => ({ id: t.id, name: t.name })));
+      setTeams(allTeams);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
@@ -414,9 +436,23 @@ export default function AnnouncementsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Compute postedAsRole for a new announcement based on its team scope and the current user's roles
+  function computeAnnRole(teamId: string | undefined): string | null {
+    if (!teamId) {
+      if (user?.isFoundingAdmin) return 'Server Owner';
+      if (user?.isAdmin) return 'Server Admin';
+      return null;
+    }
+    const product = products.find(p => p.teamId === teamId);
+    if (product?.ownerId === user?.id) return 'Project Owner';
+    const team = teams.find(t => t.id === teamId);
+    if (team?.members?.find(m => m.userId === user?.id && m.role === 'co_owner')) return 'Project Co-Owner';
+    return null;
+  }
+
   async function handleCreate(data: { title: string; content: string; pinned: boolean; commentsEnabled: boolean; teamId?: string }) {
     try {
-      const ann = await api.announcements.create(data);
+      const ann = await api.announcements.create({ ...data, postedAsRole: computeAnnRole(data.teamId) });
       setAnnouncements(prev => sort([ann, ...prev]));
       setShowForm(false);
       showToast('Announcement posted', 'success');
@@ -571,6 +607,8 @@ export default function AnnouncementsPage() {
                 onDelete={handleDelete}
                 userId={user?.id ?? ''}
                 isAdmin={user?.isAdmin ?? false}
+                commentMyRole={adminMode ? computeAnnRole(undefined) : (ann.team?.id ? computeAnnRole(ann.team.id) : null)}
+                onCommentCountChange={(delta) => setAnnouncements(prev => prev.map(a => a.id === ann.id ? { ...a, _count: { comments: a._count.comments + delta } } : a))}
               />
             )
           )}

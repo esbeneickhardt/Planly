@@ -12,13 +12,16 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
+import { safeDecryptValue } from '../utils/crypto';
 
+const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
 const createAnnouncementSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().min(1).max(10000),
   pinned: z.boolean().optional(),
   teamId: z.string().optional(),
   commentsEnabled: z.boolean().optional(),
+  postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
 });
 const updateAnnouncementSchema = z.object({
   title: z.string().max(200).optional(),
@@ -26,10 +29,15 @@ const updateAnnouncementSchema = z.object({
   pinned: z.boolean().optional(),
   commentsEnabled: z.boolean().optional(),
 });
-const commentSchema = z.object({ content: z.string().min(1).max(5000) });
+const commentSchema = z.object({ content: z.string().min(1).max(5000), postedAsRole: z.enum(VALID_ROLES).nullable().optional() });
 
-const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true };
+const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true, isFoundingAdmin: true };
 const TEAM_SELECT   = { id: true, name: true };
+
+function decryptAuthor<T extends { author: { realName: string | null } | null }>(obj: T): T {
+  if (!obj.author) return obj;
+  return { ...obj, author: { ...obj.author, realName: obj.author.realName ? safeDecryptValue(obj.author.realName) : null } };
+}
 
 // Resolve post/manage permissions by checking admin status and server config
 async function resolvePermissions(userId: string): Promise<{ isAdmin: boolean; canPost: boolean; enabled: boolean }> {
@@ -77,7 +85,7 @@ export async function announcementRoutes(app: FastifyInstance) {
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
     });
     const nextCursor = announcements.length === 50 ? (announcements[announcements.length - 1]?.id ?? null) : null;
-    reply.send({ announcements, canPost, enabled, nextCursor });
+    reply.send({ announcements: announcements.map(decryptAuthor), canPost, enabled, nextCursor });
   });
 
   // Create an announcement
@@ -87,7 +95,7 @@ export async function announcementRoutes(app: FastifyInstance) {
 
     const body = validate(createAnnouncementSchema, req.body, reply);
     if (!body) return;
-    const { title, content, pinned, teamId, commentsEnabled } = body;
+    const { title, content, pinned, teamId, commentsEnabled, postedAsRole: rawRole } = body;
     if (pinned && !isAdmin) return reply.status(403).send({ error: 'Only admins can pin announcements.' });
     if (pinned && teamId) return reply.status(400).send({ error: 'Team announcements cannot be pinned.' });
 
@@ -99,6 +107,12 @@ export async function announcementRoutes(app: FastifyInstance) {
       if (!membership) return reply.status(403).send({ error: 'Not a member of that team.' });
     }
 
+    // Validate claimed role against user's actual admin permissions to prevent spoofing
+    const sender = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } });
+    let postedAsRole: string | null = rawRole ?? null;
+    if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
+    if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
+
     const announcement = await prisma.announcement.create({
       data: {
         title: title.trim(),
@@ -107,6 +121,7 @@ export async function announcementRoutes(app: FastifyInstance) {
         teamId: teamId ?? null,
         pinned: pinned ?? false,
         commentsEnabled: commentsEnabled !== false,
+        postedAsRole,
       },
       include: {
         author: { select: AUTHOR_SELECT },
@@ -114,7 +129,7 @@ export async function announcementRoutes(app: FastifyInstance) {
         _count: { select: { comments: true } },
       },
     });
-    reply.status(201).send(announcement);
+    reply.status(201).send(decryptAuthor(announcement));
   });
 
   // Edit an announcement (author or admin)
@@ -148,7 +163,7 @@ export async function announcementRoutes(app: FastifyInstance) {
         _count: { select: { comments: true } },
       },
     });
-    reply.send(updated);
+    reply.send(decryptAuthor(updated));
   });
 
   // Delete an announcement (author or admin)
@@ -179,7 +194,7 @@ export async function announcementRoutes(app: FastifyInstance) {
       take: 100,
     });
     const nextCursor = comments.length === 100 ? (comments[comments.length - 1]?.id ?? null) : null;
-    reply.send({ comments, nextCursor });
+    reply.send({ comments: comments.map(decryptAuthor), nextCursor });
   });
 
   // Post a comment (requires commentsEnabled on the announcement)
@@ -191,13 +206,19 @@ export async function announcementRoutes(app: FastifyInstance) {
 
     const body = validate(commentSchema, req.body, reply);
     if (!body) return;
-    const { content } = body;
+    const { content, postedAsRole: rawRole } = body;
+
+    // Validate server-level role claims against actual permissions
+    const sender = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } });
+    let postedAsRole: string | null = rawRole ?? null;
+    if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
+    if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
 
     const comment = await prisma.announcementComment.create({
-      data: { announcementId: id, authorId: req.user.userId, content: content.trim() },
+      data: { announcementId: id, authorId: req.user.userId, content: content.trim(), postedAsRole },
       include: { author: { select: AUTHOR_SELECT } },
     });
-    reply.status(201).send(comment);
+    reply.status(201).send(decryptAuthor(comment));
   });
 
   // Delete a comment (author or admin)

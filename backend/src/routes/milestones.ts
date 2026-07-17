@@ -10,6 +10,7 @@ import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireTabRead } from '../utils/product-guard';
+import { safeDecryptValue } from '../utils/crypto';
 
 export async function milestoneRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/milestones', { preHandler: requireAuth }, async (req, reply) => {
@@ -65,7 +66,7 @@ export async function milestoneRoutes(app: FastifyInstance) {
         name: milestone.name,
         status: milestone.status,
         deadline: milestone.deadline,
-        owner: milestone.owner,
+        owner: milestone.owner ? { ...milestone.owner, realName: milestone.owner.realName ? safeDecryptValue(milestone.owner.realName) : null } : null,
         totalDependencies: total,
         doneDependencies: done,
         progress: total > 0 ? done / total : milestone.status === 'done' ? 1 : 0,

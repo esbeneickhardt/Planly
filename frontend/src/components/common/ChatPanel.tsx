@@ -10,11 +10,12 @@ import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import { api, displayName } from '../../api/client';
-import type { Message } from '../../api/client';
+import type { Message, ConversationSummary, DirectMessage } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '../../context/ConfirmContext';
-import type { User, Task } from '../../types';
+import { useChat } from '../../context/ChatContext';
+import type { Task } from '../../types';
 import TaskDetailPanel from './TaskDetailPanel';
 import { EMOJI_SET } from './MarkdownEditor';
 import MessageBubble, { formatTime } from './MessageBubble';
@@ -27,7 +28,7 @@ interface Props {
   isAdminChat?: boolean;
 }
 
-type Tab = 'messages' | 'tasks' | 'search' | 'files';
+type Tab = 'messages' | 'tasks' | 'search' | 'files' | 'people' | 'projects';
 
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -52,6 +53,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const { activeProduct, tasks } = useProduct();
   const { user } = useAuth();
   const { confirm } = useConfirm();
+  const { adminMode } = useChat();
 
   // Message + tab state
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -98,7 +100,8 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [mentionSearch, setMentionSearch] = useState<string | null>(null);
   const [mentionCursorStart, setMentionCursorStart] = useState<number>(0);
   const [mentionHighlight, setMentionHighlight] = useState(0);
-  const [teamMembers, setTeamMembers] = useState<Pick<User, 'id' | 'username' | 'avatarEmoji'>[]>([]);
+  type TeamMemberEntry = { id: string; username: string; avatarEmoji?: string | null; isAdmin?: boolean; role?: string };
+  const [teamMembers, setTeamMembers] = useState<TeamMemberEntry[]>([]);
 
   // Pin/dismiss state for Tasks tab
   const [pinnedTaskIds, setPinnedTaskIds] = useState<string[]>([]);
@@ -107,6 +110,24 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [taskSearch, setTaskSearch] = useState('');
 
   const [scrollToMsgId, setScrollToMsgId] = useState<string | null>(null);
+
+  // Reply state — shared across tabs
+  const [replyingTo, setReplyingTo] = useState<{ id: string; content: string; author: { username: string; realName: string | null; avatarEmoji: string | null } } | null>(null);
+
+  // ── People tab / DM state ──
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [activeConvOther, setActiveConvOther] = useState<{ id: string; username: string; realName: string | null; avatarEmoji: string | null } | null>(null);
+  const [dmMessages, setDmMessages] = useState<DirectMessage[]>([]);
+  const [dmLoading, setDmLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ id: string; username: string; avatarEmoji: string | null; isAdmin: boolean }[]>([]);
+  const [dmUserSearch, setDmUserSearch] = useState('');
+
+  // ── Admin Projects tab state ──
+  type AdminProject = { id: string; name: string; emoji: string | null; ownerId: string | null; teamMembers: { userId: string; role: string }[] };
+  const [adminProjects, setAdminProjects] = useState<AdminProject[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [projectMessages, setProjectMessages] = useState<Message[]>([]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -147,7 +168,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     const teamId = activeProduct?.teamId;
     if (!teamId) return;
     api.teams.get(teamId)
-      .then((team) => setTeamMembers(team.members.map((m) => m.user)))
+      .then((team) => setTeamMembers(team.members.map((m) => ({ ...m.user, role: m.role }))))
       .catch(() => {});
   }, [isAdminChat, activeProduct?.teamId]);
 
@@ -188,6 +209,47 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     });
   }, [productId]);
 
+  // Load people list (conversations + user roster) when People tab is active
+  const loadPeople = useCallback(async () => {
+    try {
+      const { conversations: convs } = await api.conversations.list(isAdminChat);
+      setConversations(convs);
+    } catch {}
+    if (isAdminChat) {
+      try {
+        const users = await api.users.list();
+        setAllUsers(users);
+      } catch {}
+    }
+  }, [isAdminChat]);
+
+  // Load admin projects list for the Projects tab
+  const loadAdminProjects = useCallback(async () => {
+    try {
+      const projects = await api.admin.projects();
+      setAdminProjects(projects);
+    } catch {}
+  }, []);
+
+  // Load messages for a project being viewed by admin
+  const loadProjectMessages = useCallback(async (productId: string) => {
+    try {
+      const { messages } = await api.admin.projectMessages(productId);
+      setProjectMessages(messages);
+    } catch {}
+  }, []);
+
+  // Load DM messages for the active conversation
+  const loadDmMessages = useCallback(async (convId: string) => {
+    setDmLoading(true);
+    try {
+      const { messages } = await api.conversations.messages(convId);
+      setDmMessages(messages);
+    } catch {} finally {
+      setDmLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
       if (isAdminChat) {
@@ -206,6 +268,29 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     pollRef.current = setInterval(load, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [load]);
+
+  // When People tab is active, poll conversations; when a DM thread is open, poll its messages
+  useEffect(() => {
+    if (tab !== 'people') return;
+    loadPeople();
+    if (activeConvId) loadDmMessages(activeConvId);
+    const interval = setInterval(() => {
+      loadPeople();
+      if (activeConvId) loadDmMessages(activeConvId);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [tab, activeConvId, loadPeople, loadDmMessages]);
+
+  // When Projects tab is active, load projects; poll project chat when one is open
+  useEffect(() => {
+    if (tab !== 'projects') return;
+    loadAdminProjects();
+    if (activeProjectId) loadProjectMessages(activeProjectId);
+    const interval = setInterval(() => {
+      if (activeProjectId) loadProjectMessages(activeProjectId);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [tab, activeProjectId, loadAdminProjects, loadProjectMessages]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setLightboxUrl(null); }
@@ -343,19 +428,74 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
   }
 
+  // Compute the role badge to attach to a new message based on current mode and context
+  function computePostedAsRole(): string | null {
+    if (isAdminChat || adminMode) {
+      if (user?.isFoundingAdmin) return 'Server Owner';
+      if (user?.isAdmin) return 'Server Admin';
+    }
+    if (activeProduct?.ownerId === user?.id) return 'Project Owner';
+    const member = teamMembers.find((m) => m.id === user?.id);
+    if (member?.role === 'co_owner') return 'Project Co-Owner';
+    return null;
+  }
+
   async function send() {
     if (!draft.trim() && attachments.length === 0) return;
+
+    // Route to DM when a conversation is open in the People tab
+    if (tab === 'people' && activeConvId) {
+      if (!draft.trim()) return;
+      setSending(true);
+      try {
+        const msg = await api.conversations.send(activeConvId, draft.trim(), replyingTo?.id);
+        setDmMessages((prev) => [...prev, msg]);
+        setDraft('');
+        setAttachments([]);
+        setPreview(false);
+        setReplyingTo(null);
+        await api.conversations.markRead(activeConvId).catch(() => {});
+      } catch (err) {
+        alert((err as Error).message ?? 'Failed to send message');
+      } finally {
+        setSending(false);
+        setTimeout(() => textRef.current?.focus(), 0);
+      }
+      return;
+    }
+
+    // Route to project chat when admin is viewing a project in the Projects tab
+    if (tab === 'projects' && activeProjectId) {
+      if (!draft.trim()) return;
+      setSending(true);
+      try {
+        const msg = await api.admin.postProjectMessage(activeProjectId, draft.trim(), computePostedAsRole());
+        setProjectMessages((prev) => [...prev, msg]);
+        setDraft('');
+        setAttachments([]);
+        setPreview(false);
+      } catch (err) {
+        alert((err as Error).message ?? 'Failed to send message');
+      } finally {
+        setSending(false);
+        setTimeout(() => textRef.current?.focus(), 0);
+      }
+      return;
+    }
+
     if (!isAdminChat && !productId) return;
     setSending(true);
     try {
+      const postedAsRole = computePostedAsRole();
       const msg = isAdminChat
-        ? await api.adminChat.create({ content: draft.trim(), attachments })
-        : await api.messages.create(productId!, { content: draft.trim(), taskId: sendTaskId, attachments });
+        ? await api.adminChat.create({ content: draft.trim(), replyToId: replyingTo?.id, attachments, postedAsRole })
+        : await api.messages.create(productId!, { content: draft.trim(), taskId: sendTaskId, replyToId: replyingTo?.id, attachments, postedAsRole });
       setAllMessages((prev) => [...prev, msg]);
       setDraft('');
       setAttachments([]);
       setPreview(false);
       setMentionSearch(null);
+      setReplyingTo(null);
     } catch (err) {
       alert((err as Error).message ?? 'Failed to send message');
     } finally {
@@ -394,6 +534,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   }
 
   async function deleteMsg(id: string) {
+    if (tab === 'people' || tab === 'projects') return;
     if (!await confirm('Delete this message?')) return;
     if (!isAdminChat && !productId) return;
     if (isAdminChat) {
@@ -473,6 +614,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   }, []);
 
   async function toggleReaction(messageId: string, emoji: string) {
+    if (tab === 'people' || tab === 'projects') return;
     if (!isAdminChat && !productId) return;
     const userId = user?.id ?? '';
     setAllMessages((prev) => prev.map((m) => {
@@ -516,6 +658,31 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     finally { setDeletingFile(null); }
   }
 
+  // Adapt a DirectMessage to the Message shape so messageList() can render it with full markdown/image support
+  function adaptDm(dm: DirectMessage): Message {
+    return { id: dm.id, content: dm.content, createdAt: dm.createdAt, editedAt: dm.editedAt, author: dm.author, authorId: dm.author.id, productId: null, taskId: null, task: null, attachments: [], reactions: [], replyToId: dm.replyToId, replyTo: dm.replyTo, postedAsRole: null };
+  }
+
+  async function openDm(userId: string, other?: { id: string; username: string; realName: string | null; avatarEmoji: string | null } | null) {
+    setDraft('');
+    setAttachments([]);
+    if (other) setActiveConvOther(other);
+    try {
+      const { id } = await api.conversations.findOrCreate(userId, isAdminChat);
+      setActiveConvId(id);
+      await loadDmMessages(id);
+      await api.conversations.markRead(id).catch(() => {});
+      // Refresh conversations so the header has the latest decrypted name
+      const { conversations: fresh } = await api.conversations.list(isAdminChat);
+      setConversations(fresh);
+      const freshConv = fresh.find((c) => c.id === id);
+      if (freshConv?.other) setActiveConvOther(freshConv.other);
+      setConversations((prev) => prev.map((c) => c.id === id ? { ...c, unread: 0 } : c));
+    } catch {}
+  }
+
+  const totalDmUnread = conversations.reduce((n, c) => n + c.unread, 0);
+
   const tabBtn = (t: Tab, label: string) => (
     <button
       onClick={() => { setTab(t); if (t !== 'tasks') setSelectedTask(null); if (t !== 'search') setSearch(''); }}
@@ -527,6 +694,14 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   function composeArea() {
     return (
       <div className="px-4 pb-4 pt-2 flex-shrink-0 relative" style={{ borderTop: '1px solid var(--border)' }}>
+        {/* Reply-to preview bar */}
+        {replyingTo && (
+          <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--surface-2)', borderLeft: '2px solid var(--brand)' }}>
+            <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--brand)' }}>↩ {displayName(replyingTo.author)}</span>
+            <span className="text-[10px] flex-1 truncate" style={{ color: 'var(--text-3)' }}>{replyingTo.content.slice(0, 80)}</span>
+            <button onClick={() => setReplyingTo(null)} className="flex-shrink-0 text-[10px] px-1 rounded" style={{ color: 'var(--text-3)' }}>✕</button>
+          </div>
+        )}
         {/* @ mention dropdown */}
         {mentionSearch !== null && mentionCandidates.length > 0 && (
           <div
@@ -704,6 +879,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     );
   }
 
+  // Renders a list of messages; role badges come directly from msg.postedAsRole stored at send time
   function messageList(msgs: Message[]) {
     return (
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -715,6 +891,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
         ) : msgs.map((msg) => {
           const isOwn = msg.authorId === user?.id;
           const isEditing = editingId === msg.id;
+          const authorRole = msg.postedAsRole ?? null;
           return (
             <div key={msg.id} id={`chat-msg-${msg.id}`}>
               {isEditing ? (
@@ -745,6 +922,9 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                   currentUserId={user?.id ?? null}
                   reactionPickerOpen={reactionPickerFor === msg.id}
                   onToggleReactionPicker={() => setReactionPickerFor((v) => v === msg.id ? null : msg.id)}
+                  onReply={() => { setReplyingTo(msg); setTimeout(() => textRef.current?.focus(), 0); }}
+                  onScrollToReply={(id) => setScrollToMsgId(id)}
+                  authorRole={authorRole}
                 />
               </div>
               )}
@@ -841,10 +1021,29 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
 
       {/* Tabs */}
       <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
-        {tabBtn('messages', 'Messages')}
+        {tabBtn('messages', isAdminChat ? 'Admin' : 'Project')}
+        {isAdminChat && (
+          <button
+            onClick={() => { setTab('projects'); setSelectedTask(null); setSearch(''); setActiveProjectId(null); setProjectMessages([]); loadAdminProjects(); }}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+            style={{ background: tab === 'projects' ? 'var(--brand-subtle)' : 'transparent', color: tab === 'projects' ? 'var(--brand)' : 'var(--text-3)' }}
+          >Projects</button>
+        )}
+        <button
+          onClick={() => { setTab('people'); setSelectedTask(null); setSearch(''); if (!activeConvId) loadPeople(); }}
+          className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
+          style={{ background: tab === 'people' ? 'var(--brand-subtle)' : 'transparent', color: tab === 'people' ? 'var(--brand)' : 'var(--text-3)' }}
+        >
+          Users
+          {totalDmUnread > 0 && tab !== 'people' && (
+            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold" style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}>
+              {totalDmUnread > 99 ? '99+' : totalDmUnread}
+            </span>
+          )}
+        </button>
         {!isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`)}
-        {tabBtn('search', 'Search')}
         {tabBtn('files', 'Files')}
+        {tabBtn('search', 'Search')}
       </div>
 
       {/* ── Messages tab ── */}
@@ -931,7 +1130,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                   )}
                 </div>
               ) : (
-                <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                <div>
                   {sortedFilteredTasks.map((task) => {
                     const msgInfo = taskMessageCounts.get(task.id);
                     const isPinned = pinnedTaskIds.includes(task.id);
@@ -1144,6 +1343,207 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
             );
           })()}
         </div>
+      )}
+
+      {/* ── People/Users tab ── */}
+      {tab === 'people' && (
+        activeConvId ? (
+          // DM thread — same visual identity as project/admin chat
+          <>
+            <div className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+              <button
+                onClick={() => { setActiveConvId(null); setActiveConvOther(null); setDmMessages([]); setDraft(''); setAttachments([]); loadPeople(); }}
+                className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+              >← Back</button>
+              <p className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
+                {(() => {
+                  if (activeConvOther) return displayName(activeConvOther);
+                  const conv = conversations.find((c) => c.id === activeConvId);
+                  return conv?.other ? displayName(conv.other) : 'Direct message';
+                })()}
+              </p>
+              {isAdminChat && activeConvId && (() => {
+                const conv = conversations.find((c) => c.id === activeConvId);
+                const closed = conv?.closed ?? false;
+                return (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const r = await api.conversations.close(activeConvId);
+                        setConversations((prev) => prev.map((c) => c.id === activeConvId ? { ...c, closed: r.closed } : c));
+                      } catch {}
+                    }}
+                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                    style={{ background: closed ? 'var(--surface-2)' : '#fee2e2', color: closed ? 'var(--text-2)' : '#dc2626' }}
+                    title={closed ? 'Reopen this chat' : 'Close this chat so the user cannot send more messages'}
+                  >{closed ? 'Reopen' : 'Close chat'}</button>
+                );
+              })()}
+            </div>
+            {dmLoading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
+              </div>
+            ) : (
+              messageList(dmMessages.map(adaptDm))
+            )}
+            {(() => {
+              const conv = conversations.find((c) => c.id === activeConvId);
+              if (conv?.closed && !isAdminChat) {
+                return (
+                  <div className="px-4 py-3 text-xs text-center flex-shrink-0" style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}>
+                    This conversation has been closed. Contact us to reopen.
+                  </div>
+                );
+              }
+              return composeArea();
+            })()}
+          </>
+        ) : (
+          // People list — search input + recent conversations
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="px-4 pt-3 pb-2 flex-shrink-0 space-y-2">
+              <input
+                type="text"
+                value={dmUserSearch}
+                onChange={(e) => setDmUserSearch(e.target.value)}
+                placeholder={isAdminChat ? 'Search users…' : 'Search members…'}
+                className="input text-sm w-full"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {/* Recent conversations — always shown when no search query */}
+              {!dmUserSearch && conversations.length > 0 && (
+                <div className="px-4 pb-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-3)' }}>Recent</p>
+                  <div className="space-y-0.5">
+                    {conversations.map((conv) => (
+                      <button
+                        key={conv.id}
+                        onClick={() => openDm(conv.other?.id ?? '', conv.other)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
+                        style={{ background: 'transparent' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold relative"
+                          style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>
+                          {conv.other?.avatarEmoji ?? conv.other?.username[0]?.toUpperCase() ?? '?'}
+                          {conv.unread > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold" style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}>
+                              {conv.unread}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{conv.other ? displayName(conv.other) : 'Unknown'}</p>
+                          {conv.lastMessage && (
+                            <p className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>{conv.lastMessage.content}</p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Search results */}
+              {dmUserSearch && (() => {
+                const q = dmUserSearch.toLowerCase();
+                const roster = isAdminChat
+                  ? allUsers.filter((u) => u.id !== user?.id)
+                  : teamMembers.filter((m) => m.id !== user?.id && !m.isAdmin);
+                const filtered = roster.filter((m) =>
+                  m.username.toLowerCase().includes(q) ||
+                  (m as { realName?: string | null }).realName?.toLowerCase().includes(q)
+                );
+                if (filtered.length === 0) return (
+                  <div className="flex flex-col items-center justify-center h-24 gap-1" style={{ color: 'var(--text-3)' }}>
+                    <p className="text-sm">No users found.</p>
+                  </div>
+                );
+                return (
+                  <div className="px-4 pb-3 space-y-0.5">
+                    {filtered.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => { setDmUserSearch(''); openDm(m.id); }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
+                        style={{ background: 'transparent' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                          {m.avatarEmoji ?? m.username[0]?.toUpperCase()}
+                        </div>
+                        <p className="text-xs font-medium" style={{ color: 'var(--text)' }}>{m.username}</p>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Empty state — no search and no conversations yet */}
+              {!dmUserSearch && conversations.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-32 gap-2" style={{ color: 'var(--text-3)' }}>
+                  <span className="text-3xl opacity-30">💬</span>
+                  <p className="text-sm">Search for someone to message.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      )}
+
+      {/* ── Admin Projects tab ── */}
+      {tab === 'projects' && isAdminChat && (
+        activeProjectId ? (
+          // Project chat view
+          <>
+            <div className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+              <button
+                onClick={() => { setActiveProjectId(null); setProjectMessages([]); setDraft(''); setAttachments([]); }}
+                className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+              >← Back</button>
+              <p className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
+                {adminProjects.find((p) => p.id === activeProjectId)?.emoji ?? ''}{' '}
+                {adminProjects.find((p) => p.id === activeProjectId)?.name ?? 'Project'}
+              </p>
+            </div>
+            {messageList(projectMessages)}
+            {composeArea()}
+          </>
+        ) : (
+          // Projects list
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>All projects</p>
+            {adminProjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 gap-2" style={{ color: 'var(--text-3)' }}>
+                <span className="text-2xl opacity-30">📋</span>
+                <p className="text-sm">No projects found.</p>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {adminProjects.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setActiveProjectId(p.id); loadProjectMessages(p.id); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
+                    style={{ background: 'transparent' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span className="text-lg w-8 text-center flex-shrink-0">{p.emoji ?? '📋'}</span>
+                    <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{p.name}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )
       )}
 
       <input ref={fileRef} type="file" multiple accept="image/*,.svg,.pdf,.txt,.md,.csv,.json,.zip,.docx,.xlsx,.pptx,.doc,.xls" className="hidden" onChange={handleFileChange} />
