@@ -5,7 +5,7 @@
  * PUT to avoid partial-save states.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../../api/client';
+import { api, displayName } from '../../api/client';
 import type { Product, TeamMember } from '../../types';
 
 const FEATURE_TABS = [
@@ -158,7 +158,7 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
                 <span className="text-base flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm truncate" style={{ color: 'var(--text)' }}>{user.username}</span>
+                    <span className="text-sm truncate" style={{ color: 'var(--text)' }}>{displayName(user)}</span>
                     {isProductOwner && <RoleBadge kind="owner" />}
                     {!isProductOwner && role === 'co_owner' && <RoleBadge kind="co_owner" />}
                   </div>
