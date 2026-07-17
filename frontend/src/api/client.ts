@@ -76,7 +76,27 @@ export interface InviteInfo {
   expiresAt: string;
 }
 
-export type MinUser = { id: string; username: string; realName: string | null; avatarEmoji: string | null };
+export type MinUser = { id: string; username: string; realName: string | null; avatarEmoji: string | null; isAdmin: boolean; isFoundingAdmin: boolean };
+
+export type DirectMessage = {
+  id: string;
+  conversationId: string;
+  content: string;
+  replyToId: string | null;
+  replyTo: { id: string; content: string; author: MinUser } | null;
+  createdAt: string;
+  editedAt: string | null;
+  author: MinUser;
+};
+
+export type ConversationSummary = {
+  id: string;
+  closed: boolean;
+  other: MinUser | null;
+  lastMessage: DirectMessage | null;
+  unread: number;
+  updatedAt: string;
+};
 export { displayName } from '../utils/user';
 
 export interface SearchResults {
@@ -109,6 +129,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent('planly:session-expired'));
+    }
     if (res.status === 403 && (body as { code?: string }).code === 'EMAIL_NOT_VERIFIED') {
       window.dispatchEvent(new CustomEvent('planly:email-not-verified'));
     }
@@ -140,6 +163,9 @@ export interface Message {
   authorId: string;
   content: string;
   attachments: { url: string; name: string; type: string }[];
+  replyToId: string | null;
+  replyTo: { id: string; content: string; author: MinUser } | null;
+  postedAsRole: string | null;
   createdAt: string;
   editedAt: string | null;
   author: MinUser;
@@ -188,23 +214,25 @@ export interface AppRegistration {
   createdAt: string;
 }
 
-export type AnnAuthor = { id: string; username: string; realName: string | null; avatarEmoji: string | null; isAdmin: boolean };
+export type AnnAuthor = { id: string; username: string; realName: string | null; avatarEmoji: string | null; isAdmin: boolean; isFoundingAdmin: boolean };
 export type AnnTeam   = { id: string; name: string } | null;
 export type AnnItem   = {
   id: string; title: string; content: string; pinned: boolean;
   commentsEnabled: boolean; createdAt: string; updatedAt: string;
+  postedAsRole: string | null;
   author: AnnAuthor | null; team: AnnTeam;
   _count: { comments: number };
 };
 export type AnnComment = {
   id: string; announcementId: string; content: string;
+  postedAsRole: string | null;
   createdAt: string; editedAt: string | null; author: AnnAuthor | null;
 };
 
 export const api = {
 
   users: {
-    list: () => request<{ users: { id: string; username: string; avatarEmoji: string | null; acceptsInvites: boolean }[]; nextCursor: string | null }>('/api/users').then(r => r.users),
+    list: () => request<{ users: { id: string; username: string; avatarEmoji: string | null; acceptsInvites: boolean; isAdmin: boolean }[]; nextCursor: string | null }>('/api/users').then(r => r.users),
     create: (data: { username: string; email: string; password: string; realName?: string; avatarEmoji?: string; tosAccepted: true }) =>
       request<User>('/api/users', { method: 'POST', body: json(data) }),
     get: (id: string) => request<User>(`/api/users/${id}`),
@@ -317,7 +345,7 @@ export const api = {
       request<Message[]>(`/api/products/${productId}/messages${taskId ? `?taskId=${taskId}` : ''}`),
     listAll: (productId: string) =>
       request<Message[]>(`/api/products/${productId}/messages?all=true`),
-    create: (productId: string, data: { content: string; taskId?: string; attachments?: { url: string; name: string; type: string }[] }) =>
+    create: (productId: string, data: { content: string; taskId?: string; replyToId?: string | null; attachments?: { url: string; name: string; type: string }[]; postedAsRole?: string | null }) =>
       request<Message>(`/api/products/${productId}/messages`, { method: 'POST', body: json(data) }),
     update: (productId: string, messageId: string, content: string) =>
       request<Message>(`/api/products/${productId}/messages/${messageId}`, { method: 'PATCH', body: json({ content }) }),
@@ -330,7 +358,7 @@ export const api = {
   adminChat: {
     list: (cursor?: string) =>
       request<Message[]>(`/api/admin/chat${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
-    create: (data: { content: string; attachments?: { url: string; name: string; type: string }[] }) =>
+    create: (data: { content: string; replyToId?: string | null; attachments?: { url: string; name: string; type: string }[]; postedAsRole?: string | null }) =>
       request<Message>('/api/admin/chat', { method: 'POST', body: json(data) }),
     update: (messageId: string, content: string) =>
       request<Message>(`/api/admin/chat/${messageId}`, { method: 'PATCH', body: json({ content }) }),
@@ -574,11 +602,13 @@ export const api = {
     },
     pruneLogs: (olderThanDays: number) =>
       request<{ ok: boolean; deletedCount: number }>('/api/admin/logs/prune', { method: 'DELETE', body: json({ olderThanDays }) }),
-    projects: () => request<{ id: string; name: string; emoji: string | null; deadline: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number }[]>('/api/admin/projects'),
+    projects: () => request<{ id: string; name: string; emoji: string | null; deadline: string; createdAt: string; ownerId: string | null; teamId: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number; teamMembers: { userId: string; role: string }[] }[]>('/api/admin/projects'),
     deletedProjects: () => request<{ id: string; name: string; emoji: string | null; deletedAt: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number }[]>('/api/admin/projects/deleted'),
     restoreProject: (id: string) => request<{ ok: boolean }>(`/api/admin/products/${id}/restore`, { method: 'POST', body: json({}) }),
     hardDeleteProject: (id: string) => request<{ ok: boolean }>(`/api/admin/products/${id}`, { method: 'DELETE' }),
     stats: () => request<{ userCount: number; projectCount: number; taskCount: number; messageCount: number; newUsers: number; newProjects: number }>('/api/admin/stats'),
+    projectMessages: (productId: string) => request<{ messages: Message[] }>(`/api/admin/products/${productId}/messages`),
+    postProjectMessage: (productId: string, content: string, postedAsRole?: string | null) => request<Message>(`/api/admin/products/${productId}/messages`, { method: 'POST', body: json({ content, postedAsRole }) }),
   },
 
   announcements: {
@@ -587,7 +617,7 @@ export const api = {
       canPost: boolean;
       enabled: boolean;
     }>('/api/announcements'),
-    create: (data: { title: string; content: string; pinned?: boolean; teamId?: string; commentsEnabled?: boolean }) =>
+    create: (data: { title: string; content: string; pinned?: boolean; teamId?: string; commentsEnabled?: boolean; postedAsRole?: string | null }) =>
       request<AnnItem>('/api/announcements', { method: 'POST', body: json(data) }),
     update: (id: string, data: { title?: string; content?: string; pinned?: boolean; commentsEnabled?: boolean }) =>
       request<AnnItem>(`/api/announcements/${id}`, { method: 'PATCH', body: json(data) }),
@@ -596,8 +626,8 @@ export const api = {
       list: (annId: string) =>
         request<{ comments: AnnComment[]; nextCursor: string | null }>(`/api/announcements/${annId}/comments`)
           .then((r) => r.comments),
-      create: (annId: string, content: string) =>
-        request<AnnComment>(`/api/announcements/${annId}/comments`, { method: 'POST', body: json({ content }) }),
+      create: (annId: string, content: string, postedAsRole?: string | null) =>
+        request<AnnComment>(`/api/announcements/${annId}/comments`, { method: 'POST', body: json({ content, postedAsRole }) }),
       delete: (annId: string, commentId: string) =>
         request<{ ok: boolean }>(`/api/announcements/${annId}/comments/${commentId}`, { method: 'DELETE' }),
     },
@@ -633,6 +663,15 @@ export const api = {
       totalCompleted: number;
       completionsByDay: { date: string; count: number }[];
     }>(`/api/products/${productId}/analytics/workload`),
+  },
+  conversations: {
+    list: (adminChat?: boolean) => request<{ conversations: ConversationSummary[] }>(`/api/conversations${adminChat ? '?admin=true' : ''}`),
+    findOrCreate: (participantId: string, isAdminChat?: boolean) => request<{ id: string }>('/api/conversations', { method: 'POST', body: json({ participantId, isAdminChat: isAdminChat ?? false }) }),
+    messages: (id: string) => request<{ messages: DirectMessage[] }>(`/api/conversations/${id}/messages`),
+    send: (id: string, content: string, replyToId?: string | null) => request<DirectMessage>(`/api/conversations/${id}/messages`, { method: 'POST', body: json({ content, replyToId: replyToId ?? null }) }),
+    markRead: (id: string) => request<{ ok: boolean }>(`/api/conversations/${id}/read`, { method: 'PATCH', body: json({}) }),
+    close: (id: string) => request<{ ok: boolean; closed: boolean }>(`/api/conversations/${id}/close`, { method: 'PATCH', body: json({}) }),
+    unreadCount: (adminChat?: boolean) => request<{ count: number }>(`/api/conversations/unread-count${adminChat ? '?admin=true' : ''}`),
   },
   github: {
     getConfig: () => request<{

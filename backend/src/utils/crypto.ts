@@ -45,15 +45,30 @@ export function encryptOptional(value: string | null | undefined): string | unde
 // PII helpers
 
 // Decrypt user PII fields in-place. Handles nulls and unencrypted legacy values gracefully.
+// Uses safeDecryptValue so a key mismatch yields null instead of raw ciphertext in the UI.
 export function decryptUserPii<T extends { realName?: string | null; phone?: string | null }>(user: T): T {
   return {
     ...user,
-    realName: user.realName ? decryptValue(user.realName) : user.realName,
-    phone: user.phone ? decryptValue(user.phone) : user.phone,
+    realName: user.realName ? safeDecryptValue(user.realName) : user.realName,
+    phone: user.phone ? safeDecryptValue(user.phone) : user.phone,
+  };
+}
+
+// Decrypt the author's realName on a message before sending to the client.
+// Also decrypts replyTo.author.realName so quoted message previews show the correct name.
+export function decryptMessageAuthor<T extends { author: { realName: string | null }; replyTo?: { author: { realName: string | null } } | null }>(msg: T): T {
+  const decName = (n: string | null) => (n ? safeDecryptValue(n) : null);
+  return {
+    ...msg,
+    author: { ...msg.author, realName: decName(msg.author.realName) },
+    replyTo: msg.replyTo
+      ? { ...msg.replyTo, author: { ...msg.replyTo.author, realName: decName(msg.replyTo.author.realName) } }
+      : msg.replyTo,
   };
 }
 
 // Falls back to returning the value as-is for unencrypted legacy rows.
+// On actual decryption failure (wrong key / corrupted data) also returns the raw value.
 export function decryptValue(value: string): string {
   const parts = value.split(':');
   if (parts.length !== 3) return value;
@@ -68,5 +83,22 @@ export function decryptValue(value: string): string {
     return decipher.update(enc).toString('utf8') + decipher.final('utf8');
   } catch {
     return value;
+  }
+}
+
+// Like decryptValue but returns null when decryption fails (wrong key / corrupted).
+// Use this for PII fields displayed in the UI so a bad key shows nothing instead of
+// exposing raw ciphertext.
+export function safeDecryptValue(value: string): string | null {
+  const parts = value.split(':');
+  if (parts.length !== 3) return value; // unencrypted legacy value — return as-is
+  try {
+    const key = getKey();
+    const [ivHex, tagHex, encHex] = parts as [string, string, string];
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+    return decipher.update(Buffer.from(encHex, 'hex')).toString('utf8') + decipher.final('utf8');
+  } catch {
+    return null;
   }
 }

@@ -11,6 +11,7 @@ import prisma from '../db/client';
 import { requireAdmin } from '../middleware/auth';
 import { MESSAGE_INCLUDE } from '../db/selects';
 import { validate } from '../utils/validate';
+import { decryptMessageAuthor } from '../utils/crypto';
 
 // Request body schemas
 const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
@@ -21,9 +22,12 @@ const attachmentSchema = z.object({
   name: z.string(),
   type: z.string(),
 });
+const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
 const createMessageSchema = z.object({
   content: z.string().max(10000),
+  replyToId: z.string().optional().nullable(),
   attachments: z.array(attachmentSchema).optional(),
+  postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
 }).refine((d) => d.content.trim().length > 0 || (d.attachments?.length ?? 0) > 0, {
   message: 'Message must have content or at least one attachment',
   path: ['content'],
@@ -43,18 +47,23 @@ export async function adminChatRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'asc' },
       take,
     });
-    reply.send(messages);
+    reply.send(messages.map(decryptMessageAuthor));
   });
 
   app.post('/api/admin/chat', { preHandler: requireAdmin }, async (req, reply) => {
     const body = validate(createMessageSchema, req.body, reply);
     if (!body) return;
-    const { content, attachments } = body;
+    const { content, replyToId, attachments, postedAsRole: rawRole } = body;
+    // Validate claimed role; admin chat only ever shows server-level roles
+    const sender = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } });
+    let postedAsRole: string | null = rawRole ?? null;
+    if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
+    if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
     const msg = await prisma.message.create({
-      data: { isAdminChat: true, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
+      data: { isAdminChat: true, replyToId: replyToId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [], postedAsRole },
       include: MESSAGE_INCLUDE,
     });
-    reply.status(201).send(msg);
+    reply.status(201).send(decryptMessageAuthor(msg));
   });
 
   app.patch('/api/admin/chat/:messageId', { preHandler: requireAdmin }, async (req, reply) => {
@@ -71,7 +80,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
       data: { content: content.trim(), editedAt: new Date() },
       include: MESSAGE_INCLUDE,
     });
-    reply.send(updated);
+    reply.send(decryptMessageAuthor(updated));
   });
 
   app.delete('/api/admin/chat/:messageId', { preHandler: requireAdmin }, async (req, reply) => {

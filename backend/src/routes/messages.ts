@@ -21,16 +21,20 @@ import { sendEmail, mentionEmail } from '../utils/email';
 import { createNotification } from '../utils/notifications';
 import { MESSAGE_INCLUDE } from '../db/selects';
 import { validate } from '../utils/validate';
+import { decryptMessageAuthor } from '../utils/crypto';
 
 const attachmentItemSchema = z.object({
   url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
   name: z.string(),
   type: z.string(),
 });
+const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
 const createMessageSchema = z.object({
   content: z.string().max(10000),
   taskId: z.string().optional(),
+  replyToId: z.string().optional().nullable(),
   attachments: z.array(attachmentItemSchema).max(20).optional(),
+  postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
 }).refine((d) => d.content.trim().length > 0 || (d.attachments?.length ?? 0) > 0, {
   message: 'Message must have content or at least one attachment',
   path: ['content'],
@@ -129,7 +133,7 @@ export async function messageRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'asc' },
       take,
     });
-    reply.send(messages);
+    reply.send(messages.map(decryptMessageAuthor));
   });
 
   // Create a message, broadcast it, dispatch webhooks, and notify @mentions
@@ -138,13 +142,19 @@ export async function messageRoutes(app: FastifyInstance) {
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
     const msgBody = validate(createMessageSchema, req.body, reply);
     if (!msgBody) return;
-    const { content, taskId, attachments } = msgBody;
+    const { content, taskId, replyToId, attachments, postedAsRole: rawRole } = msgBody;
+    // Validate claimed role against actual user permissions to prevent spoofing
+    const sender = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } });
+    let postedAsRole: string | null = rawRole ?? null;
+    if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
+    if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
     const msg = await prisma.message.create({
-      data: { productId, taskId: taskId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [] },
+      data: { productId, taskId: taskId ?? null, replyToId: replyToId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [], postedAsRole },
       include: MESSAGE_INCLUDE,
     });
-    dispatchWebhooks(productId, 'message.created', msg).catch((err) => { req.log.warn({ err }, '[messages] Webhook dispatch failed'); });
-    broadcast(productId, 'message.created', msg);
+    const decryptedMsg = decryptMessageAuthor(msg);
+    dispatchWebhooks(productId, 'message.created', decryptedMsg).catch((err) => { req.log.warn({ err }, '[messages] Webhook dispatch failed'); });
+    broadcast(productId, 'message.created', decryptedMsg);
     logActivity({ productId, actorId: req.user.userId, action: 'message.created', entityType: 'message', entityId: msg.id });
 
     // Create notifications and optional emails for @mentioned users (fire-and-forget)
@@ -187,7 +197,7 @@ export async function messageRoutes(app: FastifyInstance) {
       }).catch((err) => { req.log.error({ err }, '[messages] mention notification failed'); });
     }
 
-    reply.status(201).send(msg);
+    reply.status(201).send(decryptedMsg);
   });
 
   // Edit own message content
@@ -205,7 +215,7 @@ export async function messageRoutes(app: FastifyInstance) {
       data: { content, editedAt: new Date() },
       include: MESSAGE_INCLUDE,
     });
-    reply.send(updated);
+    reply.send(decryptMessageAuthor(updated));
   });
 
   // Delete own message

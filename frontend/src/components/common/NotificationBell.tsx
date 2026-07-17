@@ -11,6 +11,8 @@ import { useProduct } from '../../context/ProductContext';
 import { useToast } from '../../context/ToastContext';
 
 const SEEN_KEY = 'admin_notif_seen_at';
+// Entries created before this timestamp are hidden until new ones arrive after "Clear all"
+const CLEARED_KEY = 'admin_notif_cleared_at';
 
 const BellIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -128,9 +130,11 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
         // Capture seenAt BEFORE loading so new-entry highlighting and "Mark all read" are correct
         const seenAt = localStorage.getItem(SEEN_KEY) ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         setAdminSeenAt(seenAt);
+        const clearedAt = localStorage.getItem(CLEARED_KEY);
         const { entries } = await api.admin.adminNotifications();
-        setAdminEntries(entries);
-        setHasNewAdmin(entries.some((e) => new Date(e.createdAt) > new Date(seenAt)));
+        const visible = clearedAt ? entries.filter((e) => new Date(e.createdAt) > new Date(clearedAt)) : entries;
+        setAdminEntries(visible);
+        setHasNewAdmin(visible.some((e) => new Date(e.createdAt) > new Date(seenAt)));
         setAdminUnread(0);
       } catch {}
       finally { setAdminLoading(false); }
@@ -261,7 +265,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                   </button>
                 )}
                 <button
-                  onClick={() => { const now = new Date().toISOString(); localStorage.setItem(SEEN_KEY, now); setAdminUnread(0); setHasNewAdmin(false); setAdminEntries([]); setOpen(false); }}
+                  onClick={() => { const now = new Date().toISOString(); localStorage.setItem(SEEN_KEY, now); localStorage.setItem(CLEARED_KEY, now); setAdminUnread(0); setHasNewAdmin(false); setAdminEntries([]); setOpen(false); }}
                   className="text-xs transition-opacity"
                   style={{ color: 'var(--text-3)' }}
                   onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}

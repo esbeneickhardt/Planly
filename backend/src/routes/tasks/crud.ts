@@ -17,6 +17,7 @@ import { broadcast } from '../../realtime/manager';
 import { z } from 'zod';
 import { validate } from '../../utils/validate';
 import { createTaskSchema, updateTaskSchema } from '../../schemas/tasks';
+import { safeDecryptValue } from '../../utils/crypto';
 
 // Validation schema for bulk kanban reorder (up to 1000 tasks per call)
 const reorderSchema = z.object({ updates: z.array(z.object({ taskId: z.string(), order: z.number().int() })).max(1000) });
@@ -33,6 +34,13 @@ export const TASK_INCLUDE = {
   dependsOn: { select: { prerequisiteId: true } },
   requiredBy: { select: { dependentId: true } },
 };
+
+// Decrypt realName on owner, reviewer, and creator before sending to the client
+function decryptTaskPii<T extends { owner?: { realName: string | null } | null; reviewer?: { realName: string | null } | null; creator?: { realName: string | null } | null }>(task: T): T {
+  const dec = (u: { realName: string | null } | null | undefined) =>
+    u ? { ...u, realName: u.realName ? safeDecryptValue(u.realName) : null } : u;
+  return { ...task, owner: dec(task.owner), reviewer: dec(task.reviewer), creator: dec(task.creator) };
+}
 
 // Shared filter that excludes soft-deleted tasks from all queries
 export const TASK_WHERE_ACTIVE = { deletedAt: null };
@@ -53,7 +61,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
       orderBy: { kanbanOrder: 'asc' },
       take,
     });
-    reply.send(tasks);
+    reply.send(tasks.map(decryptTaskPii));
   });
 
   // Bulk-update kanban sort positions in one transaction; must be registered before /:taskId to avoid route conflict
@@ -100,8 +108,9 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     });
 
     // Fire webhooks, realtime broadcast, activity log, and assignment notifications
-    dispatchWebhooks(productId, 'task.created', task).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
-    broadcast(productId, 'task.created', task);
+    const decryptedTask = decryptTaskPii(task);
+    dispatchWebhooks(productId, 'task.created', decryptedTask).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
+    broadcast(productId, 'task.created', decryptedTask);
     logActivity({ productId, actorId: req.user.userId, action: 'task.created', entityType: 'task', entityId: task.id, entityName: task.name });
     if (ownerId && ownerId !== req.user.userId) {
       createNotification({ userId: ownerId, type: 'task_assigned', title: `You were assigned to "${task.name}"`, productId, taskId: task.id });
@@ -109,7 +118,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     if (reviewerId && reviewerId !== req.user.userId && reviewerId !== ownerId) {
       createNotification({ userId: reviewerId, type: 'task_assigned', title: `You were set as reviewer for "${task.name}"`, productId, taskId: task.id });
     }
-    reply.status(201).send(task);
+    reply.status(201).send(decryptedTask);
   });
 
   // Fetch a single task with full relations (owner, reviewer, subtasks, dependencies)
@@ -119,7 +128,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     if (!await requireTabRead(productId, req.user.userId, ['kanban', 'backlog', 'canvas', 'gantt'], reply)) return;
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE }, include: TASK_INCLUDE });
     if (!task) return reply.status(404).send({ error: 'Not found' });
-    reply.send(task);
+    reply.send(decryptTaskPii(task));
   });
 
   // Update task fields; handles completion timestamps, webhooks, broadcast, and assignment notifications
@@ -173,8 +182,9 @@ export async function taskCrudRoutes(app: FastifyInstance) {
 
     // Fire webhooks, realtime broadcast, activity log, and assignment notifications
     const eventName = body.status && body.status !== task.status ? 'task.status_changed' : 'task.updated';
-    dispatchWebhooks(productId, eventName, updated).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
-    broadcast(productId, eventName, updated);
+    const decryptedUpdated = decryptTaskPii(updated);
+    dispatchWebhooks(productId, eventName, decryptedUpdated).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
+    broadcast(productId, eventName, decryptedUpdated);
     logActivity({ productId, actorId: req.user.userId, action: eventName, entityType: 'task', entityId: updated.id, entityName: updated.name });
 
     if (body.ownerId && body.ownerId !== task.ownerId && body.ownerId !== req.user.userId) {
@@ -183,7 +193,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     if (body.reviewerId && body.reviewerId !== task.reviewerId && body.reviewerId !== req.user.userId) {
       createNotification({ userId: body.reviewerId, type: 'task_assigned', title: `You were set as reviewer for "${updated.name}"`, productId, taskId: task.id });
     }
-    reply.send(updated);
+    reply.send(decryptedUpdated);
   });
 
   // Soft-delete a task (sets deletedAt); returns 204 even if already deleted to keep clients idempotent

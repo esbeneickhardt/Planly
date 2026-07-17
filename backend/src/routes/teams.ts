@@ -21,7 +21,7 @@ import { createNotification } from '../utils/notifications';
 const addMemberSchema = z.object({ userId: z.string() });
 const updateRoleSchema = z.object({ role: z.enum(['member', 'co_owner']) });
 
-const MEMBER_INCLUDE = { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } } };
+const MEMBER_INCLUDE = { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true, isAdmin: true } } } } };
 
 async function getTeamAdmin(teamId: string, userId: string) {
   const team = await prisma.team.findUnique({

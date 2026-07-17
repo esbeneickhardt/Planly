@@ -36,7 +36,7 @@ export interface User {
 
 export interface TeamMember {
   userId: string;
-  user: Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>;
+  user: Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji' | 'isAdmin'>;
   role?: string;
 }
 
