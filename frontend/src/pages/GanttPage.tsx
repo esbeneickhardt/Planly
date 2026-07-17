@@ -4,7 +4,7 @@
  * useGanttDragZoom and persisted to localStorage; drag-resize handles write deadline/date changes back to the API on pointer-up.
  */
 import { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { api, displayName } from '../api/client';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
@@ -336,7 +336,7 @@ export default function GanttPage() {
                         {m.doneDependencies}/{m.totalDependencies || 0} done
                       </span>
                       {m.owner && (
-                        <span className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>· {m.owner.avatarEmoji ?? '👤'} {m.owner.username}</span>
+                        <span className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>· {m.owner.avatarEmoji ?? '👤'} {displayName(m.owner)}</span>
                       )}
                     </div>
                   )}

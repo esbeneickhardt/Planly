@@ -39,7 +39,7 @@ const USER_SELF_SELECT = {
   notificationPreferences: true, acceptsInvites: true,
 };
 // Minimal fields for team member search - no email, phone, or createdAt
-const USER_PUBLIC_SELECT = { id: true, username: true, avatarEmoji: true, acceptsInvites: true, isAdmin: true };
+const USER_PUBLIC_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, acceptsInvites: true, isAdmin: true };
 
 export async function userRoutes(app: FastifyInstance) {
   // Global user search: minimal fields only (used for team member lookup)
@@ -53,7 +53,7 @@ export async function userRoutes(app: FastifyInstance) {
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     const nextCursor = users.length === take ? (users[users.length - 1]?.id ?? null) : null;
-    reply.send({ users, nextCursor });
+    reply.send({ users: users.map(decryptUserPii), nextCursor });
   });
 
   // Registration - public endpoint with tighter rate limit

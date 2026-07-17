@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, displayName } from '../api/client';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import { useAuth } from '../context/AuthContext';
@@ -101,7 +101,7 @@ export default function SettingsPage() {
         </h1>
         {ownerMember && (
           <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-            Owner: <span style={{ color: 'var(--text-2)' }}>{ownerMember.user.avatarEmoji} {ownerMember.user.username}</span>
+            Owner: <span style={{ color: 'var(--text-2)' }}>{ownerMember.user.avatarEmoji} {displayName(ownerMember.user)}</span>
             {isOwner && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>You</span>}
           </p>
         )}
