@@ -255,11 +255,11 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     try {
       if (isAdminChat) {
         const msgs = await api.adminChat.list();
-        setAllMessages(msgs);
+        setAllMessages(Array.isArray(msgs) ? msgs : []);
       } else {
         if (!productId) return;
         const msgs = await api.messages.listAll(productId);
-        setAllMessages(msgs);
+        setAllMessages(Array.isArray(msgs) ? msgs : []);
       }
     } catch {}
   }, [isAdminChat, productId]);

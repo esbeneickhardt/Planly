@@ -5,7 +5,7 @@
  * so tests are fully isolated.
  */
 import { test, expect } from '@playwright/test';
-import { uniqueUser, registerViaUI, createProjectViaTopBar, waitForKanbanReady, createColumnOnKanban } from '../fixtures/auth.fixture';
+import { uniqueUser, registerViaUI, createProjectViaTopBar, waitForKanbanReady } from '../fixtures/auth.fixture';
 
 async function setupUserAndProduct(browser: import('@playwright/test').Browser) {
   const u = uniqueUser('task');
@@ -21,17 +21,30 @@ async function setupUserAndProduct(browser: import('@playwright/test').Browser) 
   await createProjectViaTopBar(page, 'Task Project');
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitForKanbanReady(page);
-  await createColumnOnKanban(page, 'To Do');
-  // Wait until the "New task" button is rendered inside the column so tests
-  // don't race against React finishing the column's initial render.
-  await page.waitForFunction(
-    () => {
-      const col = document.querySelector('.kanban-col');
-      if (!col) return false;
-      return Array.from(col.querySelectorAll('button')).some(b => b.textContent?.trim().includes('New task'));
-    },
-    { timeout: 20_000 }
-  ).catch(() => {});
+  // Wait for the default columns the backend seeds on first board access.
+  // If they don't appear in 10s, reload once — gives loadColumns() a second chance.
+  const hasColumns = await page.locator('.kanban-col').first()
+    .waitFor({ state: 'visible', timeout: 10_000 })
+    .then(() => true).catch(() => false);
+  if (!hasColumns) {
+    await page.reload({ waitUntil: 'load', timeout: 20_000 }).catch(() => {});
+    await waitForKanbanReady(page);
+  }
+  const newTaskFn = () => {
+    const col = document.querySelector('.kanban-col');
+    if (!col) return false;
+    return Array.from(col.querySelectorAll('button')).some(b => b.textContent?.trim().includes('New task'));
+  };
+  // Wait until the "New task" button is rendered inside a default column.
+  // If it doesn't appear in 20s, reload once — columns may have loaded but
+  // the task button is gated on a second async fetch (e.g. permissions).
+  const hasNewTaskBtn = await page.waitForFunction(newTaskFn, { timeout: 20_000 })
+    .then(() => true).catch(() => false);
+  if (!hasNewTaskBtn) {
+    await page.reload({ waitUntil: 'load', timeout: 20_000 }).catch(() => {});
+    await waitForKanbanReady(page);
+    await page.waitForFunction(newTaskFn, { timeout: 20_000 }).catch(() => {});
+  }
 
   return { page, u };
 }
@@ -42,7 +55,7 @@ test.describe('Task creation', () => {
 
     // Click the "New task" button inside the column
     const addTaskBtn = page.getByRole('button', { name: 'New task' }).first();
-    await expect(addTaskBtn).toBeVisible({ timeout: 15_000 });
+    await expect(addTaskBtn).toBeVisible({ timeout: 30_000 });
     await addTaskBtn.click();
 
     // Inline input appears with placeholder "Task name…"

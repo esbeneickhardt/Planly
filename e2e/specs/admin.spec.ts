@@ -42,7 +42,8 @@ test.describe('Admin panel access', () => {
     const { email, password } = await getAdminCredentials();
     await loginViaUI(page, email, password);
 
-    const shield = page.getByRole('button', { name: /🛡|admin|shield/i }).first();
+    // Shield button has no text; target it by data-testid added for testability
+    const shield = page.locator('[data-testid="admin-btn"]');
     await shield.click();
 
     await expect(page).toHaveURL(/\/admin/);
@@ -57,7 +58,8 @@ test.describe('Admin panel access', () => {
     await loginViaUI(page, email, password);
     await page.goto('/admin');
 
-    const shield = page.getByRole('button', { name: /🛡|admin|shield/i }).first();
+    // Shield button has no text; target it by data-testid added for testability
+    const shield = page.locator('[data-testid="admin-btn"]');
     await shield.click();
     // Should navigate away from /admin
     await expect(page).not.toHaveURL(/\/admin/);
@@ -138,11 +140,9 @@ test.describe('Admin Audit Logs tab', () => {
     await loginViaUI(page, email, password);
     await page.goto('/admin?tab=logs');
 
-    // Log entries should appear
+    // Log entries should appear — data-testid is set on each entry div in AdminLogs.tsx
     await expect(
-      page.locator('[data-testid="log-entry"], tr.log-row, .audit-entry').first().or(
-        page.getByText(/login|config|created/i).first()
-      )
+      page.locator('[data-testid="log-entry"]').first()
     ).toBeVisible({ timeout: 10_000 });
   });
 
