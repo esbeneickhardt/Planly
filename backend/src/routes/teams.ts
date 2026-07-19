@@ -13,7 +13,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { Prisma } from '@prisma/client';
-import { handleNotFound, handleConflict } from '../utils/prisma-errors';
+import { handleNotFound } from '../utils/prisma-errors';
 import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
 import { logAdminEvent } from '../utils/audit';
 import { createNotification } from '../utils/notifications';
