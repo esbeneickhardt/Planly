@@ -49,12 +49,14 @@ function renderBubble(content: string) {
 }
 
 describe('MessageBubble - XSS safety', () => {
+  // Markdown renderer must strip raw HTML blocks; script tags must never reach the DOM
   it('does not inject <script> tags from message content', () => {
     const { container } = renderBubble('<script>window.__xss=1</script>');
     expect(container.querySelectorAll('script')).toHaveLength(0);
     expect((window as unknown as Record<string, unknown>).__xss).toBeUndefined();
   });
 
+  // onerror attribute must be stripped; failed image loads must not execute injected JS
   it('does not inject onerror on <img> tags', () => {
     const { container } = renderBubble('<img src=x onerror="window.__xss2=1">');
     // ReactMarkdown without rehype-raw won't render the img element with onerror
@@ -65,6 +67,7 @@ describe('MessageBubble - XSS safety', () => {
     expect((window as unknown as Record<string, unknown>).__xss2).toBeUndefined();
   });
 
+  // javascript: protocol in markdown links must be sanitized before rendering as <a>
   it('does not execute javascript: href in links', () => {
     renderBubble('[click me](javascript:window.__xss3=1)');
     // Links should either not render or have href sanitized
@@ -74,12 +77,14 @@ describe('MessageBubble - XSS safety', () => {
     });
   });
 
+  // Sanity check: XSS defenses must not break normal bold/italic rendering
   it('renders safe markdown normally', () => {
     renderBubble('**hello** _world_');
     expect(screen.getByText('hello')).toBeTruthy();
     expect(screen.getByText('world')).toBeTruthy();
   });
 
+  // Code blocks must be displayed as text, not evaluated as scripts
   it('renders code blocks without executing them', () => {
     const { container } = renderBubble('```js\nconsole.log("test")\n```');
     // rehype-highlight splits the code into spans; check the container text content

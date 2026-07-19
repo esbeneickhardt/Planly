@@ -22,6 +22,7 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     await prisma.$disconnect();
   });
 
+  // Happy path: valid credentials issue a signed JWT cookie and return the user object
   it('POST /api/auth/login returns a cookie on valid credentials', async () => {
     const suffix = randomSuffix();
     const email = `login_${suffix}@example.com`;
@@ -39,6 +40,7 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     expect(body.email).toBe(email);
   });
 
+  // Wrong password must not leak whether the account exists — always 401
   it('POST /api/auth/login rejects wrong password with 401', async () => {
     const suffix = randomSuffix();
     const email = `wrongpw_${suffix}@example.com`;
@@ -53,6 +55,7 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     expect(res.statusCode).toBe(401);
   });
 
+  // Schema validation rejects the request before any DB lookup
   it('POST /api/auth/login rejects missing credentials with 400', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -62,11 +65,13 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  // Unauthenticated requests must be blocked even on read-only endpoints
   it('GET /api/auth/me returns 401 without a cookie', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/auth/me' });
     expect(res.statusCode).toBe(401);
   });
 
+  // Session cookie from login must be accepted on subsequent requests
   it('GET /api/auth/me returns user data with a valid session', async () => {
     const suffix = randomSuffix();
     const email = `me_${suffix}@example.com`;
@@ -90,6 +95,7 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     expect(JSON.parse(meRes.body).email).toBe(email);
   });
 
+  // Changing password bumps tokenVersion so pre-change sessions are instantly revoked
   it('Session is invalidated after password change (tokenVersion increment)', async () => {
     const suffix = randomSuffix();
     const email = `tv_${suffix}@example.com`;

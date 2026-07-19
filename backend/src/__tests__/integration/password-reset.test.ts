@@ -29,6 +29,7 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
     await prisma.$disconnect();
   });
 
+  // Tokens not in the DB (typos, fabricated) must return an error, not 500
   it('POST /api/auth/reset-password rejects an invalid token', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -39,6 +40,7 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
     expect(JSON.parse(res.body).error).toMatch(/invalid|expired/i);
   });
 
+  // Tokens past their expiresAt must be rejected even if the hash matches
   it('POST /api/auth/reset-password rejects an expired token', async () => {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');
@@ -58,6 +60,7 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  // Happy path: valid token changes the password and marks the token as used
   it('POST /api/auth/reset-password consumes a valid token', async () => {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');
@@ -82,6 +85,7 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
     expect(record?.usedAt).not.toBeNull();
   });
 
+  // Single-use tokens: replaying a consumed token must be rejected to prevent re-use attacks
   it('POST /api/auth/reset-password rejects a token that has already been used', async () => {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');
@@ -102,6 +106,7 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  // End-to-end: reset flow actually changes the stored hash — login works with the new password
   it('can log in with new password after reset', async () => {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');
