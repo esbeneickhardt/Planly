@@ -14,6 +14,7 @@ import { encryptValue } from '../utils/crypto';
 import { validate } from '../utils/validate';
 import prisma from '../db/client';
 
+// Schema for creating or replacing the SMTP configuration
 const upsertSmtpSchema = z.object({
   host: z.string().min(1),
   port: z.number().int().min(1).max(65535).optional(),

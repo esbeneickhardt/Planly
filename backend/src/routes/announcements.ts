@@ -14,7 +14,9 @@ import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 import { safeDecryptValue } from '../utils/crypto';
 
+// Role badge values a poster can claim; each must be verified against actual permissions at write time
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
+// Payload for creating a new announcement; pinned and commentsEnabled default to false/true respectively
 const createAnnouncementSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().min(1).max(10000),
@@ -23,17 +25,22 @@ const createAnnouncementSchema = z.object({
   commentsEnabled: z.boolean().optional(),
   postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
 });
+// Partial update payload — all fields optional so callers can patch just what changed
 const updateAnnouncementSchema = z.object({
   title: z.string().max(200).optional(),
   content: z.string().max(10000).optional(),
   pinned: z.boolean().optional(),
   commentsEnabled: z.boolean().optional(),
 });
+// Payload for posting a comment on an announcement
 const commentSchema = z.object({ content: z.string().min(1).max(5000), postedAsRole: z.enum(VALID_ROLES).nullable().optional() });
 
+// Author fields included in every announcement and comment response
 const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true, isFoundingAdmin: true };
+// Team fields included alongside team-scoped announcements
 const TEAM_SELECT   = { id: true, name: true };
 
+// Decrypt realName PII on the embedded author object before sending to clients
 function decryptAuthor<T extends { author: { realName: string | null } | null }>(obj: T): T {
   if (!obj.author) return obj;
   return { ...obj, author: { ...obj.author, realName: obj.author.realName ? safeDecryptValue(obj.author.realName) : null } };

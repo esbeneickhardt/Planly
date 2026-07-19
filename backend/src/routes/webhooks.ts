@@ -19,16 +19,19 @@ import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 import { validateWebhookUrl } from '../utils/webhook-url-guard';
 
+// Validates webhook creation — URL is validated for SSRF safety separately after schema validation
 const createWebhookSchema = z.object({
   url: z.string().url('Invalid URL'),
   events: z.array(z.string()).min(1, 'events required'),
 });
+// Partial update payload for modifying URL, event subscriptions, or active state
 const updateWebhookSchema = z.object({
   url: z.string().url('Invalid URL').optional(),
   events: z.array(z.string()).optional(),
   active: z.boolean().optional(),
 });
 
+// Exhaustive list of event names that can trigger a webhook delivery
 const VALID_EVENTS = [
   'task.created', 'task.updated', 'task.deleted',
   'task.status_changed', 'task.assigned',

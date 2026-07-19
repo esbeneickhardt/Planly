@@ -14,6 +14,7 @@ import { requireProductCoOwner } from '../utils/product-guard';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 
+// Validates a batch permission update — up to 100 user+tab+level tuples per request
 const permissionUpdateSchema = z.array(z.object({
   userId: z.string(),
   tab: z.enum(['kanban', 'backlog', 'gantt', 'canvas', 'messages', 'analytics', 'settings']),
@@ -21,7 +22,7 @@ const permissionUpdateSchema = z.array(z.object({
 })).max(100);
 
 export async function permissionRoutes(app: FastifyInstance) {
-  // Returns the authenticated user's permissions across all their projects
+  // Returns the authenticated user's tab permissions across all their projects (used to populate the client's permission cache)
   app.get('/api/me/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user.userId;
     const memberships = await prisma.teamMember.findMany({
@@ -53,6 +54,7 @@ export async function permissionRoutes(app: FastifyInstance) {
     reply.send(result);
   });
 
+  // Get all per-user, per-tab permission rows for a project (co-owner only)
   app.get('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
@@ -60,6 +62,7 @@ export async function permissionRoutes(app: FastifyInstance) {
     reply.send(rows);
   });
 
+  // Batch-upsert tab permission rows for a project (co-owner only)
   app.put('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     const updates = validate(permissionUpdateSchema, req.body, reply);

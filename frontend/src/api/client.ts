@@ -560,6 +560,7 @@ export const api = {
     verifyEmail: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/verify-email`, { method: 'PUT', body: json({}) }),
     deleteUser: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
     unlock: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/unlock`, { method: 'PUT', body: json({}) }),
+    forceLogout: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/force-logout`, { method: 'PUT', body: json({}) }),
     whitelist: () => request<{ id: string; pattern: string; type: string; createdAt: string }[]>('/api/admin/whitelist'),
     addWhitelist: (pattern: string, type: 'allow' | 'deny' = 'allow') => request<{ id: string; pattern: string; type: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern, type }) }),
     removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),

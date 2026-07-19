@@ -14,7 +14,9 @@ import { decryptUserPii } from '../utils/crypto';
 import { createNotification } from '../utils/notifications';
 import { validate } from '../utils/validate';
 
+// Optional freetext note the requester can attach to their access request
 const createRequestSchema = z.object({ note: z.string().max(1000).optional() });
+// Validates the approve/reject decision from a co-owner
 const reviewRequestSchema = z.object({ action: z.enum(['approve', 'reject']) });
 
 export async function accessRequestRoutes(app: FastifyInstance) {

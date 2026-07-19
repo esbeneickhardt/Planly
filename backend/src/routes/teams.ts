@@ -19,9 +19,12 @@ import { logAdminEvent } from '../utils/audit';
 import { createNotification } from '../utils/notifications';
 import { decryptUserPii } from '../utils/crypto';
 
+// Validates the userId for adding a member to a team
 const addMemberSchema = z.object({ userId: z.string() });
+// Validates the new role value when a member's role is being changed
 const updateRoleSchema = z.object({ role: z.enum(['member', 'co_owner']) });
 
+// Prisma include shape that returns all team members with their public profile fields
 const MEMBER_INCLUDE = { members: { include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true } } } } };
 
 // Decrypt realName for every member in a team before sending to the client
@@ -29,6 +32,7 @@ function decryptTeam<T extends { members: { user: { realName: string | null } }[
   return { ...team, members: team.members.map((m) => ({ ...m, user: decryptUserPii(m.user) })) };
 }
 
+// Returns the team with isMember/isAdmin flags for the given user; null if the team doesn't exist
 async function getTeamAdmin(teamId: string, userId: string) {
   const team = await prisma.team.findUnique({
     where: { id: teamId },
@@ -48,7 +52,7 @@ async function getTeamAdmin(teamId: string, userId: string) {
 }
 
 export async function teamRoutes(app: FastifyInstance) {
-  // Only return teams the requesting user belongs to
+  // List all teams the requesting user belongs to
   app.get('/api/teams', { preHandler: requireAuth }, async (req, reply) => {
     const teams = await prisma.team.findMany({
       where: { members: { some: { userId: req.user.userId } } },
@@ -57,6 +61,7 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.send(teams.map(decryptTeam));
   });
 
+  // Create a new team; creator is automatically enrolled as a member
   app.post('/api/teams', { preHandler: requireAuth }, async (req, reply) => {
     const body = validate(createTeamSchema, req.body, reply);
     if (!body) return;
@@ -149,6 +154,7 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.status(201).send({ pending: true, inviteId: invite.id });
   });
 
+  // Remove a member from a team — admins can remove anyone; members can only remove themselves
   app.delete('/api/teams/:id/members/:userId', { preHandler: requireAuth }, async (req, reply) => {
     const { id, userId } = req.params as { id: string; userId: string };
     // Allow self-removal OR admin action

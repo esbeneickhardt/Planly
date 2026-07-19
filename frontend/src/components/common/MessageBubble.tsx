@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
+import { MermaidBlock } from './MermaidBlock';
 import { displayName } from '../../api/client';
 import type { Message } from '../../api/client';
 import { EMOJI_SET } from './MarkdownEditor';
@@ -53,16 +54,15 @@ export default function MessageBubble({
         remarkPlugins={[remarkGfm, remarkBreaks]}
         rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
         components={{
-          pre: ({ children }) => (
-            <pre style={{ margin: '6px -4px', borderRadius: 6, overflow: 'auto', fontSize: 12 }}>{children}</pre>
-          ),
+          pre: ({ children }) => <>{children}</>,
           code: ({ className, children, ...props }) => {
-            const isBlock = Boolean(className?.startsWith('language-'));
-            return isBlock ? (
-              <code className={className} {...props}>{children}</code>
-            ) : (
-              <code style={{ background: own ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)', padding: '1px 4px', borderRadius: 3, fontSize: '0.88em', fontFamily: 'monospace' }} {...props}>{children}</code>
+            if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
+            if (String(children).includes('\n')) return (
+              <pre style={{ margin: '6px -4px', borderRadius: 6, overflow: 'auto', fontSize: 12 }}>
+                <code className={className} {...props}>{children}</code>
+              </pre>
             );
+            return <code style={{ background: own ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)', padding: '1px 4px', borderRadius: 3, fontSize: '0.88em', fontFamily: 'monospace' }} {...props}>{children}</code>;
           },
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noreferrer" style={{ color: own ? 'rgba(255,255,255,0.85)' : 'var(--brand)', textDecoration: 'underline' }}>{children}</a>

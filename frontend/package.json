@@ -19,6 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@testing-library/dom": "^10.4.1",
     "highlight.js": "^11.11.1",
+    "mermaid": "^11.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",

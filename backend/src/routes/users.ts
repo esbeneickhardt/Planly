@@ -21,6 +21,7 @@ import { registerSchema } from '../schemas/auth';
 import { encryptOptional, decryptUserPii } from '../utils/crypto';
 import { logAdminEvent } from '../utils/audit';
 
+// Partial profile update: PII fields are encrypted by encryptOptional before writing
 const updateProfileSchema = z.object({
   realName: z.string().max(100).optional(),
   phone: z.string().max(30).optional(),
@@ -28,17 +29,18 @@ const updateProfileSchema = z.object({
   avatarUrl: z.string().url().max(2048).startsWith('https').nullable().optional(),
   acceptsInvites: z.boolean().optional(),
 });
+// Notification preferences are stored as a JSON blob; keys are preference names, values are booleans
 const updatePreferencesSchema = z.object({
   preferences: z.record(z.string().max(100), z.boolean()),
 });
 
-// Public profile fields - never expose passwordHash
+// Full self-profile fields returned for the authenticated user — never exposes passwordHash
 const USER_SELF_SELECT = {
   id: true, username: true, email: true, realName: true,
   avatarEmoji: true, avatarUrl: true, phone: true, createdAt: true, emailVerified: true,
   notificationPreferences: true, acceptsInvites: true,
 };
-// Minimal fields for team member search - no email, phone, or createdAt
+// Minimal public profile for team member search — no email, phone, or createdAt
 const USER_PUBLIC_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, acceptsInvites: true, isAdmin: true };
 
 export async function userRoutes(app: FastifyInstance) {

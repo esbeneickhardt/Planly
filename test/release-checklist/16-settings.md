@@ -149,53 +149,13 @@ Full app registration tests in [17-api-tokens-and-apps.md](17-api-tokens-and-app
 
 **After deleting Alice's account, verify data residue (log in as Admin):**
 
-```bash
-# Confirm Alice is gone from user list
-curl -s -b cookies.txt $BASE/api/admin/users | jq '[.[] | select(.username=="alice")]'
-
-# Check a task Alice owned - ownerId should now be null, task should still exist
-curl -s -b cookies.txt $BASE/api/tasks/<alice-task-id> | jq '{name,ownerId,reviewerId}'
-
-# Check announcements panel - any Alice authored should show "Deleted user", not error
-```
-
 - [ ] Alice no longer appears in admin user list
 - [ ] Tasks Alice owned still exist in Alpha Project - `ownerId` is `null` (unassigned), not deleted
 - [ ] Tasks Alice was reviewer on still exist - `reviewerId` is `null`
 - [ ] Messages Alice sent in task chats are **deleted** (gone from the thread)
 - [ ] Announcements Alice authored survive and display as "Deleted user"
 - [ ] Alice's team memberships are removed - she no longer appears in Alpha Team
-- [ ] Session cookie is invalidated - Alice cannot call any API endpoint after deletion
-
-```bash
-# Get user profile
-curl -s -b alice-cookies.txt $BASE/api/users/<alice-id> | jq .
-
-# Update profile
-curl -s -b alice-cookies.txt -X PATCH $BASE/api/users/<alice-id> \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: $ALICE_CSRF" \
-  -d '{"realName":"Alice Smith","avatarEmoji":"🦊"}' | jq .
-```
-
-- [ ] `realName` update persists
-- [ ] `avatarEmoji` update persists and shows in messages
-- [ ] Cannot update another user's profile → 403
-
----
-
-## My Permissions page (`GET /api/me/permissions`)
-
-> Code: [backend/src/routes/me-export.ts](../../backend/src/routes/me-export.ts) or permissions route (`/api/me/permissions`) · [frontend/src/context/PermissionContext.tsx](../../frontend/src/context/PermissionContext.tsx) (loads this on login)
-
-```bash
-curl -s -b alice-cookies.txt $BASE/api/me/permissions | jq .
-```
-
-- [ ] Shows all products Alice is a member of with her role and per-tab permission levels
-- [ ] Deleted products do NOT appear
-- [ ] Accurate role (member vs co_owner)
-- [ ] Accurate tab permissions (matching what was set in Permissions tab)
+- [ ] Session cookie is invalidated - Alice cannot access any page after deletion (redirected to login)
 
 ---
 

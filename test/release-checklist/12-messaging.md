@@ -46,8 +46,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/messages/<msg-id
 - [ ] Save edit → "(edited)" suffix shown
 - [ ] Cannot edit another user's message
 - [ ] Click delete → confirm → message removed
-- [ ] Author OR co-owner can delete messages
-- [ ] Regular member cannot delete another member's message → 403
+- [ ] Author OR co-owner can delete messages; regular member cannot delete others' messages
 
 ### Reactions (`/messages/:messageId/reactions`)
 
@@ -86,26 +85,8 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/messages/<msg-id>/
 - [ ] Upload an image file via chat → thumbnail preview shown in message
 - [ ] Click image thumbnail → lightbox opens
 - [ ] Upload a PDF or other file → download link shown (not inline preview)
-- [ ] File size limit: files > 50 MB should be rejected with clear error
-- [ ] MIME type validation: `.exe` or other non-allowed types rejected
-- [ ] File is accessible at `/api/uploads/<filename>` for authorized users
-- [ ] File deleted when message is deleted (or confirmed orphan cleanup runs)
-
-```bash
-# Upload a file
-curl -s -b cookies.txt -X POST $BASE/api/upload \
-  -H "X-CSRF-Token: $CSRF" \
-  -F "file=@/path/to/test-image.png" | jq .
-
-# Get uploaded file
-curl -s -b cookies.txt $BASE/api/uploads/<filename> -o /tmp/test-download.png
-```
-
-- [ ] Upload returns `{ url, name, type }`
-- [ ] URL is accessible to authorized users
-- [ ] URL is not accessible without authentication → 401
-- [ ] Delete upload: `DELETE /api/uploads/<filename>` → file removed
-- [ ] Cannot delete another user's upload → 403
+- [ ] File > 50 MB → rejected with clear error
+- [ ] `.exe` or disallowed MIME type → rejected
 
 ---
 
@@ -121,33 +102,11 @@ Open Alpha Project chat in two browser windows (Admin and Alice):
 - [ ] Delete message → removed from the other window in real time
 - [ ] React → reaction count updates in the other window
 
-### WebSocket ticket (`POST /api/products/:id/ws-ticket`)
-
-> Code: [backend/src/realtime/ws-tickets.ts](../../backend/src/realtime/ws-tickets.ts) (generates short-lived ticket; 30 s TTL; validates membership before issuing) · [backend/src/routes/realtime.ts](../../backend/src/routes/realtime.ts) (WS upgrade validates ticket, then upgrades to WebSocket)
-
-```bash
-curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/ws-ticket \
-  -H "X-CSRF-Token: $CSRF" | jq .
-```
-
-- [ ] Returns a short-lived ticket (TTL ~ 30 seconds)
-- [ ] Ticket is used to establish WS connection (no JWT in query params)
-- [ ] Non-member cannot get a ticket → 403
-- [ ] Expired ticket rejected on WS upgrade
-
 ---
 
 ## Messages pagination
 
-> Code: [backend/src/routes/messages.ts](../../backend/src/routes/messages.ts) (`?limit=N&before=<msgId>` cursor pagination) · [frontend/src/components/common/ChatPanel.tsx](../../frontend/src/components/common/ChatPanel.tsx) (infinite scroll trigger)
-
-```bash
-curl -s -b cookies.txt "$BASE/api/products/$PRODUCT_ID/messages?limit=5&before=<msg-id>" | jq .
-```
-
-- [ ] Messages load in batches (most recent first or oldest first - confirm direction)
 - [ ] Scroll to top of chat → older messages load (infinite scroll)
-- [ ] `before` cursor parameter works
 - [ ] All messages eventually accessible by scrolling
 
 ---

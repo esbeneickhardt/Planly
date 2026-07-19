@@ -14,6 +14,7 @@ import prisma from '../db/client';
 import { validate } from '../utils/validate';
 import { logger } from '../utils/logger';
 
+// Validates the GitHub integration settings stored in ServerConfig
 const githubConfigSchema = z.object({
   githubImportIssues: z.boolean().optional(),
   githubImportPrs: z.boolean().optional(),

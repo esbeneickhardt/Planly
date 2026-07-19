@@ -12,12 +12,17 @@ import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireProductCoOwner } from '../utils/product-guard';
 import { validate } from '../utils/validate';
 
+// The fixed set of color keys supported by the system; colorKey values must be in this list
 const PRESET_COLORS = ['#7c3aed','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
+
+// Validates the full legend payload: an array of entries capped to the preset palette size
 const colorLegendSchema = z.array(z.object({
   colorKey: z.string(),
   name: z.string().min(1).max(50),
   enabled: z.boolean(),
 })).max(PRESET_COLORS.length);
+
+// Fallback labels shown when a project has never customized its legend entries
 const DEFAULT_NAMES: Record<string, string> = {
   '#7c3aed': 'Feature', '#3b82f6': 'Bug', '#10b981': 'Enhancement',
   '#f59e0b': 'Milestone', '#ef4444': 'Blocker', '#ec4899': 'Design',

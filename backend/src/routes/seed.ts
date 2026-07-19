@@ -12,9 +12,11 @@ import { Prisma } from '@prisma/client';
 import prisma from '../db/client';
 import { requireAdmin } from '../middleware/auth';
 
+// Shorthand type for seeding tasks without requiring the productId and createdBy fields upfront
 type TaskInput = Omit<Prisma.TaskUncheckedCreateInput, 'productId' | 'createdBy'>;
 
 export async function seedRoutes(app: FastifyInstance) {
+  // Create three sample projects (Podcast, IRB PD Model, Rocket Build) with tasks, sprints, and dependencies
   app.post('/api/seed-examples', { preHandler: requireAdmin }, async (req, reply) => {
     const userId = req.user.userId;
 
