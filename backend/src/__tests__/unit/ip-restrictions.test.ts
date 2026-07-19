@@ -1,3 +1,12 @@
+/**
+ * Unit tests for IP restriction helpers.
+ *
+ * matchesCidr — checks whether a client IP falls within an allow/deny CIDR range.
+ * getClientIp — extracts the real client IP from X-Forwarded-For, honoring
+ *               TRUSTED_PROXY_DEPTH to skip trusted intermediate proxies.
+ *
+ * These are pure functions with no DB or network calls.
+ */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getClientIp, matchesCidr } from '../../routes/ip-restrictions';
 

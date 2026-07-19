@@ -52,6 +52,7 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
     await prisma.$disconnect();
   });
 
+  // Setup generates a provisional secret + QR; not yet active until confirmed
   it('POST /api/auth/totp/setup returns a secret and QR code', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -64,6 +65,7 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
     expect(body.qrDataUrl).toMatch(/^data:image/);
   });
 
+  // Confirm with a live code activates TOTP and returns 8 one-time backup codes
   it('POST /api/auth/totp/confirm activates TOTP with a valid code', async () => {
     // Re-run setup to get a fresh secret
     const setupRes = await app.inject({ method: 'POST', url: '/api/auth/totp/setup', cookies: { token } });
@@ -86,11 +88,13 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
     expect(user?.totpEnabled).toBe(true);
   });
 
+  // Calling setup again after TOTP is active returns 409; re-enrollment must go through disable first
   it('POST /api/auth/totp/confirm rejects after TOTP is already enabled', async () => {
     const setupRes = await app.inject({ method: 'POST', url: '/api/auth/totp/setup', cookies: { token } });
     expect(setupRes.statusCode).toBe(409);
   });
 
+  // Disable requires the current TOTP code as proof of device possession
   it('DELETE /api/auth/totp/disable with a valid code disables TOTP', async () => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     const code = generateCode(user!.totpSecret!, username);
@@ -107,6 +111,7 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
     expect(updated?.totpEnabled).toBe(false);
   });
 
+  // Disabling when TOTP is already off is a conflict, not a silent no-op
   it('DELETE /api/auth/totp/disable returns 409 when TOTP is not enabled', async () => {
     const res = await app.inject({
       method: 'DELETE',
@@ -117,6 +122,7 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
     expect(res.statusCode).toBe(409);
   });
 
+  // Status endpoint lets the client know whether to show the TOTP prompt on login
   it('GET /api/auth/totp/status reports current TOTP state', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/auth/totp/status', cookies: { token } });
     expect(res.statusCode).toBe(200);
