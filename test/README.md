@@ -10,15 +10,31 @@ Run these first. They cover auth, RBAC, admin, tasks, sprints, columns, API toke
 
 ### Backend integration tests (vitest)
 
+Run inside Docker (required — the Prisma engine binary targets Alpine Linux):
+
 ```bash
-cd backend
-npm test
+docker run --rm \
+  --network planly_default \
+  -e TEST_DATABASE_URL="postgresql://planly:planly_dev@db:5432/planly_test" \
+  -e DATABASE_URL="postgresql://planly:planly_dev@db:5432/planly_test" \
+  -v "$(pwd)/backend/src:/app/src:ro" \
+  -v "$(pwd)/backend/vitest.config.ts:/app/vitest.config.ts:ro" \
+  -v "$(pwd)/backend/tsconfig.json:/app/tsconfig.json:ro" \
+  planly-backend-test \
+  sh -c "cd /app && npx vitest run --reporter=verbose"
 ```
 
-Requires a running PostgreSQL. The test suite creates and tears down its own data — it does not touch the dev database. Set `TEST_DATABASE_URL` if you use a separate test DB:
+The `planly-backend-test` image is the builder stage of the backend Dockerfile (includes dev dependencies and the musl Prisma binary). Build it once:
 
 ```bash
-TEST_DATABASE_URL=postgres://planly:dev@localhost:5432/planly_test npm test
+docker build -f backend/Dockerfile --target builder -t planly-backend-test backend/
+```
+
+The test suite creates and tears down its own data — it does not touch the dev database. The `planly_test` database must exist:
+
+```bash
+docker compose exec db createdb -U planly planly_test
+docker compose exec backend sh -c "DATABASE_URL=postgresql://planly:planly_dev@db:5432/planly_test npx prisma db push --skip-generate"
 ```
 
 ### E2E browser tests (Playwright)
