@@ -417,6 +417,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           {user?.isAdmin && (
             <Tooltip content={chatIsAdmin ? 'Exit admin mode' : 'Admin panel'} side="bottom">
             <button
+              data-testid="admin-btn"
+              aria-label={chatIsAdmin ? 'Exit admin mode' : 'Admin panel'}
               onClick={onToggleAdmin ?? (() => isAdminPage ? navigate('/kanban') : navigate('/admin'))}
               className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
               style={{

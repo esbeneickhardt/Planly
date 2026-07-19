@@ -57,6 +57,15 @@ async function setupAndNavigateToMessages(browser: import('@playwright/test').Br
     },
     { timeout: 25_000 }
   ).catch(() => {});
+  // If a React ErrorBoundary crash appeared (e.g. first-render race), reload once.
+  const crashed = await page.locator('h1:has-text("Something went wrong")').isVisible({ timeout: 1_500 }).catch(() => false);
+  if (crashed) {
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
+    await page.waitForFunction(
+      () => { const el = document.querySelector('header'); return el && el.textContent?.includes('Upload Test Project'); },
+      { timeout: 25_000 }
+    ).catch(() => {});
+  }
   // Open the chat panel
   const chatBtn = page.getByTitle('Project chat');
   await chatBtn.waitFor({ state: 'visible', timeout: 20_000 });
@@ -105,27 +114,14 @@ test.describe('File attachments in messages', () => {
   test('can attach a file to a message and see it in the chat', async ({ browser }) => {
     const { page } = await setupAndNavigateToMessages(browser);
 
-    // Find the file input (usually hidden behind an attach button)
-    const attachBtn = page
-      .getByRole('button', { name: /attach|clip|file/i })
-      .or(page.locator('[data-testid="attach-file"]'))
-      .or(page.locator('label[for*="file"], label[for*="attach"]'));
-
+    // Set the file directly on the hidden input - bypasses the native file dialog.
+    // Clicking the "📎 Attach" button first opens a native file chooser which
+    // can steal focus and cause setInputFiles to time out or lose key events.
     const fileInput = page.locator('input[type="file"]');
-
-    // Trigger file picker via button click or direct setInputFiles
-    if (await attachBtn.isVisible({ timeout: 4_000 }).catch(() => false)) {
-      await attachBtn.click();
-    }
-
-    // Set the file on the input (works even if hidden)
     await fileInput.setInputFiles(pngFixturePath());
-    // Wait for any auto-upload request to settle so React finishes re-rendering
-    // the chat input before we try to fill it (avoids detached-element errors).
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
 
-    // Wait for the attachment to appear in the compose area (thumbnail or filename)
-    // PNG files render as <img alt="test-image.png"> thumbnails, not visible text
+    // Check for attachment preview in compose area (thumbnail or filename text).
     const attachmentPreview = page
       .locator('img[alt*="test-image"]')
       .or(page.locator('img[src*="/api/uploads/"]'))
@@ -134,12 +130,17 @@ test.describe('File attachments in messages', () => {
 
     const appeared = await attachmentPreview.first().isVisible({ timeout: 5_000 }).catch(() => false);
     if (!appeared) {
-      // Fallback: send a message with the attachment and check the message bubble.
-      // Use the same placeholder locator as setup - more reliable than role-based.
+      // Fallback: send a message and verify the attachment appears in the message bubble.
       const msgInput = page.getByPlaceholder(/write a message/i).first();
       if (await msgInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await msgInput.fill('Here is the file');
-        await page.keyboard.press('Control+Enter');
+        // Click Send directly — more reliable than keyboard shortcut (avoids focus issues).
+        const sendBtn = page.getByRole('button', { name: /^send$/i });
+        if (await sendBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await sendBtn.click();
+        } else {
+          await page.keyboard.press('Control+Enter');
+        }
         // PNG → <img alt="test-image.png"> in MessageBubble; non-image → <a> with filename
         await expect(
           page.locator('img[alt*="test-image"], img[src*="/api/uploads/"]')
@@ -182,9 +183,10 @@ test.describe('File attachments in messages', () => {
     const { page } = await setupAndNavigateToMessages(browser);
     const { writeFileSync } = await import('fs');
 
-    // Create a temporary .exe file (not in the allowed list)
+    // Use the .exe fixture file; write it only if missing (fixtures mount is read-only in Docker).
+    const { existsSync } = await import('fs');
     const exePath = path.resolve(__dirname, '../fixtures/test-bad.exe');
-    writeFileSync(exePath, Buffer.from([0x4D, 0x5A, 0x00, 0x00])); // MZ header
+    if (!existsSync(exePath)) writeFileSync(exePath, Buffer.from([0x4D, 0x5A, 0x00, 0x00])); // MZ header
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(exePath);

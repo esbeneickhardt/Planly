@@ -119,6 +119,7 @@ export default function KanbanBoard() {
   const loadColumns = useCallback(async () => {
     if (!activeProduct) return;
     const cols = await api.columns.list(activeProduct.id);
+    if (!Array.isArray(cols)) return;
     setColumns(cols);
   }, [activeProduct]);
 

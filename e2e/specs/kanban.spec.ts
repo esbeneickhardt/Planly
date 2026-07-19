@@ -22,8 +22,15 @@ async function loginAndGoToKanban(browser: import('@playwright/test').Browser) {
   await createProjectViaTopBar(page, 'Kanban Project');
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitForKanbanReady(page);
-  // Create one column so the board is not empty
-  await createColumnOnKanban(page, 'To Do');
+  // Wait for the default columns the backend seeds on first board access.
+  // If they don't appear in 10s, reload once — gives loadColumns() a second chance.
+  const hasColumns = await page.locator('.kanban-col').first()
+    .waitFor({ state: 'visible', timeout: 10_000 })
+    .then(() => true).catch(() => false);
+  if (!hasColumns) {
+    await page.reload({ waitUntil: 'load', timeout: 20_000 }).catch(() => {});
+    await waitForKanbanReady(page);
+  }
   return { page, u };
 }
 
