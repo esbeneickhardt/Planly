@@ -29,11 +29,9 @@ export default defineConfig({
     actionTimeout: 15_000,
   },
   projects: [
-    { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['setup'],
     },
   ],
   outputDir: './test-results',

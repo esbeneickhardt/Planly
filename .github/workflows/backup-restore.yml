@@ -42,11 +42,9 @@ jobs:
         working-directory: backend
         run: npm ci
 
-      - name: Apply migrations and seed
+      - name: Apply schema
         working-directory: backend
-        run: |
-          npx prisma migrate deploy
-          npx prisma db seed || true
+        run: npx prisma db push --accept-data-loss
 
       - name: Create pg_dump backup
         run: |
@@ -68,13 +66,13 @@ jobs:
             --no-owner --no-privileges \
             /tmp/backup.dump
 
-      - name: Re-apply any pending migrations
+      - name: Re-apply schema
         working-directory: backend
-        run: npx prisma migrate deploy
+        run: npx prisma db push --accept-data-loss
 
       - name: Run integration smoke tests
         working-directory: backend
-        run: npx jest --testPathPattern="integration" --forceExit --passWithNoTests
+        run: npx vitest run --reporter=verbose
         env:
           JWT_SECRET: test-jwt-secret-32chars-minimum
           ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
