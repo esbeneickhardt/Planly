@@ -15,7 +15,6 @@ import { requireAuth } from '../middleware/auth';
 import { requireProductMember } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { broadcast } from '../realtime/manager';
-import { logActivity } from '../utils/activity';
 import { storeFile, getFileBuffer, deleteFile, generateFilename, mimeFromExt, ALLOWED_MIME_TYPES, verifyMimeBytes } from '../utils/storage';
 import { sendEmail, mentionEmail } from '../utils/email';
 import { createNotification } from '../utils/notifications';
