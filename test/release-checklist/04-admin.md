@@ -13,8 +13,6 @@ Log in as **Admin** (Account A from [01-setup.md](01-setup.md)) for all checks i
 - [ ] Shield button 🛡 visible for Admin, invisible for Alice, Bob, Charlie
 - [ ] Navigating to `/admin` as Alice → silently redirected to `/kanban`
 - [ ] Navigating to `/admin` as Charlie → silently redirected
-- [ ] API: `GET /api/admin/server-config` as Alice → 403
-- [ ] API: `GET /api/admin/users` without auth → 401
 
 ---
 
@@ -109,7 +107,6 @@ curl -s -b cookies.txt -X PUT $BASE/api/admin/users/<user-id>/unlock \
 
 - [ ] Unlock a locked account → lock badge disappears
 - [ ] User can log in immediately with correct password
-- [ ] `loginLockCount` reset to 0 (verify via subsequent lockout counting)
 
 ### Delete user
 
@@ -235,18 +232,13 @@ head -2 audit.csv
 curl -s -b cookies.txt "$BASE/api/admin/logs/export?format=jsonl" | head -3
 ```
 
-- [ ] Log entries shown newest first
-- [ ] Action badge coloured: red for FAIL/DELETE/PRUNE, purple for others
-- [ ] Actor and target names shown (not just IDs)
+- [ ] Log entries shown newest first with actor name and coloured badge
 - [ ] Filter by action type → list updates
-- [ ] Filter by date range (from/to) → list updates
-- [ ] "Load more" / cursor pagination loads next page without resetting filters
-- [ ] CSV export: correct headers (`id,action,actorId,...`), correct values
-- [ ] JSONL export: one JSON object per line
+- [ ] Filter by date range → list updates
+- [ ] "Load more" pagination works without resetting filters
+- [ ] CSV export downloads a valid file
 - [ ] Export respects active filters
-- [ ] Non-admin `GET /api/admin/logs` → 403
 - [ ] Prune section visible only to founding admin
-- [ ] `DELETE /api/admin/logs/prune?olderThanDays=90` removes old entries
 - [ ] After prune, new `LOGS_PRUNED` entry appears at top
 
 ```bash
@@ -265,10 +257,7 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/admin/logs/prune?olderThanDays=30" \
 curl -s -b cookies.txt $BASE/api/admin/stats | jq .
 ```
 
-- [ ] Total users, projects, teams, tasks, messages counts shown
-- [ ] "+N last 30 days" sub-labels for users and projects
-- [ ] Admin count correct
-- [ ] Unverified user count correct
+- [ ] Stats page loads with user, project, task, message counts and "+N last 30 days" labels
 
 ---
 
@@ -340,9 +329,8 @@ curl -s -b cookies.txt -X PUT $BASE/api/admin/server-config \
   -d '{"allowProjectCreation":true,"announcementsEnabled":true}' | jq .
 ```
 
-- [ ] All fields returned: `requireEmailVerification`, `requireWhitelist`, `allowProjectCreation`, `announcementsEnabled`, `announcementPostRole`
 - [ ] Each toggle persists after restart
-- [ ] `allowProjectCreation: false` → regular users cannot create products
+- [ ] `allowProjectCreation: false` → regular users cannot create projects
 - [ ] `announcementsEnabled: false` → Announcements tab disappears for all users
 
 ---

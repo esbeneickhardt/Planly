@@ -13,9 +13,12 @@ import { requireAuth } from '../middleware/auth';
 import { requireProductMember } from '../utils/product-guard';
 import { validate } from '../utils/validate';
 
+// Rejects Infinity/NaN so canvas coordinates can be safely stored and rendered
 const finiteNumber = z.number().finite();
+// Maps task IDs to (x, y) coordinates; capped at 5000 to prevent giant payloads
 const positionSchema = z.record(z.string(), z.object({ x: finiteNumber, y: finiteNumber }))
   .refine((p) => Object.keys(p).length <= 5000, 'Too many positions (max 5000)');
+// Full snapshot payload: positions map plus the viewport state (pan + zoom level)
 const createSnapshotSchema = z.object({
   name: z.string().min(1).max(100),
   positions: positionSchema,

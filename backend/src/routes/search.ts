@@ -11,6 +11,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { safeDecryptValue } from '../utils/crypto';
 
+// Decrypt the realName PII field on a user-shaped object for safe display
 const dec = (u: { realName: string | null } | null | undefined) =>
   u ? { ...u, realName: u.realName ? safeDecryptValue(u.realName) : null } : u;
 

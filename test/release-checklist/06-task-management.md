@@ -20,12 +20,7 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/tasks \
 ```
 
 - [ ] Create task via `+` button on Kanban → appears on board
-- [ ] Create task via API → returns 201 with full task object
-- [ ] Empty name → 400 validation error
-- [ ] Very long name (500+ chars) → rejected or truncated gracefully
-- [ ] Task gets a unique `id` (UUID)
-- [ ] `kanbanOrder` defaults sensibly (not null)
-- [ ] `createdBy` is set to the creating user's ID
+- [ ] Empty name → validation error shown
 
 ### Read
 
@@ -39,10 +34,7 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/tasks | jq '.[].name'
 curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/tasks/<task-id> | jq .
 ```
 
-- [ ] `GET /tasks` returns all tasks in the product (with subtasks, dependsOn, requiredBy)
-- [ ] `GET /tasks/:id` returns a single task with full detail
-- [ ] Non-member (Charlie) cannot GET tasks → 403
-- [ ] Unauthenticated → 401
+- [ ] Charlie (non-member) cannot open the project board
 
 ### Update
 
@@ -60,8 +52,7 @@ curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/tasks/<task-id> \
 - [ ] Assign owner (Alice) → card shows avatar; real-time update in Alice's window
 - [ ] Set deadline → shows on card; overdue styling if past
 - [ ] Set colour → card border/background changes
-- [ ] Clear deadline (`"deadline": null`) → deadline removed
-- [ ] Non-member cannot PATCH a task → 403
+- [ ] Clear deadline → deadline removed from card
 
 ### Delete
 
@@ -73,10 +64,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/tasks/<task-id> 
 ```
 
 - [ ] Delete via detail panel → task disappears from board; panel closes
-- [ ] Delete via API → returns 200; task no longer in list
-- [ ] Deleting a task deletes its subtasks (confirm not orphaned in DB)
-- [ ] Deleting a task removes it from its sprint
-- [ ] Non-member cannot DELETE → 403
+- [ ] Deleting a parent task also removes its subtasks (no orphans visible)
 
 ---
 
@@ -86,12 +74,7 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/tasks/<task-id> 
 
 Test that each valid status can be set and is reflected in UI:
 
-- [ ] `backlog` - shown in Backlog view and Kanban backlog column
-- [ ] `todo` - shown in Kanban
-- [ ] `in_progress` - shown in Kanban
-- [ ] `done` - shown in Kanban; card may have completed styling
-- [ ] `blocked` - shown in Kanban; may have warning styling
-- [ ] Invalid status value → 400 validation error
+- [ ] Each status (backlog / todo / in_progress / done / blocked) appears in the correct Kanban column with correct styling
 
 ---
 
@@ -107,8 +90,7 @@ curl -s -b cookies.txt -X PATCH $BASE/api/products/$PRODUCT_ID/tasks/<task-id>/p
   -d '{"canvasX":100,"canvasY":200}' | jq .
 ```
 
-- [ ] Canvas position persists after page reload
-- [ ] Multiple tasks can be moved independently
+- [ ] Canvas positions persist after page reload (covered in [10-canvas.md](10-canvas.md))
 
 ---
 
@@ -145,13 +127,9 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/products/$PRODUCT_ID/tasks/<task-id>
 ```
 
 - [ ] Add subtask via detail panel → appears in subtask list
-- [ ] Check subtask → `completed: true`; progress fraction updates on Kanban card
-- [ ] Uncheck subtask → `completed: false`
-- [ ] Rename subtask → name updates
-- [ ] Reorder subtasks → order persists
-- [ ] Delete subtask → removed from list
+- [ ] Check subtask → progress fraction updates on Kanban card (e.g. "2/3")
+- [ ] Uncheck, rename, reorder, delete subtasks all work
 - [ ] Empty subtask name → validation error
-- [ ] Progress counter on Kanban card: "2/3" when 2 of 3 subtasks complete
 
 ---
 
@@ -171,11 +149,8 @@ curl -s -b cookies.txt -X DELETE "$BASE/api/products/$PRODUCT_ID/tasks/<task-b-i
   -H "X-CSRF-Token: $CSRF" | jq .
 ```
 
-- [ ] Add dependency A → B: B's `dependsOn` includes A's ID
-- [ ] Add dependency B → A (creates cycle): rejected with 409 or clear cycle error
-- [ ] Multi-hop cycle A → B → C → A: rejected
-- [ ] Dependencies visible in Canvas view as arrows
-- [ ] Dependencies visible in Gantt view
+- [ ] Add dependency A → B → shown as arrow in Canvas and on Gantt
+- [ ] Creating a cycle (B → A when A → B exists) → rejected with clear error
 - [ ] Remove dependency → arrow disappears
 
 ---
@@ -222,9 +197,7 @@ Tasks share the `/api/products/:id/messages` endpoint (with `taskId` filter). Se
 curl -s -b cookies.txt "$BASE/api/products/$PRODUCT_ID/activity?limit=10" | jq .
 ```
 
-- [ ] Activity entries appear after task create, update, delete
-- [ ] Entries show actor username and action
-- [ ] Pagination works
+- [ ] Activity log shows recent task actions with actor names
 
 ---
 

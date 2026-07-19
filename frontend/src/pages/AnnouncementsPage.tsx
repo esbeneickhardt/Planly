@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import { MermaidBlock } from '../components/common/MermaidBlock';
 import { api, displayName } from '../api/client';
 import type { AnnItem, AnnComment } from '../api/client';
 import type { Team } from '../types';
@@ -33,9 +34,18 @@ const MD = {
   th: ({ children }: any) => <th style={{ border: '1px solid var(--border)', padding: '4px 8px', background: 'var(--surface)', fontWeight: 600, textAlign: 'left' }}>{children}</th>,
   td: ({ children }: any) => <td style={{ border: '1px solid var(--border)', padding: '4px 8px' }}>{children}</td>,
   blockquote: ({ children }: any) => <blockquote style={{ borderLeft: '3px solid var(--brand)', paddingLeft: 10, margin: '0 0 8px', opacity: 0.8 }}>{children}</blockquote>,
-  code: ({ children, className }: any) => className
-    ? <pre style={{ background: 'var(--surface)', borderRadius: 6, padding: '8px 10px', overflow: 'auto', fontSize: 12, margin: '0 0 8px' }}><code>{children}</code></pre>
-    : <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>{children}</code>,
+  // pre is always transparent — code renderer owns the block wrapper to avoid double-pre
+  pre: ({ children }: any) => <>{children}</>,
+  code: ({ children, className }: any) => {
+    if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
+    // react-markdown appends a trailing \n to all fenced code content; inline code never contains \n
+    if (String(children).includes('\n')) return (
+      <pre style={{ background: 'var(--surface)', borderRadius: 6, padding: '8px 10px', overflow: 'auto', fontSize: 12, margin: '0 0 8px', whiteSpace: 'pre' }}>
+        <code className={className}>{children}</code>
+      </pre>
+    );
+    return <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>{children}</code>;
+  },
   img: ({ src, alt }: any) => <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: 6, margin: '4px 0' }} />,
   hr:  () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />,
 };

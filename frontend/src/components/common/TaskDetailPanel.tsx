@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import { MermaidBlock } from './MermaidBlock';
 import type { Task, KanbanColumn, Subtask } from '../../types';
 import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
@@ -350,9 +351,16 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
                 );
               },
               a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>{children}</a>,
-              code: ({ children, className }) => className
-                ? <code style={{ display: 'block', background: 'var(--surface-2)', padding: '8px 12px', borderRadius: 6, fontSize: 12, overflowX: 'auto' }}>{children}</code>
-                : <code style={{ background: 'var(--surface-2)', padding: '1px 5px', borderRadius: 4, fontSize: 12 }}>{children}</code>,
+              pre: ({ children }: any) => <>{children}</>,
+              code: ({ children, className }: any) => {
+                if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
+                if (String(children).includes('\n')) return (
+                  <pre style={{ background: 'var(--surface-2)', borderRadius: 6, padding: '8px 12px', overflow: 'auto', fontSize: 12, margin: '0 0 8px', whiteSpace: 'pre' }}>
+                    <code className={className}>{children}</code>
+                  </pre>
+                );
+                return <code style={{ background: 'var(--surface-2)', padding: '1px 5px', borderRadius: 4, fontSize: 12 }}>{children}</code>;
+              },
             }}>{description}</ReactMarkdown>
           ) : (
             <span className="text-xs italic" style={{ color: 'var(--text-3)' }}>No description - click to edit</span>

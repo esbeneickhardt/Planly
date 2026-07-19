@@ -23,12 +23,15 @@ import { MESSAGE_INCLUDE } from '../db/selects';
 import { validate } from '../utils/validate';
 import { decryptMessageAuthor } from '../utils/crypto';
 
+// Validates attachment references; URL must point to this server's own upload path to prevent injection
 const attachmentItemSchema = z.object({
   url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
   name: z.string(),
   type: z.string(),
 });
+// Role badge values a sender can claim; verified against actual permissions at write time
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
+// Message creation payload — content OR at least one attachment required; up to 20 attachments per message
 const createMessageSchema = z.object({
   content: z.string().max(10000),
   taskId: z.string().optional(),
@@ -39,7 +42,9 @@ const createMessageSchema = z.object({
   message: 'Message must have content or at least one attachment',
   path: ['content'],
 });
+// Edit payload — content required and cannot be blank
 const updateMessageSchema = z.object({ content: z.string().min(1).max(10000) });
+// Validates the emoji character(s) for a reaction toggle
 const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
 
 export async function messageRoutes(app: FastifyInstance) {
@@ -155,7 +160,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const decryptedMsg = decryptMessageAuthor(msg);
     dispatchWebhooks(productId, 'message.created', decryptedMsg).catch((err) => { req.log.warn({ err }, '[messages] Webhook dispatch failed'); });
     broadcast(productId, 'message.created', decryptedMsg);
-    logActivity({ productId, actorId: req.user.userId, action: 'message.created', entityType: 'message', entityId: msg.id });
+    // message.created is intentionally not logged to the activity feed — chat volume would drown out task/sprint events
 
     // Create notifications and optional emails for @mentioned users (fire-and-forget)
     const mentionedUsernames = [...content.matchAll(/@(\w+)/g)].map((m) => m[1]).filter((u): u is string => u !== undefined);

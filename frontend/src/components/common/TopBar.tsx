@@ -20,6 +20,7 @@ import NotificationPreferencesModal from './NotificationPreferencesModal';
 import PrivacyModal from './PrivacyModal';
 import ThemePickerModal from './ThemePickerModal';
 import TotpModal from './TotpModal';
+import ChangePasswordModal from './ChangePasswordModal';
 import ProfileModal from './ProfileModal';
 import DeleteAccountModal from './DeleteAccountModal';
 import SeedDataModal from './SeedDataModal';
@@ -200,6 +201,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
   const [showNotifPrefs, setShowNotifPrefs] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTotp, setShowTotp] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [showSeedData, setShowSeedData] = useState(false);
   const [showProjectDd, setShowProjectDd] = useState(false);
@@ -690,6 +692,16 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                   <span className="w-5 text-center flex-shrink-0">🛡️</span>
                   Security (2FA)
                 </button>
+                <button
+                  onClick={() => { setShowChangePassword(true); setShowAccountDd(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: 'var(--text-2)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span className="w-5 text-center flex-shrink-0">🔑</span>
+                  Change password
+                </button>
                 <div className="mx-4 my-1" style={{ height: 1, background: 'var(--border)' }} />
                 <a
                   href="/api/me/export"
@@ -898,6 +910,13 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                   <span>🛡️</span> Security (2FA)
                 </button>
                 <button
+                  onClick={() => { setShowChangePassword(true); setShowMobileMenu(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  <span>🔑</span> Change password
+                </button>
+                <button
                   onClick={() => { setShowMobileMenu(false); onOpenChat(); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
                   style={{ color: 'var(--text-2)' }}
@@ -984,6 +1003,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
       {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
       {showThemePicker && <ThemePickerModal onClose={() => setShowThemePicker(false)} />}
       {showTotp && <TotpModal onClose={() => setShowTotp(false)} />}
+      {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
       {showProfile && <ProfileModal user={user} onClose={() => setShowProfile(false)} />}
       {showDeleteAccount && <DeleteAccountModal user={user} onClose={() => setShowDeleteAccount(false)} logout={logout} />}
       {showSeedData && <SeedDataModal onClose={() => setShowSeedData(false)} onSuccess={refreshProducts} />}

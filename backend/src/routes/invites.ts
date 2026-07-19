@@ -22,11 +22,13 @@ import { sendEmail, teamInviteEmail } from '../utils/email';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 
+// Validates invite creation — email makes it targeted; maxUses caps redemptions for open links
 const createInviteSchema = z.object({
   email: z.string().email().optional(),
   maxUses: z.number().int().min(1).max(1000).optional(), // open invite use cap; null = unlimited
 });
 
+// Returns team info plus isAdmin/isMember flags for the given user, or null if the team doesn't exist
 async function getTeamAdmin(teamId: string, userId: string) {
   const team = await prisma.team.findUnique({
     where: { id: teamId },

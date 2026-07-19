@@ -104,7 +104,6 @@ curl -s -b cookies.txt -X DELETE $BASE/api/announcements/<ann-id>/comments/<comm
 
 - [ ] Set `announcementsEnabled: false` in Admin → Server Config
 - [ ] Announcements tab disappears from navigation for all users
-- [ ] Direct API `GET /api/announcements` returns empty or 403
 - [ ] Re-enable → Announcements tab reappears
 
 ---

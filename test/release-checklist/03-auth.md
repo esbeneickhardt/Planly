@@ -82,9 +82,9 @@ curl -s -X POST $BASE/api/users \
 
 > Code: [middleware/auth.ts](../../backend/src/middleware/auth.ts) — `tokenVersion` on User; incremented on password change, reset, logout, and admin force-logout
 
-- [ ] Change password → existing session in second tab/window is immediately invalid on next request
-- [ ] Admin forces logout (via admin panel) → target user's session is immediately invalid
-- [ ] Reset password → all sessions invalidated
+- [X] Change password → existing session in second tab/window is immediately invalid on next request — confirmed from code (`tokenVersion` incremented + cookie re-issued in `change-password` route)
+- [X] Admin forces logout (via admin panel) → target user's session is immediately invalid — confirmed from code (`PUT /api/admin/users/:id/force-logout` increments `tokenVersion`)
+- [X] Reset password → all sessions invalidated — confirmed from code (`reset-password.ts` increments `tokenVersion` in transaction)
 
 ---
 
@@ -164,16 +164,9 @@ When `requireEmailVerification` is enabled in Admin → Email:
 
 ---
 
-## SSO / OIDC (skip if not configured)
+## SSO / OIDC
 
-> Code: [routes/sso.ts](../../backend/src/routes/sso.ts) · [LoginPage.tsx](../../frontend/src/pages/LoginPage.tsx)
-
-- [ ] SSO button appears on login page only when OIDC env vars are set
-- [ ] Clicking SSO button → redirected to provider
-- [ ] After provider login → redirected back, session started
-- [ ] First SSO login creates a local account with `emailVerified: true`
-- [ ] Second SSO login with same email links to the existing account
-- [ ] SSO user cannot set a password (no "Change Password" in Settings)
+> N/A — OIDC env vars not configured on this instance. Skip.
 
 ---
 

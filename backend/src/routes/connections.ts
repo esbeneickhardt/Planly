@@ -13,6 +13,7 @@ import { requireProductMember, requireTabWrite } from '../utils/product-guard';
 import { handleNotFound } from '../utils/prisma-errors';
 import { validate } from '../utils/validate';
 
+// Validates the target task UUID when adding a canvas connection edge
 const createConnectionSchema = z.object({ taskId: z.string().uuid() });
 
 export async function connectionRoutes(app: FastifyInstance) {

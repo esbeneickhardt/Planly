@@ -20,7 +20,9 @@ import { matchesCidr, getClientIp } from '../utils/ip';
 // Re-export so index.ts can import from this module as before
 export { matchesCidr, getClientIp };
 
+// Validates the IP restriction mode toggle (disabled, allowlist, or blocklist)
 const setModeSchema = z.object({ mode: z.enum(['disabled', 'allowlist', 'blocklist']) });
+// Validates an IP or CIDR range string plus an optional human-readable description
 const addRuleSchema = z.object({ cidr: z.string().min(1), description: z.string().optional() });
 
 // ── Routes ─────────────────────────────────────────────────────────────────────

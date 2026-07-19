@@ -21,10 +21,13 @@ import jwt from 'jsonwebtoken';
 import { issueAuthCookie } from '../utils/auth-cookie';
 import { encryptOptional } from '../utils/crypto';
 
+// Whether OIDC/SSO is active for this deployment (requires all three env vars to be set)
 const SSO_ENABLED = !!(config.oidc.issuer && config.oidc.clientId && config.oidc.clientSecret);
 
+// Cached OIDC discovery result — initialized lazily on first authorize request
 let _oidcConfig: oidcClient.Configuration | null = null;
 
+// Fetches (and caches) the OIDC provider configuration via discovery endpoint
 async function getOidcConfig(): Promise<oidcClient.Configuration> {
   if (_oidcConfig) return _oidcConfig;
   _oidcConfig = await oidcClient.discovery(
@@ -36,8 +39,10 @@ async function getOidcConfig(): Promise<oidcClient.Configuration> {
   return _oidcConfig;
 }
 
+// Redirect path registered with the IdP; must match the value in the OIDC application settings exactly
 const CALLBACK_PATH = '/api/auth/sso/callback';
 
+// Returns the absolute callback URL built from APP_URL so it works across environments
 function callbackUrl(): string {
   return `${config.appUrl}${CALLBACK_PATH}`;
 }

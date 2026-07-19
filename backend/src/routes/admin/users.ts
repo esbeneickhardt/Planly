@@ -10,10 +10,13 @@ import prisma from '../../db/client';
 import { validate } from '../../utils/validate';
 import { sendSecurityAlert } from '../../utils/security-alert';
 
+// Validates the target userId for the crown transfer (founding admin handoff)
 const transferCrownSchema = z.object({ userId: z.string() });
+// Validates the isAdmin toggle for general admin status updates
 const updateUserSchema = z.object({ isAdmin: z.boolean() });
 
 export async function adminUserRoutes(app: FastifyInstance) {
+  // Return all users ordered by admin status then creation date (for the admin user table)
   app.get('/api/admin/users', { preHandler: requireAdmin }, async (_req, reply) => {
     const users = await prisma.user.findMany({
       select: { id: true, username: true, email: true, isAdmin: true, isFoundingAdmin: true, emailVerified: true, createdAt: true, failedLoginAttempts: true, loginLockedUntil: true },
@@ -22,6 +25,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send(users);
   });
 
+  // Toggle admin status for a user (founding admin only; cannot modify self or founding admin)
   app.put('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = validate(updateUserSchema, req.body, reply);
@@ -34,6 +38,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ id: updated.id, isAdmin: updated.isAdmin });
   });
 
+  // Grant admin status to a user — fires a security alert and writes an audit log entry
   app.put('/api/admin/users/:id/promote', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true, isFoundingAdmin: true } });
@@ -47,6 +52,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Remove admin status — blocked if the target is the founding admin or the last admin
   app.put('/api/admin/users/:id/demote', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true, isFoundingAdmin: true } });
@@ -63,6 +69,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Transfer the founding admin crown — atomically swaps isFoundingAdmin so there is always exactly one
   app.put('/api/admin/transfer-crown', { preHandler: requireAdmin }, async (req, reply) => {
     const crownBody = validate(transferCrownSchema, req.body, reply);
     if (!crownBody) return;
@@ -88,16 +95,31 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Clear a login lockout without resetting loginLockCount (progressive escalation is preserved)
   app.put('/api/admin/users/:id/unlock', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
     const target = await prisma.user.findUnique({ where: { id }, select: { username: true } });
     if (!target) return reply.status(404).send({ error: 'User not found' });
-    await prisma.user.update({ where: { id }, data: { failedLoginAttempts: 0, loginLockedUntil: null, loginLockCount: 0 } });
+    // Preserve loginLockCount so the progressive escalation schedule is maintained
+    await prisma.user.update({ where: { id }, data: { failedLoginAttempts: 0, loginLockedUntil: null } });
     await prisma.adminLog.create({ data: { action: 'LOGIN_UNLOCKED', actorName: actor?.username, targetName: target.username } });
     reply.send({ ok: true });
   });
 
+  // Increment tokenVersion to immediately invalidate all active sessions for a user
+  app.put('/api/admin/users/:id/force-logout', { preHandler: requireAdmin }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (id === req.user.userId) return reply.status(400).send({ error: 'Cannot force-logout yourself.' });
+    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+    const target = await prisma.user.findUnique({ where: { id }, select: { username: true } });
+    if (!target) return reply.status(404).send({ error: 'User not found' });
+    await prisma.user.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
+    await prisma.adminLog.create({ data: { action: 'USER_FORCE_LOGGED_OUT', actorName: actor?.username, targetName: target.username } });
+    reply.send({ ok: true });
+  });
+
+  // Manually mark a user's email as verified (bypasses the email link flow)
   app.put('/api/admin/users/:id/verify-email', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
@@ -108,6 +130,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Permanently delete a user — founding admin only; blocks self-deletion and founding admin removal
   app.delete('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     // Self-deletion is blocked to prevent accidental lockout
