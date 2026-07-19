@@ -6,15 +6,6 @@ Plan visually, track dependencies, and keep conversations where the work is. No 
 
 ---
 
-<!-- Add screenshots to docs/screenshots/ and uncomment the lines below -->
-<!-- ![Kanban board](docs/screenshots/kanban.png) -->
-<!-- ![Gantt chart](docs/screenshots/gantt.png) -->
-<!-- ![Canvas view](docs/screenshots/canvas.png) -->
-
-> **📸 Add screenshots** - capture Kanban, Gantt, Canvas, and the Admin panel, drop them in `docs/screenshots/`, and uncomment the lines above.
-
----
-
 ## Quick Start
 
 **Requirements:** Docker and Docker Compose v2.
@@ -138,4 +129,4 @@ Use it, run it, study it, contribute to it - freely. You may not sell it, fork i
 
 ## Contributing
 
-Pull requests are welcome for bug fixes, UX improvements, and features that align with the project's philosophy. Open an issue first for anything significant so the direction can be agreed on before you invest the time.
+This project is source-available and maintained by a single author. Pull requests are not accepted. Feel free to fork it for your own use under the terms of the license.
