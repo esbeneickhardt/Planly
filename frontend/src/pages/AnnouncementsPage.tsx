@@ -25,7 +25,7 @@ const MD = {
   h1: ({ children }: any) => <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>{children}</h1>,
   h2: ({ children }: any) => <h2 style={{ fontSize: 16, fontWeight: 600, margin: '12px 0 6px' }}>{children}</h2>,
   h3: ({ children }: any) => <h3 style={{ fontSize: 14, fontWeight: 600, margin: '10px 0 4px' }}>{children}</h3>,
-  p:  ({ children }: any) => <p style={{ margin: '0 0 8px', lineHeight: 1.65 }}>{children}</p>,
+  p:  ({ children }: any) => <p style={{ margin: '0 0 8px', lineHeight: 1.7 }}>{children}</p>,
   a:  ({ children, href }: any) => <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>{children}</a>,
   ul: ({ children }: any) => <ul style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ul>,
   ol: ({ children }: any) => <ol style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ol>,
@@ -299,7 +299,7 @@ function AnnouncementCard({
   }, [ann.content]);
 
   return (
-    <article className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-2)', border: `1px solid ${ann.pinned ? '#6366f133' : 'var(--border)'}` }}>
+    <article className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface)', border: `1px solid ${ann.pinned ? '#6366f133' : 'var(--border)'}` }}>
       <div className="px-5 pt-4 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -336,7 +336,7 @@ function AnnouncementCard({
           className="text-sm overflow-hidden"
           style={{
             maxHeight: expanded ? undefined : COLLAPSED_HEIGHT,
-            color: 'var(--text-2)',
+            color: 'var(--text)',
             maskImage: (!expanded && overflows) ? 'linear-gradient(to bottom, black 60%, transparent 100%)' : undefined,
             WebkitMaskImage: (!expanded && overflows) ? 'linear-gradient(to bottom, black 60%, transparent 100%)' : undefined,
           }}

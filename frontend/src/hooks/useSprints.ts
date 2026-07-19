@@ -15,8 +15,9 @@ export function useSprints(productId: string | undefined) {
   const refresh = useCallback(async (): Promise<Sprint[]> => {
     if (!productId) return [];
     const ss = await api.sprints.list(productId).catch(() => [] as Sprint[]);
-    setSprints(ss);
-    return ss;
+    const safeSs = Array.isArray(ss) ? ss : [];
+    setSprints(safeSs);
+    return safeSs;
   }, [productId]);
 
   return { sprints, setSprints, refresh };

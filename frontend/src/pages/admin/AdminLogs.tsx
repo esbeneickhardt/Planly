@@ -97,7 +97,7 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
         ) : (
           <>
             {logs.map((log) => (
-              <div key={log.id} className="flex items-center gap-4 px-4 py-2.5 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <div key={log.id} data-testid="log-entry" className="flex items-center gap-4 px-4 py-2.5 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                 <span className="text-xs px-2 py-0.5 rounded font-medium flex-shrink-0" style={{
                   background: (log.action.includes('FAIL') || log.action.includes('DELETE') || log.action.includes('PRUNE')) ? '#ef444422' : '#6366f122',
                   color: (log.action.includes('FAIL') || log.action.includes('DELETE') || log.action.includes('PRUNE')) ? '#ef4444' : '#6366f1',
