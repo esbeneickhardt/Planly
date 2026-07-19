@@ -1,3 +1,9 @@
+/**
+ * Integration tests for canvas snapshot CRUD operations.
+ * Snapshots save a user's node positions and viewport on the canvas/mind-map view
+ * so they can restore a named layout later. Each snapshot belongs to one user + product.
+ * Set TEST_DATABASE_URL to run locally.
+ */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../helpers/app';
@@ -38,6 +44,7 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
     await prisma.$disconnect();
   });
 
+  // Baseline: no snapshots exist for a freshly created product
   it('GET /api/products/:id/canvas-snapshots returns empty array', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -48,6 +55,7 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
     expect(Array.isArray(JSON.parse(res.body))).toBe(true);
   });
 
+  // Snapshot is persisted and returned with the supplied name and empty position map
   it('POST /api/products/:id/canvas-snapshots saves a snapshot', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -60,6 +68,7 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
     expect(body.name).toBe('Snapshot v1');
   });
 
+  // Deletion returns 204; snapshot is gone and no longer clutters the restore menu
   it('DELETE /api/products/:id/canvas-snapshots/:snapshotId removes snapshot', async () => {
     const createRes = await app.inject({
       method: 'POST',

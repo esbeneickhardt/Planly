@@ -1,3 +1,9 @@
+/**
+ * Integration tests for Kanban column CRUD operations.
+ * Columns define the status buckets on the board (e.g. "To Do", "In Progress", "Done").
+ * Each product has its own set of columns; tests operate under a product owned by the requester.
+ * Set TEST_DATABASE_URL to run locally.
+ */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../helpers/app';
@@ -38,6 +44,7 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
     await prisma.$disconnect();
   });
 
+  // Products start with default columns seeded at creation; result is always an array
   it('GET /api/products/:id/columns returns columns array', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -48,6 +55,7 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
     expect(Array.isArray(JSON.parse(res.body))).toBe(true);
   });
 
+  // Custom columns can be added alongside the defaults
   it('POST /api/products/:id/columns creates a column', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -60,6 +68,7 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
     expect(body.label).toBe('In Progress');
   });
 
+  // Renaming a column updates the label without changing its id or order
   it('PATCH /api/products/:id/columns/:columnId updates name', async () => {
     const createRes = await app.inject({
       method: 'POST',
@@ -79,6 +88,7 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
     expect(JSON.parse(res.body).label).toBe('New Name');
   });
 
+  // Deleting a column cascades: tasks in that column are reassigned or deleted per schema rules
   it('DELETE /api/products/:id/columns/:columnId removes column', async () => {
     const createRes = await app.inject({
       method: 'POST',

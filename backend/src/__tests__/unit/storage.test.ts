@@ -1,3 +1,13 @@
+/**
+ * Unit tests for the storage utility module.
+ *
+ * verifyMimeBytes  — guards against MIME spoofing by comparing magic bytes to the declared type.
+ * fileExtFromMime / mimeFromExt — bidirectional MIME ↔ extension mapping.
+ * generateFilename — deterministic content-hash-based filename to prevent collisions.
+ * storeFile / getFileBuffer / deleteFile — local disk and S3 storage modes.
+ *
+ * All FS calls and S3 SDK calls are mocked; no actual files are written.
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { verifyMimeBytes, fileExtFromMime, mimeFromExt, generateFilename, storeFile, getFileBuffer, deleteFile } from '../../utils/storage';
 
@@ -52,6 +62,7 @@ describe('verifyMimeBytes', () => {
     expect(verifyMimeBytes(webpBuf(), 'image/webp')).toBe(true);
   });
 
+  // RIFF alone isn't enough; the "WEBP" marker at offset 8 must also be present
   it('rejects WebP when RIFF header is correct but WEBP marker is missing', () => {
     const b = webpBuf();
     b[8] = 0x00; // corrupt WEBP marker
@@ -66,6 +77,7 @@ describe('verifyMimeBytes', () => {
     expect(verifyMimeBytes(zipBuf(), 'application/zip')).toBe(true);
   });
 
+  // Office Open XML formats are ZIP archives; the ZIP signature is the correct check
   it('accepts DOCX (ZIP-family) with ZIP magic bytes', () => {
     const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     expect(verifyMimeBytes(zipBuf(), mime)).toBe(true);
@@ -84,6 +96,7 @@ describe('verifyMimeBytes', () => {
     expect(verifyMimeBytes(docBuf(), 'application/vnd.ms-excel')).toBe(true);
   });
 
+  // Text types have no reliable magic bytes; they pass through the check unconditionally
   it('always accepts text/plain (no magic bytes for text)', () => {
     expect(verifyMimeBytes(Buffer.from('hello world'), 'text/plain')).toBe(true);
   });
@@ -96,6 +109,7 @@ describe('verifyMimeBytes', () => {
     expect(verifyMimeBytes(Buffer.from('{"key":1}'), 'application/json')).toBe(true);
   });
 
+  // Truncated uploads must be rejected rather than causing an out-of-bounds read
   it('rejects buffer shorter than 4 bytes for binary types', () => {
     expect(verifyMimeBytes(Buffer.from([0xFF, 0xD8]), 'image/jpeg')).toBe(false);
   });
@@ -143,6 +157,7 @@ describe('generateFilename', () => {
     expect(name).toMatch(/^[a-f0-9]{24}\.txt$/);
   });
 
+  // Content-hash means identical uploads share the same URL (implicit deduplication)
   it('is deterministic - same content always produces the same filename', () => {
     const buf = Buffer.from('consistent');
     expect(generateFilename(buf, 'png')).toBe(generateFilename(buf, 'png'));

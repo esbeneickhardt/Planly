@@ -1,3 +1,9 @@
+/**
+ * Integration tests for Personal Access Token (PAT) management routes.
+ * Covers listing, creating, and revoking tokens via /api/auth/tokens.
+ * Token auth (Bearer header) and scoping are tested separately in pat-scoped.test.ts.
+ * Set TEST_DATABASE_URL to run locally.
+ */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../helpers/app';
@@ -31,6 +37,7 @@ describe.skipIf(!HAS_DB)('API token routes smoke', () => {
     await prisma.$disconnect();
   });
 
+  // Baseline: a new user starts with no tokens
   it('GET /api/auth/tokens returns empty list', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -41,6 +48,7 @@ describe.skipIf(!HAS_DB)('API token routes smoke', () => {
     expect(Array.isArray(JSON.parse(res.body))).toBe(true);
   });
 
+  // The raw token string is returned once on creation; subsequent GETs only show metadata
   it('POST /api/auth/tokens creates a token', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -54,6 +62,7 @@ describe.skipIf(!HAS_DB)('API token routes smoke', () => {
     expect(typeof body.token).toBe('string');
   });
 
+  // Revocation: token no longer appears in the list after deletion
   it('DELETE /api/auth/tokens/:tokenId removes token', async () => {
     const createRes = await app.inject({
       method: 'POST',

@@ -46,6 +46,7 @@ describe.skipIf(!HAS_DB)('Task CRUD integration', () => {
     await prisma.$disconnect();
   });
 
+  // Happy path: task is created with the supplied name and returns 201
   it('POST /api/products/:id/tasks creates a task', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -59,6 +60,7 @@ describe.skipIf(!HAS_DB)('Task CRUD integration', () => {
     expect(body.status).toBe('todo');
   });
 
+  // Status is independently patchable; response immediately reflects the new value
   it('PATCH /api/products/:id/tasks/:taskId updates task status', async () => {
     const createRes = await app.inject({
       method: 'POST',
@@ -78,6 +80,7 @@ describe.skipIf(!HAS_DB)('Task CRUD integration', () => {
     expect(JSON.parse(res.body).status).toBe('done');
   });
 
+  // ownerId can be set independently of other fields in the same PATCH call
   it('PATCH /api/products/:id/tasks/:taskId assigns an owner', async () => {
     const createRes = await app.inject({
       method: 'POST',
@@ -97,6 +100,7 @@ describe.skipIf(!HAS_DB)('Task CRUD integration', () => {
     expect(JSON.parse(res.body).ownerId).toBe(ownerId);
   });
 
+  // Deadline is stored as an ISO timestamp; response confirms the field is set
   it('PATCH /api/products/:id/tasks/:taskId sets a deadline', async () => {
     const createRes = await app.inject({
       method: 'POST',
@@ -117,6 +121,7 @@ describe.skipIf(!HAS_DB)('Task CRUD integration', () => {
     expect(JSON.parse(res.body).deadline).toBeDefined();
   });
 
+  // Deletion returns 204 and subsequent GET on the same ID returns 404
   it('DELETE /api/products/:id/tasks/:taskId removes a task', async () => {
     const createRes = await app.inject({
       method: 'POST',
@@ -142,6 +147,7 @@ describe.skipIf(!HAS_DB)('Task CRUD integration', () => {
     expect(getRes.statusCode).toBe(404);
   });
 
+  // Even read-only endpoints require a valid session
   it('GET /api/products/:id/tasks returns 401 without auth', async () => {
     const res = await app.inject({
       method: 'GET',

@@ -40,6 +40,7 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
     await prisma.$disconnect();
   });
 
+  // Admin can list all users; confirms the target user appears in the list
   it('GET /api/admin/users returns user list to admin', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -52,11 +53,13 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
     expect(body.some((u: { id: string }) => u.id === targetId)).toBe(true);
   });
 
+  // Admin endpoints must not leak data to unauthenticated callers
   it('GET /api/admin/users returns 401 to unauthenticated requests', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/admin/users' });
     expect(res.statusCode).toBe(401);
   });
 
+  // Promotion sets isAdmin=true; verified directly in the DB, not just via the response
   it('PUT /api/admin/users/:id/promote promotes a user to admin', async () => {
     const res = await app.inject({
       method: 'PUT',
@@ -68,6 +71,7 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
     expect(user?.isAdmin).toBe(true);
   });
 
+  // Demotion sets isAdmin=false; pre-set to true in DB to decouple from the promote test
   it('PUT /api/admin/users/:id/demote demotes a user from admin', async () => {
     // Ensure target is admin first
     await prisma.user.update({ where: { id: targetId }, data: { isAdmin: true } });
@@ -82,6 +86,7 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
     expect(user?.isAdmin).toBe(false);
   });
 
+  // Deletion returns 204 and the record is gone from the DB
   it('DELETE /api/admin/users/:id deletes a user', async () => {
     const del = await createTestUser({ email: `del_${suffix}@example.com`, username: `del_${suffix}` });
     const res = await app.inject({
@@ -140,6 +145,7 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
     await prisma.$disconnect();
   });
 
+  // Gate is enforced: regular members get 403 while the setting is off
   it('non-admin cannot create a product when allowProjectCreation is false', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -150,6 +156,7 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  // Admins bypass the gate; product is created and immediately cleaned up
   it('admin can create a product even when allowProjectCreation is false', async () => {
     const res = await app.inject({
       method: 'POST',

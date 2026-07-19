@@ -1,3 +1,11 @@
+/**
+ * Unit tests for the SearchModal component.
+ *
+ * The modal shows quick-nav shortcuts when the query is empty and
+ * switches to live search results as the user types. Keyboard navigation
+ * (ArrowUp/ArrowDown/Enter/Escape) must work without mouse input.
+ * All context dependencies and the search API are mocked.
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -58,11 +66,13 @@ describe('SearchModal', () => {
     mockNavigate.mockClear();
   });
 
+  // Smoke test: the modal mounts and exposes the search input
   it('renders the search input', () => {
     render(<SearchModal onClose={onClose} />);
     expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
   });
 
+  // Escape is the primary keyboard dismissal path (matches native modal conventions)
   it('Escape key calls onClose', () => {
     render(<SearchModal onClose={onClose} />);
     const input = screen.getByPlaceholderText(/search/i);
@@ -70,6 +80,7 @@ describe('SearchModal', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  // Quick-nav shortcuts appear before the user types anything
   it('shows quick-nav items when the query is empty', () => {
     render(<SearchModal onClose={onClose} />);
     expect(screen.getByText(/Plan - Canvas/i)).toBeInTheDocument();
@@ -77,6 +88,7 @@ describe('SearchModal', () => {
     expect(screen.getByText(/Tasks - Full task list/i)).toBeInTheDocument();
   });
 
+  // First ArrowDown sets focus to index 0 so Enter immediately picks the first item
   it('ArrowDown highlights the first quick-nav item', () => {
     render(<SearchModal onClose={onClose} />);
     const input = screen.getByPlaceholderText(/search/i);
@@ -86,6 +98,7 @@ describe('SearchModal', () => {
     expect(firstItem).not.toBeNull();
   });
 
+  // Pressing Enter on a highlighted item navigates to its route and dismisses the modal
   it('Enter on highlighted quick-nav item navigates and closes', () => {
     render(<SearchModal onClose={onClose} />);
     const input = screen.getByPlaceholderText(/search/i);
@@ -96,6 +109,7 @@ describe('SearchModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // Two ArrowDown presses move to index 1 (Kanban); Enter confirms that selection
   it('ArrowDown + ArrowDown + Enter navigates to the second quick-nav item', () => {
     render(<SearchModal onClose={onClose} />);
     const input = screen.getByPlaceholderText(/search/i);
@@ -105,6 +119,7 @@ describe('SearchModal', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/kanban');
   });
 
+  // Boundary: ArrowUp from index 0 must not wrap or go negative
   it('ArrowUp at the top does not go below 0', () => {
     render(<SearchModal onClose={onClose} />);
     const input = screen.getByPlaceholderText(/search/i);
@@ -115,6 +130,7 @@ describe('SearchModal', () => {
     expect(mockNavigate).toHaveBeenCalled();
   });
 
+  // Clicking the backdrop (outside the modal card) should dismiss the modal
   it('overlay click calls onClose', () => {
     render(<SearchModal onClose={onClose} />);
     // The overlay is the first child of the portal - click on the backdrop

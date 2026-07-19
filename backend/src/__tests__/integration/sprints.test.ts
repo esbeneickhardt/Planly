@@ -1,3 +1,9 @@
+/**
+ * Integration tests for sprint CRUD operations.
+ * Sprints are time-boxed work periods tied to a product. Tests cover creating,
+ * renaming, and deleting sprints under a product the requester owns.
+ * Set TEST_DATABASE_URL to run locally.
+ */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../helpers/app';
@@ -38,6 +44,7 @@ describe.skipIf(!HAS_DB)('Sprint routes smoke', () => {
     await prisma.$disconnect();
   });
 
+  // Baseline: a freshly created product has no sprints yet
   it('GET /api/products/:id/sprints returns empty array', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -48,6 +55,7 @@ describe.skipIf(!HAS_DB)('Sprint routes smoke', () => {
     expect(JSON.parse(res.body)).toEqual([]);
   });
 
+  // Happy path: sprint is persisted and returned with the supplied name
   it('POST /api/products/:id/sprints creates a sprint', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -64,6 +72,7 @@ describe.skipIf(!HAS_DB)('Sprint routes smoke', () => {
     expect(body.name).toBe('Sprint 1');
   });
 
+  // Rename: the response immediately reflects the new name (no reload needed)
   it('PATCH /api/products/:id/sprints/:sprintId updates name', async () => {
     const createRes = await app.inject({
       method: 'POST',
@@ -87,6 +96,7 @@ describe.skipIf(!HAS_DB)('Sprint routes smoke', () => {
     expect(JSON.parse(res.body).name).toBe('Renamed Sprint');
   });
 
+  // Deletion returns 204; no body expected
   it('DELETE /api/products/:id/sprints/:sprintId removes sprint', async () => {
     const createRes = await app.inject({
       method: 'POST',

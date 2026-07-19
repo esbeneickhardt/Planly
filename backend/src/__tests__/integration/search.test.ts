@@ -1,3 +1,10 @@
+/**
+ * Integration tests for the global search endpoint.
+ * GET /api/search?q=<term> returns matching tasks and messages across all products
+ * the authenticated user is a member of. Results are scoped by membership so
+ * outsiders cannot discover content via search.
+ * Set TEST_DATABASE_URL to run locally.
+ */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../helpers/app';
@@ -38,6 +45,7 @@ describe.skipIf(!HAS_DB)('Search routes smoke', () => {
     await prisma.$disconnect();
   });
 
+  // Missing ?q= should be rejected before any DB query runs
   it('GET /api/search requires a query parameter', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -47,6 +55,7 @@ describe.skipIf(!HAS_DB)('Search routes smoke', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  // Shape check: response always has tasks and messages keys even when empty
   it('GET /api/search?q=test returns results object', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -59,6 +68,7 @@ describe.skipIf(!HAS_DB)('Search routes smoke', () => {
     expect(body).toHaveProperty('messages');
   });
 
+  // Empty string ?q= is semantically the same as missing; must not run an unbounded DB query
   it('GET /api/search rejects empty query', async () => {
     const res = await app.inject({
       method: 'GET',

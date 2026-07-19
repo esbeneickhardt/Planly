@@ -1,3 +1,9 @@
+/**
+ * Integration tests for the color-legend endpoints.
+ * The color legend maps hex color keys to human-readable labels (e.g. "#ef4444" → "Bug").
+ * Teams use it to give meaning to task card colors on the Kanban board.
+ * Set TEST_DATABASE_URL to run locally.
+ */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../helpers/app';
@@ -38,6 +44,7 @@ describe.skipIf(!HAS_DB)('Color legend routes smoke', () => {
     await prisma.$disconnect();
   });
 
+  // Legend starts empty; response is always an array (never null)
   it('GET /api/products/:id/color-legend returns array', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -48,6 +55,7 @@ describe.skipIf(!HAS_DB)('Color legend routes smoke', () => {
     expect(Array.isArray(JSON.parse(res.body))).toBe(true);
   });
 
+  // PUT replaces the full legend in one shot; response confirms with ok:true
   it('PUT /api/products/:id/color-legend updates entries', async () => {
     const entries = [
       { colorKey: '#ef4444', name: 'Bug', enabled: true },
