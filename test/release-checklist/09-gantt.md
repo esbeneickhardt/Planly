@@ -15,20 +15,6 @@ Before testing Gantt, create in Alpha Project:
 
 ---
 
-## Milestones API (`GET /api/products/:productId/milestones`)
-
-> Code: [backend/src/routes/milestones.ts](../../backend/src/routes/milestones.ts) (returns tasks with `deadline` set, includes subtask completion progress and overdue flag)
-
-```bash
-curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/milestones | jq .
-```
-
-- [ ] Returns list of tasks with deadline set, grouped or ordered by deadline
-- [ ] Includes progress information (subtask count, completed subtasks)
-- [ ] Overdue tasks identified
-
----
-
 ## Gantt chart display
 
 > Code: [frontend/src/pages/GanttPage.tsx](../../frontend/src/pages/GanttPage.tsx) (bar rendering, health-colour logic, hover popover) · [frontend/src/hooks/useGanttData.ts](../../frontend/src/hooks/useGanttData.ts) (maps milestone data to bar positions)
@@ -88,16 +74,9 @@ At 375px width:
 
 ---
 
-## Analytics (`GET /api/products/:productId/analytics`)
+## Analytics
 
 > Code: [backend/src/routes/analytics.ts](../../backend/src/routes/analytics.ts) (task completion over time, workload per member) · [frontend/src/pages/AnalyticsPage.tsx](../../frontend/src/pages/AnalyticsPage.tsx) (summary cards, bar chart with period toggle, top contributors, event log)
-
-```bash
-curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/analytics | jq .
-
-# Workload analytics
-curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/analytics/workload | jq .
-```
 
 - [ ] Analytics page loads without error
 - [ ] Summary cards: active tasks, completed tasks, total tasks, average cycle time
@@ -106,7 +85,7 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/analytics/workload | jq .
 - [ ] Top contributors list with username and proportional bars
 - [ ] Event log with real usernames; "Load more" works
 - [ ] Switching to Beta Project reloads all data for that product
-- [ ] Non-member (Charlie) cannot access analytics → 403
+- [ ] Charlie cannot navigate to Alpha Project analytics page (blocked or redirected)
 
 ---
 

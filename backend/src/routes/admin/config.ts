@@ -14,7 +14,9 @@ import { getServerConfig } from '../../utils/server-config';
 import { getSmtpSettings, sendEmail, verifyEmailTemplate } from '../../utils/email';
 import { validate } from '../../utils/validate';
 
+// Validates an email pattern (full address or @domain) and its allow/deny type
 const addWhitelistSchema = z.object({ pattern: z.string().min(1), type: z.enum(['allow', 'deny']).optional() });
+// Partial update shape for the singleton ServerConfig row
 const serverConfigSchema = z.object({
   requireEmailVerification: z.boolean().optional(),
   requireWhitelist: z.boolean().optional(),
@@ -27,10 +29,12 @@ const serverConfigSchema = z.object({
 export async function adminConfigRoutes(app: FastifyInstance) {
   // ── Whitelist ──────────────────────────────────────────────────────────────
 
+  // Return all email allow/deny patterns in insertion order
   app.get('/api/admin/whitelist', { preHandler: requireAdmin }, async (_req, reply) => {
     reply.send(await prisma.emailWhitelist.findMany({ orderBy: { createdAt: 'asc' } }));
   });
 
+  // Add an email allow or deny pattern to the list
   app.post('/api/admin/whitelist', { preHandler: requireAdmin }, async (req, reply) => {
     const wlBody = validate(addWhitelistSchema, req.body, reply);
     if (!wlBody) return;
@@ -47,6 +51,7 @@ export async function adminConfigRoutes(app: FastifyInstance) {
     }
   });
 
+  // Remove an email list entry by ID
   app.delete('/api/admin/whitelist/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await prisma.emailWhitelist.deleteMany({ where: { id } });
@@ -55,11 +60,13 @@ export async function adminConfigRoutes(app: FastifyInstance) {
 
   // ── Server config ──────────────────────────────────────────────────────────
 
+  // Return the current server configuration including admin email from env
   app.get('/api/admin/server-config', { preHandler: requireAdmin }, async (_req, reply) => {
     const cfg = await getServerConfig();
     reply.send({ adminEmail: config.admin.email || null, ...cfg });
   });
 
+  // Update server configuration; toggling on requireEmailVerification triggers bulk verification emails
   app.put('/api/admin/server-config', { preHandler: requireAdmin }, async (req, reply) => {
     const cfgBody = validate(serverConfigSchema, req.body, reply);
     if (!cfgBody) return;

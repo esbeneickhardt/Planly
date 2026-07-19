@@ -1,5 +1,9 @@
 /**
- * Subtask routes - create, update, and delete subtasks within a task.
+ * Subtask routes - create, update, and delete checklist-style subtasks within a task.
+ *
+ * Subtasks are ordered by an explicit `order` field (0-based). Completion records
+ * completedBy/completedAt when toggled to true, and clears those fields when toggled back.
+ * Each task is capped at 500 subtasks to prevent runaway data growth.
  */
 import { FastifyInstance } from 'fastify';
 import prisma from '../../db/client';
@@ -9,10 +13,13 @@ import { z } from 'zod';
 import { validate } from '../../utils/validate';
 import { TASK_WHERE_ACTIVE } from './crud';
 
+// Validates the subtask name on creation
 const createSubtaskSchema = z.object({ name: z.string().min(1).max(200) });
+// Partial update for subtask text, completion state, and sort order
 const updateSubtaskSchema = z.object({ name: z.string().max(200).optional(), completed: z.boolean().optional(), order: z.number().int().optional() });
 
 export async function subtaskRoutes(app: FastifyInstance) {
+  // Add a subtask to a task; new subtask is appended at the end (order = current count)
   app.post('/api/products/:productId/tasks/:taskId/subtasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -29,6 +36,7 @@ export async function subtaskRoutes(app: FastifyInstance) {
     reply.status(201).send(subtask);
   });
 
+  // Update a subtask's name, completion state, or sort order
   app.patch('/api/products/:productId/tasks/:taskId/subtasks/:subtaskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -54,6 +62,7 @@ export async function subtaskRoutes(app: FastifyInstance) {
     }
   });
 
+  // Delete a subtask permanently
   app.delete('/api/products/:productId/tasks/:taskId/subtasks/:subtaskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;

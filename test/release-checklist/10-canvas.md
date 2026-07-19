@@ -10,11 +10,6 @@ Navigate to `/canvas` in Alpha Project.
 
 > Code: [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (React Flow canvas: renders nodes from task list) · [frontend/src/components/canvas/nodes/TaskNode.tsx](../../frontend/src/components/canvas/nodes/TaskNode.tsx) (node content: name, status badge, owner avatar, deadline, milestone indicator)
 
-```bash
-# Get all task connections (canvas positions are part of task objects)
-curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/connections | jq .
-```
-
 - [ ] Canvas page loads without error
 - [ ] Existing tasks appear as nodes at their saved canvas positions
 - [ ] Tasks without a canvas position are placed in a default location (e.g. grid auto-layout)
@@ -49,24 +44,6 @@ curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/connections | jq .
 
 > Code: [backend/src/routes/connections.ts](../../backend/src/routes/connections.ts) (create/delete/list connections; cycle detection rejects reverse edges) · [frontend/src/components/canvas/CanvasView.tsx](../../frontend/src/components/canvas/CanvasView.tsx) (draw handle → drag to target → POST connection)
 
-```bash
-# Get connections graph
-curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/graph | jq .
-
-# Get connections from a task
-curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/connections/<task-id> | jq .
-
-# Create connection (dependency)
-curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/connections \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: $CSRF" \
-  -d '{"fromId":"<task-a-id>","toId":"<task-b-id>"}' | jq .
-
-# Delete connection
-curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/connections/<task-id> \
-  -H "X-CSRF-Token: $CSRF" | jq .
-```
-
 - [ ] Draw dependency arrow from node A to node B by dragging from A's connection handle to B
 - [ ] Arrow appears on canvas after save
 - [ ] Arrow persists after reload
@@ -77,24 +54,9 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/connections/<tas
 
 ---
 
-## Canvas snapshots (`/api/products/:productId/canvas-snapshots`)
+## Canvas snapshots
 
 > Code: [backend/src/routes/canvas-snapshots.ts](../../backend/src/routes/canvas-snapshots.ts) (save named layout, list, delete) · [frontend/src/hooks/useCanvasSnapshots.ts](../../frontend/src/hooks/useCanvasSnapshots.ts) (fetch/restore logic)
-
-```bash
-# Save a snapshot
-curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/canvas-snapshots \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: $CSRF" \
-  -d '{"name":"Sprint 1 layout","positions":{},"viewport":{"x":0,"y":0,"zoom":1}}' | jq .
-
-# List snapshots
-curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/canvas-snapshots | jq '.[].name'
-
-# Delete snapshot
-curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/canvas-snapshots/<snapshot-id> \
-  -H "X-CSRF-Token: $CSRF" | jq .
-```
 
 - [ ] Save current layout as named snapshot
 - [ ] Snapshots listed in UI dropdown or list
@@ -115,20 +77,9 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/canvas-snapshots
 
 ---
 
-## Color legend (`/api/products/:productId/color-legend`)
+## Color legend
 
 > Code: [backend/src/routes/color-legend.ts](../../backend/src/routes/color-legend.ts) (`GET/PUT`) · [frontend/src/pages/settings/SettingsColors.tsx](../../frontend/src/pages/settings/SettingsColors.tsx) (editor UI)
-
-```bash
-# Get legend
-curl -s -b cookies.txt $BASE/api/products/$PRODUCT_ID/color-legend | jq .
-
-# Update legend
-curl -s -b cookies.txt -X PUT $BASE/api/products/$PRODUCT_ID/color-legend \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: $CSRF" \
-  -d '{"entries":[{"color":"#ff0000","label":"Bug"},{"color":"#00ff00","label":"Feature"}]}' | jq .
-```
 
 - [ ] Default legend loads
 - [ ] Updating legend → changes reflected in Legend modal

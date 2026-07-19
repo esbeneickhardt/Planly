@@ -101,6 +101,16 @@ export default function AdminUsers({
                       Make admin
                     </button>
                   )}
+                  {u.id !== currentUserId && (
+                    <button
+                      onClick={() => act(async () => { await api.admin.forceLogout(u.id); showToast(`${u.username} logged out`, 'success'); })}
+                      className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100"
+                      style={{ background: '#f59e0b15', color: '#f59e0b' }}
+                      title="Immediately invalidate all active sessions"
+                    >
+                      Force logout
+                    </button>
+                  )}
                   {u.id !== currentUserId && !u.isFoundingAdmin && (
                     <button
                       onClick={() => {

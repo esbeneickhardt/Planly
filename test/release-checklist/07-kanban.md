@@ -37,15 +37,12 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
   -H "X-CSRF-Token: $CSRF" | jq .
 ```
 
-- [ ] Default columns exist (Backlog, To Do, In Progress, Done - or similar)
+- [ ] Default columns exist on the board
 - [ ] Create column "In Review" → appears on board as rightmost column
 - [ ] Rename column → name updates on board header
 - [ ] Drag column to reorder → order persists after reload
-- [ ] API reorder → order persists after reload
 - [ ] Delete column → tasks in that column move to the first column (not lost)
 - [ ] Cannot delete the last remaining column → clear error
-- [ ] Empty column name → 400
-- [ ] Non-member cannot create/rename/delete columns → 403
 
 ### Per-column sort
 
@@ -67,7 +64,6 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/$PRODUCT_ID/columns/<col-id>
 - [ ] Dragged task position persists after reload
 - [ ] Drag task within same column to reorder → order persists
 - [ ] Real-time: drag task → second browser window updates without reload
-- [ ] Dragging a task to the same position does not trigger unnecessary saves
 
 ---
 

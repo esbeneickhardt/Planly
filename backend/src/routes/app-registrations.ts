@@ -15,22 +15,28 @@ import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 
+// Validates app registration creation; productId scopes the registration and all its tokens
 const createAppSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   productId: z.string().uuid().optional(), // scopes all tokens in this registration to one product
 });
+// Partial update for renaming or re-describing a registration
 const updateAppSchema = z.object({ name: z.string().optional(), description: z.string().optional() });
+// Validates token creation within an app; inherits productId scope from the parent registration
 const createAppTokenSchema = z.object({
   name: z.string().min(1),
   expiresAt: z.string().optional(),
 });
 
+// Returns a SHA-256 hex digest for safe storage without exposing the raw secret
 function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
+// Fields returned for app registration listings — never includes token hashes
 const APP_SELECT = { id: true, name: true, description: true, ownerId: true, productId: true, createdAt: true };
+// Fields returned for token listings under an app — never includes tokenHash
 const TOKEN_SELECT = { id: true, name: true, appId: true, lastUsedAt: true, expiresAt: true, createdAt: true };
 
 export async function appRegistrationRoutes(app: FastifyInstance) {

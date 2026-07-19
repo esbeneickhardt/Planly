@@ -15,16 +15,19 @@ import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 
+// Validates token creation payload; productId scopes the token to a single project
 const createTokenSchema = z.object({
   name: z.string().min(1),
   expiresAt: z.string().optional(),
   productId: z.string().uuid().optional(), // when set, token is restricted to this product only
 });
 
+// Returns a SHA-256 hex digest for safe storage without exposing the raw secret
 function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
+// Fields returned for token listings — never includes tokenHash
 const TOKEN_SELECT = { id: true, name: true, appId: true, productId: true, lastUsedAt: true, expiresAt: true, createdAt: true };
 
 export async function apiTokenRoutes(app: FastifyInstance) {

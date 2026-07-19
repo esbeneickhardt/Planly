@@ -13,12 +13,17 @@ import { validate } from '../utils/validate';
 import { createNotification } from '../utils/notifications';
 import { safeDecryptValue } from '../utils/crypto';
 
+// Validates the message payload for sending a DM
 const sendSchema = z.object({ content: z.string().min(1).max(10000), replyToId: z.string().optional().nullable() });
+// Validates the conversation creation request; isAdminChat scopes the conversation to the admin context
 const createSchema = z.object({ participantId: z.string(), isAdminChat: z.boolean().optional() });
 
+// Author fields returned with every DM message
 const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true, isFoundingAdmin: true };
+// Compact reply-to shape embedded in threaded DM messages
 const DM_REPLY_SELECT = { id: true, content: true, author: { select: AUTHOR_SELECT } };
 
+// Decrypt realName PII on both the message author and the quoted reply-to author
 function decryptAuthor<T extends { author: { realName: string | null }; replyTo?: { author: { realName: string | null } } | null }>(msg: T): T {
   return {
     ...msg,

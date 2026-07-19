@@ -21,14 +21,18 @@ import { requireAuth } from '../middleware/auth';
 import { logAdminEvent } from '../utils/audit';
 import { validate } from '../utils/validate';
 
+// Used by forgot-password and resend-verification to look up the account by email
 const emailBodySchema = z.object({ email: z.string().email() });
+// Used by email verification to accept the raw single-use token from the link
 const tokenBodySchema = z.object({ token: z.string() });
+// Validates the password reset form; enforces complexity rules (number + special character)
 const resetPasswordBodySchema = z.object({
   token: z.string(),
   password: z.string().min(8).max(1024)
     .refine((p) => /[0-9]/.test(p), 'Password must contain at least one number')
     .refine((p) => /[^a-zA-Z0-9]/.test(p), 'Password must contain at least one special character'),
 });
+// Validates the change-password form for authenticated users; currentPassword skipped when mustChangePassword is set
 const changePasswordBodySchema = z.object({
   currentPassword: z.string().optional(),
   newPassword: z.string().min(8, 'New password must be at least 8 characters').max(1024)

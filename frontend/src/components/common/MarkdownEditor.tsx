@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { api } from '../../api/client';
+import { MermaidBlock } from './MermaidBlock';
 
 export const EMOJI_SET = [
   '👍','👎','❤️','😂','🎉','🔥','👀','💯','✅','⭐',
@@ -198,9 +199,16 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
               th: ({ children }) => <th style={{ border: '1px solid var(--border)', padding: '4px 8px', background: 'var(--surface)', fontWeight: 600, textAlign: 'left' }}>{children}</th>,
               td: ({ children }) => <td style={{ border: '1px solid var(--border)', padding: '4px 8px' }}>{children}</td>,
               blockquote: ({ children }) => <blockquote style={{ borderLeft: '3px solid var(--brand)', paddingLeft: 10, margin: '0 0 8px', opacity: 0.8 }}>{children}</blockquote>,
-              code: ({ children, className }) => className
-                ? <pre style={{ background: 'var(--surface)', borderRadius: 6, padding: '8px 10px', overflow: 'auto', fontSize: 12, margin: '0 0 8px' }}><code>{children}</code></pre>
-                : <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>{children}</code>,
+              pre: ({ children }: any) => <>{children}</>,
+              code: ({ children, className }: any) => {
+                if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
+                if (String(children).includes('\n')) return (
+                  <pre style={{ background: 'var(--surface)', borderRadius: 6, padding: '8px 10px', overflow: 'auto', fontSize: 12, margin: '0 0 8px', whiteSpace: 'pre' }}>
+                    <code className={className}>{children}</code>
+                  </pre>
+                );
+                return <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>{children}</code>;
+              },
               img: ({ src, alt }) => <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: 6, margin: '4px 0' }} />,
               hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />,
             }}

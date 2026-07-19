@@ -13,16 +13,19 @@ import { MESSAGE_INCLUDE } from '../db/selects';
 import { validate } from '../utils/validate';
 import { decryptMessageAuthor } from '../utils/crypto';
 
-// Request body schemas
+// Validates the emoji character(s) for a reaction toggle
 const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
 
+// Validates attachment references; URL must be a server-local upload path to prevent link injection
 const attachmentSchema = z.object({
   // Restrict attachment URLs to this server's own upload paths to prevent link-injection
   url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
   name: z.string(),
   type: z.string(),
 });
+// Role badge values accepted in admin chat (server-level roles only)
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
+// Message creation payload — content OR at least one attachment required
 const createMessageSchema = z.object({
   content: z.string().max(10000),
   replyToId: z.string().optional().nullable(),
@@ -32,12 +35,14 @@ const createMessageSchema = z.object({
   message: 'Message must have content or at least one attachment',
   path: ['content'],
 });
+// Edit payload — content is required and cannot be blank
 const editMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 
 // 15-minute window after posting during which an author can edit their message
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000;
 
 export async function adminChatRoutes(app: FastifyInstance) {
+  // Paginated fetch of admin chat history (ascending by default, cursor moves forward in time)
   app.get('/api/admin/chat', { preHandler: requireAdmin }, async (req, reply) => {
     const { cursor, limit = '200' } = req.query as { cursor?: string; limit?: string };
     const take = Math.min(parseInt(limit), 500);
@@ -50,6 +55,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     reply.send(messages.map(decryptMessageAuthor));
   });
 
+  // Post a message to the admin chat channel
   app.post('/api/admin/chat', { preHandler: requireAdmin }, async (req, reply) => {
     const body = validate(createMessageSchema, req.body, reply);
     if (!body) return;
@@ -66,6 +72,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     reply.status(201).send(decryptMessageAuthor(msg));
   });
 
+  // Edit an admin chat message (author only, within the 15-minute edit window)
   app.patch('/api/admin/chat/:messageId', { preHandler: requireAdmin }, async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
     const editBody = validate(editMessageSchema, req.body, reply);
@@ -83,6 +90,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     reply.send(decryptMessageAuthor(updated));
   });
 
+  // Delete an admin chat message (author only)
   app.delete('/api/admin/chat/:messageId', { preHandler: requireAdmin }, async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
     const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
@@ -92,6 +100,7 @@ export async function adminChatRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Toggle an emoji reaction on an admin chat message
   app.post('/api/admin/chat/:messageId/reactions', { preHandler: requireAdmin }, async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
     const body = validate(addReactionSchema, req.body, reply);

@@ -2,9 +2,12 @@
 
 ← [Back to index](README.md)
 
+> **Phase 1 (UI):** XSS, TOTP, token UI, file uploads, session invalidation, progressive lockout, frontend checks.
+> **Ask Claude to run:** HTTP headers, cookie flags, CSRF, SQL injection, rate limiting, IP restrictions, encryption checks.
+
 ---
 
-## HTTP security headers
+## HTTP security headers *(ask Claude to run)*
 
 > Code: [docker-compose.prod.yml](../../docker-compose.prod.yml) (Traefik + Nginx config - CSP, X-Frame-Options, Referrer-Policy, HSTS are set here, not in the backend)
 
@@ -25,7 +28,7 @@ curl -sI $BASE/ | grep -iE "content-security|x-frame|x-content-type|strict-trans
 
 ---
 
-## Cookie security
+## Cookie security *(ask Claude to run)*
 
 > Code: [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (`reply.setCookie` calls - `httpOnly`, `sameSite`, `secure` flags) · [backend/src/config/env.ts](../../backend/src/config/env.ts) (`COOKIE_SECURE` env var)
 
@@ -42,7 +45,7 @@ curl -sI -X POST $BASE/api/auth/login \
 
 ---
 
-## CSRF protection
+## CSRF protection *(ask Claude to run)*
 
 > Code: [backend/src/middleware/csrf.ts](../../backend/src/middleware/csrf.ts) - Layer 1 checks `Origin` header vs `FRONTEND_ORIGIN`; Layer 2 (when no Origin) checks `X-CSRF-Token` double-submit; Bearer auth bypasses both
 
@@ -112,7 +115,7 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/tasks \
 
 ---
 
-## SQL injection prevention
+## SQL injection prevention *(ask Claude to run)*
 
 > Code: [backend/src/db/client.ts](../../backend/src/db/client.ts) (Prisma client - all queries are parameterized; raw SQL is not used) · [backend/src/routes/search.ts](../../backend/src/routes/search.ts) (search uses Prisma `contains` - no string interpolation into SQL)
 
@@ -135,7 +138,7 @@ curl -s -b cookies.txt -X POST $BASE/api/products/$PRODUCT_ID/tasks \
 
 ---
 
-## Rate limiting
+## Rate limiting *(ask Claude to run)*
 
 > Code: [backend/src/routes/auth.ts](../../backend/src/routes/auth.ts) (rate limiter on login endpoint) · [backend/src/index.ts](../../backend/src/index.ts) (global rate limit plugin registration)
 
@@ -190,7 +193,7 @@ done
 
 ---
 
-## IP restrictions
+## IP restrictions *(ask Claude to run)*
 
 > Code: [backend/src/routes/ip-restrictions.ts](../../backend/src/routes/ip-restrictions.ts) (CIDR match against real IP from X-Forwarded-For using `TRUSTED_PROXY_DEPTH`; admin users exempted)
 
@@ -220,7 +223,7 @@ curl -s -H "X-Forwarded-For: 1.2.3.4" $BASE/api/auth/me
 
 ---
 
-## Encryption at rest
+## Encryption at rest *(ask Claude to run)*
 
 > Code: [backend/src/routes/webhooks.ts](../../backend/src/routes/webhooks.ts) · [backend/src/routes/admin/config.ts](../../backend/src/routes/admin/config.ts) · [backend/src/routes/totp.ts](../../backend/src/routes/totp.ts) · [backend/src/routes/users.ts](../../backend/src/routes/users.ts) (`realName` encrypted) - all use AES-256-GCM from the shared crypto utility
 

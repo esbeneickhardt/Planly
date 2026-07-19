@@ -1,6 +1,11 @@
 /**
- * Task dependency routes - add/remove DAG edges between tasks, and fetch the full graph.
- * Cycle detection uses a single recursive CTE in one DB round-trip.
+ * Task dependency routes - add/remove directed prerequisite edges between tasks, and
+ * fetch the full dependency graph for canvas rendering.
+ *
+ * Dependencies form a DAG (directed acyclic graph). Cycle detection is enforced on every
+ * add: a recursive CTE walks the existing transitive prerequisites of the proposed
+ * prerequisite to confirm the dependent task is not already reachable, rejecting the edge
+ * with 400 if a cycle would be created. All mutations require Canvas tab write access.
  */
 import { FastifyInstance } from 'fastify';
 import prisma from '../../db/client';
@@ -10,9 +15,11 @@ import { z } from 'zod';
 import { validate } from '../../utils/validate';
 import { TASK_INCLUDE, TASK_WHERE_ACTIVE } from './crud';
 
+// Validates the prerequisite task ID when creating a dependency edge
 const addDependencySchema = z.object({ prerequisiteId: z.string() });
 
 export async function dependencyRoutes(app: FastifyInstance) {
+  // Add a prerequisite edge from taskId ← prerequisiteId, with cycle detection
   app.post('/api/products/:productId/tasks/:taskId/dependencies', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -47,6 +54,7 @@ export async function dependencyRoutes(app: FastifyInstance) {
     }
   });
 
+  // Remove a prerequisite edge between two tasks
   app.delete('/api/products/:productId/tasks/:taskId/dependencies/:prerequisiteId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId, prerequisiteId } = req.params as { productId: string; taskId: string; prerequisiteId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;
@@ -59,6 +67,7 @@ export async function dependencyRoutes(app: FastifyInstance) {
     }
   });
 
+  // Return the full task dependency graph (nodes + edges) for canvas rendering
   app.get('/api/products/:productId/graph', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;

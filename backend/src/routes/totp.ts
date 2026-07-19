@@ -29,8 +29,11 @@ import { logAdminEvent } from '../utils/audit';
 import { z } from 'zod';
 import { sendSecurityAlert } from '../utils/security-alert';
 
+// Issuer label embedded in the TOTP URI (shown in authenticator app)
 const ISSUER = 'Planly';
+// Number of one-time backup codes generated when TOTP is confirmed
 const BACKUP_CODE_COUNT = 8;
+// JWT `type` claim expected in the short-lived MFA challenge token issued at login
 const MFA_TOKEN_TYPE = 'mfa_challenge';
 
 // Build an OTPAuth.TOTP instance for the given secret and user label

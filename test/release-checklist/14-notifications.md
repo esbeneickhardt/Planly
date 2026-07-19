@@ -62,12 +62,6 @@ curl -s -b alice-cookies.txt -X DELETE $BASE/api/notifications \
   -H "X-CSRF-Token: $ALICE_CSRF" | jq .
 ```
 
-- [ ] `GET /api/notifications` returns array of notification objects
-- [ ] `GET /api/notifications/unread-count` returns `{ count: N }`
-- [ ] `PATCH /api/notifications/read` marks specific notifications as read
-- [ ] `POST /api/notifications/read-all` marks all as read
-- [ ] `DELETE /api/notifications/:id` deletes one
-- [ ] `DELETE /api/notifications` deletes all
 
 ---
 

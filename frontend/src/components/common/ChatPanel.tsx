@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import { MermaidBlock } from './MermaidBlock';
 import { api, displayName } from '../../api/client';
 import type { Message, ConversationSummary, DirectMessage } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
@@ -837,7 +838,18 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
         {preview ? (
           <div className="min-h-[80px] max-h-40 overflow-y-auto px-3 py-2 rounded-lg mb-2 text-sm"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkBreaks]}
+              rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
+              components={{
+                pre: ({ children }: any) => <>{children}</>,
+                code: ({ className, children, ...props }: any) => {
+                  if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
+                  if (String(children).includes('\n')) return <pre><code className={className} {...props}>{children}</code></pre>;
+                  return <code className={className} {...props}>{children}</code>;
+                },
+              }}
+            >
               {draft || '*Nothing to preview*'}
             </ReactMarkdown>
           </div>

@@ -12,6 +12,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 
+// Validates the array of notification IDs to mark as read (must have at least one)
 const markReadSchema = z.object({ ids: z.array(z.string()).min(1) });
 
 export async function notificationRoutes(app: FastifyInstance) {

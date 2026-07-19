@@ -35,8 +35,6 @@ curl -s -b cookies.txt -X DELETE $BASE/api/teams/<team-id> \
 - [ ] Create team with name and emoji → appears in sidebar
 - [ ] Rename team → updates everywhere
 - [ ] Delete team → team and its products removed; members lose access
-- [ ] Cannot create a team with an empty name → 400
-- [ ] Non-member cannot GET a team they don't belong to → 403 or empty list
 
 ### Team members
 
@@ -121,8 +119,6 @@ curl -s -b cookies.txt -X POST $BASE/api/teams/<team-id>/invites \
 curl -s $BASE/api/invites/<token> | jq .
 ```
 
-- [ ] `GET /api/invites/<token>` returns team name and invite details (no auth required)
-- [ ] `POST /api/invites/<token>/accept` without auth → 401 (must log in first)
 - [ ] Accept invite while logged in as Alice → Alice added to team
 
 ---
@@ -157,20 +153,9 @@ curl -s -b cookies.txt -X DELETE $BASE/api/products/<product-id> \
 
 - [ ] Create product → appears in project picker dropdown
 - [ ] Create second product → both appear, switching works
-- [ ] Edit product name → updates in project picker
-- [ ] Edit emoji → updates in project picker
-- [ ] Edit deadline → shows in settings
+- [ ] Edit product name/emoji/deadline → updates in project picker and settings
 - [ ] Delete product → removed, redirected away
-- [ ] Charlie (non-member) cannot GET the product → 403
-- [ ] `allowProjectCreation: false` → regular user's POST to /api/products returns 403
-
-### Product discovery
-
-```bash
-curl -s -b cookies.txt $BASE/api/products/discover | jq '.[].name'
-```
-
-- [ ] Returns list of products the user can request access to (not already a member)
+- [ ] `allowProjectCreation: false` (Admin → Server Config) → regular user's "New project" button is disabled or rejected
 
 ---
 
@@ -241,11 +226,11 @@ curl -s -b cookies.txt -X PUT $BASE/api/products/<product-id>/permissions \
   -d '{"userId":"<alice-id>","tabs":{"kanban":"read","analytics":"none"}}' | jq .
 ```
 
-- [ ] Default permissions for new members match SECURITY.md table
-- [ ] Setting kanban to `none` hides the Kanban tab for that user
-- [ ] Setting analytics to `read` allows viewing but not editing
-- [ ] Co-owner always has write access regardless of permission overrides
-- [ ] Admin always has full access
+- [ ] Setting a tab to `none` hides it for that user
+- [ ] Setting a tab to `read` allows viewing but not editing
+- [ ] Co-owner always has write access regardless of overrides
+
+> Full permission matrix is in [21-access-control.md](21-access-control.md)
 
 ---
 

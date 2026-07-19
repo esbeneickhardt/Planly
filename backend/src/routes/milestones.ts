@@ -13,6 +13,7 @@ import { requireProductMember, requireTabRead } from '../utils/product-guard';
 import { safeDecryptValue } from '../utils/crypto';
 
 export async function milestoneRoutes(app: FastifyInstance) {
+  // Fetch milestones (tasks with deadlines) plus their transitive dependency progress for the Gantt view
   app.get('/api/products/:productId/milestones', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!await requireProductMember(productId, req.user.userId, reply)) return;

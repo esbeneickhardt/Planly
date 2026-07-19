@@ -13,20 +13,24 @@ import { requireAuth } from '../middleware/auth';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+// Formats a Date as an iCal UTC datetime string (e.g. 20260101T120000Z)
 function icalDate(d: Date): string {
   return d.toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z';
 }
 
+// Formats a Date as an iCal all-day date value (e.g. 20260101) with no time component
 function icalDateOnly(d: Date): string {
   return (d.toISOString().split('T')[0] ?? '').replace(/-/g, '');
 }
 
+// Returns a new Date advanced by exactly one UTC day (used for exclusive DTEND values)
 function addDay(d: Date): Date {
   const r = new Date(d);
   r.setUTCDate(r.getUTCDate() + 1);
   return r;
 }
 
+// Escapes special characters in iCal text fields per RFC 5545
 function esc(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 }

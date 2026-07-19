@@ -10,6 +10,7 @@ import { requireAdmin } from '../../middleware/auth';
 import prisma from '../../db/client';
 import { validate } from '../../utils/validate';
 
+// Validates the prune request — defaults to 90 days if olderThanDays is omitted
 const pruneLogsSchema = z.object({ olderThanDays: z.number().int().min(1).optional() });
 
 // Builds the Prisma where clause for log queries shared by GET and export routes
@@ -30,6 +31,7 @@ const ADMIN_NOTIF_ACTIONS = [
 ];
 
 export async function adminLogRoutes(app: FastifyInstance) {
+  // Paginated audit log query with optional action, from, and to filters
   app.get('/api/admin/logs', { preHandler: requireAdmin }, async (req, reply) => {
     const { limit = '50', cursor, action, from, to } = req.query as { limit?: string; cursor?: string; action?: string; from?: string; to?: string };
     const take = Math.min(parseInt(limit) || 50, 200);
@@ -41,6 +43,7 @@ export async function adminLogRoutes(app: FastifyInstance) {
     reply.send({ logs, nextCursor: logs.length === take ? (logs[logs.length - 1]?.id ?? null) : null });
   });
 
+  // Stream a full CSV or JSONL export of the audit log in batches (avoids loading the full table into memory)
   app.get('/api/admin/logs/export', { preHandler: requireAdmin }, async (req, reply) => {
     const { format = 'csv', action, from, to } = req.query as { format?: string; action?: string; from?: string; to?: string };
     const fmt = format === 'jsonl' ? 'jsonl' : 'csv';
@@ -80,6 +83,7 @@ export async function adminLogRoutes(app: FastifyInstance) {
     readable.push(null);
   });
 
+  // Return the latest high-severity audit events for the admin notification bell
   app.get('/api/admin/notifications', { preHandler: requireAdmin }, async (req, reply) => {
     const { limit = '30' } = req.query as { limit?: string };
     const take = Math.min(parseInt(limit), 100);
@@ -87,6 +91,7 @@ export async function adminLogRoutes(app: FastifyInstance) {
     reply.send({ entries });
   });
 
+  // Count high-severity audit events newer than a given timestamp (used for the notification badge)
   app.get('/api/admin/notifications/unread-count', { preHandler: requireAdmin }, async (req, reply) => {
     const { since } = req.query as { since?: string };
     if (!since) return reply.send({ count: 0 });
@@ -94,6 +99,7 @@ export async function adminLogRoutes(app: FastifyInstance) {
     reply.send({ count });
   });
 
+  // Permanently delete audit log entries older than the given threshold (founding admin only)
   app.delete('/api/admin/logs/prune', { preHandler: requireAdmin }, async (req, reply) => {
     const pruneBody = validate(pruneLogsSchema, req.body, reply);
     if (!pruneBody) return;

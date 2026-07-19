@@ -13,11 +13,15 @@ import prisma from '../../db/client';
 import { decryptMessageAuthor } from '../../utils/crypto';
 import { broadcast } from '../../realtime/manager';
 
+// Author fields included in admin-proxied project chat messages
 const ADMIN_MSG_AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true, isFoundingAdmin: true };
+// Role badge values an admin can claim when posting into a project chat via the admin panel
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
+// Message payload for the admin-proxy post-to-project-chat endpoint
 const adminMsgSendSchema = z.object({ content: z.string().min(1).max(10000), postedAsRole: z.enum(VALID_ROLES).nullable().optional() });
 
 export async function adminStatsRoutes(app: FastifyInstance) {
+  // List all active projects with owner details, member count, and task count for the admin dashboard
   app.get('/api/admin/projects', { preHandler: requireAdmin }, async (_req, reply) => {
     const products = await prisma.product.findMany({
       where: { deletedAt: null },
@@ -38,6 +42,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     })));
   });
 
+  // List soft-deleted projects so admins can review before hard-deleting or restoring
   app.get('/api/admin/projects/deleted', { preHandler: requireAdmin }, async (_req, reply) => {
     const products = await prisma.product.findMany({
       where: { deletedAt: { not: null } },
@@ -56,6 +61,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     })));
   });
 
+  // Restore a soft-deleted project by clearing its deletedAt timestamp
   app.post('/api/admin/products/:id/restore', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const product = await prisma.product.findUnique({ where: { id } });
@@ -110,6 +116,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     reply.status(201).send(decryptedMsg);
   });
 
+  // Return server-wide aggregate stats: all-time totals plus last-30-day new counts
   app.get('/api/admin/stats', { preHandler: requireAdmin }, async (_req, reply) => {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     // Run all six counts in parallel to minimise latency
