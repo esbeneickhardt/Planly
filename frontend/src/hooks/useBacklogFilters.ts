@@ -26,8 +26,12 @@ export interface BacklogFilters {
 }
 
 export function useBacklogFilters(tasks: Task[], userId: string | undefined): BacklogFilters {
-  // Filter + sort state
-  const [sortKey, setSortKey] = useState<SortKey>('oldest');
+  // Filter + sort state (sort preference persisted to localStorage)
+  const [sortKey, setSortKeyRaw] = useState<SortKey>(() => {
+    const s = localStorage.getItem('planly_backlog_sort') as SortKey | null;
+    return s && ['oldest', 'newest', 'alpha', 'unassigned', 'deadline'].includes(s) ? s : 'oldest';
+  });
+  const setSortKey = (k: SortKey) => { setSortKeyRaw(k); try { localStorage.setItem('planly_backlog_sort', k); } catch {} };
   const [statusTab, setStatusTab] = useState<StatusTab>('backlog');
   const [mineOnly, setMineOnly] = useState(false);
   const [search, setSearch] = useState('');

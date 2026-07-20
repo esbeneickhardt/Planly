@@ -87,12 +87,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const activeAdminMode = adminMode && !!user?.isAdmin;
 
   function handleToggleAdmin() {
+    const isProjectTab = TAB_ROUTES.some((r) => location.pathname.startsWith(r.path));
     if (activeAdminMode) {
       setAdminMode(false);
-      navigate('/kanban');
+      if (location.pathname === '/admin') navigate('/kanban');
+      // neutral pages (announcements, about, settings…) — stay put
     } else {
       setAdminMode(true);
-      navigate('/admin');
+      if (isProjectTab) navigate('/admin');
+      // neutral pages — stay put
     }
   }
 

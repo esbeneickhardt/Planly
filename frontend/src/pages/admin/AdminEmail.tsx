@@ -365,6 +365,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
             onChange={(v) => act(async () => {
               await api.admin.updateServerConfig({ announcementsEnabled: v });
               setServerConfig((c) => c ? { ...c, announcementsEnabled: v } : c);
+              await refreshUser();
               showToast(`Announcement wall ${v ? 'enabled' : 'disabled'}`, 'success');
             })}
           />

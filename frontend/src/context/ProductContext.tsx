@@ -46,8 +46,10 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
   const refreshTasks = useCallback(async () => {
     if (!activeProduct) return;
+    console.log('[RT] refreshTasks called');
     const ts = await api.tasks.list(activeProduct.id);
     if (!Array.isArray(ts)) return;
+    console.log('[RT] setTasks with', ts.length, 'tasks');
     setTasks(ts);
     setTasksLoaded(true);
   }, [activeProduct]);
@@ -62,10 +64,11 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  // Realtime: refresh task list on any task-related WS event
+  // Realtime: refresh task list on task events and on reconnect (to catch up on missed broadcasts)
   useRealtimeUpdates(activeProduct?.id, useCallback((e) => {
     if (e.event === 'task.created' || e.event === 'task.updated' || e.event === 'task.deleted' ||
-        e.event === 'task.status_changed' || e.event === 'task.assigned') {
+        e.event === 'task.status_changed' || e.event === 'task.assigned' ||
+        e.event === 'ws.reconnected') {
       refreshTasks();
     }
   }, [refreshTasks]));

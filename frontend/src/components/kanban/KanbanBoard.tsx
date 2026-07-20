@@ -56,7 +56,9 @@ export default function KanbanBoard() {
   const users = useProductMembers(activeProduct?.teamId);
   const { sprints, refresh: refreshSprints } = useSprints(activeProduct?.id);
   const [compact, setCompact] = useState(() => localStorage.getItem('planly_kanban_compact') === '1');
-  const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>({ key: 'status', dir: 1 });
+  const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>(() => {
+    try { const s = localStorage.getItem('planly_kanban_sort'); return s ? JSON.parse(s) : { key: 'status', dir: 1 }; } catch { return { key: 'status', dir: 1 }; }
+  });
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [showBgPicker, setShowBgPicker] = useState(false);
@@ -261,10 +263,20 @@ export default function KanbanBoard() {
 
     let newColumnTasks: Task[];
     if (overTask && overTask.id !== taskId) {
-      // Dropped on a specific task - insert at its position
+      // Dropped on a specific task
       const peers = sorted(targetStatusKey);
       const insertAt = peers.findIndex((t) => t.id === overTask.id);
-      peers.splice(insertAt === -1 ? peers.length : insertAt, 0, task);
+      if (!statusChanged) {
+        // Same-column reorder: insert AFTER the target when moving down, BEFORE when moving up.
+        // Without this, dragging the top card onto a lower card inserts it before the target —
+        // which produces no visible change when there are only two tasks (e.g. [A,B] → [A,B]).
+        const col = tasks.filter((t) => t.status === task.status).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
+        const movingDown = col.findIndex((t) => t.id === taskId) < col.findIndex((t) => t.id === overTask.id);
+        peers.splice(movingDown ? insertAt + 1 : insertAt, 0, task);
+      } else {
+        // Cross-column: insert at the target's position (before it)
+        peers.splice(insertAt === -1 ? peers.length : insertAt, 0, task);
+      }
       newColumnTasks = peers;
     } else if (!statusChanged) {
       // Same-column drop on the column droppable - move to end
@@ -612,7 +624,11 @@ export default function KanbanBoard() {
           const active = compactSort.key === k;
           return (
             <button
-              onClick={() => setCompactSort((prev) => prev.key === k ? { key: k, dir: (prev.dir * -1) as 1 | -1 } : { key: k, dir: 1 })}
+              onClick={() => setCompactSort((prev) => {
+                const next = prev.key === k ? { key: k, dir: (prev.dir * -1) as 1 | -1 } : { key: k, dir: 1 as const };
+                try { localStorage.setItem('planly_kanban_sort', JSON.stringify(next)); } catch {}
+                return next;
+              })}
               className="flex items-center gap-1 text-left"
               style={{ color: active ? 'var(--brand)' : 'var(--text-3)', fontWeight: active ? 600 : 400 }}
             >
