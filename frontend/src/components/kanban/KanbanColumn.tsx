@@ -70,7 +70,10 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
   // Column UI state
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(column.label);
-  const [sortMode, setSortMode] = useState<SortMode>('default');
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    const saved = localStorage.getItem(`planly-col-sort-${column.id}`) as SortMode | null;
+    return saved && SORT_CYCLE.includes(saved) ? saved : 'default';
+  });
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
@@ -192,7 +195,7 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
                     <button
                       key={mode}
                       onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => { setSortMode(mode); setShowSortMenu(false); }}
+                      onClick={() => { setSortMode(mode); try { localStorage.setItem(`planly-col-sort-${column.id}`, mode); } catch {} setShowSortMenu(false); }}
                       className="w-full text-left px-3 py-1.5 text-xs transition-colors"
                       style={{
                         color: sortMode === mode ? column.color : 'var(--text-2)',
@@ -228,7 +231,7 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
               <span className="text-[10px]" style={{ color: column.color }}>↕ {SORT_LABELS[sortMode]}</span>
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setSortMode('default')}
+                onClick={() => { setSortMode('default'); try { localStorage.removeItem(`planly-col-sort-${column.id}`); } catch {} }}
                 className="text-[10px] underline"
                 style={{ color: 'var(--text-3)' }}
               >

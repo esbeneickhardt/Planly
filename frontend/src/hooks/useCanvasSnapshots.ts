@@ -17,6 +17,7 @@ interface CanvasPatch {
   viewport?: { x: number; y: number; zoom: number };
   viewMode?: ViewMode;
   simpleMode?: boolean;
+  positions?: Record<string, { x: number; y: number }>;
 }
 
 interface Options {
@@ -25,7 +26,6 @@ interface Options {
   getViewport: () => { x: number; y: number; zoom: number };
   setViewport: (vp: { x: number; y: number; zoom: number }) => void;
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
-  patchTaskPositions: (updates: { taskId: string; canvasX: number; canvasY: number }[]) => void;
   viewMode: ViewMode;
   simpleMode: boolean;
   setViewMode: (mode: ViewMode) => void;
@@ -36,7 +36,7 @@ interface Options {
 
 export function useCanvasSnapshots({
   activeProduct, nodes, getViewport, setViewport, setNodes,
-  patchTaskPositions, viewMode, simpleMode, setViewMode, setSimpleMode, save, showToast,
+  viewMode, simpleMode, setViewMode, setSimpleMode, save, showToast,
 }: Options) {
   // State
   const [showShareModal, setShowShareModal] = useState(false);
@@ -85,15 +85,13 @@ export function useCanvasSnapshots({
       const pos = snap.positions[n.id];
       return pos ? { ...n, position: pos } : n;
     }));
-    const updates = Object.entries(snap.positions)
-      .filter(([id]) => !id.startsWith('product-'))
-      .map(([taskId, { x, y }]) => ({ taskId, canvasX: x, canvasY: y }));
-    patchTaskPositions(updates);
     const { x, y, zoom } = snap.viewport as { x: number; y: number; zoom: number };
     setViewport({ x, y, zoom });
     const snapVp = snap.viewport as { viewMode?: ViewMode; simpleMode?: boolean };
-    if (snapVp.viewMode) { setViewMode(snapVp.viewMode); save({ viewport: { x, y, zoom }, viewMode: snapVp.viewMode }); }
-    else { save({ viewport: { x, y, zoom } }); }
+    // Persist snapshot positions to localStorage so this user's canvas restores correctly on reload
+    const patch: CanvasPatch = { viewport: { x, y, zoom }, positions: snap.positions };
+    if (snapVp.viewMode) { setViewMode(snapVp.viewMode); patch.viewMode = snapVp.viewMode; }
+    save(patch);
     if (snapVp.simpleMode !== undefined) setSimpleMode(snapVp.simpleMode);
     setShowLoadModal(false);
     showToast(`Layout "${snap.name}" applied`, 'success');

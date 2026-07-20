@@ -59,6 +59,7 @@ export type EmailStatus = {
 export type IpRule = {
   id: string;
   cidr: string;
+  listType: string;
   description: string | null;
   createdAt: string;
 };

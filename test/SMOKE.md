@@ -22,26 +22,26 @@ Wait 20 seconds, open [http://localhost](http://localhost).
 | Alice | alice@test.local | alice | Regular member |
 | Charlie | charlie@test.local | charlie | Outsider — never invited |
 
-- [ ] Admin → shield 🛡 visible in top bar
-- [ ] Alice in a second browser window → no shield
-- [ ] Charlie in a third window → no shield
+- [X] Admin → shield 🛡 visible in top bar
+- [X] Alice in a second browser window → no shield
+- [X] Charlie in a third window → no shield
 
 ### Create a project and invite Alice
 
 Log in as Admin:
 
-- [ ] **+ New project** → name it "Alpha" → Create
-- [ ] Settings → Team → invite `alice@test.local`
-- [ ] Alice accepts in her window → "Alpha" appears in her project picker
+- [X] **+ New project** → name it "Alpha" → Create
+- [X] Settings → Team → invite `alice@test.local`
+- [X] Alice accepts in her window → "Alpha" appears in her project picker
 
 ---
 
 ## 2. Admin mode (3 min)
 
-- [ ] Click the shield 🛡 → nav icons turn purple, admin tabs appear in the center nav
-- [ ] Navigate to Announcements while in admin mode → mode badge shows "🛡 Server Admins"
-- [ ] Click shield again → returns to `/kanban`, icons return to normal
-- [ ] Navigate to `/admin` as Alice → silently redirected to `/kanban`
+- [X] Click the shield 🛡 → nav icons turn purple, admin tabs appear in the center nav
+- [X] Navigate to Announcements while in admin mode → mode badge shows "🛡 Server Admins"
+- [X] Click shield again → returns to `/kanban`, icons return to normal
+- [X] Navigate to `/admin` as Alice → silently redirected to `/kanban`
 
 ---
 
@@ -49,19 +49,19 @@ Log in as Admin:
 
 Open Admin and Alice **side-by-side** on the Kanban board of Alpha:
 
-- [ ] Admin creates a task → appears in Alice's board instantly (no reload)
-- [ ] Admin drags the task to another column → Alice sees it move
-- [ ] Alice edits the task name → Admin sees the update
-- [ ] Admin deletes a task → disappears from Alice's board
-- [ ] Close and reopen Alice's browser tab → reconnects and board is up to date
+- [X] Admin creates a task → appears in Alice's board instantly (no reload)
+- [X] Admin drags the task to another column → Alice sees it move
+- [X] Alice edits the task name → Admin sees the update
+- [X] Admin deletes a task → disappears from Alice's board
+- [X] Close and reopen Alice's browser tab → reconnects and board is up to date
 
 ---
 
 ## 4. Drag and drop (2 min)
 
-- [ ] Drag a card between columns → status changes, persists on reload
-- [ ] Drag to reorder within a column → order persists on reload
-- [ ] Drag a column header to reorder columns → order persists on reload
+- [X] Drag a card between columns → status changes, persists on reload
+- [X] Drag to reorder within a column → order persists on reload
+- [X] Drag a column header to reorder columns → order persists on reload
 
 ---
 

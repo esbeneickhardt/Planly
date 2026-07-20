@@ -48,6 +48,8 @@ interface CanvasState {
   showSprintAura?: boolean;
   simpleMode?: boolean;
   productNodePosition?: { x: number; y: number };
+  // Per-user task positions — never shared across users; each user arranges their own canvas
+  positions?: Record<string, { x: number; y: number }>;
 }
 
 function loadState(id: string): CanvasState {
@@ -78,6 +80,7 @@ function buildGraph(
   sprintColorsMap: Map<string, string[]>,
   productNodePos?: { x: number; y: number },
   columnLabelMap?: Map<string, string>,
+  localPositions: Record<string, { x: number; y: number }> = {},
 ) {
   const nodeIds = new Set(tasks.map((t) => t.id));
   const nodes: Node[] = [];
@@ -95,7 +98,7 @@ function buildGraph(
     nodes.push({
       id: t.id,
       type: 'task',
-      position: { x: t.canvasX ?? 0, y: t.canvasY ?? 0 },
+      position: localPositions[t.id] ?? { x: t.canvasX ?? 0, y: t.canvasY ?? 0 },
       data: {
         ...t,
         selectedSprintId: sprintCheckbox?.sprintId ?? null,
@@ -174,7 +177,7 @@ function getAncestorIds(taskIds: string[], allTasks: Task[]): Set<string> {
 
 // ─── Main canvas ──────────────────────────────────────────────────────────────
 function CanvasInner() {
-  const { activeProduct, tasks, tasksLoaded, refreshTasks, patchTaskPositions } = useProduct();
+  const { activeProduct, tasks, tasksLoaded, refreshTasks } = useProduct();
   const { user: currentUser } = useAuth();
   const { canWrite } = usePermission();
   const canWriteCanvas = canWrite('canvas');
@@ -246,7 +249,7 @@ function CanvasInner() {
     deleteSnapshot,
   } = useCanvasSnapshots({
     activeProduct, nodes, getViewport, setViewport, setNodes,
-    patchTaskPositions, viewMode, simpleMode, setViewMode, setSimpleMode, save, showToast,
+    viewMode, simpleMode, setViewMode, setSimpleMode, save, showToast,
   });
 
   // Load persisted state on product change
@@ -347,13 +350,16 @@ function CanvasInner() {
   useEffect(() => {
     if (!activeProduct) return;
 
+    // Per-user positions stored in localStorage — read fresh on every effect run
+    const lp = loadState(activeProduct.id).positions ?? {};
+
     const sprintCheckbox = selectedSprintFilter
       ? { sprintId: selectedSprintFilter, taskIds: localSprintMemberIds }
       : null;
     const auraCols = showSprintAura ? sprintColorsMap : new Map<string, string[]>();
 
     const savedProductPos = loadState(activeProduct.id).productNodePosition;
-    const { nodes: n, edges: e } = buildGraph(filteredTasks, activeProduct, productConnectionsRef.current, sprintCheckbox, auraCols, savedProductPos, columnLabelMap);
+    const { nodes: n, edges: e } = buildGraph(filteredTasks, activeProduct, productConnectionsRef.current, sprintCheckbox, auraCols, savedProductPos, columnLabelMap, lp);
     setEdges(e);
 
     if (initializedRef.current !== activeProduct.id) {
@@ -367,27 +373,24 @@ function CanvasInner() {
       }
 
       initializedRef.current = activeProduct.id;
-      const unpositioned = filteredTasks.filter((t) => t.canvasX == null);
+      // A task is "unpositioned" only if it has neither a local nor a DB position
+      const unpositioned = filteredTasks.filter((t) => !lp[t.id] && t.canvasX == null);
       const allUnpositioned = unpositioned.length === filteredTasks.length && filteredTasks.length > 0;
 
+      // Helper: save computed positions to localStorage (per-user, no API call)
+      const savePositions = (nodes: { id: string; position: { x: number; y: number } }[]) => {
+        const next = { ...lp };
+        nodes.filter((nd) => !nd.id.startsWith('product-')).forEach((nd) => { next[nd.id] = { x: nd.position.x, y: nd.position.y }; });
+        patchState(activeProduct.id, { positions: next });
+      };
+
       if (allUnpositioned) {
-        // First time on a fresh board - auto-layout once and persist positions
+        // First time on a fresh board — auto-layout once and persist to localStorage
         const laid = runAutoLayout(n, e);
         setNodes(laid);
-        const allUpdates = laid
-          .filter((node) => !node.id.startsWith('product-'))
-          .map((node) => ({ taskId: node.id, canvasX: node.position.x, canvasY: node.position.y }));
-        patchTaskPositions(allUpdates);
-        allUpdates.forEach(async ({ taskId, canvasX, canvasY }) => {
-          await fetch(`/api/products/${activeProduct.id}/tasks/${taskId}/position`, {
-            method: 'PATCH', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ x: canvasX, y: canvasY }),
-          });
-        });
+        savePositions(laid);
       } else if (unpositioned.length > 0) {
-        // Some tasks lack positions (created outside canvas): auto-layout the unpositioned
-        // ones relative to the existing cluster rather than stacking at (0,0).
+        // Some tasks lack positions (created outside canvas): place them beside the existing cluster
         const positioned = n.filter((nd) => !unpositioned.find((t) => t.id === nd.id) && !nd.id.startsWith('product-'));
         const maxX = positioned.length > 0 ? Math.max(...positioned.map((nd) => nd.position.x)) : 0;
         const midY = positioned.length > 0 ? positioned.reduce((s, nd) => s + nd.position.y, 0) / positioned.length : 200;
@@ -399,39 +402,18 @@ function CanvasInner() {
           return { ...node, position: pos };
         });
         setNodes(laid);
-        const newUpdates = unpositioned
-          .map((task) => {
-            const node = laid.find((nd) => nd.id === task.id);
-            return node ? { taskId: task.id, canvasX: node.position.x, canvasY: node.position.y } : null;
-          })
-          .filter(Boolean) as { taskId: string; canvasX: number; canvasY: number }[];
-        patchTaskPositions(newUpdates);
-        newUpdates.forEach(async ({ taskId, canvasX, canvasY }) => {
-          await fetch(`/api/products/${activeProduct.id}/tasks/${taskId}/position`, {
-            method: 'PATCH', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ x: canvasX, y: canvasY }),
-          });
-        });
+        savePositions(laid);
       } else {
-        // First visit for this user/browser: no saved viewport → run auto-layout once for a clean first impression
+        // All tasks have positions (local or DB). On first visit with no local positions,
+        // run auto-layout for a clean initial arrangement; otherwise restore what's stored.
+        const hasLocalPositions = Object.keys(lp).length > 0;
         const hasVisited = !!loadState(activeProduct.id).viewport;
-        if (!hasVisited && filteredTasks.length > 0) {
+        if (!hasVisited && !hasLocalPositions && filteredTasks.length > 0) {
           const laid = runAutoLayout(n, e);
           setNodes(laid);
-          const updates = laid
-            .filter((nd) => !nd.id.startsWith('product-'))
-            .map((nd) => ({ taskId: nd.id, canvasX: nd.position.x, canvasY: nd.position.y }));
           const productNode = laid.find((nd) => nd.id.startsWith('product-'));
           if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
-          patchTaskPositions(updates);
-          updates.forEach(async ({ taskId, canvasX, canvasY }) => {
-            await fetch(`/api/products/${activeProduct.id}/tasks/${taskId}/position`, {
-              method: 'PATCH', credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ x: canvasX, y: canvasY }),
-            });
-          });
+          savePositions(laid);
         } else {
           setNodes(n);
         }
@@ -448,6 +430,7 @@ function CanvasInner() {
         setLayoutReady(true);
       }, 80);
     } else {
+      // Post-init: real-time update — preserve node positions, refresh task data only
       setLayoutReady(true);
       setNodes((curr) => {
         const byId = new Map(curr.map((nd) => [nd.id, nd]));
@@ -501,22 +484,12 @@ function CanvasInner() {
       const prod = activeProduct;
       const laid = runAutoLayout(nodes, edges);
       setNodes(laid);
-      const updates = laid
-        .filter((nd) => !nd.id.startsWith('product-'))
-        .map((nd) => ({ taskId: nd.id, canvasX: nd.position.x, canvasY: nd.position.y }));
-      // Save product node position so it persists across reloads
       const productNode = laid.find((nd) => nd.id.startsWith('product-'));
       if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
-      // Sync in-memory cache so next tab-switch sees the new positions
-      patchTaskPositions(updates);
-      // Persist to DB
-      updates.forEach(async ({ taskId, canvasX, canvasY }) => {
-        await fetch(`/api/products/${prod.id}/tasks/${taskId}/position`, {
-          method: 'PATCH', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ x: canvasX, y: canvasY }),
-        });
-      });
+      // Persist per-user positions to localStorage (no API call — layout is personal)
+      const newLp: Record<string, { x: number; y: number }> = { ...(loadState(prod.id).positions ?? {}) };
+      laid.filter((nd) => !nd.id.startsWith('product-')).forEach((nd) => { newLp[nd.id] = { x: nd.position.x, y: nd.position.y }; });
+      patchState(prod.id, { positions: newLp });
       // Fit the new layout and immediately save the resulting viewport to localStorage
       // (fitView bypasses d3-zoom so onMoveEnd never fires - we must save manually)
       setTimeout(() => {
@@ -654,20 +627,16 @@ function CanvasInner() {
     if (taskNodes.length > 0) await refreshTasks();
   }, [activeProduct, refreshTasks, showToast]);
 
-  const onNodeDragStop = useCallback(async (_: React.MouseEvent, node: Node) => {
-    if (!activeProduct || (!canWriteCanvas && !node.id.startsWith('product-'))) return;
+  const onNodeDragStop = useCallback((_: React.MouseEvent, node: Node) => {
+    if (!activeProduct) return;
     if (node.id.startsWith('product-')) {
       save({ productNodePosition: { x: node.position.x, y: node.position.y } });
       return;
     }
     const { x, y } = node.position;
-    // Update the in-memory task cache so tab switches see the correct position
-    patchTaskPositions([{ taskId: node.id, canvasX: x, canvasY: y }]);
-    await fetch(`/api/products/${activeProduct.id}/tasks/${node.id}/position`, {
-      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ x, y }),
-    });
-  }, [activeProduct, patchTaskPositions]); // eslint-disable-line react-hooks/exhaustive-deps
+    const curr = loadState(activeProduct.id).positions ?? {};
+    patchState(activeProduct.id, { positions: { ...curr, [node.id]: { x, y } } });
+  }, [activeProduct]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
