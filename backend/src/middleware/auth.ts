@@ -158,18 +158,17 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
 
   // Admin-scope IP restriction — always exempt the management endpoints so admins can never
   // lock themselves out of the controls needed to fix a misconfiguration
-  const url = req.routeOptions?.url ?? req.url.split('?')[0] ?? '';
-  if (!url.startsWith('/api/admin/admin-ip-restrictions')) {
-    const cfg = await prisma.serverConfig.findUnique({ where: { id: 'main' }, select: { adminIpRestrictionMode: true } });
-    const mode = cfg?.adminIpRestrictionMode ?? 'disabled';
-    if (mode !== 'disabled') {
-      const ip = getClientIp(req as never);
-      if (!isLocalhost(ip)) {
-        const rules = await prisma.adminIpRestriction.findMany({ select: { cidr: true } });
-        const matches = rules.some((r) => matchesCidr(ip, r.cidr));
-        if (mode === 'allowlist' && !matches) return reply.status(403).send({ error: 'Admin access denied: your IP is not on the admin allowlist.', code: 'ADMIN_IP_BLOCKED' });
-        if (mode === 'blocklist' && matches)  return reply.status(403).send({ error: 'Admin access denied: your IP has been blocked from admin access.', code: 'ADMIN_IP_BLOCKED' });
-      }
+  const ip = getClientIp(req as never);
+  if (!isLocalhost(ip)) {
+    const [allowlist, blocklist] = await Promise.all([
+      prisma.adminIpRestriction.findMany({ where: { listType: 'allowlist' }, select: { cidr: true } }),
+      prisma.adminIpRestriction.findMany({ where: { listType: 'blocklist' }, select: { cidr: true } }),
+    ]);
+    if (blocklist.some((r) => matchesCidr(ip, r.cidr))) {
+      return reply.status(403).send({ error: 'Admin access denied: your IP has been blocked.', code: 'ADMIN_IP_BLOCKED' });
+    }
+    if (allowlist.length > 0 && !allowlist.some((r) => matchesCidr(ip, r.cidr))) {
+      return reply.status(403).send({ error: 'Admin access denied: your IP is not on the admin allowlist.', code: 'ADMIN_IP_BLOCKED' });
     }
   }
 }

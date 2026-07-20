@@ -40,6 +40,7 @@ export function useRealtimeUpdates(
     let destroyed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectDelay = 1000;
+    let connectCount = 0;
 
     function connect() {
       if (destroyed) return;
@@ -49,6 +50,7 @@ export function useRealtimeUpdates(
         try {
           const parsed = JSON.parse(ev.data) as RealtimeEvent;
           if (parsed.event !== 'connected') {
+            console.log('[WS] event received:', parsed.event);
             onEventRef.current(parsed);
           }
         } catch {}
@@ -68,6 +70,11 @@ export function useRealtimeUpdates(
 
       ws.onopen = () => {
         reconnectDelay = 1000;
+        // On reconnect (not first connect) fire a synthetic event so callers can refresh missed data
+        if (connectCount > 0) {
+          onEventRef.current({ event: 'ws.reconnected' });
+        }
+        connectCount++;
       };
     }
 

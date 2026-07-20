@@ -87,6 +87,7 @@ import { seedRoutes } from './routes/seed';
 import prisma from './db/client';
 import bcrypt from 'bcryptjs';
 import { randomBytes, randomUUID } from 'crypto';
+import jwt from 'jsonwebtoken';
 
 // Ensures a server admin account exists for ADMIN_EMAIL; creates one on first start, restores 
 // the isAdmin flag if it was revoked
@@ -282,23 +283,38 @@ async function main() {
   app.addHook('preHandler', async (req, reply) => {
     // Never block the management endpoint itself (so admins can always fix config)
     if (req.url.startsWith('/api/admin/ip-restrictions')) return;
-
-    const config = await prisma.serverConfig.findUnique({ where: { id: 'main' }, select: { ipRestrictionMode: true } });
-    const mode = config?.ipRestrictionMode ?? 'disabled';
-    if (mode === 'disabled') return;
+    // Allow login/logout so admins can get a session cookie; the admin bypass below
+    // then exempts them on all subsequent requests. /api/auth/me and all other auth
+    // endpoints are intentionally NOT exempt so non-admins can't slip through.
+    if (req.url.startsWith('/api/auth/login') || req.url.startsWith('/api/auth/logout')) return;
 
     const ip = getClientIp(req as never);
-    // Always allow localhost / container-internal traffic
     if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return;
 
-    const rules = await prisma.ipRestriction.findMany({ select: { cidr: true } });
-    const matches = rules.some((r) => matchesCidr(ip, r.cidr));
-
-    if (mode === 'allowlist' && !matches) {
-      return reply.status(403).send({ error: 'Access denied: your IP address is not on the allowlist.', code: 'IP_BLOCKED' });
+    // Admins/server owners are governed by the separate admin IP rules, not these.
+    const cookieToken = req.cookies?.token;
+    if (cookieToken) {
+      try {
+        const payload = jwt.verify(cookieToken, config.jwtSecret, { algorithms: ['HS256'] }) as { userId?: string };
+        if (payload.userId) {
+          const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { isAdmin: true } });
+          if (user?.isAdmin) return;
+        }
+      } catch { /* invalid / expired token — apply IP rules */ }
     }
-    if (mode === 'blocklist' && matches) {
+
+    const [allowlist, blocklist] = await Promise.all([
+      prisma.ipRestriction.findMany({ where: { listType: 'allowlist' }, select: { cidr: true } }),
+      prisma.ipRestriction.findMany({ where: { listType: 'blocklist' }, select: { cidr: true } }),
+    ]);
+
+    // Blocklist takes precedence over allowlist
+    if (blocklist.some((r) => matchesCidr(ip, r.cidr))) {
       return reply.status(403).send({ error: 'Access denied: your IP address has been blocked.', code: 'IP_BLOCKED' });
+    }
+    // If an allowlist exists, the IP must be on it
+    if (allowlist.length > 0 && !allowlist.some((r) => matchesCidr(ip, r.cidr))) {
+      return reply.status(403).send({ error: 'Access denied: your IP address is not on the allowlist.', code: 'IP_BLOCKED' });
     }
   });
 

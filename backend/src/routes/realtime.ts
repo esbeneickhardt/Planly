@@ -115,8 +115,13 @@ export async function realtimeRoutes(app: FastifyInstance) {
     joinRoom(productId, ws, userId);
     ws.send(JSON.stringify({ event: 'connected', data: { productId } }));
 
+    // Ping every 25 s to keep the connection alive through nginx's proxy_read_timeout
+    const heartbeat = setInterval(() => {
+      if (ws.readyState === 1 /* OPEN */) ws.ping();
+    }, 25000);
+
     // Clean up on disconnect or error
-    ws.on('close', () => leaveRoom(productId, ws, userId));
-    ws.on('error', () => leaveRoom(productId, ws, userId));
+    ws.on('close', () => { clearInterval(heartbeat); leaveRoom(productId, ws, userId); });
+    ws.on('error', () => { clearInterval(heartbeat); leaveRoom(productId, ws, userId); });
   });
 }

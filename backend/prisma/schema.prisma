@@ -532,16 +532,22 @@ model ServerConfig {
 
 model IpRestriction {
   id          String   @id @default(uuid())
-  cidr        String   @unique
+  cidr        String
+  listType    String   @default("allowlist")
   description String?
   createdAt   DateTime @default(now())
+
+  @@unique([cidr, listType])
 }
 
 model AdminIpRestriction {
   id          String   @id @default(uuid())
-  cidr        String   @unique
+  cidr        String
+  listType    String   @default("allowlist")
   description String?
   createdAt   DateTime @default(now())
+
+  @@unique([cidr, listType])
 }
 
 // ── Announcements (server-wide) ───────────────────────────────────────────────
