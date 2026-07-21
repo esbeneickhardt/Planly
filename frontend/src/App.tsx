@@ -34,6 +34,7 @@ const GanttPage        = lazy(() => import('./pages/GanttPage'));
 const SettingsPage     = lazy(() => import('./pages/SettingsPage'));
 const AnalyticsPage    = lazy(() => import('./pages/AnalyticsPage'));
 const AboutPage        = lazy(() => import('./pages/AboutPage'));
+const ProjectAboutPage = lazy(() => import('./pages/ProjectAboutPage'));
 const AdminPage        = lazy(() => import('./pages/AdminPage'));
 const AnnouncementsPage = lazy(() => import('./pages/AnnouncementsPage'));
 
@@ -130,6 +131,7 @@ export default function App() {
                               <Route path="/gantt"         element={<RequireTab tab="gantt"><PageBoundary><GanttPage /></PageBoundary></RequireTab>} />
                               <Route path="/analytics"     element={<PageBoundary><AnalyticsPage /></PageBoundary>} />
                               <Route path="/about"         element={<PageBoundary><AboutPage /></PageBoundary>} />
+                              <Route path="/project/:productId/about" element={<PageBoundary><ProjectAboutPage /></PageBoundary>} />
                               <Route path="/admin"         element={<PageBoundary><AdminPage /></PageBoundary>} />
                               <Route path="/announcements" element={<PageBoundary><AnnouncementsPage /></PageBoundary>} />
                               <Route path="/categories"    element={<Navigate to="/settings" replace />} />

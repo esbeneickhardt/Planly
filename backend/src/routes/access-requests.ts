@@ -34,6 +34,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
         id: true,
         name: true,
         emoji: true,
+        description: true,
         team: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },

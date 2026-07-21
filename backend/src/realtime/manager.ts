@@ -17,6 +17,26 @@ const rooms = new Map<string, Set<WebSocket>>();
 const userConnections = new Map<string, Set<WebSocket>>();
 
 const MAX_CONNECTIONS_PER_USER = 10;
+
+// Per-IP WebSocket connection rate limiter.
+// Limits how many new WS upgrade attempts a single IP can make per minute,
+// preventing a storm of cheap connections from monopolising the upgrade handler
+// even when the per-user cap (MAX_CONNECTIONS_PER_USER) would otherwise allow it.
+const _wsRateMap = new Map<string, { count: number; resetAt: number }>();
+const WS_RATE_MAX = 30;      // new connections per IP per window
+const WS_RATE_WINDOW = 60_000; // 1-minute sliding window
+
+/** Returns true when the IP is within rate limit, false when the limit is exceeded. */
+export function checkWsRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const state = _wsRateMap.get(ip);
+  if (!state || now > state.resetAt) {
+    _wsRateMap.set(ip, { count: 1, resetAt: now + WS_RATE_WINDOW });
+    return true;
+  }
+  state.count += 1;
+  return state.count <= WS_RATE_MAX;
+}
 const CHANNEL_PREFIX = 'planly:room:';
 
 // Redis pub/sub - only active when REDIS_URL is set (opt-in for horizontal scaling)

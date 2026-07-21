@@ -5,9 +5,10 @@ interface Props {
   children: ReactNode;
   side?: 'top' | 'bottom' | 'left' | 'right';
   delay?: number;
+  className?: string;
 }
 
-export default function Tooltip({ content, children, side = 'top', delay = 350 }: Props) {
+export default function Tooltip({ content, children, side = 'top', delay = 350, className }: Props) {
   const [visible, setVisible] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -26,7 +27,7 @@ export default function Tooltip({ content, children, side = 'top', delay = 350 }
                         { left: '100%',   top: '50%',  transform: 'translateY(-50%)', marginLeft: 6 };
 
   return (
-    <div className="relative inline-flex" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
+    <div className={className ?? 'relative inline-flex'} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
       {children}
       {visible && (
         <div

@@ -24,6 +24,7 @@ import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { config } from '../config/env';
 import { issueAuthCookie } from '../utils/auth-cookie';
+import { issueRefreshToken } from '../utils/refresh-tokens';
 import { decryptUserPii } from '../utils/crypto';
 import { logAdminEvent } from '../utils/audit';
 import { z } from 'zod';
@@ -215,7 +216,7 @@ export async function totpRoutes(app: FastifyInstance) {
     const token = jwt.sign(
       { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
       config.jwtSecret,
-      { expiresIn: '7d' },
+      { expiresIn: '1h' },
     );
 
     // Log successful TOTP login in the audit trail
@@ -223,7 +224,8 @@ export async function totpRoutes(app: FastifyInstance) {
       data: { action: 'LOGIN_TOTP', actorName: user.username, targetName: user.username },
     }).catch(() => {});
 
-    issueAuthCookie(reply, token);
+    const rt = await issueRefreshToken(user.id);
+    issueAuthCookie(reply, token, rt);
     reply.send(decryptUserPii({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified }));
   });
 

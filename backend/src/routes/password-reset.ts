@@ -16,6 +16,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
 import { config } from '../config/env';
 import { issueAuthCookie } from '../utils/auth-cookie';
+import { issueRefreshToken } from '../utils/refresh-tokens';
 import { sendEmail, emailEnabled, getSmtpSettings, resetPasswordEmail, verifyEmailTemplate } from '../utils/email';
 import { requireAuth } from '../middleware/auth';
 import { logAdminEvent } from '../utils/audit';
@@ -193,9 +194,10 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const token = jwt.sign(
       { userId: user.id, username: user.username, tokenVersion: updated.tokenVersion },
       config.jwtSecret,
-      { expiresIn: '7d' },
+      { expiresIn: '1h' },
     );
-    issueAuthCookie(reply, token);
+    const rt = await issueRefreshToken(user.id);
+    issueAuthCookie(reply, token, rt);
     reply.send({ ok: true });
   });
 

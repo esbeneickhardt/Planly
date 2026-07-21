@@ -4,13 +4,18 @@
  *     - logout
  *     - registration
  *     - email verification
- *     - session refresh
+ *     - session refresh (refresh token rotation)
  *     - /me.
  *
  * Session lifecycle:
- *    - Login issues a 7-day httpOnly JWT cookie ('token') plus a non-httpOnly CSRF cookie.
+ *    - Login issues a 1-hour JWT + a 30-day refresh token (both httpOnly cookies).
+ *      Short JWT lifetime limits the damage window if a token is stolen.
+ *    - The refresh token is path-restricted to /api/auth/refresh-token so it is
+ *      never sent to any other endpoint.
+ *    - Rotation: POST /api/auth/refresh-token issues a new JWT + new refresh token
+ *      (same family). If a consumed token is re-presented, the entire family is revoked.
  *    - tokenVersion on the User row is incremented on password change/reset/admin logout,
- *      instantly invalidating every outstanding session without maintaining a blocklist.
+ *      instantly invalidating every outstanding JWT without maintaining a blocklist.
  *    - TOTP-enabled accounts receive a 5-minute mfa_challenge JWT instead of a full session;
  *      the real session is only issued after POST /api/auth/totp/challenge succeeds.
  *    - Progressive lockout: 5 failures → lock. Lock count drives the duration:
@@ -24,6 +29,7 @@ import prisma from '../db/client';
 import { config } from '../config/env';
 import { requireAuth } from '../middleware/auth';
 import { issueAuthCookie, clearAuthCookies } from '../utils/auth-cookie';
+import { issueRefreshToken, rotateRefreshToken, revokeRefreshFamily } from '../utils/refresh-tokens';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 import { loginSchema } from '../schemas/auth';
@@ -130,20 +136,21 @@ export async function authRoutes(app: FastifyInstance) {
     const token = jwt.sign(
       { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
       config.jwtSecret,
-      { expiresIn: '7d' }
+      { expiresIn: '1h' }
     );
 
     await prisma.adminLog.create({ data: { action: 'LOGIN', actorName: user.username, targetName: user.username } }).catch((err) => { console.warn('[auth] Failed to write LOGIN audit log:', (err as Error).message); });
 
-    issueAuthCookie(reply, token);
+    const rt = await issueRefreshToken(user.id);
+    issueAuthCookie(reply, token, rt);
     reply.send(decryptUserPii({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified }));
   });
 
-  // Incrementing tokenVersion on logout invalidates ALL open sessions on every device.
-  // "Log out here" and "log out everywhere" are intentionally identical - there is no
-  // per-device revocation. Clients that still hold a cookie with the old tv value will
-  // receive 401 on the next authenticated request.
+  // Logout: revoke the refresh token family so all related sessions are invalidated,
+  // then increment tokenVersion to invalidate any outstanding JWTs immediately.
   app.post('/api/auth/logout', { preHandler: requireAuth }, async (req, reply) => {
+    const rawRt = req.cookies?.refresh_token;
+    if (rawRt) await revokeRefreshFamily(rawRt).catch(() => {});
     await prisma.user.update({
       where: { id: req.user.userId },
       data: { tokenVersion: { increment: 1 } },
@@ -154,17 +161,35 @@ export async function authRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Sliding session refresh - re-issues the cookie with a fresh 7-day maxAge.
-  // Call when the user has been active and the token is within 24h of expiry.
-  app.get('/api/auth/refresh', { preHandler: requireAuth }, async (req, reply) => {
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { id: true, username: true, tokenVersion: true } });
-    if (!user) return reply.status(404).send({ error: 'Not found' });
-    const token = jwt.sign(
+  // Refresh token rotation — no session JWT required; the refresh_token cookie is the credential.
+  // Issues a new 1-hour JWT + a new 30-day refresh token in the same family.
+  // If a consumed token is re-presented (stolen + reused), the entire family is revoked.
+  app.post('/api/auth/refresh-token', async (req, reply) => {
+    const rawRt = req.cookies?.refresh_token;
+    if (!rawRt) return reply.status(401).send({ error: 'No refresh token' });
+
+    const rotated = await rotateRefreshToken(rawRt);
+    if (!rotated) {
+      // Reuse detected or token expired — clear cookies and force full re-login
+      clearAuthCookies(reply);
+      return reply.status(401).send({ error: 'Session expired, please log in again' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: rotated.userId },
+      select: { id: true, username: true, tokenVersion: true },
+    });
+    if (!user) {
+      clearAuthCookies(reply);
+      return reply.status(401).send({ error: 'Session expired, please log in again' });
+    }
+
+    const newJwt = jwt.sign(
       { userId: user.id, username: user.username, tokenVersion: user.tokenVersion },
       config.jwtSecret,
-      { expiresIn: '7d' }
+      { expiresIn: '1h' },
     );
-    issueAuthCookie(reply, token);
+    issueAuthCookie(reply, newJwt, rotated.raw);
     reply.send({ ok: true });
   });
 

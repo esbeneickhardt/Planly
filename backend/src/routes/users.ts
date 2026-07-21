@@ -139,6 +139,39 @@ export async function userRoutes(app: FastifyInstance) {
     reply.status(201).send(decryptUserPii(user));
   });
 
+  // Public user profile — returns display info + projects shared with the requesting user
+  app.get('/api/users/:id/profile', { preHandler: requireAuth }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, username: true, realName: true, avatarEmoji: true },
+    });
+    if (!user) return reply.status(404).send({ error: 'Not found' });
+
+    // Find all teams the target user belongs to
+    const targetMemberships = await prisma.teamMember.findMany({
+      where: { userId: id },
+      select: { teamId: true, role: true },
+    });
+    const targetTeamMap = Object.fromEntries(targetMemberships.map((m) => [m.teamId, m.role]));
+
+    const products = await prisma.product.findMany({
+      where: { deletedAt: null, teamId: { in: Object.keys(targetTeamMap) } },
+      select: { id: true, name: true, emoji: true, ownerId: true, teamId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    reply.send({
+      ...decryptUserPii(user),
+      projects: products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        emoji: p.emoji,
+        role: p.ownerId === id ? 'owner' : (targetTeamMap[p.teamId] ?? 'member'),
+      })),
+    });
+  });
+
   // Get own profile (full fields) or another user's public profile
   app.get('/api/users/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };

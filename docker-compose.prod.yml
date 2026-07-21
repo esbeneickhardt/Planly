@@ -121,6 +121,34 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ── Certificate expiry alerting ───────────────────────────────────────────
+  # Checks the Let's Encrypt cert expiry once per day and fires SECURITY_ALERT_WEBHOOK_URL
+  # if the cert will expire within 14 days (configurable via CERT_WARN_DAYS).
+  # Works with Slack, Discord, or any JSON POST webhook.
+  cert-checker:
+    image: python:3.12-alpine
+    restart: unless-stopped
+    entrypoint: >
+      sh -c "
+        apk add --no-cache curl openssl 2>/dev/null
+        while true; do
+          sh /scripts/check-cert.sh
+          sleep 86400
+        done
+      "
+    volumes:
+      - letsencrypt_data:/letsencrypt:ro
+      - ./scripts:/scripts:ro
+    environment:
+      DOMAIN: ${DOMAIN}
+      SECURITY_ALERT_WEBHOOK_URL: ${SECURITY_ALERT_WEBHOOK_URL:-}
+      CERT_WARN_DAYS: ${CERT_WARN_DAYS:-14}
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
 volumes:
   db_data:
   uploads_data:

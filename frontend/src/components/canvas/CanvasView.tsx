@@ -1,22 +1,21 @@
 /**
  * ReactFlow-based dependency canvas that visualises tasks and their prerequisite relationships as a directed graph.
+ * Pure graph utilities live in canvasUtils.ts; sprint state lives in useCanvasSprints.ts.
  * `buildGraph` converts tasks to nodes+edges; `runAutoLayout` arranges them with dagre LR layout.
  * All view options (viewMode, simpleMode, sprint filter, viewport) are persisted per product to localStorage via `loadState`/`patchState`.
  */
-import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   Background, Controls, MiniMap, Node, Edge, addEdge,
   useNodesState, useEdgesState, Connection, BackgroundVariant,
   ReactFlowProvider, Panel, useReactFlow, MarkerType,
 } from 'reactflow';
-import dagre from '@dagrejs/dagre';
 import 'reactflow/dist/style.css';
 import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useToast } from '../../context/ToastContext';
 import { api, displayName } from '../../api/client';
-import type { Sprint } from '../../api/client';
 import type { Task } from '../../types';
 import TaskNode from './nodes/TaskNode';
 import ProductNode from './nodes/ProductNode';
@@ -24,156 +23,18 @@ import TaskDetailPanel from '../common/TaskDetailPanel';
 import Modal from '../common/Modal';
 import LegendModal from './LegendModal';
 import { useCanvasSnapshots } from '../../hooks/useCanvasSnapshots';
+import { useCanvasSprints } from './useCanvasSprints';
+import {
+  CanvasContext, STATUS_OPTIONS, SPRINT_PALETTE,
+  loadState, patchState, buildGraph, runAutoLayout, getAncestorIds,
+} from './canvasUtils';
+import type { ViewMode, CanvasState, CtxMenu } from './canvasUtils';
 
-// ─── Sprint colour palette ────────────────────────────────────────────────────
-const SPRINT_PALETTE = [
-  '#7c3aed', '#3b82f6', '#10b981', '#f59e0b',
-  '#ef4444', '#ec4899', '#06b6d4', '#f97316',
-];
-
-// ─── Canvas context ───────────────────────────────────────────────────────────
-interface CanvasCtx { showSprintAura: boolean; simpleMode: boolean; }
-export const CanvasContext = createContext<CanvasCtx>({ showSprintAura: false, simpleMode: false });
-
-// ─── Persistence ──────────────────────────────────────────────────────────────
-type ViewMode = 'all' | 'active' | 'milestones' | 'sprint';
-
-interface CanvasState {
-  viewport?: { x: number; y: number; zoom: number };
-  viewMode?: ViewMode;
-  statusFilter?: string | null;
-  selectedSprintFilter?: string | null;
-  selectedMilestoneIds?: string[];
-  autoLayoutEnabled?: boolean;
-  showSprintAura?: boolean;
-  simpleMode?: boolean;
-  productNodePosition?: { x: number; y: number };
-  // Per-user task positions — never shared across users; each user arranges their own canvas
-  positions?: Record<string, { x: number; y: number }>;
-}
-
-function loadState(id: string): CanvasState {
-  try { return JSON.parse(localStorage.getItem(`planly-canvas-${id}`) ?? '{}'); } catch { return {}; }
-}
-function patchState(id: string, p: Partial<CanvasState>) {
-  try { localStorage.setItem(`planly-canvas-${id}`, JSON.stringify({ ...loadState(id), ...p })); } catch {}
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// nodeTypes must be defined outside the component to avoid ReactFlow re-mounting nodes on every render
 const nodeTypes = { task: TaskNode, product: ProductNode };
 
-interface CtxMenu { x: number; y: number; type: 'edge' | 'node'; edgeId?: string; srcId?: string; tgtId?: string; taskId?: string; }
-
-const STATUS_OPTIONS = [
-  { key: 'backlog',     label: 'Not started',  color: '#64748b' },
-  { key: 'todo',        label: 'To Do',        color: '#3b82f6' },
-  { key: 'in_progress', label: 'In Progress',  color: '#f59e0b' },
-  { key: 'blocked',     label: 'Blocked',      color: '#ef4444' },
-  { key: 'done',        label: 'Done',         color: '#10b981' },
-];
-
-function buildGraph(
-  tasks: Task[],
-  product: { id: string; name: string; emoji?: string; deadline: string },
-  productConnections: Set<string>,
-  sprintCheckbox: { sprintId: string; taskIds: Set<string> } | null,
-  sprintColorsMap: Map<string, string[]>,
-  productNodePos?: { x: number; y: number },
-  columnLabelMap?: Map<string, string>,
-  localPositions: Record<string, { x: number; y: number }> = {},
-) {
-  const nodeIds = new Set(tasks.map((t) => t.id));
-  const nodes: Node[] = [];
-  const edges: Edge[] = [];
-
-  nodes.push({
-    id: `product-${product.id}`,
-    type: 'product',
-    position: productNodePos ?? { x: 900, y: 300 },
-    data: { name: product.name, emoji: product.emoji, deadline: product.deadline },
-    deletable: false,
-  });
-
-  tasks.forEach((t) => {
-    nodes.push({
-      id: t.id,
-      type: 'task',
-      position: localPositions[t.id] ?? { x: t.canvasX ?? 0, y: t.canvasY ?? 0 },
-      data: {
-        ...t,
-        selectedSprintId: sprintCheckbox?.sprintId ?? null,
-        inActiveSprint: sprintCheckbox ? sprintCheckbox.taskIds.has(t.id) : false,
-        sprintColors: sprintColorsMap.get(t.id) ?? [],
-        statusLabel: columnLabelMap?.get(t.status),
-      },
-    });
-    t.dependsOn.forEach((dep) => {
-      if (!nodeIds.has(dep.prerequisiteId)) return; // source not in visible set
-      edges.push({
-        id: `${dep.prerequisiteId}->${t.id}`,
-        source: dep.prerequisiteId,
-        target: t.id,
-        type: 'smoothstep',
-        animated: t.status === 'in_progress',
-        style: { stroke: 'var(--border-2)', strokeWidth: 2 },
-        markerEnd: { type: MarkerType.Arrow, width: 16, height: 16, color: 'var(--border-2)' },
-      });
-    });
-  });
-
-  productConnections.forEach((taskId) => {
-    if (nodeIds.has(taskId)) {
-      edges.push({
-        id: `${taskId}->product-${product.id}`,
-        source: taskId,
-        target: `product-${product.id}`,
-        type: 'smoothstep',
-        style: { stroke: 'var(--brand)', strokeWidth: 2, strokeDasharray: '5 3' },
-        markerEnd: { type: MarkerType.Arrow, width: 16, height: 16, color: 'var(--brand)' },
-      });
-    }
-  });
-
-  return { nodes, edges };
-}
-
-// Sugiyama layered layout via dagre (left-to-right, ranked by dependency depth).
-// dagre returns centre coordinates; React Flow nodes are top-left anchored, so we
-// subtract half the node dimensions (100, 40) to convert.
-// The product-deadline node is placed to the right of all task nodes, centred
-// vertically, because it has no dagre rank of its own (no outgoing edges).
-function runAutoLayout(nodes: Node[], edges: Edge[]): Node[] {
-  const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', ranksep: 120, nodesep: 70 });
-  nodes.forEach((n) => g.setNode(n.id, { width: 200, height: 80 }));
-  edges.forEach((e) => g.setEdge(e.source, e.target));
-  dagre.layout(g);
-  const laid = nodes.map((n) => {
-    const pos = g.node(n.id);
-    return { ...n, position: { x: pos.x - 100, y: pos.y - 40 } };
-  });
-  const nonProduct = laid.filter((n) => !n.id.startsWith('product-'));
-  if (nonProduct.length > 0) {
-    const maxRight = Math.max(...nonProduct.map((n) => n.position.x + 200));
-    const midY = nonProduct.reduce((s, n) => s + n.position.y, 0) / nonProduct.length;
-    return laid.map((n) => n.id.startsWith('product-') ? { ...n, position: { x: maxRight + 80, y: midY - 40 } } : n);
-  }
-  return laid;
-}
-
-function getAncestorIds(taskIds: string[], allTasks: Task[]): Set<string> {
-  const result = new Set<string>();
-  const queue = [...taskIds];
-  while (queue.length) {
-    const id = queue.shift()!;
-    const task = allTasks.find((t) => t.id === id);
-    if (!task) continue;
-    for (const dep of task.dependsOn) {
-      if (!result.has(dep.prerequisiteId)) { result.add(dep.prerequisiteId); queue.push(dep.prerequisiteId); }
-    }
-  }
-  return result;
-}
+// Re-export CanvasContext so existing imports from this file keep working
+export { CanvasContext };
 
 // ─── Main canvas ──────────────────────────────────────────────────────────────
 function CanvasInner() {
@@ -208,21 +69,9 @@ function CanvasInner() {
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
   const [showDisplayDropdown, setShowDisplayDropdown] = useState(false);
   const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
-  const [showSprintPicker, setShowSprintPicker] = useState(false);
-  const [showNewSprint, setShowNewSprint] = useState(false);
-  const [sprintForm, setSprintForm] = useState({ name: '', startDate: '', endDate: '', color: SPRINT_PALETTE[0] });
-  const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
-  const [editSprintForm, setEditSprintForm] = useState({ name: '', color: SPRINT_PALETTE[0] });
 
   // Columns (for label resolution of custom statusKeys)
   const [columnLabelMap, setColumnLabelMap] = useState<Map<string, string>>(new Map());
-
-  // Sprints
-  const [sprints, setSprints] = useState<Sprint[]>([]);
-
-  // Sprint membership is optimistic: toggled in state immediately, then synced async to the backend
-  const [localSprintMemberIds, setLocalSprintMemberIds] = useState<Set<string>>(new Set());
-  const sprintInitRef = useRef<string | null>(null);
 
   const [layoutReady, setLayoutReady] = useState(false);
   const [connectionsVersion, setConnectionsVersion] = useState(0);
@@ -234,7 +83,40 @@ function CanvasInner() {
   // Always-current ref so onNodeClick never reads stale sprint state from a closure
   const sprintClickRef = useRef<{ filter: string | null; toggle: (id: string) => Promise<void> }>({ filter: null, toggle: async () => {} });
 
-  const save = (p: Partial<CanvasState>) => { const prod = activeProductRef.current; if (prod) patchState(prod.id, p); };
+  const save = (p: Partial<CanvasState>) => {
+    const prod = activeProductRef.current;
+    if (prod) patchState(prod.id, p);
+  };
+
+  // Persist-aware setters
+  const setViewModeSave = (v: ViewMode) => { setViewMode(v); save({ viewMode: v }); };
+  const setStatusFilterSave = (v: string | null) => { setStatusFilter(v); save({ statusFilter: v }); };
+  const setSprintFilterSave = (v: string | null) => { setSelectedSprintFilter(v); save({ selectedSprintFilter: v }); };
+  const setMilestoneIdsSave = (v: string[]) => { setSelectedMilestoneIds(v); save({ selectedMilestoneIds: v }); };
+  const setSprintAuraSave = (v: boolean) => { setShowSprintAura(v); save({ showSprintAura: v }); };
+  const setSimpleModeSave = (v: boolean) => { setSimpleMode(v); save({ simpleMode: v }); };
+
+  // ── Sprint management (extracted hook) ────────────────────────────────────
+  const {
+    sprints,
+    localSprintMemberIds,
+    showSprintPicker, setShowSprintPicker,
+    showNewSprint, setShowNewSprint,
+    sprintForm, setSprintForm,
+    editingSprint, setEditingSprint,
+    editSprintForm, setEditSprintForm,
+    loadSprints,
+    toggleSprintMembership,
+    handleCreateSprint,
+    handleEditSprint,
+    deleteSprint,
+  } = useCanvasSprints({
+    activeProductId: activeProduct?.id,
+    selectedSprintFilter,
+    canWriteCanvas,
+    onSetSprintFilter: setSprintFilterSave,
+    onSetViewMode: setViewModeSave,
+  });
 
   const {
     showShareModal, setShowShareModal,
@@ -256,7 +138,6 @@ function CanvasInner() {
   useEffect(() => {
     if (!activeProduct) return;
     initializedRef.current = null;
-    sprintInitRef.current = null;
     setLayoutReady(false);
     productConnectionsRef.current = new Set();
     const s = loadState(activeProduct.id);
@@ -275,21 +156,7 @@ function CanvasInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync local sprint membership when sprint selection or loaded sprint data changes
-  useEffect(() => {
-    if (!selectedSprintFilter) { setLocalSprintMemberIds(new Set()); sprintInitRef.current = null; return; }
-    const sprint = sprints.find((s) => s.id === selectedSprintFilter);
-    if (sprint && sprintInitRef.current !== selectedSprintFilter) {
-      setLocalSprintMemberIds(new Set(sprint.taskIds));
-      sprintInitRef.current = selectedSprintFilter;
-    }
-  }, [selectedSprintFilter, sprints]);
-
-  // Load sprints + product connections
-  async function loadSprints() {
-    if (!activeProduct) return;
-    setSprints(await api.sprints.list(activeProduct.id).catch(() => [] as Sprint[]));
-  }
+  // Load sprints + product connections + column labels
   async function loadConnections() {
     if (!activeProduct) return;
     productConnectionsRef.current = new Set(await api.connections.list(activeProduct.id).catch(() => []));
@@ -316,68 +183,43 @@ function CanvasInner() {
     return map;
   }, [sortedSprints]);
 
-  // Milestone tasks
   const milestoneTasks = useMemo(() => tasks.filter((t) => !!t.deadline), [tasks]);
 
-  // Filtered task set
   const filteredTasks = useMemo(() => {
     let base = tasks;
-
-    if (viewMode === 'active') {
-      base = base.filter((t) => t.status !== 'done');
-    } else if (viewMode === 'milestones') {
-      base = base.filter((t) => !!t.deadline);
-    }
-    // sprint mode shows ALL tasks - checkboxes on each node handle assignment
-
+    if (viewMode === 'active') base = base.filter((t) => t.status !== 'done');
+    else if (viewMode === 'milestones') base = base.filter((t) => !!t.deadline);
     if (statusFilter) base = base.filter((t) => t.status === statusFilter);
-
-    // Milestone focus: selected milestone(s) + their full dependency chain + tasks with no edges at all
     if (selectedMilestoneIds.length > 0) {
       const ancestors = getAncestorIds(selectedMilestoneIds, tasks);
       const allPrerequisiteIds = new Set(tasks.flatMap((t) => t.dependsOn.map((d) => d.prerequisiteId)));
       base = base.filter((t) =>
         selectedMilestoneIds.includes(t.id) ||
         ancestors.has(t.id) ||
-        (t.dependsOn.length === 0 && !allPrerequisiteIds.has(t.id))
+        (t.dependsOn.length === 0 && !allPrerequisiteIds.has(t.id)),
       );
     }
-
     return base;
   }, [tasks, viewMode, statusFilter, selectedSprintFilter, selectedMilestoneIds, sprints]);
 
   // Build + layout nodes
   useEffect(() => {
     if (!activeProduct) return;
-
-    // Per-user positions stored in localStorage — read fresh on every effect run
     const lp = loadState(activeProduct.id).positions ?? {};
-
     const sprintCheckbox = selectedSprintFilter
       ? { sprintId: selectedSprintFilter, taskIds: localSprintMemberIds }
       : null;
     const auraCols = showSprintAura ? sprintColorsMap : new Map<string, string[]>();
-
     const savedProductPos = loadState(activeProduct.id).productNodePosition;
     const { nodes: n, edges: e } = buildGraph(filteredTasks, activeProduct, productConnectionsRef.current, sprintCheckbox, auraCols, savedProductPos, columnLabelMap, lp);
     setEdges(e);
 
     if (initializedRef.current !== activeProduct.id) {
-      // Wait until tasks have been fetched before locking in initialization.
-      // Without this guard, the effect fires with an empty task list (tasks still
-      // loading), locks initializedRef, and subsequent task arrivals hit the
-      // merge branch - leaving every node at position (0,0).
-      if (!tasksLoaded) {
-        setNodes(n); // show the product node while loading
-        return;
-      }
-
+      if (!tasksLoaded) { setNodes(n); return; }
       initializedRef.current = activeProduct.id;
-      // A task is "unpositioned" only if it has neither a local nor a DB position
       const unpositioned = filteredTasks.filter((t) => !lp[t.id] && t.canvasX == null);
       const allUnpositioned = unpositioned.length === filteredTasks.length && filteredTasks.length > 0;
 
-      // Helper: save computed positions to localStorage (per-user, no API call)
       const savePositions = (nodes: { id: string; position: { x: number; y: number } }[]) => {
         const next = { ...lp };
         nodes.filter((nd) => !nd.id.startsWith('product-')).forEach((nd) => { next[nd.id] = { x: nd.position.x, y: nd.position.y }; });
@@ -385,12 +227,10 @@ function CanvasInner() {
       };
 
       if (allUnpositioned) {
-        // First time on a fresh board — auto-layout once and persist to localStorage
         const laid = runAutoLayout(n, e);
         setNodes(laid);
         savePositions(laid);
       } else if (unpositioned.length > 0) {
-        // Some tasks lack positions (created outside canvas): place them beside the existing cluster
         const positioned = n.filter((nd) => !unpositioned.find((t) => t.id === nd.id) && !nd.id.startsWith('product-'));
         const maxX = positioned.length > 0 ? Math.max(...positioned.map((nd) => nd.position.x)) : 0;
         const midY = positioned.length > 0 ? positioned.reduce((s, nd) => s + nd.position.y, 0) / positioned.length : 200;
@@ -404,8 +244,6 @@ function CanvasInner() {
         setNodes(laid);
         savePositions(laid);
       } else {
-        // All tasks have positions (local or DB). On first visit with no local positions,
-        // run auto-layout for a clean initial arrangement; otherwise restore what's stored.
         const hasLocalPositions = Object.keys(lp).length > 0;
         const hasVisited = !!loadState(activeProduct.id).viewport;
         if (!hasVisited && !hasLocalPositions && filteredTasks.length > 0) {
@@ -424,13 +262,11 @@ function CanvasInner() {
         if (vp) setViewport(vp);
         else {
           fitView({ padding: 0.2 });
-          // Save viewport so subsequent visits restore this fit-view instead of re-layout
           setTimeout(() => save({ viewport: getViewport() }), 60);
         }
         setLayoutReady(true);
       }, 80);
     } else {
-      // Post-init: real-time update — preserve node positions, refresh task data only
       setLayoutReady(true);
       setNodes((curr) => {
         const byId = new Map(curr.map((nd) => [nd.id, nd]));
@@ -440,43 +276,9 @@ function CanvasInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredTasks, activeProduct, autoLayoutEnabled, sprints, selectedSprintFilter, showSprintAura, sprintColorsMap, localSprintMemberIds, tasksLoaded, connectionsVersion, columnLabelMap]);
 
-  // Sprint membership toggle - optimistic: updates local Set immediately, syncs to backend async
-  const toggleSprintMembership = useCallback(async (taskId: string) => {
-    if (!activeProduct || !selectedSprintFilter || !canWriteCanvas) return;
-    const isIn = localSprintMemberIds.has(taskId);
-    // Synchronous optimistic update
-    setLocalSprintMemberIds((prev) => {
-      const next = new Set(prev);
-      if (isIn) next.delete(taskId); else next.add(taskId);
-      return next;
-    });
-    try {
-      if (isIn) {
-        await api.sprints.removeTask(activeProduct.id, selectedSprintFilter, taskId);
-        setSprints((prev) => prev.map((s) => s.id === selectedSprintFilter ? { ...s, taskIds: s.taskIds.filter((id) => id !== taskId) } : s));
-      } else {
-        await api.sprints.addTasks(activeProduct.id, selectedSprintFilter, [taskId]);
-        setSprints((prev) => prev.map((s) => s.id === selectedSprintFilter ? { ...s, taskIds: [...s.taskIds, taskId] } : s));
-      }
-    } catch (err) {
-      // Revert on failure
-      setLocalSprintMemberIds((prev) => {
-        const next = new Set(prev);
-        if (isIn) next.add(taskId); else next.delete(taskId);
-        return next;
-      });
-      showToast((err as Error).message, 'error');
-    }
-  }, [activeProduct, selectedSprintFilter, localSprintMemberIds, showToast]);
-
-  // Keep ref current so onNodeClick always reads latest values without stale closures
+  // Keep ref current so onNodeClick always reads latest sprint state without stale closures
   sprintClickRef.current = { filter: selectedSprintFilter, toggle: toggleSprintMembership };
 
-  // Setters that also persist
-  const setViewModeSave = (v: ViewMode) => { setViewMode(v); save({ viewMode: v }); };
-  const setStatusFilterSave = (v: string | null) => { setStatusFilter(v); save({ statusFilter: v }); };
-  const setSprintFilterSave = (v: string | null) => { setSelectedSprintFilter(v); save({ selectedSprintFilter: v }); };
-  const setMilestoneIdsSave = (v: string[]) => { setSelectedMilestoneIds(v); save({ selectedMilestoneIds: v }); };
   const setAutoLayoutSave = (v: boolean) => {
     setAutoLayoutEnabled(v);
     save({ autoLayoutEnabled: v });
@@ -486,20 +288,12 @@ function CanvasInner() {
       setNodes(laid);
       const productNode = laid.find((nd) => nd.id.startsWith('product-'));
       if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
-      // Persist per-user positions to localStorage (no API call — layout is personal)
       const newLp: Record<string, { x: number; y: number }> = { ...(loadState(prod.id).positions ?? {}) };
       laid.filter((nd) => !nd.id.startsWith('product-')).forEach((nd) => { newLp[nd.id] = { x: nd.position.x, y: nd.position.y }; });
       patchState(prod.id, { positions: newLp });
-      // Fit the new layout and immediately save the resulting viewport to localStorage
-      // (fitView bypasses d3-zoom so onMoveEnd never fires - we must save manually)
-      setTimeout(() => {
-        fitView({ padding: 0.15 });
-        save({ viewport: getViewport() });
-      }, 50);
+      setTimeout(() => { fitView({ padding: 0.15 }); save({ viewport: getViewport() }); }, 50);
     }
   };
-  const setSprintAuraSave = (v: boolean) => { setShowSprintAura(v); save({ showSprintAura: v }); };
-  const setSimpleModeSave = (v: boolean) => { setSimpleMode(v); save({ simpleMode: v }); };
 
   // ReactFlow callbacks
   const onPaneClick = useCallback(() => {
@@ -508,7 +302,7 @@ function CanvasInner() {
     setShowDisplayDropdown(false);
     setShowLayoutDropdown(false);
     setShowSprintPicker(false);
-  }, []);
+  }, [setShowSprintPicker]);
 
   const onCanvasDoubleClick = useCallback((e: React.MouseEvent) => {
     if (!canWriteCanvas) return;
@@ -538,12 +332,12 @@ function CanvasInner() {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prerequisiteId: src }),
       });
-      if (!res.ok) { const b = await res.json(); throw new Error(b.error ?? 'Failed'); }
+      if (!res.ok) { const b = await res.json() as { error?: string }; throw new Error(b.error ?? 'Failed'); }
       const isIP = tasks.find((t) => t.id === tgt)?.status === 'in_progress';
       setEdges((eds) => addEdge({ ...connection, id: `${src}->${tgt}`, type: 'smoothstep', animated: isIP, style: { stroke: 'var(--border-2)', strokeWidth: 2 }, markerEnd: { type: MarkerType.Arrow, width: 16, height: 16, color: 'var(--border-2)' } }, eds));
       await refreshTasks();
     } catch (err) { showToast((err as Error).message, 'error'); }
-  }, [activeProduct, setEdges, refreshTasks, tasks, showToast]);
+  }, [activeProduct, setEdges, refreshTasks, tasks, showToast, canWriteCanvas]);
 
   const onEdgeContextMenu = useCallback((e: React.MouseEvent, edge: Edge) => {
     e.preventDefault();
@@ -591,7 +385,7 @@ function CanvasInner() {
         if (res.ok) await refreshTasks();
       }
     }
-  }, [activeProduct, refreshTasks]);
+  }, [activeProduct, refreshTasks, canWriteCanvas]);
 
   async function quickSetStatus(taskId: string, status: string) {
     if (!activeProduct || !canWriteCanvas) return;
@@ -603,10 +397,9 @@ function CanvasInner() {
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setCtxMenu(null);
     if (node.id.startsWith('product-')) return;
-    // In sub-plan-filter mode a click toggles membership; otherwise just select the node
     const { filter, toggle } = sprintClickRef.current;
     if (filter) toggle(node.id);
-  }, []); // stable reference - sprint state always fresh via sprintClickRef
+  }, []);
 
   const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
     if (node.id.startsWith('product-')) return;
@@ -618,21 +411,15 @@ function CanvasInner() {
     if (!activeProduct || !canWriteCanvas) return;
     const taskNodes = deleted.filter((n) => !n.id.startsWith('product-'));
     for (const node of taskNodes) {
-      try {
-        await api.tasks.delete(activeProduct.id, node.id);
-      } catch (err) {
-        showToast((err as Error).message, 'error');
-      }
+      try { await api.tasks.delete(activeProduct.id, node.id); }
+      catch (err) { showToast((err as Error).message, 'error'); }
     }
     if (taskNodes.length > 0) await refreshTasks();
-  }, [activeProduct, refreshTasks, showToast]);
+  }, [activeProduct, refreshTasks, showToast, canWriteCanvas]);
 
   const onNodeDragStop = useCallback((_: React.MouseEvent, node: Node) => {
     if (!activeProduct) return;
-    if (node.id.startsWith('product-')) {
-      save({ productNodePosition: { x: node.position.x, y: node.position.y } });
-      return;
-    }
+    if (node.id.startsWith('product-')) { save({ productNodePosition: { x: node.position.x, y: node.position.y } }); return; }
     const { x, y } = node.position;
     const curr = loadState(activeProduct.id).positions ?? {};
     patchState(activeProduct.id, { positions: { ...curr, [node.id]: { x, y } } });
@@ -644,10 +431,8 @@ function CanvasInner() {
     setCreating(true);
     try {
       let canvasX: number, canvasY: number;
-      if (newTaskPos) {
-        canvasX = newTaskPos.x;
-        canvasY = newTaskPos.y;
-      } else {
+      if (newTaskPos) { canvasX = newTaskPos.x; canvasY = newTaskPos.y; }
+      else {
         const vp = getViewport();
         canvasX = Math.round((-vp.x + window.innerWidth / 2) / vp.zoom) - 100;
         canvasY = Math.round((-vp.y + window.innerHeight / 2) / vp.zoom) - 40;
@@ -656,41 +441,6 @@ function CanvasInner() {
       await refreshTasks();
       setNewTaskName(''); setNewTaskPos(null); setShowNewTask(false);
     } finally { setCreating(false); }
-  }
-
-  async function handleEditSprint(e: React.FormEvent) {
-    e.preventDefault();
-    if (!activeProduct || !editingSprint) return;
-    try {
-      const updated = await api.sprints.update(activeProduct.id, editingSprint.id, { name: editSprintForm.name, color: editSprintForm.color });
-      setSprints((prev) => prev.map((s) => s.id === updated.id ? { ...updated, taskIds: s.taskIds } : s));
-      setEditingSprint(null);
-      showToast(`Sub-plan updated`, 'success');
-    } catch (err) { showToast((err as Error).message, 'error'); }
-  }
-
-  async function handleCreateSprint(e: React.FormEvent) {
-    e.preventDefault();
-    if (!activeProduct) return;
-    try {
-      const s = await api.sprints.create(activeProduct.id, { name: sprintForm.name, startDate: sprintForm.startDate, endDate: sprintForm.endDate, color: sprintForm.color });
-      setSprints((prev) => {
-        const next = [...prev, s].sort((a, b) => a.startDate.localeCompare(b.startDate));
-        const nextColor = SPRINT_PALETTE[next.length % SPRINT_PALETTE.length];
-        setSprintForm({ name: '', startDate: '', endDate: '', color: nextColor });
-        return next;
-      });
-      setShowNewSprint(false);
-      showToast(`Sub-plan "${s.name}" created`, 'success');
-    } catch (err) { showToast((err as Error).message, 'error'); }
-  }
-
-  async function deleteSprint(sprintId: string) {
-    if (!activeProduct) return;
-    await api.sprints.delete(activeProduct.id, sprintId).catch(() => {});
-    setSprints((prev) => prev.filter((s) => s.id !== sprintId));
-    if (selectedSprintFilter === sprintId) setSprintFilterSave(null);
-    showToast('Sprint deleted', 'info');
   }
 
   if (!activeProduct) {
@@ -706,7 +456,6 @@ function CanvasInner() {
   const ctxTask = ctxMenu?.type === 'node' && ctxMenu.taskId ? tasks.find((t) => t.id === ctxMenu.taskId) : null;
   const activeSprint = sortedSprints.find((s) => s.id === selectedSprintFilter);
 
-  // Style helpers
   const chip = (active: boolean, accentColor?: string) => ({
     background: active ? (accentColor ? `${accentColor}20` : 'var(--brand-subtle)') : 'var(--surface)',
     color: active ? (accentColor ?? 'var(--brand)') : 'var(--text-3)',
@@ -749,17 +498,12 @@ function CanvasInner() {
               {/* Row 1 - view mode segmented control */}
               <div className="flex items-center p-1 gap-0.5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
                 {(['all', 'active', 'milestones'] as ViewMode[]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => setViewModeSave(key)}
-                    className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all capitalize"
-                    style={segBtn(key)}
-                  >
+                  <button key={key} onClick={() => setViewModeSave(key)} className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all capitalize" style={segBtn(key)}>
                     {key === 'milestones' ? '⭐ Milestones' : key === 'active' ? 'Active' : 'All'}
                   </button>
                 ))}
 
-                {/* Sprint view mode - picker + management in one place */}
+                {/* Sprint view mode + picker */}
                 <div className="relative">
                   <button
                     onClick={() => { setViewModeSave('sprint'); setShowSprintPicker((v) => !v); }}
@@ -770,79 +514,33 @@ function CanvasInner() {
                     <span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showSprintPicker && (
-                    <div
-                      className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 260 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Header */}
+                    <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 260 }} onClick={(e) => e.stopPropagation()}>
                       <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
                         <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Sub-plans</span>
                         {canWriteCanvas && (
-                          <button
-                            onClick={() => { setShowSprintPicker(false); setShowNewSprint(true); }}
-                            className="text-xs font-medium px-2 py-0.5 rounded-lg transition-colors"
-                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-                          >+ New</button>
+                          <button onClick={() => { setShowSprintPicker(false); setShowNewSprint(true); }} className="text-xs font-medium px-2 py-0.5 rounded-lg transition-colors" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }} onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>+ New</button>
                         )}
                       </div>
-
-                      {/* No sprint option */}
-                      <button
-                        onClick={() => { setSprintFilterSave(null); setViewModeSave('all'); setShowSprintPicker(false); }}
-                        className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2 transition-colors"
-                        style={{ borderBottom: sortedSprints.length > 0 ? '1px solid var(--border)' : 'none' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                      >
+                      <button onClick={() => { setSprintFilterSave(null); setViewModeSave('all'); setShowSprintPicker(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2 transition-colors" style={{ borderBottom: sortedSprints.length > 0 ? '1px solid var(--border)' : 'none' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
                         <span style={{ color: !selectedSprintFilter ? 'var(--brand)' : 'var(--text-2)' }}>No sub-plan (exit sub-plan mode)</span>
                         {!selectedSprintFilter && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
                       </button>
-
-                      {/* Sprint list with select + delete */}
-                      {sortedSprints.length === 0 && (
-                        <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sub-plans yet - create one to start planning.</p>
-                      )}
+                      {sortedSprints.length === 0 && <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>No sub-plans yet - create one to start planning.</p>}
                       {sortedSprints.map((s) => {
                         const isActive = selectedSprintFilter === s.id;
                         return (
-                          <div
-                            key={s.id}
-                            className="flex items-center gap-2 px-3 py-2.5 group transition-colors cursor-pointer"
-                            style={{ background: isActive ? 'var(--brand-subtle)' : 'transparent' }}
-                            onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'var(--brand-subtle)' : 'transparent'; }}
-                            onClick={() => { setSprintFilterSave(isActive ? null : s.id); setShowSprintPicker(false); }}
-                          >
+                          <div key={s.id} className="flex items-center gap-2 px-3 py-2.5 group transition-colors cursor-pointer" style={{ background: isActive ? 'var(--brand-subtle)' : 'transparent' }} onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'var(--brand-subtle)' : 'transparent'; }} onClick={() => { setSprintFilterSave(isActive ? null : s.id); setShowSprintPicker(false); }}>
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold truncate" style={{ color: isActive ? 'var(--brand)' : 'var(--text)' }}>{s.name}</p>
-                              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>
-                                {new Date(s.startDate).toLocaleDateString()} → {new Date(s.endDate).toLocaleDateString()} · {s.taskIds.length} tasks
-                              </p>
+                              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{new Date(s.startDate).toLocaleDateString()} → {new Date(s.endDate).toLocaleDateString()} · {s.taskIds.length} tasks</p>
                             </div>
                             {isActive && <span style={{ color: 'var(--brand)', fontSize: 11, flexShrink: 0 }}>✓</span>}
                             {canWriteCanvas && (
                               <>
-                                <button
-                                  className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
-                                  style={{ color: 'var(--text-3)' }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
-                                  onClick={(e) => { e.stopPropagation(); setEditingSprint(s); setEditSprintForm({ name: s.name, color: s.color }); setShowSprintPicker(false); }}
-                                  title="Edit sub-plan"
-                                >✎</button>
-                                <button
-                                  className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
-                                  style={{ color: 'var(--text-3)' }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
-                                  onClick={(e) => { e.stopPropagation(); deleteSprint(s.id); }}
-                                  title="Delete sub-plan"
-                                >✕</button>
+                                <button className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity" style={{ color: 'var(--text-3)' }} onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }} onClick={(e) => { e.stopPropagation(); setEditingSprint(s); setEditSprintForm({ name: s.name, color: s.color }); setShowSprintPicker(false); }} title="Edit sub-plan">✎</button>
+                                <button className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity" style={{ color: 'var(--text-3)' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }} onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }} onClick={(e) => { e.stopPropagation(); deleteSprint(s.id); }} title="Delete sub-plan">✕</button>
                               </>
                             )}
                           </div>
@@ -855,48 +553,33 @@ function CanvasInner() {
 
               {/* Row 2 - grouped control dropdowns */}
               <div className="flex items-center gap-1.5">
-
-                {/* Filters dropdown - status + milestone focus */}
+                {/* Filters dropdown */}
                 <div className="relative">
-                  <button
-                    onClick={() => { setShowFiltersDropdown((v) => !v); setShowDisplayDropdown(false); setShowLayoutDropdown(false); }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                    style={chip(!!statusFilter || selectedMilestoneIds.length > 0)}
-                  >
+                  <button onClick={() => { setShowFiltersDropdown((v) => !v); setShowDisplayDropdown(false); setShowLayoutDropdown(false); }} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(!!statusFilter || selectedMilestoneIds.length > 0)}>
                     {statusFilter
                       ? <><span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: STATUS_OPTIONS.find((s) => s.key === statusFilter)?.color }} />{STATUS_OPTIONS.find((s) => s.key === statusFilter)?.label}</>
-                      : selectedMilestoneIds.length > 0
-                      ? `⭐ ${selectedMilestoneIds.length} milestone${selectedMilestoneIds.length > 1 ? 's' : ''}`
-                      : 'Filters'}
+                      : selectedMilestoneIds.length > 0 ? `⭐ ${selectedMilestoneIds.length} milestone${selectedMilestoneIds.length > 1 ? 's' : ''}` : 'Filters'}
                     <span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showFiltersDropdown && (
                     <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 220 }} onClick={(e) => e.stopPropagation()}>
-                      {/* Status section */}
                       <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Status</div>
-                      <button onClick={() => { setStatusFilterSave(null); }} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: !statusFilter ? 'var(--brand)' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                        All statuses {!statusFilter && <span className="ml-auto">✓</span>}
-                      </button>
+                      <button onClick={() => setStatusFilterSave(null)} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: !statusFilter ? 'var(--brand)' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>All statuses {!statusFilter && <span className="ml-auto">✓</span>}</button>
                       {STATUS_OPTIONS.map((s) => (
-                        <button key={s.key} onClick={() => { setStatusFilterSave(statusFilter === s.key ? null : s.key); }} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: statusFilter === s.key ? 'var(--brand)' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        <button key={s.key} onClick={() => setStatusFilterSave(statusFilter === s.key ? null : s.key)} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: statusFilter === s.key ? 'var(--brand)' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />{s.label} {statusFilter === s.key && <span className="ml-auto">✓</span>}
                         </button>
                       ))}
-                      {/* Milestone focus section */}
                       {milestoneTasks.length > 0 && (
                         <>
                           <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}>Milestone focus</div>
-                          <button onClick={() => { setMilestoneIdsSave([]); }} className="w-full text-left px-3 py-1.5 text-xs transition-colors" style={{ color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                            Show all {selectedMilestoneIds.length === 0 && '✓'}
-                          </button>
+                          <button onClick={() => setMilestoneIdsSave([])} className="w-full text-left px-3 py-1.5 text-xs transition-colors" style={{ color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>Show all {selectedMilestoneIds.length === 0 && '✓'}</button>
                           {milestoneTasks.map((t) => {
                             const sel = selectedMilestoneIds.includes(t.id);
                             const overdue = new Date(t.deadline!) < new Date() && t.status !== 'done';
                             return (
-                              <button key={t.id} onClick={() => { setMilestoneIdsSave(sel ? selectedMilestoneIds.filter((id) => id !== t.id) : [...selectedMilestoneIds, t.id]); }} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                                <span style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, background: sel ? (overdue ? '#ef4444' : '#f59e0b') : 'transparent', border: `1.5px solid ${overdue ? 'rgba(239,68,68,0.5)' : 'rgba(245,158,11,0.5)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {sel && <span style={{ color: 'white', fontSize: 8 }}>✓</span>}
-                                </span>
+                              <button key={t.id} onClick={() => setMilestoneIdsSave(sel ? selectedMilestoneIds.filter((id) => id !== t.id) : [...selectedMilestoneIds, t.id])} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors" style={{ color: 'var(--text-2)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                                <span style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, background: sel ? (overdue ? '#ef4444' : '#f59e0b') : 'transparent', border: `1.5px solid ${overdue ? 'rgba(239,68,68,0.5)' : 'rgba(245,158,11,0.5)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{sel && <span style={{ color: 'white', fontSize: 8 }}>✓</span>}</span>
                                 <span className="flex-1 truncate">{t.name}</span>
                                 <span style={{ color: overdue ? '#ef4444' : 'var(--text-3)', flexShrink: 0, fontSize: 10 }}>{new Date(t.deadline!).toLocaleDateString()}</span>
                               </button>
@@ -906,62 +589,42 @@ function CanvasInner() {
                       )}
                       {(statusFilter || selectedMilestoneIds.length > 0) && (
                         <div style={{ borderTop: '1px solid var(--border)' }}>
-                          <button onClick={() => { setStatusFilterSave(null); setMilestoneIdsSave([]); setShowFiltersDropdown(false); }} className="w-full text-left px-3 py-2 text-xs font-medium transition-colors" style={{ color: '#ef4444' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                            Clear all filters
-                          </button>
+                          <button onClick={() => { setStatusFilterSave(null); setMilestoneIdsSave([]); setShowFiltersDropdown(false); }} className="w-full text-left px-3 py-2 text-xs font-medium transition-colors" style={{ color: '#ef4444' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>Clear all filters</button>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Display dropdown - layout, sprint map, simple mode */}
+                {/* Display dropdown */}
                 <div className="relative">
-                  <button
-                    onClick={() => { setShowDisplayDropdown((v) => !v); setShowFiltersDropdown(false); setShowLayoutDropdown(false); }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                    style={chip(showSprintAura || simpleMode)}
-                  >
-                    Display{showSprintAura || simpleMode ? ' ●' : ''}
-                    <span className="text-[10px] opacity-50">▾</span>
+                  <button onClick={() => { setShowDisplayDropdown((v) => !v); setShowFiltersDropdown(false); setShowLayoutDropdown(false); }} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(showSprintAura || simpleMode)}>
+                    Display{showSprintAura || simpleMode ? ' ●' : ''}<span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showDisplayDropdown && (
                     <div className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }} onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => { setAutoLayoutSave(true); setShowDisplayDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                         <span style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 14 }}>◫</span>
-                        <div className="flex-1">
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Re-layout graph</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Auto-arrange using DAG layout</p>
-                        </div>
+                        <div className="flex-1"><p style={{ color: 'var(--text)', fontWeight: 500 }}>Re-layout graph</p><p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Auto-arrange using DAG layout</p></div>
                       </button>
                       <div style={{ borderTop: '1px solid var(--border)' }} />
                       <button onClick={() => setSprintAuraSave(!showSprintAura)} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                         <span style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 14 }}>🎨</span>
-                        <div className="flex-1">
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Sub-plan colour map</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Colour tasks by sub-plan membership</p>
-                        </div>
+                        <div className="flex-1"><p style={{ color: 'var(--text)', fontWeight: 500 }}>Sub-plan colour map</p><p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Colour tasks by sub-plan membership</p></div>
                         {showSprintAura && <span style={{ color: 'var(--brand)', fontSize: 12 }}>✓</span>}
                       </button>
                       <button onClick={() => setSimpleModeSave(!simpleMode)} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                         <span style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 14 }}>◻</span>
-                        <div className="flex-1">
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Simple mode</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Show task names only</p>
-                        </div>
+                        <div className="flex-1"><p style={{ color: 'var(--text)', fontWeight: 500 }}>Simple mode</p><p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Show task names only</p></div>
                         {simpleMode && <span style={{ color: 'var(--brand)', fontSize: 12 }}>✓</span>}
                       </button>
                     </div>
                   )}
                 </div>
 
-                {/* Layouts dropdown - save / load snapshots */}
+                {/* Layouts dropdown */}
                 <div className="relative">
-                  <button
-                    onClick={() => { setShowLayoutDropdown((v) => !v); setShowFiltersDropdown(false); setShowDisplayDropdown(false); }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                    style={chip(false)}
-                  >
+                  <button onClick={() => { setShowLayoutDropdown((v) => !v); setShowFiltersDropdown(false); setShowDisplayDropdown(false); }} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all" style={chip(false)}>
                     Layouts <span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showLayoutDropdown && (
@@ -969,24 +632,16 @@ function CanvasInner() {
                       {canWriteCanvas && (
                         <button onClick={() => { openShareModal(); setShowLayoutDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                           <span style={{ fontSize: 15 }}>↑</span>
-                          <div>
-                            <p style={{ color: 'var(--text)', fontWeight: 500 }}>Save layout</p>
-                            <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Share current positions with team</p>
-                          </div>
+                          <div><p style={{ color: 'var(--text)', fontWeight: 500 }}>Save layout</p><p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Share current positions with team</p></div>
                         </button>
                       )}
                       <button onClick={() => { openLoadModal(); setShowLayoutDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors" onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                         <span style={{ fontSize: 15 }}>↓</span>
-                        <div>
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Load layout</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Apply a saved team snapshot</p>
-                        </div>
+                        <div><p style={{ color: 'var(--text)', fontWeight: 500 }}>Load layout</p><p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Apply a saved team snapshot</p></div>
                       </button>
                     </div>
                   )}
                 </div>
-
-                {/* Legend */}
                 <button onClick={() => setShowLegend(true)} title="Visual guide" className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold" style={chip(false)}>?</button>
               </div>
             </div>
@@ -999,15 +654,7 @@ function CanvasInner() {
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
                 <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{activeSprint.name}</span>
                 <span className="text-xs" style={{ color: 'var(--text-3)' }}>· click tasks to add / remove</span>
-                <button
-                  onClick={() => { setSprintFilterSave(null); setViewModeSave('all'); }}
-                  className="ml-1 text-xs font-semibold px-2 py-0.5 rounded-lg transition-colors"
-                  style={{ background: '#10b981', color: 'white' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#059669'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#10b981'; }}
-                >
-                  Done
-                </button>
+                <button onClick={() => { setSprintFilterSave(null); setViewModeSave('all'); }} className="ml-1 text-xs font-semibold px-2 py-0.5 rounded-lg transition-colors" style={{ background: '#10b981', color: 'white' }} onMouseEnter={(e) => { e.currentTarget.style.background = '#059669'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#10b981'; }}>Done</button>
               </div>
             </Panel>
           )}
@@ -1015,18 +662,9 @@ function CanvasInner() {
           {/* ── Top-right ───────────────────────────────────────────────── */}
           <Panel position="top-right">
             <div className="flex flex-col items-end gap-2">
-              {/* New task - hidden for read-only users */}
               {canWriteCanvas && (
-                <button
-                  onClick={() => setShowNewTask(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
-                  style={{ background: 'var(--brand)', color: 'white', border: '1px solid transparent', boxShadow: '0 1px 4px rgba(124,58,237,0.35)' }}
-                >
-                  + New task
-                </button>
+                <button onClick={() => setShowNewTask(true)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all" style={{ background: 'var(--brand)', color: 'white', border: '1px solid transparent', boxShadow: '0 1px 4px rgba(124,58,237,0.35)' }}>+ New task</button>
               )}
-
-              {/* Sub-plan map legend - only when sprint aura is on */}
               {showSprintAura && sortedSprints.length > 0 && (
                 <div className="rounded-xl px-3 py-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
                   <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-3)' }}>Sub-plan map</p>
@@ -1040,7 +678,6 @@ function CanvasInner() {
               )}
             </div>
           </Panel>
-
         </ReactFlow>
 
         {/* Empty-state onboarding */}
@@ -1049,18 +686,10 @@ function CanvasInner() {
             <div className="flex flex-col items-center gap-2 px-5 py-4 rounded-2xl text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', maxWidth: 320, pointerEvents: 'auto' }}>
               <div className="text-3xl opacity-60">📐</div>
               <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Start building your canvas</p>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>
-                Add tasks and connect them to show dependencies. Tasks with deadlines become milestones.
-              </p>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>Add tasks and connect them to show dependencies. Tasks with deadlines become milestones.</p>
               <div className="flex flex-col gap-1.5 w-full">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
-                  <span className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--border)', color: 'var(--text-2)' }}>dbl-click</span>
-                  <span>canvas to create a task</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
-                  <span className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--border)', color: 'var(--text-2)' }}>drag</span>
-                  <span>between tasks to add dependencies</span>
-                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}><span className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--border)', color: 'var(--text-2)' }}>dbl-click</span><span>canvas to create a task</span></div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}><span className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--border)', color: 'var(--text-2)' }}>drag</span><span>between tasks to add dependencies</span></div>
               </div>
             </div>
           </div>
@@ -1071,12 +700,8 @@ function CanvasInner() {
           <div className="fixed rounded-xl shadow-xl z-50 py-1 overflow-hidden" style={{ left: ctxMenu.x, top: ctxMenu.y, background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }} onClick={(e) => e.stopPropagation()}>
             {ctxMenu.type === 'edge' && canWriteCanvas && (
               <>
-                <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
-                  {isProductEdge(ctxMenu.srcId!, ctxMenu.tgtId!) ? 'Product link' : 'Dependency'}
-                </div>
-                <button className="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2" style={{ color: '#ef4444' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')} onClick={() => deleteEdge(ctxMenu.srcId!, ctxMenu.tgtId!, ctxMenu.edgeId!)}>
-                  ✕ Remove {isProductEdge(ctxMenu.srcId!, ctxMenu.tgtId!) ? 'link' : 'dependency'}
-                </button>
+                <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>{isProductEdge(ctxMenu.srcId!, ctxMenu.tgtId!) ? 'Product link' : 'Dependency'}</div>
+                <button className="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2" style={{ color: '#ef4444' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')} onClick={() => deleteEdge(ctxMenu.srcId!, ctxMenu.tgtId!, ctxMenu.edgeId!)}>✕ Remove {isProductEdge(ctxMenu.srcId!, ctxMenu.tgtId!) ? 'link' : 'dependency'}</button>
               </>
             )}
             {ctxMenu.type === 'node' && ctxTask && (
@@ -1086,8 +711,7 @@ function CanvasInner() {
                     <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>Set status</div>
                     {STATUS_OPTIONS.map((s) => (
                       <button key={s.key} onClick={() => quickSetStatus(ctxTask.id, s.key)} className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors" style={{ color: ctxTask.status === s.key ? 'var(--brand)' : 'var(--text)' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />{s.label}
-                        {ctxTask.status === s.key && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />{s.label}{ctxTask.status === s.key && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
                       </button>
                     ))}
                   </>
@@ -1102,27 +726,16 @@ function CanvasInner() {
         )}
 
         {selectedTask && (
-          <TaskDetailPanel
-            task={selectedTask}
-            readOnly={!canWriteCanvas}
-            onClose={() => setSelectedTask(null)}
-            onUpdated={async (u) => { setSelectedTask(u); await refreshTasks(); }}
-            onDeleted={async () => { setSelectedTask(null); await refreshTasks(); }}
-          />
+          <TaskDetailPanel task={selectedTask} readOnly={!canWriteCanvas} onClose={() => setSelectedTask(null)} onUpdated={async (u) => { setSelectedTask(u); await refreshTasks(); }} onDeleted={async () => { setSelectedTask(null); await refreshTasks(); }} />
         )}
 
         {showNewTask && (
           <Modal title="New task" onClose={() => setShowNewTask(false)} width="max-w-sm">
             <form onSubmit={handleCreateTask} className="space-y-4">
-              <div>
-                <label className="label">Task name</label>
-                <input autoFocus required type="text" value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="input" placeholder="What needs to be done?" />
-              </div>
+              <div><label className="label">Task name</label><input autoFocus required type="text" value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="input" placeholder="What needs to be done?" /></div>
               <p className="text-xs" style={{ color: 'var(--text-3)' }}>Task appears at the centre of your viewport. Drag it into position then connect edges to link dependencies.</p>
               <div className="flex gap-3">
-                <button type="submit" disabled={creating} className="btn-primary flex-1 flex justify-center">
-                  {creating ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Create task'}
-                </button>
+                <button type="submit" disabled={creating} className="btn-primary flex-1 flex justify-center">{creating ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Create task'}</button>
                 <button type="button" onClick={() => setShowNewTask(false)} className="btn-secondary">Cancel</button>
               </div>
             </form>
@@ -1132,31 +745,18 @@ function CanvasInner() {
         {showNewSprint && (
           <Modal title="New sub-plan" onClose={() => setShowNewSprint(false)} width="max-w-sm">
             <form onSubmit={handleCreateSprint} className="space-y-4">
-              <div>
-                <label className="label">Sub-plan name</label>
-                <input autoFocus required type="text" value={sprintForm.name} onChange={(e) => setSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" placeholder="e.g. Sub-plan 1, MVP, Beta…" />
-              </div>
+              <div><label className="label">Sub-plan name</label><input autoFocus required type="text" value={sprintForm.name} onChange={(e) => setSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" placeholder="e.g. Sub-plan 1, MVP, Beta…" /></div>
               <div>
                 <label className="label">Colour</label>
                 <div className="flex gap-2 flex-wrap mt-1">
-                  {SPRINT_PALETTE.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setSprintForm((p) => ({ ...p, color: c }))}
-                      style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: sprintForm.color === c ? '3px solid var(--text)' : '2px solid transparent', outline: sprintForm.color === c ? '2px solid ' + c : 'none', outlineOffset: 2 }}
-                    />
-                  ))}
+                  {SPRINT_PALETTE.map((c) => (<button key={c} type="button" onClick={() => setSprintForm((p) => ({ ...p, color: c }))} style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: sprintForm.color === c ? '3px solid var(--text)' : '2px solid transparent', outline: sprintForm.color === c ? '2px solid ' + c : 'none', outlineOffset: 2 }} />))}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label">Start date</label><input required type="date" value={sprintForm.startDate} onChange={(e) => setSprintForm((p) => ({ ...p, startDate: e.target.value }))} className="input" /></div>
                 <div><label className="label">End date</label><input required type="date" value={sprintForm.endDate} onChange={(e) => setSprintForm((p) => ({ ...p, endDate: e.target.value }))} className="input" /></div>
               </div>
-              <div className="flex gap-3">
-                <button type="submit" className="btn-primary flex-1">Create sub-plan</button>
-                <button type="button" onClick={() => setShowNewSprint(false)} className="btn-secondary">Cancel</button>
-              </div>
+              <div className="flex gap-3"><button type="submit" className="btn-primary flex-1">Create sub-plan</button><button type="button" onClick={() => setShowNewSprint(false)} className="btn-secondary">Cancel</button></div>
             </form>
           </Modal>
         )}
@@ -1164,39 +764,23 @@ function CanvasInner() {
         {editingSprint && (
           <Modal title="Edit sub-plan" onClose={() => setEditingSprint(null)} width="max-w-sm">
             <form onSubmit={handleEditSprint} className="space-y-4">
-              <div>
-                <label className="label">Sub-plan name</label>
-                <input autoFocus required type="text" value={editSprintForm.name} onChange={(e) => setEditSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" />
-              </div>
+              <div><label className="label">Sub-plan name</label><input autoFocus required type="text" value={editSprintForm.name} onChange={(e) => setEditSprintForm((p) => ({ ...p, name: e.target.value }))} className="input" /></div>
               <div>
                 <label className="label">Colour</label>
                 <div className="flex gap-2 flex-wrap mt-1">
-                  {SPRINT_PALETTE.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setEditSprintForm((p) => ({ ...p, color: c }))}
-                      style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: editSprintForm.color === c ? '3px solid var(--text)' : '2px solid transparent', outline: editSprintForm.color === c ? '2px solid ' + c : 'none', outlineOffset: 2 }}
-                    />
-                  ))}
+                  {SPRINT_PALETTE.map((c) => (<button key={c} type="button" onClick={() => setEditSprintForm((p) => ({ ...p, color: c }))} style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: editSprintForm.color === c ? '3px solid var(--text)' : '2px solid transparent', outline: editSprintForm.color === c ? '2px solid ' + c : 'none', outlineOffset: 2 }} />))}
                 </div>
               </div>
-              <div className="flex gap-3">
-                <button type="submit" className="btn-primary flex-1">Save changes</button>
-                <button type="button" onClick={() => setEditingSprint(null)} className="btn-secondary">Cancel</button>
-              </div>
+              <div className="flex gap-3"><button type="submit" className="btn-primary flex-1">Save changes</button><button type="button" onClick={() => setEditingSprint(null)} className="btn-secondary">Cancel</button></div>
             </form>
           </Modal>
         )}
 
         {showLegend && <LegendModal onClose={() => setShowLegend(false)} />}
 
-        {/* Loading overlay - shown until initial layout is computed */}
+        {/* Loading overlay */}
         {!layoutReady && (
-          <div
-            className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
-            style={{ background: 'var(--bg)', transition: 'opacity 0.2s' }}
-          >
+          <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none" style={{ background: 'var(--bg)', transition: 'opacity 0.2s' }}>
             <div className="flex flex-col items-center gap-3" style={{ color: 'var(--text-3)' }}>
               <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--brand)' }} />
               <span className="text-xs">Loading canvas…</span>
@@ -1204,69 +788,35 @@ function CanvasInner() {
           </div>
         )}
 
-        {/* ── Share layout modal ─────────────────────────────────────── */}
         {showShareModal && (
           <Modal title="Share layout" onClose={() => setShowShareModal(false)} width="max-w-sm">
             <div className="space-y-4">
-              <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                Save the current node positions and zoom level so teammates can apply the same view.
-              </p>
-              <div>
-                <label className="label">Snapshot name</label>
-                <input
-                  autoFocus
-                  type="text"
-                  value={snapshotName}
-                  onChange={(e) => setSnapshotName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') saveSnapshot(); }}
-                  className="input"
-                  placeholder="e.g. Sub-plan 1 kickoff, QA review…"
-                />
-              </div>
+              <p className="text-xs" style={{ color: 'var(--text-3)' }}>Save the current node positions and zoom level so teammates can apply the same view.</p>
+              <div><label className="label">Snapshot name</label><input autoFocus type="text" value={snapshotName} onChange={(e) => setSnapshotName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveSnapshot(); }} className="input" placeholder="e.g. Sub-plan 1 kickoff, QA review…" /></div>
               <div className="flex gap-3">
-                <button onClick={saveSnapshot} disabled={savingSnapshot || !snapshotName.trim()} className="btn-primary flex-1 flex justify-center">
-                  {savingSnapshot ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Save snapshot'}
-                </button>
+                <button onClick={saveSnapshot} disabled={savingSnapshot || !snapshotName.trim()} className="btn-primary flex-1 flex justify-center">{savingSnapshot ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Save snapshot'}</button>
                 <button onClick={() => setShowShareModal(false)} className="btn-secondary">Cancel</button>
               </div>
             </div>
           </Modal>
         )}
 
-        {/* ── Load layout modal ──────────────────────────────────────── */}
         {showLoadModal && (
           <Modal title="Load layout" onClose={() => setShowLoadModal(false)} width="max-w-md">
             <div className="space-y-3">
               {snapshots.length === 0 ? (
-                <p className="text-sm py-4 text-center" style={{ color: 'var(--text-3)' }}>
-                  No saved layouts yet. Use "Share layout" to create one.
-                </p>
+                <p className="text-sm py-4 text-center" style={{ color: 'var(--text-3)' }}>No saved layouts yet. Use "Share layout" to create one.</p>
               ) : (
-                <div className="divide-y rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)', borderColor: 'var(--border)' }}>
+                <div className="divide-y rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                   {snapshots.map((snap) => (
                     <div key={snap.id} className="flex items-center gap-3 px-4 py-3" style={{ background: 'var(--surface)' }}>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{snap.name}</p>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                          {snap.user.avatarEmoji ?? '👤'} {displayName(snap.user)} · {new Date(snap.createdAt).toLocaleDateString()}
-                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>{snap.user.avatarEmoji ?? '👤'} {displayName(snap.user)} · {new Date(snap.createdAt).toLocaleDateString()}</p>
                       </div>
-                      <button
-                        onClick={() => applySnapshot(snap)}
-                        className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                        style={{ background: 'var(--brand)', color: 'white' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                      >Apply</button>
+                      <button onClick={() => applySnapshot(snap)} className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors" style={{ background: 'var(--brand)', color: 'white' }} onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')} onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}>Apply</button>
                       {snap.userId === currentUser?.id && (
-                        <button
-                          onClick={() => deleteSnapshot(snap)}
-                          className="flex-shrink-0 text-xs transition-colors"
-                          style={{ color: 'var(--text-3)' }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                          title="Delete snapshot"
-                        >✕</button>
+                        <button onClick={() => deleteSnapshot(snap)} className="flex-shrink-0 text-xs transition-colors" style={{ color: 'var(--text-3)' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')} title="Delete snapshot">✕</button>
                       )}
                     </div>
                   ))}
@@ -1284,14 +834,11 @@ function CanvasInner() {
 export default function CanvasView() {
   return (
     <>
-      {/* Mobile notice */}
+      {/* Mobile: canvas requires desktop */}
       <div className="md:hidden h-full flex flex-col items-center justify-center gap-4 px-6 text-center">
         <div className="text-5xl opacity-40">◈</div>
         <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>Canvas view is optimised for desktop</p>
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>
-          The canvas planning view works best with a mouse and a larger screen.
-          Try the Kanban or Tasks view for a great mobile experience.
-        </p>
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>The canvas planning view works best with a mouse and a larger screen. Try the Kanban or Tasks view for a great mobile experience.</p>
       </div>
       {/* Desktop */}
       <div className="hidden md:block h-full">
