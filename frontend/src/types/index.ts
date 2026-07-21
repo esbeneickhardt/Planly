@@ -29,6 +29,7 @@ export interface User {
   isAdmin?: boolean;
   isFoundingAdmin?: boolean;
   mustChangePassword?: boolean;
+  mustSetupMfa?: boolean;
   notificationPreferences?: Record<string, boolean>;
   announcementsEnabled?: boolean;
   acceptsInvites?: boolean;
