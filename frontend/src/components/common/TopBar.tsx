@@ -254,7 +254,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', zIndex: 40 }}
       >
         {/* ── LEFT: logo + search ── */}
-        <div className="flex items-center gap-2.5 flex-shrink-0 md:w-72">
+        <div className="flex items-center gap-2.5 flex-shrink-0 lg:w-60">
           <button
             onClick={() => navigate('/kanban')}
             className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 transition-opacity hover:opacity-80"
@@ -264,7 +264,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           </button>
           <button
             onClick={onOpenSearch}
-            className="hidden md:flex items-center gap-2 flex-1 h-9 px-3 rounded-full text-sm transition-all"
+            className="hidden lg:flex items-center gap-2 flex-1 h-9 px-3 rounded-full text-sm transition-all"
             style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
             onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
@@ -276,22 +276,25 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
         </div>
 
         {/* ── CENTER: nav tabs (desktop only) ── */}
-        <nav className="hidden md:flex flex-1 items-stretch justify-center h-full">
-          {isAdminPage ? (
+        <nav className="hidden lg:flex flex-1 items-stretch justify-center h-full">
+          {chatIsAdmin ? (
             // ── Admin section tabs - same style as project nav ──
             ADMIN_TABS.map(({ key, label, Icon }) => (
               <button
                 key={key}
-                onClick={() => setSearchParams({ tab: key })}
-                className={`relative flex flex-col items-center justify-center gap-0.5 w-24 text-[11px] font-medium tracking-wide transition-colors ${
-                  adminTab === key
+                onClick={() => {
+                  if (isAdminPage) setSearchParams({ tab: key });
+                  else navigate({ pathname: '/admin', search: `tab=${key}` });
+                }}
+                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[60px] max-w-24 text-[11px] font-medium tracking-wide transition-colors ${
+                  adminTab === key && isAdminPage
                     ? 'text-[var(--brand)]'
                     : 'text-[var(--text-3)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'
                 }`}
               >
                 <Icon />
                 <span>{label}</span>
-                {adminTab === key && (
+                {adminTab === key && isAdminPage && (
                   <div className="absolute bottom-0 left-6 right-6 h-[3px] rounded-t-full" style={{ background: 'var(--brand)' }} />
                 )}
               </button>
@@ -310,7 +313,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                     key={to}
                     to={to}
                     className={({ isActive }) =>
-                      `relative flex flex-col items-center justify-center gap-0 w-24 text-[11px] font-medium tracking-wide transition-colors rounded-none ${
+                      `relative flex flex-col items-center justify-center gap-0 flex-1 min-w-[60px] max-w-24 text-[11px] font-medium tracking-wide transition-colors rounded-none ${
                         isActive
                           ? 'text-[var(--brand)]'
                           : 'text-[var(--text-3)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'
@@ -345,7 +348,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 <NavLink
                   to="/settings"
                   className={({ isActive }) =>
-                    `relative flex flex-col items-center justify-center gap-0.5 w-24 text-[11px] font-medium tracking-wide transition-colors ${isActive ? 'text-[var(--text)]' : 'text-[var(--text-3)]'}`
+                    `relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[60px] max-w-24 text-[11px] font-medium tracking-wide transition-colors ${isActive ? 'text-[var(--text)]' : 'text-[var(--text-3)]'}`
                   }
                   style={({ isActive }) => ({ color: isActive ? 'var(--text)' : undefined })}
                   onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
@@ -367,16 +370,16 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
         </nav>
 
         {/* Spacer on mobile so right-side items stay right */}
-        <div className="flex-1 md:hidden" />
+        <div className="flex-1 lg:hidden" />
 
         {/* ── RIGHT: icons + project picker + account ── */}
-        <div className="flex items-center gap-1.5 flex-shrink-0 md:w-72" style={{ justifyContent: 'flex-end' }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ justifyContent: 'flex-end' }}>
 
           {/* How Planly works (desktop only) */}
           <Tooltip content="How Planly works" side="bottom">
             <button
               onClick={onOpenVision}
-              className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-sm font-semibold"
+              className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-sm font-semibold"
               style={{
                 color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
                 background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -392,7 +395,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             <Tooltip content={chatIsAdmin ? 'Announcements (admin mode)' : 'Announcements'} side="bottom">
             <NavLink
               to="/announcements"
-              className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+              className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
               style={({ isActive }) => ({
                 color: (chatIsAdmin || isActive) ? 'var(--brand)' : 'var(--text-3)',
                 background: (chatIsAdmin || isActive) ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -419,8 +422,8 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             <button
               data-testid="admin-btn"
               aria-label={chatIsAdmin ? 'Exit admin mode' : 'Admin panel'}
-              onClick={onToggleAdmin ?? (() => isAdminPage ? navigate('/kanban') : navigate('/admin'))}
-              className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+              onClick={onToggleAdmin ?? (() => chatIsAdmin ? navigate('/kanban') : navigate('/admin'))}
+              className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
               style={{
                 color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
                 background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -443,7 +446,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
             onClick={onOpenChat}
             title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
             aria-label={chatIsAdmin ? 'Admin chat' : 'Project chat'}
-            className="hidden md:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+            className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
             style={{
               color: (chatIsAdmin || chatOpen) ? 'var(--brand)' : 'var(--text-3)',
               background: (chatIsAdmin || chatOpen) ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -460,19 +463,19 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           </Tooltip>
 
           {/* Project picker - desktop only */}
-          <div ref={projectRef} className="hidden md:block relative">
+          <div ref={projectRef} className="hidden lg:block relative">
             <button
               onClick={() => { setShowProjectDd((v) => !v); setShowAccountDd(false); }}
               className="flex items-center gap-1.5 h-9 px-2.5 rounded-full transition-all text-sm flex-shrink-0"
               style={{
                 background: 'var(--surface-2)',
-                color: isAdminPage ? 'var(--brand)' : 'var(--text)',
-                border: `1px solid ${isAdminPage ? 'var(--brand)' : 'var(--border)'}`,
+                color: chatIsAdmin ? 'var(--brand)' : 'var(--text)',
+                border: `1px solid ${chatIsAdmin ? 'var(--brand)' : 'var(--border)'}`,
               }}
               onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = isAdminPage ? 'var(--brand)' : 'var(--border)')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = chatIsAdmin ? 'var(--brand)' : 'var(--border)')}
             >
-              {isAdminPage ? (
+              {chatIsAdmin ? (
                 <>
                   <ShieldIcon size={15} />
                   <span className="text-xs font-medium">Admin</span>
@@ -491,7 +494,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                 className="absolute right-0 top-full mt-2 w-64 rounded-2xl shadow-2xl overflow-hidden py-1.5"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
               >
-                {isAdminPage && products.length > 0 && (
+                {chatIsAdmin && products.length > 0 && (
                   <p className="px-4 pt-2 pb-1 text-[10px]" style={{ color: 'var(--text-3)' }}>
                     Select a project to leave admin mode
                   </p>
@@ -512,15 +515,15 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
                         }}
                         className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors"
                         style={{
-                          background: !isAdminPage && activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
-                          color: !isAdminPage && activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text)',
+                          background: !chatIsAdmin && activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
+                          color: !chatIsAdmin && activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text)',
                         }}
-                        onMouseEnter={(e) => { if (isAdminPage || activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = (!isAdminPage && activeProduct?.id === p.id) ? 'var(--brand-subtle)' : 'transparent'; }}
+                        onMouseEnter={(e) => { if (chatIsAdmin || activeProduct?.id !== p.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = (!chatIsAdmin && activeProduct?.id === p.id) ? 'var(--brand-subtle)' : 'transparent'; }}
                       >
                         <span className="text-base">{p.emoji ?? '🎯'}</span>
                         <span className="flex-1 truncate font-medium">{p.name}</span>
-                        {!isAdminPage && activeProduct?.id === p.id && <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>✓</span>}
+                        {!chatIsAdmin && activeProduct?.id === p.id && <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>✓</span>}
                       </button>
                     ))}
                     <div className="mx-4 my-1.5" style={{ height: 1, background: 'var(--border)' }} />
@@ -564,7 +567,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           {/* Mobile: search icon */}
           <button
             onClick={onOpenSearch}
-            className="flex md:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0"
+            className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0"
             style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
             title="Search"
           >
@@ -576,7 +579,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           {/* Mobile: hamburger */}
           <button
             onClick={() => setShowMobileMenu((v) => !v)}
-            className="flex md:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-lg"
+            className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-lg"
             style={{ background: showMobileMenu ? 'var(--brand-subtle)' : 'var(--surface-2)', color: showMobileMenu ? 'var(--brand)' : 'var(--text-3)', border: `1px solid ${showMobileMenu ? 'var(--brand)' : 'transparent'}` }}
             title="Menu"
           >
@@ -584,7 +587,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
           </button>
 
           {/* Account - desktop only */}
-          <div ref={accountRef} className="hidden md:block relative">
+          <div ref={accountRef} className="hidden lg:block relative">
             <button
               onClick={() => { setShowAccountDd((v) => !v); setShowProjectDd(false); }}
               className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-base transition-all flex-shrink-0"
@@ -747,7 +750,7 @@ export default function TopBar({ onOpenSearch, onOpenChat, onOpenVision, chatOpe
       {/* ── Mobile nav menu ── */}
       {showMobileMenu && (
         <div
-          className="md:hidden fixed inset-0 z-50 flex flex-col"
+          className="lg:hidden fixed inset-0 z-50 flex flex-col"
           style={{ top: 56 }}
           onClick={() => setShowMobileMenu(false)}
         >

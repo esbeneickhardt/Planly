@@ -35,7 +35,7 @@ const updateWebhookSchema = z.object({
 const VALID_EVENTS = [
   'task.created', 'task.updated', 'task.deleted',
   'task.status_changed', 'task.assigned',
-  'sprint.created', 'sprint.updated', 'sprint.deleted',
+  'subplan.created', 'subplan.updated', 'subplan.deleted',
   'message.created',
 ];
 

@@ -95,3 +95,15 @@ export function broadcast(productId: string, event: string, data?: unknown) {
     broadcastLocal(productId, message);
   }
 }
+
+// Broadcast to every connected socket across all rooms (server-wide events like announcement comments)
+export function broadcastAll(event: string, data?: unknown) {
+  const message = JSON.stringify({ event, data, ts: Date.now() });
+  for (const room of rooms.values()) {
+    for (const client of room) {
+      if (client.readyState === 1 /* OPEN */) {
+        try { client.send(message); } catch {}
+      }
+    }
+  }
+}

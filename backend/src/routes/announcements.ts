@@ -13,6 +13,7 @@ import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 import { safeDecryptValue } from '../utils/crypto';
+import { broadcastAll } from '../realtime/manager';
 
 // Role badge values a poster can claim; each must be verified against actual permissions at write time
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
@@ -225,7 +226,9 @@ export async function announcementRoutes(app: FastifyInstance) {
       data: { announcementId: id, authorId: req.user.userId, content: content.trim(), postedAsRole },
       include: { author: { select: AUTHOR_SELECT } },
     });
-    reply.status(201).send(decryptAuthor(comment));
+    const decrypted = decryptAuthor(comment);
+    broadcastAll('announcement.commented', { announcementId: id, comment: decrypted });
+    reply.status(201).send(decrypted);
   });
 
   // Delete a comment (author or admin)
@@ -235,7 +238,9 @@ export async function announcementRoutes(app: FastifyInstance) {
     if (!comment) return reply.status(404).send({ error: 'Not found' });
     const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
     if (!user?.isAdmin && comment.authorId !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
+    const { announcementId } = comment;
     await prisma.announcementComment.delete({ where: { id: commentId } });
+    broadcastAll('announcement.comment.deleted', { announcementId, commentId });
     reply.send({ ok: true });
   });
 }

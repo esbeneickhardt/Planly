@@ -68,33 +68,33 @@ Open Admin and Alice **side-by-side** on the Kanban board of Alpha:
 ## 5. Announcements (5 min)
 
 **Server-admin announcement:**
-- [ ] Enable admin mode → open Announcements → compose icon (pencil) appears
-- [ ] Post an announcement: title, markdown body (include a heading and a list), pin it, comments on
-- [ ] Pinned announcement appears at top with "🛡 Server Admins" attribution in Alice's window
-- [ ] Alice comments → comment appears in Admin's window without reload
+- [X] Enable admin mode → open Announcements → compose icon (pencil) appears
+- [X] Post an announcement: title, markdown body (include a heading and a list), pin it, comments on
+- [X] Pinned announcement appears at top with "🛡 Server Admins" attribution in Alice's window
+- [X] Alice comments → comment appears in Admin's window without reload
 
 **Team announcement:**
-- [ ] Disable admin mode → switch to Alpha → open Announcements
-- [ ] Mode badge shows "🏢 Alpha"; compose icon present
-- [ ] Post a team announcement — **pin toggle must not be visible**
-- [ ] Alice sees it with "🏢 Alpha" attribution
+- [X] Disable admin mode → switch to Alpha → open Announcements
+- [X] Mode badge shows "🏢 Alpha"; compose icon present
+- [X] Post a team announcement — **pin toggle must not be visible**
+- [X] Alice sees it with "🏢 Alpha" attribution
 
 **Filter pills:**
-- [ ] Two sources exist (server-wide + Alpha) → filter pills appear above the list
-- [ ] Clicking each pill filters correctly; "All" restores full list
+- [X] Two sources exist (server-wide + Alpha) → filter pills appear above the list
+- [X] Clicking each pill filters correctly; "All" restores full list
 
 **Markdown rendering:**
-- [ ] Edit an announcement to include: `# Heading`, `**bold**`, a table, a fenced code block
-- [ ] All elements render correctly (not raw markdown)
+- [X] Edit an announcement to include: `# Heading`, `**bold**`, a table, a fenced code block
+- [X] All elements render correctly (not raw markdown)
 
 ---
 
 ## 6. File upload (2 min)
 
-- [ ] Open a task → scroll to comment thread → attach an image file
-- [ ] Image thumbnail visible inline in the message
-- [ ] Attach a PDF → download link shown, not a broken image
-- [ ] Reload the page → attachment still there
+- [X] Open a task → scroll to comment thread → attach an image file
+- [X] Image thumbnail visible inline in the message
+- [X] Attach a PDF → download link shown, not a broken image
+- [X] Reload the page → attachment still there
 
 ---
 
@@ -103,14 +103,14 @@ Open Admin and Alice **side-by-side** on the Kanban board of Alpha:
 As Admin, open Settings → Permissions → find Alice:
 
 - Set Kanban to **read** → Save
-- [ ] Alice's Kanban board loads but dragging cards does nothing
-- [ ] No "+" create-task button visible for Alice
+- [X] Alice's Kanban board loads but dragging cards does nothing
+- [X] No "+" create-task button visible for Alice
 
 - Set Kanban to **none** → Save
-- [ ] Kanban tab disappears entirely from Alice's sidebar
+- [X] Kanban tab disappears entirely from Alice's sidebar
 
 - Reset back to **write** → Save
-- [ ] Alice can create and move tasks again
+- [X] Alice can create and move tasks again
 
 ---
 
@@ -118,13 +118,13 @@ As Admin, open Settings → Permissions → find Alice:
 
 As Charlie:
 
-- [ ] Alpha does not appear in Charlie's project picker
-- [ ] Direct API request rejected:
+- [X] Alpha does not appear in Charlie's project picker
+- [X] Direct API request rejected:
 
 ```bash
 # Copy Alpha's product ID from the URL while logged in as Admin
-curl -s http://localhost/api/products/<alpha-id>/tasks \
-  -H "Cookie: token=<charlie-token-cookie>" | jq .statusCode
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost/api/products/<alpha-id>/tasks \
+  -H "Cookie: token=<charlie-token-cookie>"
 # Expected: 403
 ```
 

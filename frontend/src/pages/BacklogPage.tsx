@@ -197,9 +197,11 @@ export default function BacklogPage() {
           <table className="w-full min-w-[640px] text-sm border-collapse">
             <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th className="w-10 px-4 py-3">
-                  <input type="checkbox" checked={selected.size === filteredTasks.length && filteredTasks.length > 0} onChange={toggleAll} style={{ accentColor: 'var(--brand)' }} />
-                </th>
+                {!readOnly && (
+                  <th className="w-10 px-4 py-3">
+                    <input type="checkbox" checked={selected.size === filteredTasks.length && filteredTasks.length > 0} onChange={toggleAll} style={{ accentColor: 'var(--brand)' }} />
+                  </th>
+                )}
                 {['Task', 'Status', 'Owner', 'Subtasks', 'Deadline', 'Created', ''].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>
                 ))}
@@ -286,9 +288,11 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
       onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = 'var(--surface-2)'; }}
       onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
     >
-      <td className="px-4 py-3 w-10">
-        <input type="checkbox" checked={selected} onChange={onToggle} style={{ accentColor: 'var(--brand)' }} />
-      </td>
+      {!readOnly && (
+        <td className="px-4 py-3 w-10">
+          <input type="checkbox" checked={selected} onChange={onToggle} style={{ accentColor: 'var(--brand)' }} />
+        </td>
+      )}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           {task.color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />}

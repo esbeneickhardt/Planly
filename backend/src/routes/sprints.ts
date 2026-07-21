@@ -14,6 +14,8 @@ import { requireAuth } from '../middleware/auth';
 import { requireProductMember, requireTabRead, requireTabWrite } from '../utils/product-guard';
 import { handleNotFound } from '../utils/prisma-errors';
 import { validate } from '../utils/validate';
+import { dispatchWebhooks } from '../utils/webhook-dispatch';
+import { logger } from '../utils/logger';
 
 // Validated color hexes
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'Invalid color (expected hex e.g. #7c3aed)');
@@ -76,7 +78,9 @@ export async function sprintRoutes(app: FastifyInstance) {
       },
       include: SPRINT_INCLUDE,
     });
-    reply.status(201).send({ ...sprint, taskIds: sprint.sprintTasks.map((st) => st.taskId) });
+    const result = { ...sprint, taskIds: sprint.sprintTasks.map((st) => st.taskId) };
+    dispatchWebhooks(productId, 'subplan.created', result).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
+    reply.status(201).send(result);
   });
 
   // Update sprint name, dates, or color
@@ -97,7 +101,9 @@ export async function sprintRoutes(app: FastifyInstance) {
         },
         include: SPRINT_INCLUDE,
       });
-      reply.send({ ...sprint, taskIds: sprint.sprintTasks.map((st) => st.taskId) });
+      const result = { ...sprint, taskIds: sprint.sprintTasks.map((st) => st.taskId) };
+      dispatchWebhooks(productId, 'subplan.updated', result).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
+      reply.send(result);
     } catch (e) { handleNotFound(e, reply, 'Sprint not found'); }
   });
 
@@ -107,6 +113,7 @@ export async function sprintRoutes(app: FastifyInstance) {
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
     try {
       await prisma.sprint.delete({ where: { id: sprintId, productId } });
+      dispatchWebhooks(productId, 'subplan.deleted', { id: sprintId }).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
       reply.status(204).send();
     } catch (e) { handleNotFound(e, reply, 'Sprint not found'); }
   });
@@ -128,6 +135,8 @@ export async function sprintRoutes(app: FastifyInstance) {
       data: validTasks.map(({ id: taskId }) => ({ sprintId, taskId })),
       skipDuplicates: true,
     });
+    const updated = await prisma.sprint.findUnique({ where: { id: sprintId }, include: SPRINT_INCLUDE });
+    if (updated) dispatchWebhooks(productId, 'subplan.updated', { ...updated, taskIds: updated.sprintTasks.map((st) => st.taskId) }).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
     reply.send({ ok: true, added: validTasks.length });
   });
 
@@ -137,6 +146,8 @@ export async function sprintRoutes(app: FastifyInstance) {
     if (!await requireTabWrite(productId, req.user.userId, ['backlog'], reply)) return;
     try {
       await prisma.sprintTask.delete({ where: { sprintId_taskId: { sprintId, taskId } } });
+      const updated = await prisma.sprint.findUnique({ where: { id: sprintId }, include: SPRINT_INCLUDE });
+      if (updated) dispatchWebhooks(productId, 'subplan.updated', { ...updated, taskIds: updated.sprintTasks.map((st) => st.taskId) }).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
       reply.send({ ok: true });
     } catch (e) { handleNotFound(e, reply); }
   });
