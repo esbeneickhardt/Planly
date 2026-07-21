@@ -20,7 +20,7 @@ export async function connectionRoutes(app: FastifyInstance) {
   // List connected task IDs for a project's canvas
   app.get('/api/products/:productId/connections', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const conns = await prisma.productConnection.findMany({ where: { productId }, select: { taskId: true } });
     reply.send(conns.map((c) => c.taskId));
   });
@@ -28,8 +28,8 @@ export async function connectionRoutes(app: FastifyInstance) {
   // Add a canvas connection edge (idempotent upsert)
   app.post('/api/products/:productId/connections', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['canvas'], reply)) return;
     const body = validate(createConnectionSchema, req.body, reply);
     if (!body) return;
     const { taskId } = body;
@@ -46,8 +46,8 @@ export async function connectionRoutes(app: FastifyInstance) {
   // Remove a canvas connection edge
   app.delete('/api/products/:productId/connections/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    if (!await requireTabWrite(productId, req.user.userId, ['canvas'], reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['canvas'], reply)) return;
     try {
       await prisma.productConnection.delete({ where: { productId_taskId: { productId, taskId } } });
       reply.send({ ok: true });

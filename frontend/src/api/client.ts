@@ -206,11 +206,16 @@ export interface ApiToken {
   token?: string;
 }
 
+export type AppPermissionLevel = 'write' | 'read' | 'none';
+export type AppPermissions = Partial<Record<'kanban' | 'backlog' | 'gantt' | 'canvas' | 'messages' | 'analytics', AppPermissionLevel>>;
+
 export interface AppRegistration {
   id: string;
   name: string;
   description: string | null;
   ownerId: string;
+  productId: string | null;
+  permissions: AppPermissions;
   createdAt: string;
 }
 
@@ -526,6 +531,8 @@ export const api = {
       request<ApiToken & { token: string }>(`/api/apps/${appId}/tokens`, { method: 'POST', body: json(data) }),
     deleteToken: (appId: string, tokenId: string) =>
       request<{ ok: boolean }>(`/api/apps/${appId}/tokens/${tokenId}`, { method: 'DELETE' }),
+    updatePermissions: (appId: string, permissions: AppPermissions) =>
+      request<AppRegistration>(`/api/apps/${appId}/permissions`, { method: 'PATCH', body: json(permissions) }),
   },
 
   emailStatus: {

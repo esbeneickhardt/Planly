@@ -39,9 +39,10 @@ const EMAIL_VERIFY_EXEMPT = new Set([
 export interface AuthPayload {
   userId: string;
   username: string;
-  appName?: string;          // set when the Bearer token belongs to an App Registration (not a PAT)
-  scopedProductId?: string;  // set when the Bearer token is locked to a specific project
-  tokenVersion?: number;     // absent on PAT-authenticated requests; checked against DB on cookie auth
+  appName?: string;                       // set when the Bearer token belongs to an App Registration (not a PAT)
+  appPermissions?: Record<string, string>; // per-tab permission levels stored on the AppRegistration
+  scopedProductId?: string;               // set when the Bearer token is locked to a specific project
+  tokenVersion?: number;                  // absent on PAT-authenticated requests; checked against DB on cookie auth
 }
 
 // Augments FastifyRequest so req.user is typed everywhere without casting.
@@ -76,13 +77,16 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
     try {
       const apiToken = await prisma.apiToken.findUnique({
         where: { tokenHash },
-        select: { id: true, userId: true, productId: true, expiresAt: true, user: { select: { username: true } }, app: { select: { name: true } } },
+        select: { id: true, userId: true, productId: true, expiresAt: true, user: { select: { username: true } }, app: { select: { name: true, permissions: true } } },
       });
       if (apiToken && (!apiToken.expiresAt || apiToken.expiresAt > new Date())) {
         req.user = {
           userId: apiToken.userId,
           username: apiToken.app?.name ?? apiToken.user.username,
-          ...(apiToken.app ? { appName: apiToken.app.name } : {}),
+          ...(apiToken.app ? {
+            appName: apiToken.app.name,
+            appPermissions: (apiToken.app.permissions ?? {}) as Record<string, string>,
+          } : {}),
           ...(apiToken.productId ? { scopedProductId: apiToken.productId } : {}),
         };
         prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});

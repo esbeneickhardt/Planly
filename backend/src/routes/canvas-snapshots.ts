@@ -29,7 +29,7 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
   // List all canvas snapshots for a project
   app.get('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const snapshots = await prisma.canvasSnapshot.findMany({
       where: { productId },
       include: { user: { select: { id: true, username: true, avatarEmoji: true } } },
@@ -41,7 +41,7 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
   // Save a new canvas snapshot (positions + viewport)
   app.post('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const body = validate(createSnapshotSchema, req.body, reply);
     if (!body) return;
     const { name, positions, viewport } = body;
@@ -55,7 +55,7 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
   // Delete own snapshot (author only)
   app.delete('/api/products/:productId/canvas-snapshots/:snapshotId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, snapshotId } = req.params as { productId: string; snapshotId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const snap = await prisma.canvasSnapshot.findFirst({ where: { id: snapshotId, productId } });
     if (!snap) return reply.status(404).send({ error: 'Not found' });
     if (snap.userId !== req.user.userId) return reply.status(403).send({ error: 'Not your snapshot' });
