@@ -14,9 +14,9 @@ const WEBHOOK_EVENTS = [
   { value: 'task.deleted',        label: 'Task deleted' },
   { value: 'task.status_changed', label: 'Task status changed' },
   { value: 'task.assigned',       label: 'Task assigned' },
-  { value: 'sprint.created',      label: 'Sprint created' },
-  { value: 'sprint.updated',      label: 'Sprint updated' },
-  { value: 'sprint.deleted',      label: 'Sprint deleted' },
+  { value: 'subplan.created',      label: 'Sub-plan created' },
+  { value: 'subplan.updated',      label: 'Sub-plan updated' },
+  { value: 'subplan.deleted',      label: 'Sub-plan deleted' },
   { value: 'message.created',     label: 'Message created' },
 ];
 

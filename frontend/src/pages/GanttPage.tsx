@@ -367,12 +367,12 @@ export default function GanttPage() {
           {/* Right: timeline bars */}
           <div
             className="flex-1 overflow-hidden select-none"
-            style={{ paddingLeft: 8, paddingRight: 24, cursor: isResizing ? 'ew-resize' : isDragging ? 'grabbing' : 'grab' }}
+            style={{ paddingLeft: 8, paddingRight: 24, cursor: readOnly ? 'default' : isResizing ? 'ew-resize' : isDragging ? 'grabbing' : 'grab' }}
             ref={attachWheel}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
+            onPointerDown={readOnly ? undefined : handlePointerDown}
+            onPointerMove={readOnly ? undefined : handlePointerMove}
+            onPointerUp={readOnly ? undefined : handlePointerUp}
+            onPointerCancel={readOnly ? undefined : handlePointerUp}
           >
             <div style={{ position: 'relative' }}>
               {/* Today line through all rows */}

@@ -233,6 +233,6 @@ export async function totpRoutes(app: FastifyInstance) {
       where: { id: req.user.userId },
       select: { totpEnabled: true },
     });
-    reply.send({ enabled: user?.totpEnabled ?? false });
+    reply.send({ totpEnabled: user?.totpEnabled ?? false });
   });
 }

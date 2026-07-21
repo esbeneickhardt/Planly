@@ -15,6 +15,7 @@ import type { Team } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useProduct } from '../context/ProductContext';
+import type { RealtimeEvent } from '../context/ProductContext';
 import { useChat } from '../context/ChatContext';
 import { useConfirm } from '../context/ConfirmContext';
 import MarkdownEditor from '../components/common/MarkdownEditor';
@@ -188,6 +189,7 @@ function RoleBadge({ role }: { role: string | null }) {
 // myRole is the pre-computed role for the current user when posting a comment here (null = no badge)
 function CommentSection({ annId, userId, isAdmin, myRole, onCountChange }: { annId: string; userId: string; isAdmin: boolean; myRole: string | null; onCountChange: (delta: number) => void }) {
   const { showToast } = useToast();
+  const { addRealtimeListener } = useProduct();
   const [comments, setComments] = useState<AnnComment[] | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [draft,    setDraft]    = useState('');
@@ -199,6 +201,25 @@ function CommentSection({ annId, userId, isAdmin, myRole, onCountChange }: { ann
       .catch(() => setComments([]))
       .finally(() => setLoading(false));
   }, [annId]);
+
+  // Listen for real-time comment events to update the list (count updates are handled by the page)
+  useEffect(() => {
+    return addRealtimeListener((e: RealtimeEvent) => {
+      if (e.event === 'announcement.commented') {
+        const d = e.data as { announcementId: string; comment: AnnComment };
+        if (d.announcementId !== annId) return;
+        setComments(prev => {
+          if (!prev || prev.some(c => c.id === d.comment.id)) return prev;
+          return [...prev, d.comment];
+        });
+      }
+      if (e.event === 'announcement.comment.deleted') {
+        const d = e.data as { announcementId: string; commentId: string };
+        if (d.announcementId !== annId) return;
+        setComments(prev => prev?.filter(c => c.id !== d.commentId) ?? null);
+      }
+    });
+  }, [annId, addRealtimeListener]);
 
   async function submit() {
     if (!draft.trim()) return;
@@ -219,8 +240,8 @@ function CommentSection({ annId, userId, isAdmin, myRole, onCountChange }: { ann
     if (!await confirm('Delete this comment?')) return;
     try {
       await api.announcements.comments.delete(annId, commentId);
+      // List is pruned here immediately; count update comes via the WS broadcast to avoid double-decrement
       setComments(prev => prev?.filter(c => c.id !== commentId) ?? []);
-      onCountChange(-1);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Failed to delete', 'error');
     }
@@ -379,7 +400,7 @@ function AnnouncementCard({
 export default function AnnouncementsPage() {
   const { user }      = useAuth();
   const { showToast } = useToast();
-  const { activeProduct, products } = useProduct();
+  const { activeProduct, products, addRealtimeListener } = useProduct();
   const { adminMode } = useChat();
   const { confirm } = useConfirm();
 
@@ -401,22 +422,16 @@ export default function AnnouncementsPage() {
 
   const contextTeamName = teams.find(t => t.id === contextTeamId)?.name;
 
-  // Build filter pill options dynamically from the loaded announcements (deduped by team)
-  // Derive which filter pills to show (only teams/sources that have announcements)
-  const filterOptions = (() => {
-    const opts: { key: string; label: string }[] = [{ key: '__all__', label: 'All' }];
-    if (announcements.some(a => !a.team)) opts.push({ key: '__server__', label: 'Server-wide' });
-    const seen = new Set<string>();
-    for (const a of announcements) {
-      if (a.team && !seen.has(a.team.id)) {
-        seen.add(a.team.id);
-        opts.push({ key: a.team.id, label: a.team.name });
-      }
-    }
-    return opts;
-  })();
+  // Derive filter sources from loaded announcements
+  const hasAdminAnnouncements = announcements.some(a => !a.team);
+  const announcementTeams = [...new Map(
+    announcements.filter(a => a.team).map(a => [a.team!.id, a.team!])
+  ).values()];
+  // Show filter bar only when at least two distinct sources exist
+  const showFilter = (hasAdminAnnouncements ? 1 : 0) + announcementTeams.length >= 2;
+  const isProjectFilter = filter !== null && filter !== '__server__';
 
-  const visibleAnnouncements = filter === null || filter === '__all__'
+  const visibleAnnouncements = filter === null
     ? announcements
     : filter === '__server__'
       ? announcements.filter(a => !a.team)
@@ -445,6 +460,26 @@ export default function AnnouncementsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Update comment count badges in real-time when another user comments or deletes a comment
+  useEffect(() => {
+    return addRealtimeListener((e: RealtimeEvent) => {
+      if (e.event === 'announcement.commented') {
+        const d = e.data as { announcementId: string; comment: { author?: { id?: string } } };
+        // Skip if current user posted (CommentSection already called onCountChange locally)
+        if (d.comment?.author?.id === user?.id) return;
+        setAnnouncements(prev => prev.map(a =>
+          a.id === d.announcementId ? { ...a, _count: { comments: a._count.comments + 1 } } : a
+        ));
+      }
+      if (e.event === 'announcement.comment.deleted') {
+        const d = e.data as { announcementId: string; commentId: string };
+        setAnnouncements(prev => prev.map(a =>
+          a.id === d.announcementId ? { ...a, _count: { comments: Math.max(0, a._count.comments - 1) } } : a
+        ));
+      }
+    });
+  }, [addRealtimeListener, user?.id]);
 
   // Compute postedAsRole for a new announcement based on its team scope and the current user's roles
   function computeAnnRole(teamId: string | undefined): string | null {
@@ -544,27 +579,70 @@ export default function AnnouncementsPage() {
         )}
       </div>
 
-      {/* Filter pills - only shown when there's more than one source */}
-      {filterOptions.length > 2 && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {filterOptions.map(opt => {
-            const active = (filter === null || filter === '__all__') ? opt.key === '__all__' : filter === opt.key;
-            return (
-              <button
-                key={opt.key}
-                onClick={() => setFilter(opt.key === '__all__' ? null : opt.key)}
-                className="text-xs px-3 py-1 rounded-full transition-colors"
+      {/* Filter bar - only shown when announcements span multiple sources */}
+      {showFilter && (
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setFilter(null)}
+            className="text-xs px-3 py-1 rounded-full transition-colors"
+            style={{
+              background: filter === null ? 'var(--brand)' : 'var(--surface-2)',
+              color: filter === null ? '#fff' : 'var(--text-2)',
+              border: `1px solid ${filter === null ? 'var(--brand)' : 'var(--border)'}`,
+              fontWeight: filter === null ? 600 : 400,
+            }}
+          >
+            All
+          </button>
+
+          {hasAdminAnnouncements && (
+            <button
+              onClick={() => setFilter('__server__')}
+              className="text-xs px-3 py-1 rounded-full transition-colors"
+              style={{
+                background: filter === '__server__' ? 'var(--brand)' : 'var(--surface-2)',
+                color: filter === '__server__' ? '#fff' : 'var(--text-2)',
+                border: `1px solid ${filter === '__server__' ? 'var(--brand)' : 'var(--border)'}`,
+                fontWeight: filter === '__server__' ? 600 : 400,
+              }}
+            >
+              Admin
+            </button>
+          )}
+
+          {announcementTeams.length > 0 && (
+            <div className="relative" style={{ display: 'inline-block' }}>
+              <select
+                value={isProjectFilter ? filter! : ''}
+                onChange={(e) => setFilter(e.target.value || null)}
+                className="text-xs rounded-full outline-none cursor-pointer transition-colors"
                 style={{
-                  background: active ? 'var(--brand)' : 'var(--surface-2)',
-                  color: active ? '#fff' : 'var(--text-2)',
-                  border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
-                  fontWeight: active ? 600 : 400,
+                  background: isProjectFilter ? 'var(--brand)' : 'var(--surface-2)',
+                  color: isProjectFilter ? '#fff' : 'var(--text-2)',
+                  border: `1px solid ${isProjectFilter ? 'var(--brand)' : 'var(--border)'}`,
+                  fontWeight: isProjectFilter ? 600 : 400,
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  paddingTop: '0.25rem',
+                  paddingBottom: '0.25rem',
+                  paddingLeft: '0.625rem',
+                  paddingRight: '1.5rem',
                 }}
               >
-                {opt.label}
-              </button>
-            );
-          })}
+                <option value="" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>Project…</option>
+                {announcementTeams.map(t => (
+                  <option key={t.id} value={t.id} style={{ background: 'var(--surface)', color: 'var(--text)' }}>{t.name}</option>
+                ))}
+              </select>
+              <span
+                style={{
+                  position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)',
+                  pointerEvents: 'none', fontSize: '0.55rem',
+                  color: isProjectFilter ? 'rgba(255,255,255,0.8)' : 'var(--text-3)',
+                }}
+              >▼</span>
+            </div>
+          )}
         </div>
       )}
 

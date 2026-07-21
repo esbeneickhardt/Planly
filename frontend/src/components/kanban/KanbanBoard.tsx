@@ -764,7 +764,7 @@ export default function KanbanBoard() {
             onMouseUp={onBoardMouseUp}
             onMouseLeave={onBoardMouseUp}
           >
-            <div className="flex gap-4 p-6 min-w-max items-start">
+            <div className="flex gap-4 px-6 pt-2 pb-6 min-w-max items-start">
               {columns.map((col) => (
                 <div key={col.id} className="kanban-col">
                   <KanbanColumn

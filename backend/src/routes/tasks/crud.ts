@@ -181,7 +181,9 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     });
 
     // Fire webhooks, realtime broadcast, activity log, and assignment notifications
-    const eventName = body.status && body.status !== task.status ? 'task.status_changed' : 'task.updated';
+    const statusChanged = body.status !== undefined && body.status !== task.status;
+    const ownerChanged = body.ownerId !== undefined && body.ownerId !== task.ownerId;
+    const eventName = statusChanged ? 'task.status_changed' : ownerChanged ? 'task.assigned' : 'task.updated';
     const decryptedUpdated = decryptTaskPii(updated);
     dispatchWebhooks(productId, eventName, decryptedUpdated).catch((err) => { logger.warn({ err: (err as Error).message }, 'webhook dispatch failed'); });
     broadcast(productId, eventName, decryptedUpdated);
