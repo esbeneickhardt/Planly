@@ -50,7 +50,7 @@ export async function columnRoutes(app: FastifyInstance) {
   // List columns for a project, seeding defaults if none exist yet
   app.get('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const columns = await ensureColumns(productId);
     reply.send(columns.sort((a, b) => a.order - b.order));
   });
@@ -58,7 +58,7 @@ export async function columnRoutes(app: FastifyInstance) {
   // Create a custom column, inserted just before the "Done" column to preserve completion semantics
   app.post('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['kanban'], reply)) return;
     const body = validate(createColumnSchema, req.body, reply);
     if (!body) return;
     const { label, color } = body;
@@ -84,7 +84,7 @@ export async function columnRoutes(app: FastifyInstance) {
   // Reorder columns by updating all positions in one transaction; must be registered before /:columnId to avoid route conflict
   app.patch('/api/products/:productId/columns/reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['kanban'], reply)) return;
     const reorderBody = validate(reorderColumnSchema, req.body, reply);
     if (!reorderBody) return;
     const { order } = reorderBody;
@@ -97,7 +97,7 @@ export async function columnRoutes(app: FastifyInstance) {
   // Update a single column's label or color
   app.patch('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
-    if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['kanban'], reply)) return;
     const body = validate(updateColumnSchema, req.body, reply);
     if (!body) return;
     const { label, color } = body;
@@ -110,7 +110,7 @@ export async function columnRoutes(app: FastifyInstance) {
   // Delete a column; tasks in it are moved to "todo" atomically — the "Done" column cannot be deleted
   app.delete('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
-    if (!await requireTabWrite(productId, req.user.userId, ['kanban'], reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['kanban'], reply)) return;
     const col = await prisma.kanbanColumn.findFirst({ where: { id: columnId, productId } });
     if (!col) return reply.status(404).send({ error: 'Not found' });
     if (col.isDone) return reply.status(400).send({ error: 'Cannot delete the completion column' });

@@ -6,9 +6,18 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
-import type { ApiToken, AppRegistration } from '../../api/client';
+import type { ApiToken, AppRegistration, AppPermissions, AppPermissionLevel } from '../../api/client';
 import type { Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+
+const APP_TABS: { key: keyof AppPermissions; label: string }[] = [
+  { key: 'kanban',    label: 'Kanban' },
+  { key: 'backlog',   label: 'Backlog' },
+  { key: 'gantt',     label: 'Gantt' },
+  { key: 'canvas',    label: 'Canvas' },
+  { key: 'messages',  label: 'Messages' },
+  { key: 'analytics', label: 'Analytics' },
+];
 
 interface Props {
   activeProduct: Product;
@@ -82,7 +91,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
         </div>
         <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
           Create named apps (bots, integrations, CI pipelines) and issue tokens for each.
-          App tokens act with your permissions. Useful for separating automation from personal access.
+          App tokens act with their own independent permissions and are not affected by changes to the creator's access.
         </p>
 
         {/* Create app form */}
@@ -155,8 +164,9 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 </div>
 
                 {selectedAppId === app.id && (
-                  <div className="px-4 pb-4 pt-2" style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
-                    <div className="flex gap-3 mb-3">
+                  <div className="px-4 pb-4 pt-2 space-y-4" style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
+                    <AppPermissionsEditor app={app} onSaved={(updated) => setApps((prev) => prev.map((a) => a.id === updated.id ? updated : a))} showToast={showToast} />
+                    <div className="flex gap-3">
                       <input
                         type="text"
                         value={newAppTokenName}
@@ -402,6 +412,76 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
         </div>
       )}
 
+    </div>
+  );
+}
+
+// ── Per-tab permissions editor embedded in the expanded app panel ──────────────
+
+function AppPermissionsEditor({
+  app,
+  onSaved,
+  showToast,
+}: {
+  app: AppRegistration;
+  onSaved: (updated: AppRegistration) => void;
+  showToast: (msg: string, type: 'success' | 'error') => void;
+}) {
+  const [perms, setPerms] = useState<AppPermissions>(app.permissions ?? {});
+  const [saving, setSaving] = useState(false);
+
+  function levelFor(tab: keyof AppPermissions): AppPermissionLevel {
+    return perms[tab] ?? 'write';
+  }
+
+  function setLevel(tab: keyof AppPermissions, level: AppPermissionLevel) {
+    setPerms((prev) => ({ ...prev, [tab]: level }));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const updated = await api.appRegistrations.updatePermissions(app.id, perms);
+      onSaved(updated);
+      showToast('Permissions saved', 'success');
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const levels: AppPermissionLevel[] = ['write', 'read', 'none'];
+
+  return (
+    <div>
+      <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-2)' }}>Tab permissions</p>
+      <div className="space-y-1 mb-3">
+        {APP_TABS.map(({ key, label }) => (
+          <div key={key} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+            <span className="text-xs" style={{ color: 'var(--text)' }}>{label}</span>
+            <div className="flex gap-1">
+              {levels.map((lvl) => (
+                <button
+                  key={lvl}
+                  onClick={() => setLevel(key, lvl)}
+                  className="text-[10px] px-2 py-0.5 rounded capitalize"
+                  style={{
+                    background: levelFor(key) === lvl ? 'var(--brand)' : 'var(--surface)',
+                    color: levelFor(key) === lvl ? '#fff' : 'var(--text-3)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  {lvl}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={save} disabled={saving} className="btn-primary text-xs">
+        {saving ? 'Saving…' : 'Save permissions'}
+      </button>
     </div>
   );
 }

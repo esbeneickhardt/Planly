@@ -13,8 +13,8 @@ import { requireProductMember, requireTabRead } from '../utils/product-guard';
 export async function analyticsRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/analytics', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    if (!await requireTabRead(productId, req.user.userId, ['analytics'], reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!await requireTabRead(productId, req.user, ['analytics'], reply)) return;
 
     // Verify analytics access — owners and co-owners can view even when disabled
     const product = await prisma.product.findUnique({
@@ -108,7 +108,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
   // Personal workload - returns only the requesting user's own tasks, nobody else's
   app.get('/api/products/:productId/analytics/workload', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
 
     const userId = req.user.userId;
 
