@@ -204,10 +204,10 @@ export async function totpRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid code' });
     }
 
-    // Full authentication complete - now increment tokenVersion
+    // Full authentication complete - increment tokenVersion and stamp lastLoginAt
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
-      data: { tokenVersion: { increment: 1 } },
+      data: { tokenVersion: { increment: 1 }, lastLoginAt: new Date() },
       select: { tokenVersion: true },
     });
 

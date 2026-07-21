@@ -24,6 +24,7 @@ const serverConfigSchema = z.object({
   allowProjectCreation: z.boolean().optional(),
   announcementsEnabled: z.boolean().optional(),
   announcementPostRole: z.string().optional(),
+  requireMfa: z.boolean().optional(),
 });
 
 export async function adminConfigRoutes(app: FastifyInstance) {
@@ -70,7 +71,7 @@ export async function adminConfigRoutes(app: FastifyInstance) {
   app.put('/api/admin/server-config', { preHandler: requireAdmin }, async (req, reply) => {
     const cfgBody = validate(serverConfigSchema, req.body, reply);
     if (!cfgBody) return;
-    const { requireEmailVerification, requireWhitelist, requireBlocklist, allowProjectCreation, announcementsEnabled, announcementPostRole } = cfgBody;
+    const { requireEmailVerification, requireWhitelist, requireBlocklist, allowProjectCreation, announcementsEnabled, announcementPostRole, requireMfa } = cfgBody;
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
 
     // Snapshot the config before the update so we can detect transitions (e.g. verification just turned on)
@@ -86,11 +87,12 @@ export async function adminConfigRoutes(app: FastifyInstance) {
         ...(allowProjectCreation !== undefined ? { allowProjectCreation } : {}),
         ...(announcementsEnabled !== undefined ? { announcementsEnabled } : {}),
         ...(announcementPostRole !== undefined ? { announcementPostRole } : {}),
+        ...(requireMfa !== undefined ? { requireMfa } : {}),
       },
-      create: { id: 'main', requireEmailVerification: requireEmailVerification ?? false, requireWhitelist: requireWhitelist ?? false, requireBlocklist: requireBlocklist ?? false, allowProjectCreation: allowProjectCreation ?? false, announcementsEnabled: announcementsEnabled ?? false, announcementPostRole: announcementPostRole ?? 'admin' },
+      create: { id: 'main', requireEmailVerification: requireEmailVerification ?? false, requireWhitelist: requireWhitelist ?? false, requireBlocklist: requireBlocklist ?? false, allowProjectCreation: allowProjectCreation ?? false, announcementsEnabled: announcementsEnabled ?? false, announcementPostRole: announcementPostRole ?? 'admin', requireMfa: requireMfa ?? false },
     });
     await prisma.adminLog.create({
-      data: { action: 'SERVER_CONFIG_UPDATED', actorName: actor?.username, metadata: { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole } },
+      data: { action: 'SERVER_CONFIG_UPDATED', actorName: actor?.username, metadata: { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole, requireMfa } },
     });
 
     // Bulk-send verification emails when the feature is toggled on for the first time

@@ -3,6 +3,7 @@
  * and admin role.  Only the founding admin sees the Actions column; promoting/demoting/deleting
  * calls onUsersChanged so the parent AdminPage refreshes the shared user list.
  */
+import { useState } from 'react';
 import { api } from '../../api/client';
 import type { AdminUser } from './types';
 
@@ -17,6 +18,9 @@ interface Props {
 export default function AdminUsers({
   users, isFoundingAdmin, currentUserId, onUsersChanged, showToast,
 }: Props) {
+  // Stores a temporary password to display once after an admin reset
+  const [tempPassDisplay, setTempPassDisplay] = useState<{ userId: string; password: string } | null>(null);
+
   // Shared error-boundary for mutations so each row button doesn't need try/catch
   async function act(fn: () => Promise<void>) {
     try { await fn(); }
@@ -79,7 +83,21 @@ export default function AdminUsers({
                 if (u.failedLoginAttempts > 0) {
                   return <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#f59e0b22', color: '#f59e0b' }}>{u.failedLoginAttempts} fail{u.failedLoginAttempts === 1 ? '' : 's'}</span>;
                 }
-                return <span className="text-xs" style={{ color: 'var(--text-3)' }}>-</span>;
+                if (u.lastLoginAt) {
+                  const ms = Date.now() - new Date(u.lastLoginAt).getTime();
+                  const days = Math.floor(ms / 86400000);
+                  const hours = Math.floor(ms / 3600000);
+                  const mins2 = Math.floor(ms / 60000);
+                  // Sessions expire after 7 days; highlight users who appear to have an active session
+                  const active = days < 7;
+                  const label = mins2 < 60 ? `${mins2}m ago` : hours < 24 ? `${hours}h ago` : `${days}d ago`;
+                  return (
+                    <span className="text-xs px-1.5 py-0.5 rounded" title={new Date(u.lastLoginAt).toLocaleString()} style={{ background: active ? '#10b98122' : 'var(--surface-2)', color: active ? '#10b981' : 'var(--text-3)' }}>
+                      {label}
+                    </span>
+                  );
+                }
+                return <span className="text-xs" style={{ color: 'var(--text-3)' }}>Never</span>;
               })()}
             </td>
             <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(u.createdAt).toLocaleDateString()}</td>
@@ -109,6 +127,30 @@ export default function AdminUsers({
                       title="Immediately invalidate all active sessions"
                     >
                       Force logout
+                    </button>
+                  )}
+                  {u.id !== currentUserId && !u.isFoundingAdmin && (
+                    <button
+                      onClick={() => act(async () => {
+                        const res = await api.admin.resetPassword(u.id);
+                        try { await navigator.clipboard.writeText(res.tempPassword); } catch { /* ignore */ }
+                        setTempPassDisplay({ userId: u.id, password: res.tempPassword });
+                      })}
+                      className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100"
+                      style={{ background: '#10b98115', color: '#10b981' }}
+                      title="Generate a temporary password and copy it to clipboard"
+                    >
+                      Reset pw
+                    </button>
+                  )}
+                  {tempPassDisplay?.userId === u.id && (
+                    <button
+                      className="text-xs px-2 py-1 rounded font-mono"
+                      style={{ background: '#10b98122', color: '#10b981' }}
+                      title="Click to copy again"
+                      onClick={() => { navigator.clipboard.writeText(tempPassDisplay.password).catch(() => {}); showToast('Password copied', 'success'); }}
+                    >
+                      {tempPassDisplay.password}
                     </button>
                   )}
                   {u.id !== currentUserId && !u.isFoundingAdmin && (

@@ -8,6 +8,7 @@ export type AdminUser = {
   createdAt: string;
   failedLoginAttempts: number;
   loginLockedUntil: string | null;
+  lastLoginAt: string | null;
 };
 
 export type AdminProject = {
@@ -39,6 +40,7 @@ export type ServerConfig = {
   allowProjectCreation: boolean;
   announcementsEnabled: boolean;
   announcementPostRole: string;
+  requireMfa: boolean;
 };
 
 export type Stats = {
@@ -78,4 +80,5 @@ export const ACTION_LABELS: Record<string, string> = {
   LOGS_PRUNED: 'Logs pruned',
   LOGIN_LOCKED: 'Account locked',
   LOGIN_UNLOCKED: 'Account unlocked',
+  PASSWORD_RESET_BY_ADMIN: 'Password reset by admin',
 };

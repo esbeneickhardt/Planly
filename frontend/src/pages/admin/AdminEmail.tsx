@@ -354,6 +354,23 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
         </div>
       )}
 
+      {/* Security */}
+      {serverConfig && (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Security</p>
+          <Toggle
+            label="Require multi-factor authentication"
+            description="All users must set up TOTP (authenticator app) before they can access the app. Users without MFA are redirected to the setup page on next login."
+            value={serverConfig.requireMfa}
+            onChange={(v) => act(async () => {
+              await api.admin.updateServerConfig({ requireMfa: v });
+              setServerConfig((c) => c ? { ...c, requireMfa: v } : c);
+              showToast(`MFA requirement ${v ? 'enabled' : 'disabled'}`, 'success');
+            })}
+          />
+        </div>
+      )}
+
       {/* Announcements */}
       {serverConfig && (
         <div className="space-y-3">
