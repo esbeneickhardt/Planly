@@ -16,7 +16,6 @@ export { default as PlanlyVisionModal } from './PlanlyVisionModal';
 export { default as ProfileModal } from './ProfileModal';
 export { default as SearchModal } from './SearchModal';
 export { default as SeedDataModal } from './SeedDataModal';
-export { default as Sidebar } from './Sidebar';
 export { default as TaskDetailPanel } from './TaskDetailPanel';
 export { default as ThemePickerModal } from './ThemePickerModal';
 export { default as Tooltip } from './Tooltip';

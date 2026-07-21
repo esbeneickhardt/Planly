@@ -40,19 +40,19 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
   const [myRole, setMyRole] = useState<string>('member');
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
-  // Fetches permissions + team role in parallel; resets loaded flag before each call
+  // Fetches current user's permissions for the active product via the /api/me/permissions endpoint,
+  // which is accessible to all roles (unlike the co-owner-only /api/products/:id/permissions endpoint).
   const refresh = useCallback(async () => {
     if (!activeProduct || !user) { setMyPerms({}); setMyRole('member'); setPermissionsLoaded(true); return; }
     try {
-      const [rows, team] = await Promise.all([
-        api.permissions.list(activeProduct.id),
-        api.teams.get(activeProduct.teamId),
-      ]);
-      const mine: Record<string, Level> = {};
-      rows.filter((r) => r.userId === user.id).forEach((r) => { mine[r.tab] = r.level as Level; });
-      setMyPerms(mine);
-      const member = team.members.find(m => m.userId === user.id);
-      setMyRole(member?.role ?? 'member');
+      const all = await api.me.permissions();
+      const entry = all.find((e) => e.productId === activeProduct.id);
+      const perms: Record<string, Level> = {};
+      if (entry) {
+        Object.entries(entry.permissions).forEach(([tab, level]) => { perms[tab] = level as Level; });
+      }
+      setMyPerms(perms);
+      setMyRole(entry?.role ?? 'member');
     } catch {
       setMyPerms({});
       setMyRole('member');

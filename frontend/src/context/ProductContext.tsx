@@ -3,11 +3,17 @@
  * `patchTaskPositions` updates canvas coordinates in the local cache without an API round-trip.
  * Subscribes to WebSocket task events via `useRealtimeUpdates` and resets tasks when the active product changes.
  */
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import type { Product, Task } from '../types';
 import { useAuth } from './AuthContext';
 import { useRealtimeUpdates } from '../hooks/useRealtimeUpdates';
+
+export interface RealtimeEvent {
+  event: string;
+  data?: unknown;
+  ts?: number;
+}
 
 interface ProductContextValue {
   products: Product[];
@@ -20,6 +26,7 @@ interface ProductContextValue {
   createProduct: (data: { name: string; emoji?: string; description?: string; deadline: string }) => Promise<Product>;
   createTask: (data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string }) => Promise<Task>;
   patchTaskPositions: (updates: { taskId: string; canvasX: number; canvasY: number }[]) => void;
+  addRealtimeListener: (fn: (e: RealtimeEvent) => void) => () => void;
 }
 
 const ProductContext = createContext<ProductContextValue | null>(null);
@@ -64,6 +71,13 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  // Extra listeners registered by child components to receive WS events without a second connection
+  const listenersRef = useRef<Set<(e: RealtimeEvent) => void>>(new Set());
+  const addRealtimeListener = useCallback((fn: (e: RealtimeEvent) => void) => {
+    listenersRef.current.add(fn);
+    return () => { listenersRef.current.delete(fn); };
+  }, []);
+
   // Realtime: refresh task list on task events and on reconnect (to catch up on missed broadcasts)
   useRealtimeUpdates(activeProduct?.id, useCallback((e) => {
     if (e.event === 'task.created' || e.event === 'task.updated' || e.event === 'task.deleted' ||
@@ -71,6 +85,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         e.event === 'ws.reconnected') {
       refreshTasks();
     }
+    listenersRef.current.forEach(fn => fn(e));
   }, [refreshTasks]));
 
   // Effects: load products on login; reload tasks when active product changes
@@ -107,7 +122,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ProductContext.Provider value={{ products, activeProduct, tasks, tasksLoaded, setActiveProduct, refreshTasks, refreshProducts, createProduct, createTask, patchTaskPositions }}>
+    <ProductContext.Provider value={{ products, activeProduct, tasks, tasksLoaded, setActiveProduct, refreshTasks, refreshProducts, createProduct, createTask, patchTaskPositions, addRealtimeListener }}>
       {children}
     </ProductContext.Provider>
   );

@@ -169,6 +169,11 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Current user profile - called on every page load to hydrate the auth context
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {
+    // App Registration tokens surface the app's name as its identity, not the creator's profile
+    if (req.user.appName) {
+      const creator = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
+      return reply.send({ username: req.user.appName, isApp: true, createdBy: creator?.username ?? null });
+    }
     const [user, cfg] = await Promise.all([
       prisma.user.findUnique({
         where: { id: req.user.userId },
