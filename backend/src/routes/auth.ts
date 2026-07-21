@@ -114,7 +114,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.send({ requiresTOTP: true, mfaToken });
     }
 
-    // Standard login (no TOTP) - reset lockout counters and rotate tokenVersion
+    // Standard login (no TOTP) - reset lockout counters, rotate tokenVersion, stamp lastLoginAt
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -122,6 +122,7 @@ export async function authRoutes(app: FastifyInstance) {
         loginLockedUntil: null,
         loginLockCount: 0,
         tokenVersion: { increment: 1 },
+        lastLoginAt: new Date(),
       },
       select: { tokenVersion: true },
     });
@@ -177,13 +178,14 @@ export async function authRoutes(app: FastifyInstance) {
     const [user, cfg] = await Promise.all([
       prisma.user.findUnique({
         where: { id: req.user.userId },
-        select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true, mustChangePassword: true, notificationPreferences: true, acceptsInvites: true },
+        select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true, mustChangePassword: true, totpEnabled: true, notificationPreferences: true, acceptsInvites: true },
       }),
       getServerConfig(),
     ]);
     if (!user) return reply.status(404).send({ error: 'Not found' });
+    const mustSetupMfa = cfg.requireMfa && !user.totpEnabled;
     // Decrypt PII fields (realName, phone stored AES-256-GCM) and append server-config flags the UI needs
-    reply.send({ ...decryptUserPii(user), announcementsEnabled: cfg.announcementsEnabled });
+    reply.send({ ...decryptUserPii(user), announcementsEnabled: cfg.announcementsEnabled, mustSetupMfa });
   });
 
 }

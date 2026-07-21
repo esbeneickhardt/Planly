@@ -15,6 +15,7 @@ export interface ServerConfigValues {
   announcementsEnabled: boolean;
   announcementPostRole: string;
   ipRestrictionMode: string;
+  requireMfa: boolean;
 }
 
 // Reads from DB; safe defaults keep the app functional on a fresh install
@@ -29,5 +30,6 @@ export async function getServerConfig(): Promise<ServerConfigValues> {
     announcementsEnabled: row?.announcementsEnabled ?? false,
     announcementPostRole: row?.announcementPostRole ?? 'admin',
     ipRestrictionMode: row?.ipRestrictionMode ?? 'disabled',
+    requireMfa: row?.requireMfa ?? false,
   };
 }

@@ -560,7 +560,7 @@ export const api = {
   },
 
   admin: {
-    users: () => request<{ id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string; failedLoginAttempts: number; loginLockedUntil: string | null }[]>('/api/admin/users'),
+    users: () => request<{ id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string; failedLoginAttempts: number; loginLockedUntil: string | null; lastLoginAt: string | null }[]>('/api/admin/users'),
     promote: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/promote`, { method: 'PUT', body: json({}) }),
     demote: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/demote`, { method: 'PUT', body: json({}) }),
     transferCrown: (userId: string) => request<{ ok: boolean }>('/api/admin/transfer-crown', { method: 'PUT', body: json({ userId }) }),
@@ -568,11 +568,12 @@ export const api = {
     deleteUser: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
     unlock: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/unlock`, { method: 'PUT', body: json({}) }),
     forceLogout: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/force-logout`, { method: 'PUT', body: json({}) }),
+    resetPassword: (userId: string) => request<{ ok: boolean; tempPassword: string }>(`/api/admin/users/${userId}/reset-password`, { method: 'POST', body: json({}) }),
     whitelist: () => request<{ id: string; pattern: string; type: string; createdAt: string }[]>('/api/admin/whitelist'),
     addWhitelist: (pattern: string, type: 'allow' | 'deny' = 'allow') => request<{ id: string; pattern: string; type: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern, type }) }),
     removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
-    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; requireBlocklist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string; ipRestrictionMode: string }>('/api/admin/server-config'),
-    updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean; requireBlocklist?: boolean; allowProjectCreation?: boolean; announcementsEnabled?: boolean; announcementPostRole?: string }) =>
+    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; requireBlocklist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string; ipRestrictionMode: string; requireMfa: boolean }>('/api/admin/server-config'),
+    updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean; requireBlocklist?: boolean; allowProjectCreation?: boolean; announcementsEnabled?: boolean; announcementPostRole?: string; requireMfa?: boolean }) =>
       request<{ ok: boolean; verificationEmailsSent?: number }>('/api/admin/server-config', { method: 'PUT', body: json(data) }),
     ipRestrictions: () => request<{ allowlistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[]; blocklistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[]; yourIp: string }>('/api/admin/ip-restrictions'),
     addIpRule: (cidr: string, listType: 'allowlist' | 'blocklist', description?: string) => request<{ id: string; cidr: string; listType: string; description: string | null; createdAt: string }>('/api/admin/ip-restrictions', { method: 'POST', body: json({ cidr, listType, description }) }),

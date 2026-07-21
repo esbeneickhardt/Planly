@@ -22,6 +22,7 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const InvitePage        = lazy(() => import('./pages/InvitePage'));
 const VerifyEmailPage   = lazy(() => import('./pages/VerifyEmailPage'));
 const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'));
+const SetupMfaPage      = lazy(() => import('./pages/SetupMfaPage'));
 const TermsPage         = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage       = lazy(() => import('./pages/PrivacyPage'));
 
@@ -48,6 +49,7 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   }
   if (!user) return <Navigate to="/login" replace />;
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
+  if (user.mustSetupMfa) return <Navigate to="/setup-mfa" replace />;
   return children;
 }
 
@@ -110,6 +112,7 @@ export default function App() {
                 <Route path="/invite/:token"    element={<PageBoundary><InvitePage /></PageBoundary>} />
                 <Route path="/verify-email"     element={<PageBoundary><VerifyEmailPage /></PageBoundary>} />
                 <Route path="/change-password"  element={<PageBoundary><ChangePasswordPage /></PageBoundary>} />
+                <Route path="/setup-mfa"        element={<PageBoundary><SetupMfaPage /></PageBoundary>} />
                 <Route path="/terms"            element={<PageBoundary><TermsPage /></PageBoundary>} />
                 <Route path="/privacy"          element={<PageBoundary><PrivacyPage /></PageBoundary>} />
                 <Route
