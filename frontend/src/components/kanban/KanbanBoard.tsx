@@ -21,6 +21,7 @@ import { useSprints } from '../../hooks/useSprints';
 import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import KanbanColumn from './KanbanColumn';
 import KanbanCard from './KanbanCard';
+import KanbanMobileList from './KanbanMobileList';
 import TaskDetailPanel from '../common/TaskDetailPanel';
 import Modal from '../common/Modal';
 
@@ -596,6 +597,18 @@ export default function KanbanBoard() {
         </div>
       </div>
 
+      {/* Mobile scrollable task list - hidden on md+ where the full board renders */}
+      <KanbanMobileList
+        columns={columns}
+        tasks={filteredTasks}
+        users={users}
+        onOpenDetail={setSelectedTask}
+        onAddTask={() => setShowNewTask(true)}
+        readOnly={readOnly}
+      />
+
+      {/* Desktop board area - hidden on small screens to give way to KanbanMobileList */}
+      <div className="hidden md:flex flex-col flex-1 overflow-hidden">
       {/* ── Compact list view ── */}
       {compact && (() => {
         const colOrder = Object.fromEntries(columns.map((c, i) => [c.statusKey, i]));
@@ -812,6 +825,7 @@ export default function KanbanBoard() {
           ) : null}
         </DragOverlay>
       </DndContext>}
+      </div>{/* end desktop board area */}
 
       {/* Detail panel */}
       {selectedTask && (

@@ -7,7 +7,7 @@ import { memo, useContext } from 'react';
 import { displayName } from '../../../api/client';
 import { Handle, Position, NodeProps } from 'reactflow';
 import type { Task } from '../../../types';
-import { CanvasContext } from '../CanvasView';
+import { CanvasContext } from '../canvasUtils';
 
 interface TaskNodeData extends Task {
   selectedSprintId?: string | null;

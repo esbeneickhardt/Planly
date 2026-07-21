@@ -15,11 +15,12 @@ import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 
-// Validates token creation payload; productId scopes the token to a single project
+// Validates token creation payload; productId scopes to a project, readOnly restricts to GET requests
 const createTokenSchema = z.object({
   name: z.string().min(1),
   expiresAt: z.string().optional(),
   productId: z.string().uuid().optional(), // when set, token is restricted to this product only
+  readOnly: z.boolean().optional(),        // when true, token can only perform GET requests
 });
 
 // Returns a SHA-256 hex digest for safe storage without exposing the raw secret
@@ -28,7 +29,7 @@ function hashToken(raw: string): string {
 }
 
 // Fields returned for token listings — never includes tokenHash
-const TOKEN_SELECT = { id: true, name: true, appId: true, productId: true, lastUsedAt: true, expiresAt: true, createdAt: true };
+const TOKEN_SELECT = { id: true, name: true, appId: true, productId: true, readOnly: true, lastUsedAt: true, expiresAt: true, createdAt: true };
 
 export async function apiTokenRoutes(app: FastifyInstance) {
   // List the current user's tokens (never exposes the raw token)
@@ -45,7 +46,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
   app.post('/api/auth/tokens', { preHandler: requireAuth }, async (req, reply) => {
     const body = validate(createTokenSchema, req.body, reply);
     if (!body) return;
-    const { name, expiresAt, productId } = body;
+    const { name, expiresAt, productId, readOnly } = body;
 
     // If scoping to a product, verify caller is actually a member of that product
     if (productId) {
@@ -71,11 +72,12 @@ export async function apiTokenRoutes(app: FastifyInstance) {
         tokenHash,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         productId: productId ?? null,
+        readOnly: readOnly ?? false,
       },
       select: TOKEN_SELECT,
     });
 
-    logAdminEvent('PAT_CREATED', { actorName: req.user.username, targetName: req.user.username, metadata: { tokenId: token.id, name: name.trim(), scoped: !!productId } });
+    logAdminEvent('PAT_CREATED', { actorName: req.user.username, targetName: req.user.username, metadata: { tokenId: token.id, name: name.trim(), scoped: !!productId, readOnly: readOnly ?? false } });
     // Include raw token in response - never stored, never retrievable again
     reply.status(201).send({ ...token, token: rawToken });
   });

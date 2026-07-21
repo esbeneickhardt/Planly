@@ -118,6 +118,37 @@ services:
         max-size: "20m"
         max-file: "3"
 
+  # ── Backup (optional) ─────────────────────────────────────────────────────
+  # Hourly backup of DB + uploads to a host directory. Identical to the prod setup.
+  # Enable by uncommenting below and setting BACKUP_DIR in .env (default: ./backups).
+  # Note: requires /var/run/docker.sock access and a running db container named planly-db.
+  #
+  # backup:
+  #   image: docker:cli
+  #   restart: unless-stopped
+  #   entrypoint: >
+  #     sh -c "
+  #       while true; do
+  #         sleep 3600
+  #         DB_CONTAINER=$$(docker ps --filter name=planly-db --format '{{.Names}}' | head -1)
+  #         TIMESTAMP=$$(date +%Y%m%d_%H%M%S)
+  #         mkdir -p /backups/planly/$$TIMESTAMP
+  #         docker exec $$DB_CONTAINER pg_dump -U planly planly | gzip > /backups/planly/$$TIMESTAMP/db.sql.gz
+  #         tar -czf /backups/planly/$$TIMESTAMP/uploads.tar.gz -C /uploads . 2>/dev/null || true
+  #         find /backups/planly -maxdepth 1 -type d -mtime +30 -exec rm -rf {} + 2>/dev/null || true
+  #         echo \"[$$TIMESTAMP] Backup complete\"
+  #       done
+  #     "
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - uploads_data:/uploads:ro
+  #     - ${BACKUP_DIR:-./backups}:/backups
+  #   logging:
+  #     driver: json-file
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
+
   # ── Redis (optional) ──────────────────────────────────────────────────────
   # Required for WebSocket horizontal scaling across multiple backend replicas.
   # After enabling: add REDIS_URL=redis://redis:6379 to the backend environment.

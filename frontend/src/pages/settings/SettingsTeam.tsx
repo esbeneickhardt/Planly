@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api, displayName } from '../../api/client';
 import type { TeamInvite } from '../../api/client';
 import type { Product, Team, TeamMember, User } from '../../types';
+import UserProfileModal from '../../components/common/UserProfileModal';
 
 type AccessRequestRow = {
   id: string;
@@ -62,6 +63,7 @@ export default function SettingsTeam({
   const [accessRequests, setAccessRequests] = useState<AccessRequestRow[]>([]);
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const [uninvitingId, setUninvitingId] = useState<string | null>(null);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const loadInvites = useCallback(async () => {
     try { setInvites(await api.invites.list(team.id)); } catch {}
@@ -215,17 +217,19 @@ export default function SettingsTeam({
                   borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
                 }}
               >
-                <span className="text-xl flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{displayName(user)}</span>
-                    {isProductOwner && <RoleBadge kind="owner" />}
-                    {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
-                    {userId === currentUser?.id && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>You</span>
-                    )}
+                <button type="button" onClick={() => setProfileUserId(userId)} className="flex items-center gap-3 flex-1 min-w-0 text-left" style={{ background: 'none', border: 'none', padding: 0 }}>
+                  <span className="text-xl flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium hover:underline" style={{ color: 'var(--text)' }}>{displayName(user)}</span>
+                      {isProductOwner && <RoleBadge kind="owner" />}
+                      {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
+                      {userId === currentUser?.id && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>You</span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </button>
                 {isOwner && !isProductOwner && userId !== currentUser?.id && (
                   <button
                     onClick={() => handleToggleCoOwner(userId, role ?? 'member')}
@@ -390,6 +394,7 @@ export default function SettingsTeam({
           </div>
         )}
       </div>
+      {profileUserId && <UserProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
     </div>
   );
 }

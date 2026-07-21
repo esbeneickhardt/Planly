@@ -276,6 +276,33 @@ async function main() {
     done();
   });
 
+  // Sec-Fetch-* header validation — defence-in-depth against CSRF.
+  // Modern browsers attach these headers on every request and they cannot be forged by JS.
+  // If Sec-Fetch-Site is present and says 'cross-site', reject non-GET/HEAD mutating requests.
+  // Requests from API clients (curl, PATs, mobile) omit the header entirely and pass through.
+  const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+  app.addHook('onRequest', (req, reply, done) => {
+    const site = req.headers['sec-fetch-site'];
+    if (site && site === 'cross-site' && MUTATING_METHODS.has(req.method)) {
+      // Allow the SSO callback which arrives as a cross-site navigation POST from the IdP
+      if (req.url.startsWith('/api/auth/sso/callback')) { done(); return; }
+      reply.status(403).send({ error: 'Cross-site requests are not allowed' });
+      return;
+    }
+    done();
+  });
+
+  // CSP violation reports from the browser — no auth, logged at warn level for review.
+  // Violations appear when injected scripts or rogue resources are blocked by the CSP.
+  // Set SECURITY_ALERT_WEBHOOK_URL to route high-frequency violations to Slack/Discord.
+  app.addContentTypeParser('application/csp-report', { parseAs: 'string' }, (_req, body, done) => {
+    try { done(null, JSON.parse(body as string)); } catch { done(null, {}); }
+  });
+  app.post('/api/csp-report', async (req, reply) => {
+    req.log.warn({ cspViolation: req.body }, 'CSP violation reported');
+    reply.status(204).send();
+  });
+
   // Note: scoped PAT enforcement is handled atomically inside validateToken in auth.ts
   // (a global preHandler hook cannot do this because req.user is not yet populated at that point)
 
@@ -335,6 +362,7 @@ async function main() {
   const loginRateMax = parseInt(process.env.RATE_LIMIT_LOGIN_MAX ?? '10', 10);
   const ROUTE_RATE_LIMITS: Record<string, { max: number; timeWindow: string }> = {
     '/api/auth/login':                   { max: loginRateMax, timeWindow: '1 minute' },
+    '/api/auth/refresh-token':           { max: 60, timeWindow: '1 minute' },
     '/api/auth/forgot-password':         { max: 10, timeWindow: '1 minute' },
     '/api/auth/reset-password':          { max: 10, timeWindow: '1 minute' },
     '/api/auth/change-password':         { max: 5,  timeWindow: '15 minutes' },

@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { api } from '../../api/client';
 import { MermaidBlock } from './MermaidBlock';
+import { EMOJI_CATEGORIES } from './EmojiPicker';
 
 export const EMOJI_SET = [
   '👍','👎','❤️','😂','🎉','🔥','👀','💯','✅','⭐',
@@ -45,6 +46,7 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
   const [preview, setPreview] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [emojiPage, setEmojiPage] = useState(0);
   const [uploading, setUploading] = useState(false);
 
   function insertAtCursor(text: string) {
@@ -100,9 +102,30 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
             title="Insert emoji"
           >😊</button>
           {showEmoji && (
-            <div className="absolute left-0 top-full mt-1 z-50 p-2 rounded-xl shadow-xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 28px)', gap: 2 }}>
-                {EMOJI_SET.map((e) => (
+            <div className="absolute left-0 top-full mt-1 z-50 rounded-xl shadow-xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', width: 296 }}>
+              {/* Category nav */}
+              <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <button
+                  type="button"
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onClick={() => setEmojiPage((p) => Math.max(0, p - 1))}
+                  disabled={emojiPage === 0}
+                  className="w-6 h-6 flex items-center justify-center rounded-md text-sm transition-colors disabled:opacity-30"
+                  style={{ color: 'var(--text-3)', background: 'var(--surface)' }}
+                >‹</button>
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>{EMOJI_CATEGORIES[emojiPage]?.label}</span>
+                <button
+                  type="button"
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onClick={() => setEmojiPage((p) => Math.min(EMOJI_CATEGORIES.length - 1, p + 1))}
+                  disabled={emojiPage === EMOJI_CATEGORIES.length - 1}
+                  className="w-6 h-6 flex items-center justify-center rounded-md text-sm transition-colors disabled:opacity-30"
+                  style={{ color: 'var(--text-3)', background: 'var(--surface)' }}
+                >›</button>
+              </div>
+              {/* Emoji grid */}
+              <div className="grid grid-cols-8 gap-0.5 p-2">
+                {(EMOJI_CATEGORIES[emojiPage]?.emojis ?? []).map((e) => (
                   <button
                     key={e} type="button"
                     onMouseDown={(ev) => {
@@ -110,9 +133,22 @@ export default function MarkdownEditor({ value, onChange, rows = 6, placeholder 
                       insertAtCursor(e);
                       setShowEmoji(false);
                     }}
-                    className="flex items-center justify-center rounded text-base"
-                    style={{ width: 28, height: 28 }}
+                    title={e}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all hover:scale-110"
+                    style={{ background: 'transparent' }}
                   >{e}</button>
+                ))}
+              </div>
+              {/* Page dots */}
+              <div className="flex justify-center gap-1 pb-2">
+                {EMOJI_CATEGORIES.map((_, i) => (
+                  <button
+                    key={i} type="button"
+                    onMouseDown={(ev) => ev.preventDefault()}
+                    onClick={() => setEmojiPage(i)}
+                    className="rounded-full transition-all"
+                    style={{ width: i === emojiPage ? 16 : 5, height: 5, background: i === emojiPage ? 'var(--brand)' : 'var(--border)' }}
+                  />
                 ))}
               </div>
             </div>

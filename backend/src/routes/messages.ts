@@ -143,12 +143,16 @@ export async function messageRoutes(app: FastifyInstance) {
   // Create a message, broadcast it, dispatch webhooks, and notify @mentions
   app.post('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
+    // Validate body first (sync), then fire the membership check and sender lookup in parallel
     const msgBody = validate(createMessageSchema, req.body, reply);
     if (!msgBody) return;
     const { content, taskId, replyToId, attachments, postedAsRole: rawRole } = msgBody;
-    // Validate claimed role against actual user permissions to prevent spoofing
-    const sender = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } });
+    // Member check and sender role lookup are independent — run in parallel to save one round trip
+    const [isMember, sender] = await Promise.all([
+      requireProductMember(productId, req.user, reply),
+      prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } }),
+    ]);
+    if (!isMember) return;
     let postedAsRole: string | null = rawRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;

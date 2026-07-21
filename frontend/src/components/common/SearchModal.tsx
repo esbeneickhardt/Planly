@@ -10,7 +10,7 @@ import { useChat } from '../../context/ChatContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
 import { api, displayName } from '../../api/client';
-import type { Task } from '../../types';
+import type { Task, Product } from '../../types';
 import type { SearchResults, Sprint } from '../../api/client';
 import TaskDetailPanel from './TaskDetailPanel';
 
@@ -21,6 +21,7 @@ type NavItem = { label: string; subtitle: string; path: string; icon: string; ke
 
 function buildNavItems(canRead: (tab: string) => boolean, canManage: boolean, isAdmin: boolean, announcementsEnabled?: boolean): NavItem[] {
   const items: NavItem[] = [];
+  items.push({ label: 'About', subtitle: 'Project overview & description', path: '/about', icon: 'ℹ️', keywords: ['about', 'overview', 'description', 'info', 'information', 'readme', 'summary', 'project'] });
   if (canRead('canvas'))    items.push({ label: 'Plan',      subtitle: 'Canvas - dependency graph',      path: '/canvas',              icon: '◈',  keywords: ['plan', 'canvas', 'dependency', 'dependencies', 'graph', 'layout', 'map', 'node'] });
   if (canRead('kanban'))    items.push({ label: 'Kanban',    subtitle: 'Execute - board view',           path: '/kanban',              icon: '▦',  keywords: ['kanban', 'board', 'execute', 'column', 'card', 'status', 'sprint backlog'] });
   if (canRead('gantt'))     items.push({ label: 'Gantt',     subtitle: 'Progress - milestones & sprints', path: '/gantt',             icon: '📅', keywords: ['gantt', 'progress', 'milestone', 'milestones', 'timeline', 'deadline', 'roadmap', 'sprint', 'sprints'] });
@@ -95,17 +96,21 @@ export default function SearchModal({ onClose }: Props) {
 
   const navItems = useMemo(() => buildNavItems(canRead, canManage, !!user?.isAdmin, user?.announcementsEnabled), [canRead, canManage, user?.isAdmin, user?.announcementsEnabled]);
 
-  const { matchingNav, matchingSprints } = useMemo(() => {
+  const { matchingNav, matchingSprints, matchingProjects } = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (q.length < 2) return { matchingNav: [], matchingSprints: [] };
+    if (q.length < 2) return { matchingNav: [], matchingSprints: [], matchingProjects: [] };
     const matchingNav = navItems.filter((item) =>
       item.label.toLowerCase().includes(q) ||
       item.subtitle.toLowerCase().includes(q) ||
       item.keywords.some((k) => k.includes(q) || q.includes(k))
     );
     const matchingSprints = sprints.filter((s) => s.name.toLowerCase().includes(q));
-    return { matchingNav, matchingSprints };
-  }, [query, navItems, sprints]);
+    const matchingProjects = products.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      (p.description ?? '').toLowerCase().includes(q)
+    );
+    return { matchingNav, matchingSprints, matchingProjects };
+  }, [query, navItems, sprints, products]);
 
   const QUICK_NAV = [
     { label: 'Plan - Canvas & Dependencies',  path: '/canvas'   },
@@ -117,6 +122,7 @@ export default function SearchModal({ onClose }: Props) {
   type FlatItem =
     | { type: 'nav';      item: NavItem }
     | { type: 'sprint';   sprint: Sprint }
+    | { type: 'project';  product: Product }
     | { type: 'task';     task: SearchResults['tasks'][number] }
     | { type: 'msg';      msg: MsgResult }
     | { type: 'quicknav'; label: string; path: string };
@@ -130,6 +136,7 @@ export default function SearchModal({ onClose }: Props) {
     }
     matchingNav.forEach((item) => list.push({ type: 'nav', item }));
     matchingSprints.forEach((sprint) => list.push({ type: 'sprint', sprint }));
+    matchingProjects.forEach((product) => list.push({ type: 'project', product }));
     const taskList = tab === 'messages' ? [] : (results?.tasks ?? []);
     taskList.forEach((task) => list.push({ type: 'task', task }));
     const msgList = tab === 'tasks' ? [] : (results?.messages ?? []);
@@ -168,8 +175,23 @@ export default function SearchModal({ onClose }: Props) {
     });
   }, [highlightIdx]);
 
+  const TAB_ORDER: TabFilter[] = ['all', 'tasks', 'messages'];
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Escape') { onClose(); return; }
+
+    // Left/right cycle through result-type tabs when they're visible
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && results && (results.tasks.length > 0 || results.messages.length > 0)) {
+      e.preventDefault();
+      const cur = TAB_ORDER.indexOf(tab);
+      const next = e.key === 'ArrowRight'
+        ? TAB_ORDER[(cur + 1) % TAB_ORDER.length]
+        : TAB_ORDER[(cur - 1 + TAB_ORDER.length) % TAB_ORDER.length];
+      setTab(next!);
+      setHighlightIdx(-1);
+      return;
+    }
+
     if (allItems.length === 0) return;
 
     if (e.key === 'ArrowDown') {
@@ -184,6 +206,7 @@ export default function SearchModal({ onClose }: Props) {
       if (!item) return;
       if (item.type === 'nav')      goToView(item.item.path);
       else if (item.type === 'sprint')   goToView('/gantt');
+      else if (item.type === 'project')  { setActiveProduct(item.product); onClose(); }
       else if (item.type === 'task')     handleTaskClick(item.task);
       else if (item.type === 'msg')      handleMessageClick(item.msg);
       else if (item.type === 'quicknav') goToView(item.path);
@@ -204,7 +227,7 @@ export default function SearchModal({ onClose }: Props) {
   const msgs    = tab === 'tasks'    ? [] : (results?.messages ?? []);
   const milestones = tasks.filter((t) => !!t.deadline);
   const regular    = tasks.filter((t) => !t.deadline);
-  const hasResults = tasks.length > 0 || msgs.length > 0 || matchingNav.length > 0 || matchingSprints.length > 0;
+  const hasResults = tasks.length > 0 || msgs.length > 0 || matchingNav.length > 0 || matchingSprints.length > 0 || matchingProjects.length > 0;
 
   // Running index that mirrors allItems order - used to assign data-idx to every row
   let rowIdx = -1;
@@ -319,6 +342,45 @@ export default function SearchModal({ onClose }: Props) {
                       </span>
                     </span>
                     <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>→</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {matchingProjects.length > 0 && (
+            <div className="py-1">
+              <div className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Projects</div>
+              {matchingProjects.map((product) => {
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
+                const isActive = product.id === activeProduct?.id;
+                return (
+                  <button
+                    key={product.id}
+                    data-idx={i}
+                    onClick={() => { setActiveProduct(product); onClose(); }}
+                    className="w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors"
+                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+                  >
+                    <span className="text-base flex-shrink-0 mt-0.5">{product.emoji ?? '🎯'}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{product.name}</span>
+                        {isActive && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>Active</span>}
+                      </span>
+                      {product.description?.trim() ? (
+                        <span className="text-xs block mt-0.5 overflow-hidden" style={{ color: 'var(--text-2)', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
+                          {product.description.replace(/#{1,6}\s|[*_`[\]()]/g, '').trim().slice(0, 200)}
+                        </span>
+                      ) : (
+                        <span className="text-xs block mt-0.5 italic" style={{ color: 'var(--text-3)' }}>No description set</span>
+                      )}
+                    </span>
+                    <span className="text-xs flex-shrink-0 mt-0.5" style={{ color: 'var(--text-3)' }}>→</span>
                   </button>
                 );
               })}
@@ -446,7 +508,7 @@ export default function SearchModal({ onClose }: Props) {
 
         {/* Footer hint */}
         <div className="px-4 py-2 flex items-center gap-4 text-xs" style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}>
-          <span>↑↓ navigate · Enter open · Esc close</span>
+          <span>↑↓ navigate · ←→ switch tab · Enter open · Esc close</span>
           {activeProduct && <span className="ml-auto">{activeProduct.emoji} {activeProduct.name}</span>}
         </div>
       </div>
