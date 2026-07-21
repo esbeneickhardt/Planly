@@ -73,13 +73,78 @@ APP_TOKEN=<paste rawToken — shown ONCE>
 ```
 
 ```bash
-# Use the app token
+# Use the app token — identity should be the app name, not the creator's username
 curl -s $BASE/api/auth/me -H "Authorization: Bearer $APP_TOKEN" | jq .
 ```
 
 - [X] App token authenticates successfully
+- [X] Response shows `{ username: "My CI Bot", isApp: true, createdBy: "<your username>" }`
 - [X] App appears in Settings → App Registrations
 - [X] Rotate the token in the UI → old `APP_TOKEN` returns 401, new token works
+
+**Permission enforcement**
+
+```bash
+# Set kanban to read-only and block messages entirely
+curl -s -X PATCH $BASE/api/apps/$APP_ID/permissions \
+  -H "Cookie: token=$TOKEN; csrf=$CSRF" \
+  -H "X-CSRF-Token: $CSRF" \
+  -H "Content-Type: application/json" \
+  -d '{"kanban":"read","messages":"none"}' | jq .permissions
+```
+
+```bash
+# Read tasks — allowed (kanban is read)
+curl -s "$BASE/api/products/$PRODUCT_ID/tasks" \
+  -H "Authorization: Bearer $APP_TOKEN" | jq 'length'
+
+# Create a task — forbidden (kanban is read, not write)
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -X POST "$BASE/api/products/$PRODUCT_ID/tasks" \
+  -H "Authorization: Bearer $APP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"should fail","status":"backlog"}'
+# Expected: 403
+
+# Post a message — forbidden (messages is none)
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -X POST "$BASE/api/products/$PRODUCT_ID/messages" \
+  -H "Authorization: Bearer $APP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"should fail"}'
+# Expected: 403
+```
+
+- [ ] GET tasks returns an array (200)
+- [ ] POST task returns 403
+- [ ] POST message returns 403
+
+**Creator independence**
+
+```bash
+# Reset to full write
+curl -s -X PATCH $BASE/api/apps/$APP_ID/permissions \
+  -H "Cookie: token=$TOKEN; csrf=$CSRF" \
+  -H "X-CSRF-Token: $CSRF" \
+  -H "Content-Type: application/json" \
+  -d '{"kanban":"write","messages":"write"}' | jq .permissions
+
+# Confirm the app can create tasks
+TASK_ID=$(curl -s -X POST "$BASE/api/products/$PRODUCT_ID/tasks" \
+  -H "Authorization: Bearer $APP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"App bot task","status":"backlog"}' | jq -r .id)
+echo "Created: $TASK_ID"
+```
+
+Now remove the creator from the project (Settings → Team → remove yourself, or use a second admin account), then retry:
+
+```bash
+curl -s "$BASE/api/products/$PRODUCT_ID/tasks" \
+  -H "Authorization: Bearer $APP_TOKEN" | jq 'length'
+```
+
+- [ ] App token still returns tasks after creator is removed from the project
 
 ---
 

@@ -22,8 +22,8 @@ export async function subtaskRoutes(app: FastifyInstance) {
   // Add a subtask to a task; new subtask is appended at the end (order = current count)
   app.post('/api/products/:productId/tasks/:taskId/subtasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply)) return;
     const stBody = validate(createSubtaskSchema, req.body, reply);
     if (!stBody) return;
 
@@ -39,8 +39,8 @@ export async function subtaskRoutes(app: FastifyInstance) {
   // Update a subtask's name, completion state, or sort order
   app.patch('/api/products/:productId/tasks/:taskId/subtasks/:subtaskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply)) return;
     const updateStBody = validate(updateSubtaskSchema, req.body, reply);
     if (!updateStBody) return;
     const { name, completed, order } = updateStBody;
@@ -65,8 +65,8 @@ export async function subtaskRoutes(app: FastifyInstance) {
   // Delete a subtask permanently
   app.delete('/api/products/:productId/tasks/:taskId/subtasks/:subtaskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
-    if (!await requireTabWrite(productId, req.user.userId, ['kanban', 'backlog'], reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply)) return;
     try {
       await prisma.subtask.delete({ where: { id: subtaskId, taskId } });
       reply.send({ ok: true });

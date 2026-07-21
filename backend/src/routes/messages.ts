@@ -127,7 +127,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // List messages for a product (or a specific task)
   app.get('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const { taskId, all, cursor, limit = '100' } = req.query as { taskId?: string; all?: string; cursor?: string; limit?: string };
     const take = Math.min(parseInt(limit), 200);
     const where = all === 'true' ? { productId } : { productId, taskId: taskId ?? null };
@@ -143,7 +143,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Create a message, broadcast it, dispatch webhooks, and notify @mentions
   app.post('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const msgBody = validate(createMessageSchema, req.body, reply);
     if (!msgBody) return;
     const { content, taskId, replyToId, attachments, postedAsRole: rawRole } = msgBody;
@@ -207,7 +207,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Edit own message content
   app.patch('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const editBody = validate(updateMessageSchema, req.body, reply);
     if (!editBody) return;
     const { content } = editBody;
@@ -225,7 +225,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Delete own message
   app.delete('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
@@ -236,7 +236,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Toggle emoji reaction (add if missing, remove if already present)
   app.post('/api/products/:productId/messages/:messageId/reactions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const rxnBody = validate(addReactionSchema, req.body, reply);
     if (!rxnBody) return;
     const { emoji } = rxnBody;

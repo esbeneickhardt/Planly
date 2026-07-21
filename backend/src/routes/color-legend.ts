@@ -33,7 +33,7 @@ export async function colorLegendRoutes(app: FastifyInstance) {
   // Get the color legend, merging DB entries with defaults for uncustomized keys
   app.get('/api/products/:productId/color-legend', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user.userId, reply)) return;
+    if (!await requireProductMember(productId, req.user, reply)) return;
     const entries = await prisma.colorLegendEntry.findMany({ where: { productId } });
     const entryMap = new Map(entries.map((e) => [e.colorKey, e]));
     const result = PRESET_COLORS.map((color) => {

@@ -377,6 +377,7 @@ model AppRegistration {
   description String?
   ownerId     String
   productId   String?
+  permissions Json     @default("{}")
   createdAt   DateTime @default(now())
 
   owner  User       @relation("OwnedApps", fields: [ownerId], references: [id], onDelete: Cascade)

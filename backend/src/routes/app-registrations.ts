@@ -23,6 +23,16 @@ const createAppSchema = z.object({
 });
 // Partial update for renaming or re-describing a registration
 const updateAppSchema = z.object({ name: z.string().optional(), description: z.string().optional() });
+// Per-tab permission levels for an app registration (all fields optional — absent means 'write')
+const level = z.enum(['write', 'read', 'none']).optional();
+const permissionsSchema = z.object({
+  kanban:    level,
+  backlog:   level,
+  gantt:     level,
+  canvas:    level,
+  messages:  level,
+  analytics: level,
+});
 // Validates token creation within an app; inherits productId scope from the parent registration
 const createAppTokenSchema = z.object({
   name: z.string().min(1),
@@ -35,7 +45,7 @@ function hashToken(raw: string): string {
 }
 
 // Fields returned for app registration listings — never includes token hashes
-const APP_SELECT = { id: true, name: true, description: true, ownerId: true, productId: true, createdAt: true };
+const APP_SELECT = { id: true, name: true, description: true, ownerId: true, productId: true, permissions: true, createdAt: true };
 // Fields returned for token listings under an app — never includes tokenHash
 const TOKEN_SELECT = { id: true, name: true, appId: true, lastUsedAt: true, expiresAt: true, createdAt: true };
 
@@ -144,6 +154,23 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
     });
     logAdminEvent('APP_TOKEN_CREATED', { actorName: req.user.username, targetName: appExists.name, metadata: { appId, tokenId: token.id, name: name.trim(), scoped: !!appExists.productId } });
     reply.status(201).send({ ...token, token: rawToken });
+  });
+
+  // Update per-tab permissions for an app registration
+  app.patch('/api/apps/:appId/permissions', { preHandler: requireAuth }, async (req, reply) => {
+    const { appId } = req.params as { appId: string };
+    const body = validate(permissionsSchema, req.body, reply);
+    if (!body) return;
+    try {
+      const registration = await prisma.appRegistration.update({
+        where: { id: appId, ownerId: req.user.userId },
+        data: { permissions: body },
+        select: APP_SELECT,
+      });
+      reply.send(registration);
+    } catch {
+      reply.status(404).send({ error: 'Not found' });
+    }
   });
 
   // Revoke a specific app token
