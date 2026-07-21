@@ -1,21 +1,18 @@
+/**
+ * Public project overview page — accessible to any authenticated user via /project/:productId/about.
+ * Does not require project membership; used from the Discover Projects modal.
+ */
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { MermaidBlock } from '../components/common/MermaidBlock';
 import UserProfileModal from '../components/common/UserProfileModal';
 import { isBeforeToday } from '../utils/dates';
-import { useProduct } from '../context/ProductContext';
-import { usePermission } from '../context/PermissionContext';
-import { useNavigate } from 'react-router-dom';
 import { api, displayName } from '../api/client';
 
-const ROLE_LABEL: Record<string, string> = { owner: 'Owner', co_owner: 'Co-owner', member: 'Member' };
-const ROLE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  owner:    { bg: 'var(--brand-subtle)',  color: 'var(--brand)',  border: 'var(--brand)' },
-  co_owner: { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6',      border: 'rgba(139,92,246,0.3)' },
-  member:   { bg: 'var(--surface)',       color: 'var(--text-3)', border: 'var(--border)' },
-};
+type PublicProduct = Awaited<ReturnType<typeof api.products.getAbout>>;
 
 const MD = {
   h1: ({ children }: any) => <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>{children}</h1>,
@@ -44,31 +41,50 @@ const MD = {
   hr:  () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />,
 };
 
-export default function AboutPage() {
-  const { activeProduct } = useProduct();
-  const { canManage } = usePermission();
+const ROLE_LABEL: Record<string, string> = { owner: 'Owner', co_owner: 'Co-owner', member: 'Member' };
+const ROLE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
+  owner:    { bg: 'var(--brand-subtle)',  color: 'var(--brand)',  border: 'var(--brand)' },
+  co_owner: { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6',      border: 'rgba(139,92,246,0.3)' },
+  member:   { bg: 'var(--surface)',       color: 'var(--text-3)', border: 'var(--border)' },
+};
+
+export default function ProjectAboutPage() {
+  const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
-  const [members, setMembers] = useState<Awaited<ReturnType<typeof api.products.getAbout>>['members']>([]);
+  const [product, setProduct] = useState<PublicProduct | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<'description' | 'members'>('description');
 
   useEffect(() => {
-    if (!activeProduct) return;
-    api.products.getAbout(activeProduct.id)
-      .then((data) => setMembers(data.members))
-      .catch(() => {});
-  }, [activeProduct?.id]);
+    if (!productId) return;
+    setLoading(true);
+    api.products.getAbout(productId)
+      .then(setProduct)
+      .catch(() => setError('Project not found.'))
+      .finally(() => setLoading(false));
+  }, [productId]);
 
-  if (!activeProduct) {
+  if (loading) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
-        <div className="text-5xl opacity-30">📋</div>
-        <p className="text-sm">Select a project to view its overview</p>
+      <div className="h-full flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
       </div>
     );
   }
 
-  const deadline = new Date(activeProduct.deadline);
+  if (error || !product) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-3" style={{ color: 'var(--text-3)' }}>
+        <span className="text-4xl opacity-30">🔍</span>
+        <p className="text-sm">{error || 'Project not found.'}</p>
+        <button onClick={() => navigate(-1)} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>← Back</button>
+      </div>
+    );
+  }
+
+  const deadline = new Date(product.deadline);
   const isOverdue = isBeforeToday(deadline);
   const deadlineStr = deadline.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -78,13 +94,9 @@ export default function AboutPage() {
 
         {/* Hero */}
         <div className="flex items-start gap-4">
-          {activeProduct.emoji && (
-            <span className="text-5xl leading-none flex-shrink-0">{activeProduct.emoji}</span>
-          )}
+          {product.emoji && <span className="text-5xl leading-none flex-shrink-0">{product.emoji}</span>}
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
-              {activeProduct.name}
-            </h1>
+            <h1 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>{product.name}</h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span
                 className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -93,9 +105,7 @@ export default function AboutPage() {
                   color: isOverdue ? '#ef4444' : '#10b981',
                   border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
                 }}
-              >
-                {isOverdue ? 'Overdue · ' : 'Deadline · '}{deadlineStr}
-              </span>
+              >{isOverdue ? 'Overdue · ' : 'Deadline · '}{deadlineStr}</span>
             </div>
           </div>
         </div>
@@ -113,7 +123,7 @@ export default function AboutPage() {
                 boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
               }}
             >
-              {t === 'description' ? 'Description' : `Members (${members.length})`}
+              {t === 'description' ? 'Description' : `Members (${product.members.length})`}
             </button>
           ))}
         </div>
@@ -121,25 +131,16 @@ export default function AboutPage() {
         {/* Tab: Description */}
         {tab === 'description' && (
           <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            {activeProduct.description ? (
+            {product.description ? (
               <div style={{ color: 'var(--text)', fontSize: 14 }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MD}>
-                  {activeProduct.description}
+                  {product.description}
                 </ReactMarkdown>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-10 gap-3" style={{ color: 'var(--text-3)' }}>
                 <span className="text-4xl opacity-30">📝</span>
                 <p className="text-sm">No description yet.</p>
-                {canManage && (
-                  <button
-                    onClick={() => navigate('/settings')}
-                    className="text-xs px-3 py-1.5 rounded-lg transition-colors"
-                    style={{ background: 'var(--brand-subtle)', color: 'var(--brand)', border: '1px solid var(--brand)' }}
-                  >
-                    Add one in Settings →
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -148,7 +149,7 @@ export default function AboutPage() {
         {/* Tab: Members */}
         {tab === 'members' && (
           <div className="grid grid-cols-1 gap-2">
-            {members.map((m) => {
+            {product.members.map((m) => {
               const style = ROLE_STYLE[m.role] ?? ROLE_STYLE['member']!;
               return (
                 <button

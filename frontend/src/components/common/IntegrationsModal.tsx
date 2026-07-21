@@ -15,6 +15,7 @@ export default function IntegrationsModal({ onClose }: Props) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newExpiry, setNewExpiry] = useState('');
+  const [newReadOnly, setNewReadOnly] = useState(false);
   const [revealed, setRevealed] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -39,12 +40,13 @@ export default function IntegrationsModal({ onClose }: Props) {
     setError('');
     setCreating(true);
     try {
-      const token = await api.apiTokens.create({ name: newName.trim(), expiresAt: newExpiry || undefined });
+      const token = await api.apiTokens.create({ name: newName.trim(), expiresAt: newExpiry || undefined, readOnly: newReadOnly });
       setRevealed(token.token ?? null);
       setCopied(false);
       setTokens((prev) => [token, ...prev]);
       setNewName('');
       setNewExpiry('');
+      setNewReadOnly(false);
     } catch (err) { setError((err as Error).message); }
     finally { setCreating(false); }
   }
@@ -203,6 +205,15 @@ export default function IntegrationsModal({ onClose }: Props) {
               Generate
             </button>
           </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+            <input
+              type="checkbox"
+              checked={newReadOnly}
+              onChange={(e) => setNewReadOnly(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-xs" style={{ color: 'var(--text-2)' }}>Read-only (GET requests only — cannot create, update, or delete)</span>
+          </label>
           {error && <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>}
         </form>
 
@@ -229,6 +240,9 @@ export default function IntegrationsModal({ onClose }: Props) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{t.name}</p>
+                      {t.readOnly && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.2)' }}>Read-only</span>
+                      )}
                       {expired && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>Expired</span>
                       )}

@@ -19,6 +19,7 @@ import { config } from '../config/env';
 import prisma from '../db/client';
 import jwt from 'jsonwebtoken';
 import { issueAuthCookie } from '../utils/auth-cookie';
+import { issueRefreshToken } from '../utils/refresh-tokens';
 import { encryptOptional } from '../utils/crypto';
 
 // Whether OIDC/SSO is active for this deployment (requires all three env vars to be set)
@@ -152,9 +153,10 @@ export async function ssoRoutes(app: FastifyInstance) {
       const token = jwt.sign(
         { userId: user.id, username: user.username, tokenVersion: user.tokenVersion },
         config.jwtSecret,
-        { expiresIn: '7d' },
+        { expiresIn: '1h' },
       );
-      issueAuthCookie(reply, token);
+      const rt = await issueRefreshToken(user.id);
+      issueAuthCookie(reply, token, rt);
       reply.redirect(`${config.frontendOrigin}/kanban`);
     } catch (err) {
       app.log.error(err, 'SSO callback error');

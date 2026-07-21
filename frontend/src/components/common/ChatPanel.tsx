@@ -140,6 +140,16 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const sendTaskId = tab === 'tasks' && selectedTask ? selectedTask.id : undefined;
   const { editingId, editDraft, setEditDraft, startEdit, cancelEdit, saveEdit } = useMessageEdit({ isAdminChat, productId, setAllMessages });
 
+  // On small screens always use fullscreen mode; also re-check on resize
+  useEffect(() => {
+    function syncMobile() {
+      if (window.innerWidth < 768) setIsExpanded(true);
+    }
+    syncMobile();
+    window.addEventListener('resize', syncMobile);
+    return () => window.removeEventListener('resize', syncMobile);
+  }, []);
+
   // When opened from a task's chat button, jump directly to that task's thread
   useEffect(() => {
     if (initialTask) {
@@ -1027,7 +1037,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
         </div>
         <div className="flex items-center gap-1">
           {!isExpanded && headerBtn(isMinimized ? 'Restore' : 'Minimise', () => setIsMinimized((v) => !v), isMinimized ? '▲' : '−')}
-          {headerBtn(isExpanded ? 'Exit fullscreen' : 'Fullscreen', () => { setIsExpanded((v) => !v); setIsMinimized(false); }, isExpanded ? <CollapseIcon /> : <ExpandIcon />)}
+          {window.innerWidth >= 768 && headerBtn(isExpanded ? 'Exit fullscreen' : 'Fullscreen', () => { setIsExpanded((v) => !v); setIsMinimized(false); }, isExpanded ? <CollapseIcon /> : <ExpandIcon />)}
           {headerBtn('Close', onClose, '✕')}
         </div>
       </div>

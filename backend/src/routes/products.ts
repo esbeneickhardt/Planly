@@ -13,6 +13,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
+import { decryptUserPii } from '../utils/crypto';
 
 // Validates strings as data format
 const validDate = z.string().refine((s) => !isNaN(new Date(s).getTime()), 'Invalid date');
@@ -71,6 +72,23 @@ export async function productRoutes(app: FastifyInstance) {
       include: { team: { select: { id: true, name: true } } },
     });
     reply.status(201).send(product);
+  });
+
+  // Public project overview — available to any authenticated user, no membership required
+  app.get('/api/products/:id/about', { preHandler: requireAuth }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const product = await prisma.product.findUnique({
+      where: { id, deletedAt: null },
+      select: {
+        id: true, name: true, emoji: true, description: true, deadline: true, ownerId: true,
+        team: { select: { members: { include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true } } } } } },
+      },
+    });
+    if (!product) return reply.status(404).send({ error: 'Not found' });
+    const members = product.team.members
+      .map((m) => ({ userId: m.userId, role: m.userId === product.ownerId ? 'owner' : m.role, user: decryptUserPii(m.user) }))
+      .sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : a.role === 'co_owner' ? -1 : b.role === 'co_owner' ? 1 : 0));
+    reply.send({ id: product.id, name: product.name, emoji: product.emoji, description: product.description, deadline: product.deadline, members });
   });
 
   // Get a project with full team member list (membership check included)

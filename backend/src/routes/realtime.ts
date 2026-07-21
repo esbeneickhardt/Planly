@@ -15,10 +15,11 @@
 import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
-import { joinRoom, leaveRoom, canJoin } from '../realtime/manager';
+import { joinRoom, leaveRoom, canJoin, checkWsRateLimit } from '../realtime/manager';
 import { issueTicket, consumeTicket } from '../realtime/ws-tickets';
 import { requireAuth } from '../middleware/auth';
 import type { AuthPayload } from '../middleware/auth';
+import { getClientIp } from '../utils/ip';
 import { createHash } from 'crypto';
 import prisma from '../db/client';
 
@@ -90,6 +91,13 @@ export async function realtimeRoutes(app: FastifyInstance) {
     if (!userId) {
       ws.send(JSON.stringify({ event: 'error', data: 'Unauthorized' }));
       ws.close(1008, 'Unauthorized');
+      return;
+    }
+
+    // Per-IP connection rate limit — rejects upgrade storms before any DB work
+    if (!checkWsRateLimit(getClientIp(req as never))) {
+      ws.send(JSON.stringify({ event: 'error', data: 'Too many connections from your IP' }));
+      ws.close(1008, 'Rate limited');
       return;
     }
 

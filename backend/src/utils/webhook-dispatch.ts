@@ -12,6 +12,7 @@ import { createHmac } from 'crypto';
 import prisma from '../db/client';
 import { decryptValue } from './crypto';
 import { logger } from './logger';
+import { validateWebhookUrl } from './webhook-url-guard';
 
 /**
  * Dispatches `event` to all active webhooks in `productId` that subscribe to it.
@@ -37,6 +38,16 @@ export async function dispatchWebhooks(productId: string, event: string, payload
       let responseBody: string | undefined;
       let success = false;
       try {
+        // Re-validate at delivery time to catch DNS rebinding: the hostname could have been
+        // re-pointed to a private IP after the webhook was created and passed the write-time check
+        const ssrfError = await validateWebhookUrl(wh.url);
+        if (ssrfError) {
+          logger.warn({ webhookId: wh.id, url: wh.url, reason: ssrfError }, 'webhook delivery blocked: SSRF re-check failed');
+          await prisma.webhookDelivery.create({
+            data: { webhookId: wh.id, event, payload, statusCode: null, responseBody: `Blocked: ${ssrfError}`, success: false },
+          }).catch(() => {});
+          return;
+        }
         const res = await fetch(wh.url, {
           method: 'POST',
           headers: {

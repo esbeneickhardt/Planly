@@ -70,6 +70,7 @@ model User {
   ownedProducts       Product[]            @relation("ProductOwner")
   accessRequests      AccessRequest[]
   apiTokens           ApiToken[]           @relation("UserApiTokens")
+  refreshTokens       RefreshToken[]       @relation("UserRefreshTokens")
   ownedApps           AppRegistration[]    @relation("OwnedApps")
   notifications       Notification[]
   passwordResetTokens PasswordResetToken[]
@@ -362,6 +363,7 @@ model ApiToken {
   productId  String?
   name       String
   tokenHash  String    @unique
+  readOnly   Boolean   @default(false)
   lastUsedAt DateTime?
   expiresAt  DateTime?
   createdAt  DateTime  @default(now())
@@ -370,6 +372,26 @@ model ApiToken {
   app  AppRegistration? @relation(fields: [appId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ── Refresh token rotation ────────────────────────────────────────────────────
+// Short-lived JWTs (1 h) are paired with long-lived refresh tokens (30 d).
+// All tokens derived from a single login share a familyId — if a rotated
+// token is ever re-used, the entire family is revoked (stolen-token detection).
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  familyId  String
+  tokenHash String    @unique
+  rotatedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  user User @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
 }
 
 model AppRegistration {

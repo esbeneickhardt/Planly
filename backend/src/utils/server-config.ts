@@ -18,11 +18,16 @@ export interface ServerConfigValues {
   requireMfa: boolean;
 }
 
-// Reads from DB; safe defaults keep the app functional on a fresh install
-// Callers that call this multiple times per request should cache the result themselves
+// 5-second in-memory TTL cache — eliminates repeated DB hits on every authenticated request
+// while keeping config changes visible within a few seconds
+let _cache: { value: ServerConfigValues; expiresAt: number } | null = null;
+
+/** Returns the singleton ServerConfig row, using a 5-second in-memory cache to reduce DB load. */
 export async function getServerConfig(): Promise<ServerConfigValues> {
+  const now = Date.now();
+  if (_cache && now < _cache.expiresAt) return _cache.value;
   const row = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
-  return {
+  const value: ServerConfigValues = {
     requireEmailVerification: row?.requireEmailVerification ?? false,
     requireWhitelist: row?.requireWhitelist ?? false,
     requireBlocklist: row?.requireBlocklist ?? false,
@@ -32,4 +37,11 @@ export async function getServerConfig(): Promise<ServerConfigValues> {
     ipRestrictionMode: row?.ipRestrictionMode ?? 'disabled',
     requireMfa: row?.requireMfa ?? false,
   };
+  _cache = { value, expiresAt: now + 5_000 };
+  return value;
+}
+
+/** Call after an admin writes a new config so the cache doesn't serve stale data. */
+export function invalidateServerConfigCache() {
+  _cache = null;
 }

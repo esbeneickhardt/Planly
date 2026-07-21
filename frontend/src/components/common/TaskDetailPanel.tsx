@@ -4,10 +4,7 @@
  * `isDirty` tracks unsaved field changes and sprint membership deltas; closing with unsaved changes shows a confirm dialog.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import { MermaidBlock } from './MermaidBlock';
+import MarkdownEditor from './MarkdownEditor';
 import type { Task, KanbanColumn, Subtask } from '../../types';
 import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
@@ -57,9 +54,6 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const showChat = chatOpen && chatTaskId === task.id;
 
   const [fullscreen, setFullscreen] = useState(false);
-  const [descPreview, setDescPreview] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const descRef = useRef<HTMLTextAreaElement>(null);
 
   // Panel layout state: size + position persisted to localStorage; refs shadow state for pointer closures
   const [isSidebar, setIsSidebar] = useState(() => { try { return localStorage.getItem('planly-task-sidebar') !== 'false'; } catch { return true; } });
@@ -194,37 +188,6 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     setSubtasks((prev) => prev.filter((x) => x.id !== s.id));
   }
 
-  async function insertUploadedImage(file: File) {
-    if (!file.type.startsWith('image/')) return;
-    setUploading(true);
-    try {
-      const result = await api.upload(file);
-      const markdown = `![${file.name}](${result.url})`;
-      const el = descRef.current;
-      if (el) {
-        const start = el.selectionStart;
-        const end = el.selectionEnd;
-        const next = description.slice(0, start) + (start > 0 && description[start - 1] !== '\n' ? '\n' : '') + markdown + '\n' + description.slice(end);
-        setDescription(next);
-        setTimeout(() => { el.focus(); el.selectionStart = el.selectionEnd = start + markdown.length + 1; }, 0);
-      } else {
-        setDescription((d) => d + (d && !d.endsWith('\n') ? '\n' : '') + markdown + '\n');
-      }
-    } catch {
-      showToast('Image upload failed', 'error');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleDescPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const image = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
-    if (!image) return;
-    e.preventDefault();
-    const file = image.getAsFile();
-    if (file) await insertUploadedImage(file);
-  }
-
   // Resize: 8-directional pointer capture; persists dimensions on pointer-up
   const startResizeDir = useCallback((e: React.PointerEvent, dir: string) => {
     e.preventDefault(); e.stopPropagation();
@@ -309,85 +272,14 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
   const descField = (rows: number) => (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <label className="label mb-0">Description</label>
-        <div className="flex items-center gap-1">
-          {['Edit', 'Preview'].map((m) => (
-            <button key={m} type="button" onClick={() => setDescPreview(m === 'Preview')}
-              className="text-xs px-2 py-0.5 rounded transition-colors"
-              style={{ background: descPreview === (m === 'Preview') ? 'var(--brand-subtle)' : 'transparent', color: descPreview === (m === 'Preview') ? 'var(--brand)' : 'var(--text-3)' }}
-            >{m}</button>
-          ))}
-        </div>
-      </div>
-      {descPreview ? (
-        <div className="input overflow-auto cursor-default" style={{ minHeight: rows * 22, color: 'var(--text)' }} onClick={() => setDescPreview(false)}>
-          {description ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={{
-              img: ({ src, alt }) => {
-                const filename = src?.split('/').pop() ?? '';
-                return (
-                  <span className="group/img relative inline-block" style={{ maxWidth: '100%' }}>
-                    <img src={src} alt={alt ?? ''} style={{ maxWidth: '100%', borderRadius: 6, marginTop: 4, display: 'block' }} />
-                    {!readOnly && (
-                      <button
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={async () => {
-                          try {
-                            await api.deleteUpload(filename);
-                            setDescription((d) => d.replace(new RegExp(`!\\[[^\\]]*\\]\\(${src?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)\\n?`, 'g'), ''));
-                          } catch { showToast('Failed to delete image', 'error'); }
-                        }}
-                        title="Delete image"
-                        className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                        style={{ background: 'rgba(239,68,68,0.85)', color: 'white' }}
-                      >
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                          <line x1="2" y1="2" x2="8" y2="8" /><line x1="8" y1="2" x2="2" y2="8" />
-                        </svg>
-                      </button>
-                    )}
-                  </span>
-                );
-              },
-              a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>{children}</a>,
-              pre: ({ children }: any) => <>{children}</>,
-              code: ({ children, className }: any) => {
-                if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
-                if (String(children).includes('\n')) return (
-                  <pre style={{ background: 'var(--surface-2)', borderRadius: 6, padding: '8px 12px', overflow: 'auto', fontSize: 12, margin: '0 0 8px', whiteSpace: 'pre' }}>
-                    <code className={className}>{children}</code>
-                  </pre>
-                );
-                return <code style={{ background: 'var(--surface-2)', padding: '1px 5px', borderRadius: 4, fontSize: 12 }}>{children}</code>;
-              },
-            }}>{description}</ReactMarkdown>
-          ) : (
-            <span className="text-xs italic" style={{ color: 'var(--text-3)' }}>No description - click to edit</span>
-          )}
-        </div>
-      ) : (
-        <div className="relative">
-          <textarea ref={descRef} rows={rows} value={description} onChange={(e) => setDescription(e.target.value)}
-            onPaste={handleDescPaste} className="input resize-y w-full"
-            placeholder="Supports Markdown. Paste or upload images." style={{ paddingBottom: 30 }}
-          />
-          <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
-            {uploading && <span className="text-xs" style={{ color: 'var(--text-3)' }}>Uploading…</span>}
-            <label title="Upload image" className="cursor-pointer flex items-center justify-center w-6 h-6 rounded transition-colors text-[var(--text-3)] hover:text-[var(--brand)]">
-
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="1" y="3" width="14" height="10" rx="1.5" />
-                <circle cx="5.5" cy="7" r="1.2" />
-                <polyline points="1,12.5 5,8.5 8,11 11,8 15,12.5" />
-              </svg>
-              <input type="file" accept="image/*" className="sr-only"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) insertUploadedImage(f); e.target.value = ''; }} />
-            </label>
-            <span className="text-[10px]" style={{ color: 'var(--text-3)', opacity: 0.5 }}>Markdown</span>
-          </div>
-        </div>
-      )}
+      <label className="label mb-1">Description</label>
+      <MarkdownEditor
+        value={description}
+        onChange={setDescription}
+        rows={rows}
+        placeholder="Supports Markdown. Paste or drag images to upload."
+        disabled={readOnly}
+      />
     </div>
   );
 

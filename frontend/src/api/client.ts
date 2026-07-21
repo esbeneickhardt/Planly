@@ -115,7 +115,21 @@ function getCsrfToken(): string | undefined {
   return document.cookie.split('; ').find((c) => c.startsWith('csrf='))?.split('=')[1];
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+// Deduplicates concurrent refresh attempts — if multiple requests 401 simultaneously,
+// only one refresh is fired; all others await the same promise.
+let _refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  if (!_refreshPromise) {
+    _refreshPromise = fetch('/api/auth/refresh-token', { method: 'POST', credentials: 'include' })
+      .then((r) => r.ok)
+      .catch(() => false)
+      .finally(() => { _refreshPromise = null; });
+  }
+  return _refreshPromise;
+}
+
+async function request<T>(path: string, init?: RequestInit & { _retry?: boolean }): Promise<T> {
   const method = (init?.method ?? 'GET').toUpperCase();
   const csrfHeaders: Record<string, string> = {};
   if (MUTATING.has(method)) {
@@ -130,6 +144,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     if (res.status === 401) {
+      // Attempt a transparent refresh once before surfacing the 401 to the user.
+      // _retry guard prevents infinite loops; skip for the refresh endpoint itself.
+      if (!init?._retry && path !== '/api/auth/refresh-token') {
+        const refreshed = await tryRefresh();
+        if (refreshed) return request<T>(path, { ...init, _retry: true });
+      }
       window.dispatchEvent(new CustomEvent('planly:session-expired'));
     }
     if (res.status === 403 && (body as { code?: string }).code === 'EMAIL_NOT_VERIFIED') {
@@ -199,6 +219,8 @@ export interface ApiToken {
   id: string;
   name: string;
   appId: string | null;
+  productId: string | null;
+  readOnly: boolean;
   lastUsedAt: string | null;
   expiresAt: string | null;
   createdAt: string;
@@ -241,6 +263,7 @@ export const api = {
     create: (data: { username: string; email: string; password: string; realName?: string; avatarEmoji?: string; tosAccepted: true }) =>
       request<User>('/api/users', { method: 'POST', body: json(data) }),
     get: (id: string) => request<User>(`/api/users/${id}`),
+    getProfile: (id: string) => request<{ id: string; username: string; realName: string | null; avatarEmoji: string | null; projects: { id: string; name: string; emoji?: string; role: string }[] }>(`/api/users/${id}/profile`),
     update: (id: string, data: Partial<Pick<User, 'realName' | 'phone' | 'avatarEmoji' | 'avatarUrl'> & { acceptsInvites: boolean }>) =>
       request<User>(`/api/users/${id}`, { method: 'PATCH', body: json(data) }),
     updateNotificationPreferences: (id: string, preferences: Record<string, boolean>) =>
@@ -269,6 +292,7 @@ export const api = {
     create: (data: { name: string; deadline: string; teamId: string; emoji?: string; description?: string }) =>
       request<Product>('/api/products', { method: 'POST', body: json(data) }),
     get: (id: string) => request<Product>(`/api/products/${id}`),
+    getAbout: (id: string) => request<Pick<Product, 'id' | 'name' | 'emoji' | 'description' | 'deadline'> & { members: { userId: string; role: string; user: { id: string; username: string; realName: string | null; avatarEmoji: string | null } }[] }>(`/api/products/${id}/about`),
     update: (id: string, data: Partial<Pick<Product, 'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled'>>) =>
       request<Product>(`/api/products/${id}`, { method: 'PATCH', body: json(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/products/${id}`, { method: 'DELETE' }),
@@ -511,7 +535,7 @@ export const api = {
 
   apiTokens: {
     list: () => request<ApiToken[]>('/api/auth/tokens'),
-    create: (data: { name: string; expiresAt?: string }) =>
+    create: (data: { name: string; expiresAt?: string; readOnly?: boolean }) =>
       request<ApiToken & { token: string }>('/api/auth/tokens', { method: 'POST', body: json(data) }),
     delete: (tokenId: string) =>
       request<{ ok: boolean }>(`/api/auth/tokens/${tokenId}`, { method: 'DELETE' }),
