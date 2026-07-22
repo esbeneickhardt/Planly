@@ -20,7 +20,7 @@ import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, invalidateCachedTokenVersion } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { config } from '../config/env';
 import { issueAuthCookie } from '../utils/auth-cookie';
@@ -214,6 +214,7 @@ export async function totpRoutes(app: FastifyInstance) {
       data: { tokenVersion: { increment: 1 }, lastLoginAt: new Date() },
       select: { tokenVersion: true },
     });
+    invalidateCachedTokenVersion(user.id);
 
     // Sign a full-session JWT with the incremented tokenVersion
     const token = jwt.sign(

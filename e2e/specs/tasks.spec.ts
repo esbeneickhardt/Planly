@@ -62,8 +62,8 @@ test.describe('Task creation', () => {
     await page.getByPlaceholder('Task name…').fill('My E2E task');
     await page.keyboard.press('Enter');
 
-    // Task should appear on the board
-    await expect(page.getByText('My E2E task').first()).toBeVisible({ timeout: 8_000 });
+    // Task should appear on the board (match the card button, not the hidden <p> inside it)
+    await expect(page.getByRole('button', { name: 'My E2E task' }).first()).toBeVisible({ timeout: 8_000 });
     await page.close();
   });
 });
@@ -77,10 +77,10 @@ test.describe('Task detail panel', () => {
       await addBtn.click();
       await page.getByPlaceholder('Task name…').fill('Click me task');
       await page.keyboard.press('Enter');
-      await expect(page.getByText('Click me task').first()).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByRole('button', { name: 'Click me task' }).first()).toBeVisible({ timeout: 8_000 });
 
       // Click task to open detail panel (inside guard so test skips cleanly if setup fails)
-      await page.getByText('Click me task').first().click();
+      await page.getByRole('button', { name: 'Click me task' }).first().click();
 
       // Detail panel should be visible - TaskDetailPanel renders an h2 "Task detail"
       await expect(page.getByRole('heading', { name: 'Task detail' })).toBeVisible({ timeout: 8_000 });
@@ -97,8 +97,8 @@ test.describe('Task detail panel', () => {
       await addBtn.click();
       await page.getByPlaceholder('Task name…').fill('Task with subtasks');
       await page.keyboard.press('Enter');
-      await expect(page.getByText('Task with subtasks').first()).toBeVisible({ timeout: 8_000 });
-      await page.getByText('Task with subtasks').first().click();
+      await expect(page.getByRole('button', { name: 'Task with subtasks' }).first()).toBeVisible({ timeout: 8_000 });
+      await page.getByRole('button', { name: 'Task with subtasks' }).first().click();
     }
 
     // Add a subtask
@@ -123,7 +123,7 @@ test.describe('Task deletion', () => {
     await addBtn.click();
     await page.getByPlaceholder('Task name…').fill('Deletable task');
     await page.keyboard.press('Enter');
-    await expect(page.getByText('Deletable task').first()).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('button', { name: 'Deletable task' }).first()).toBeVisible({ timeout: 8_000 });
 
     // Delete via API (bypasses the React confirm dialog, tests the full delete flow)
     await page.evaluate(async () => {

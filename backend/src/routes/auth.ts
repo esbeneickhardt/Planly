@@ -174,6 +174,10 @@ export async function authRoutes(app: FastifyInstance) {
       },
       select: { tokenVersion: true },
     });
+    // Evict the stale tokenVersion from the in-process cache so that the very next
+    // request (e.g. GET /api/auth/me called in AuthContext right after login) sees
+    // the new version and is not rejected with 401.
+    invalidateCachedTokenVersion(user.id);
 
     const token = jwt.sign(
       { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
