@@ -45,4 +45,4 @@ docker run --rm \
   -v "$SCRIPT_DIR/backend/vitest.config.ts:/app/vitest.config.ts:ro" \
   -v "$SCRIPT_DIR/backend/tsconfig.json:/app/tsconfig.json:ro" \
   "$IMAGE" \
-  sh -c "cd /app && npx prisma migrate deploy && npx vitest run --reporter=verbose"
+  sh -c "cd /app && npx prisma generate && npx prisma migrate deploy && npx vitest run --reporter=verbose"
