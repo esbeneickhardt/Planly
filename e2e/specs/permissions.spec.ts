@@ -95,9 +95,17 @@ test.describe('Settings access', () => {
     await page.goto('/settings');
     // Should render the settings page, not redirect
     await expect(page).toHaveURL(/\/settings/, { timeout: 8_000 });
-    // Wait for the full auth → products → permissions chain; PermSpinner can hold for several seconds
-    // on a cold SPA load before canManage is resolved and the settings h1 is rendered.
-    await expect(page.locator('h1, h2, [data-testid="settings-title"]').first()).toBeVisible({ timeout: 20_000 });
+    // Wait for the active project to load in the SPA. On cold page loads the
+    // auth→products→permissions chain can take several seconds; the project
+    // picker shows the fallback "🎯 Project" placeholder until activeProduct
+    // is set, and the settings h1 won't appear until then.
+    // textContent includes the full name even when CSS truncation is applied.
+    await page.waitForFunction(
+      () => document.body.textContent?.includes('Perm Test Project'),
+      { timeout: 25_000 },
+    ).catch(() => {}); // soft wait — fall through to the h1 assertion
+    // Settings h1 must be visible once the active project and permissions have resolved
+    await expect(page.locator('h1, h2, [data-testid="settings-title"]').first()).toBeVisible({ timeout: 10_000 });
     await page.close();
   });
 });
