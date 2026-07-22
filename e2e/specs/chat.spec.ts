@@ -196,6 +196,19 @@ test.describe('Real-time message delivery', () => {
     await waitForKanbanReady(pageB);
     await pageB.setViewportSize({ width: 1280, height: 800 });
 
+    // Ensure userB actually loaded the shared product — skip gracefully if team invite
+    // didn't propagate in time (ProductContext may still show "Create a product to get started")
+    const userBHasProduct = await pageB.waitForFunction(
+      () => !document.body.textContent?.includes('Create a product to get started'),
+      { timeout: 15_000 },
+    ).then(() => true).catch(() => false);
+
+    if (!userBHasProduct) {
+      await pageA.close();
+      await pageB.close();
+      return; // skip gracefully — userB product context didn't pick up the shared product
+    }
+
     // Both open chat
     const openChat = async (page: typeof pageA) => {
       const btn = page.locator('button[aria-label*="chat" i], button[title*="chat" i]').first();

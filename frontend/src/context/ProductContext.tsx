@@ -48,16 +48,23 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   const [tasksLoaded, setTasksLoaded] = useState(false);
 
   const refreshProducts = useCallback(async () => {
-    const ps = await api.products.list();
-    // Guard: if the response is not an array (e.g., unexpected 204 from API client),
-    // keep existing state instead of silently clearing the product list.
-    if (!Array.isArray(ps)) return;
-    setProducts(ps);
-    setActiveProductState((prev) => {
-      if (prev) return ps.find((p) => p.id === prev.id) ?? ps[0] ?? null;
-      return ps[0] ?? null;
-    });
-    setProductsLoaded(true);
+    try {
+      const ps = await api.products.list();
+      // Guard: if the response is not an array (e.g., unexpected 204 from API client),
+      // keep existing product state but still mark as loaded so permission guards don't spin forever.
+      if (!Array.isArray(ps)) {
+        setProductsLoaded(true);
+        return;
+      }
+      setProducts(ps);
+      setActiveProductState((prev) => {
+        if (prev) return ps.find((p) => p.id === prev.id) ?? ps[0] ?? null;
+        return ps[0] ?? null;
+      });
+      setProductsLoaded(true);
+    } catch {
+      setProductsLoaded(true);
+    }
   }, []);
 
   const refreshTasks = useCallback(async () => {
