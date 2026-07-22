@@ -400,6 +400,7 @@ async function main() {
   // Auth endpoints use much tighter limits to resist brute force and enumeration.
   // Expensive read endpoints (search, exports) use tighter limits to resist scraping.
   const loginRateMax = parseInt(process.env.RATE_LIMIT_LOGIN_MAX ?? '10', 10);
+  const registerRateMax = parseInt(process.env.RATE_LIMIT_REGISTER_MAX ?? '10', 10);
   const ROUTE_RATE_LIMITS: Record<string, { max: number; timeWindow: string }> = {
     '/api/auth/login': { max: loginRateMax, timeWindow: '1 minute' },
     '/api/auth/refresh-token': { max: 60, timeWindow: '1 minute' },
@@ -407,7 +408,7 @@ async function main() {
     '/api/auth/reset-password': { max: 10, timeWindow: '1 minute' },
     '/api/auth/change-password': { max: 5, timeWindow: '15 minutes' },
     '/api/auth/resend-verification': { max: 5, timeWindow: '15 minutes' },
-    '/api/auth/register': { max: 10, timeWindow: '1 hour' },
+    '/api/auth/register': { max: registerRateMax, timeWindow: '1 hour' },
     '/api/search': { max: 30, timeWindow: '1 minute' },
     '/api/admin/logs/export': { max: 10, timeWindow: '1 minute' },
     '/api/me/export': { max: 5, timeWindow: '1 hour' },
