@@ -33,9 +33,18 @@ export async function getSmtpSettings(): Promise<SmtpSettings | null> {
     const row = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
     if (row?.host) {
       // Decrypt the stored password before returning (stored AES-256-GCM encrypted)
-      return { host: row.host, port: row.port, secure: row.secure, user: row.user, pass: decryptValue(row.pass), from: row.from };
+      return {
+        host: row.host,
+        port: row.port,
+        secure: row.secure,
+        user: row.user,
+        pass: decryptValue(row.pass),
+        from: row.from,
+      };
     }
-  } catch { /* table may not exist yet */ }
+  } catch {
+    /* table may not exist yet */
+  }
 
   // Fall back to environment variables
   if (config.smtp.host) {
@@ -64,7 +73,15 @@ function buildTransporter(s: SmtpSettings) {
 // Legacy sync flag - still usable for startup-time checks (env vars only).
 export const emailEnabled = !!config.smtp.host;
 
-export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<boolean> {
+export async function sendEmail({
+  to,
+  subject,
+  html,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<boolean> {
   // Resolve settings at send time so admin changes take effect without a restart
   const settings = await getSmtpSettings();
   if (!settings) {

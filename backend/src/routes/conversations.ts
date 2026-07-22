@@ -19,16 +19,33 @@ const sendSchema = z.object({ content: z.string().min(1).max(10000), replyToId: 
 const createSchema = z.object({ participantId: z.string(), isAdminChat: z.boolean().optional() });
 
 // Author fields returned with every DM message
-const AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true, isFoundingAdmin: true };
+const AUTHOR_SELECT = {
+  id: true,
+  username: true,
+  realName: true,
+  avatarEmoji: true,
+  isAdmin: true,
+  isFoundingAdmin: true,
+};
 // Compact reply-to shape embedded in threaded DM messages
 const DM_REPLY_SELECT = { id: true, content: true, author: { select: AUTHOR_SELECT } };
 
 // Decrypt realName PII on both the message author and the quoted reply-to author
-function decryptAuthor<T extends { author: { realName: string | null }; replyTo?: { author: { realName: string | null } } | null }>(msg: T): T {
+function decryptAuthor<
+  T extends { author: { realName: string | null }; replyTo?: { author: { realName: string | null } } | null },
+>(msg: T): T {
   return {
     ...msg,
     author: { ...msg.author, realName: msg.author.realName ? safeDecryptValue(msg.author.realName) : null },
-    replyTo: msg.replyTo ? { ...msg.replyTo, author: { ...msg.replyTo.author, realName: msg.replyTo.author.realName ? safeDecryptValue(msg.replyTo.author.realName) : null } } : msg.replyTo,
+    replyTo: msg.replyTo
+      ? {
+          ...msg.replyTo,
+          author: {
+            ...msg.replyTo.author,
+            realName: msg.replyTo.author.realName ? safeDecryptValue(msg.replyTo.author.realName) : null,
+          },
+        }
+      : msg.replyTo,
   };
 }
 
@@ -59,8 +76,15 @@ export async function conversationRoutes(app: FastifyInstance) {
       return {
         id: p.conversation.id,
         closed: (p.conversation as { closed?: boolean }).closed ?? false,
-        other: other ? { ...other.user, realName: other.user.realName ? safeDecryptValue(other.user.realName) : null } : null,
-        lastMessage: lastMsg ? decryptAuthor({ ...lastMsg, author: other?.user ?? { id: '', username: '', realName: null, avatarEmoji: null } }) : null,
+        other: other
+          ? { ...other.user, realName: other.user.realName ? safeDecryptValue(other.user.realName) : null }
+          : null,
+        lastMessage: lastMsg
+          ? decryptAuthor({
+              ...lastMsg,
+              author: other?.user ?? { id: '', username: '', realName: null, avatarEmoji: null },
+            })
+          : null,
         unread,
         lastReadAt: p.lastReadAt,
         updatedAt: lastMsg?.createdAt ?? p.conversation.createdAt,

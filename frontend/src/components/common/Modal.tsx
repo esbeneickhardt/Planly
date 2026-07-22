@@ -27,17 +27,29 @@ export default function Modal({ title, onClose, children, width = 'max-w-lg' }: 
     el?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
       // Trap Tab / Shift+Tab inside the dialog
       if (e.key !== 'Tab') return;
       const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
-      if (focusable.length === 0) { e.preventDefault(); return; }
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
       const first = focusable[0] as HTMLElement;
       const last = focusable[focusable.length - 1] as HTMLElement;
       if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
       } else {
-        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     }
 
@@ -60,7 +72,9 @@ export default function Modal({ title, onClose, children, width = 'max-w-lg' }: 
         style={{ maxHeight: '90vh', overflowY: 'auto' }}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 id={titleId} className="font-semibold text-token">{title}</h2>
+          <h2 id={titleId} className="font-semibold text-token">
+            {title}
+          </h2>
           <button
             onClick={onClose}
             aria-label="Close dialog"

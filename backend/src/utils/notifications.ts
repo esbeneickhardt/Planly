@@ -11,15 +11,15 @@ import { logger } from './logger';
 
 // Default on/off state for each notification type when the user has not set a preference
 const DEFAULT_ENABLED: Record<string, boolean> = {
-  task_assigned:    true,
-  task_commented:   true,
-  mention:          true,
+  task_assigned: true,
+  task_commented: true,
+  mention: true,
   access_requested: true,
-  access_approved:  true,
-  access_rejected:  true,
-  invite_received:  true,
-  role_changed:     true,
-  sprint_started:   false, // opt-in only
+  access_approved: true,
+  access_rejected: true,
+  invite_received: true,
+  role_changed: true,
+  sprint_started: false, // opt-in only
 };
 
 /**
@@ -40,10 +40,12 @@ export async function createNotification(data: {
   metadata?: object;
 }) {
   // Fetch the user's stored preferences (null-safe: a missing row means all defaults apply)
-  const user = await prisma.user.findUnique({
-    where: { id: data.userId },
-    select: { notificationPreferences: true },
-  }).catch(() => null);
+  const user = await prisma.user
+    .findUnique({
+      where: { id: data.userId },
+      select: { notificationPreferences: true },
+    })
+    .catch(() => null);
 
   // Merge stored preferences over defaults; unknown types default to enabled
   const prefs = (user?.notificationPreferences as Record<string, boolean> | null) ?? {};

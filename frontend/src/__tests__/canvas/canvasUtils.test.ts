@@ -80,7 +80,9 @@ describe('buildGraph', () => {
 
   it('respects saved local positions over canvasX/canvasY', () => {
     const tasks = [makeTask('t1', [], { canvasX: 0, canvasY: 0 } as Partial<Task>)];
-    const { nodes } = buildGraph(tasks, PRODUCT, new Set(), null, new Map(), undefined, undefined, { t1: { x: 500, y: 300 } });
+    const { nodes } = buildGraph(tasks, PRODUCT, new Set(), null, new Map(), undefined, undefined, {
+      t1: { x: 500, y: 300 },
+    });
     const node = nodes.find((n) => n.id === 't1');
     expect(node?.position).toEqual({ x: 500, y: 300 });
   });

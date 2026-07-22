@@ -27,10 +27,18 @@ export default function LoginPage() {
 
   // Probe SSO availability and surface any OAuth error codes from query params
   useEffect(() => {
-    api.auth.ssoConfig().then(setSso).catch(() => {});
+    api.auth
+      .ssoConfig()
+      .then(setSso)
+      .catch(() => {});
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error');
-    if (err) setError(err === 'sso_state_mismatch' ? 'SSO session expired - please try again.' : 'SSO sign-in failed. Try again or use email/password.');
+    if (err)
+      setError(
+        err === 'sso_state_mismatch'
+          ? 'SSO session expired - please try again.'
+          : 'SSO sign-in failed. Try again or use email/password.',
+      );
   }, []);
 
   // Focus TOTP input when the challenge step appears
@@ -84,10 +92,19 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
-              <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
+              <img
+                src="/icons/icon.jpg"
+                alt="Planly"
+                className="w-full h-full object-cover"
+                style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+              />
             </div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Two-factor authentication</h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>Enter the 6-digit code from your authenticator app</p>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+              Two-factor authentication
+            </h1>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>
+              Enter the 6-digit code from your authenticator app
+            </p>
           </div>
           <form onSubmit={handleTotpSubmit} className="card p-6 space-y-4">
             <div>
@@ -104,15 +121,34 @@ export default function LoginPage() {
                 maxLength={6}
               />
             </div>
-            {error && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>}
-            <button type="submit" disabled={loading || totpCode.length < 6} className="btn-primary w-full justify-center flex">
-              {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Verify'}
+            {error && (
+              <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={loading || totpCode.length < 6}
+              className="btn-primary w-full justify-center flex"
+            >
+              {loading ? (
+                <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Verify'
+              )}
             </button>
             <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
               Lost access to your app? Enter a backup code instead.
             </p>
           </form>
-          <button onClick={() => { setMfaToken(null); setError(''); }} className="w-full text-sm text-center mt-4" style={{ color: 'var(--text-3)' }}>
+          <button
+            onClick={() => {
+              setMfaToken(null);
+              setError('');
+            }}
+            className="w-full text-sm text-center mt-4"
+            style={{ color: 'var(--text-3)' }}
+          >
             ← Back to sign in
           </button>
         </div>
@@ -126,10 +162,19 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
-            <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
+            <img
+              src="/icons/icon.jpg"
+              alt="Planly"
+              className="w-full h-full object-cover"
+              style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+            />
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Welcome back</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>Sign in to your workspace</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+            Welcome back
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>
+            Sign in to your workspace
+          </p>
         </div>
 
         {sso?.enabled && (
@@ -143,7 +188,9 @@ export default function LoginPage() {
             </a>
             <div className="flex items-center gap-3 mt-4 mb-1">
               <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-              <span className="text-xs" style={{ color: 'var(--text-3)' }}>or</span>
+              <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                or
+              </span>
               <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
             </div>
           </div>
@@ -151,7 +198,9 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="card p-6 space-y-4">
           <div>
-            <label htmlFor="login-identifier" className="label">Email or username</label>
+            <label htmlFor="login-identifier" className="label">
+              Email or username
+            </label>
             <input
               id="login-identifier"
               type="text"
@@ -165,8 +214,12 @@ export default function LoginPage() {
           </div>
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="login-password" className="label mb-0">Password</label>
-              <Link to="/forgot-password" className="text-xs" style={{ color: 'var(--brand)' }}>Forgot password?</Link>
+              <label htmlFor="login-password" className="label mb-0">
+                Password
+              </label>
+              <Link to="/forgot-password" className="text-xs" style={{ color: 'var(--brand)' }}>
+                Forgot password?
+              </Link>
             </div>
             <input
               id="login-password"
@@ -180,16 +233,26 @@ export default function LoginPage() {
           </div>
           {error && (
             <div className="space-y-2">
-              <div role="alert" className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
-              {showResend && (
-                resendSent ? (
-                  <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>Verification email sent - check your inbox.</p>
+              <div
+                role="alert"
+                className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"
+              >
+                {error}
+              </div>
+              {showResend &&
+                (resendSent ? (
+                  <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
+                    Verification email sent - check your inbox.
+                  </p>
                 ) : (
                   <button
                     type="button"
                     onClick={async () => {
                       const email = identifier.includes('@') ? identifier : '';
-                      if (!email) { setError('Enter your email address above to resend the verification link.'); return; }
+                      if (!email) {
+                        setError('Enter your email address above to resend the verification link.');
+                        return;
+                      }
                       await api.auth.resendVerification(email).catch(() => {});
                       setResendSent(true);
                     }}
@@ -198,12 +261,15 @@ export default function LoginPage() {
                   >
                     Resend verification email
                   </button>
-                )
-              )}
+                ))}
             </div>
           )}
           <button type="submit" disabled={loading} className="btn-primary w-full justify-center flex">
-            {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Sign in'}
+            {loading ? (
+              <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              'Sign in'
+            )}
           </button>
         </form>
 

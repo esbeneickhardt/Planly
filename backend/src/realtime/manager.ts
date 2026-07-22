@@ -23,7 +23,7 @@ const MAX_CONNECTIONS_PER_USER = 10;
 // preventing a storm of cheap connections from monopolising the upgrade handler
 // even when the per-user cap (MAX_CONNECTIONS_PER_USER) would otherwise allow it.
 const _wsRateMap = new Map<string, { count: number; resetAt: number }>();
-const WS_RATE_MAX = 30;      // new connections per IP per window
+const WS_RATE_MAX = 30; // new connections per IP per window
 const WS_RATE_WINDOW = 60_000; // 1-minute sliding window
 
 /** Returns true when the IP is within rate limit, false when the limit is exceeded. */
@@ -122,7 +122,9 @@ export function broadcastAll(event: string, data?: unknown) {
   for (const room of rooms.values()) {
     for (const client of room) {
       if (client.readyState === 1 /* OPEN */) {
-        try { client.send(message); } catch {}
+        try {
+          client.send(message);
+        } catch {}
       }
     }
   }

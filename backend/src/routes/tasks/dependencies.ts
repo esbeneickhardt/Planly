@@ -22,8 +22,8 @@ export async function dependencyRoutes(app: FastifyInstance) {
   // Add a prerequisite edge from taskId ← prerequisiteId, with cycle detection
   app.post('/api/products/:productId/tasks/:taskId/dependencies', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
-    if (!await requireTabWrite(productId, req.user, ['canvas'], reply)) return;
+    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
     const depBody = validate(addDependencySchema, req.body, reply);
     if (!depBody) return;
     const { prerequisiteId } = depBody;
@@ -55,22 +55,32 @@ export async function dependencyRoutes(app: FastifyInstance) {
   });
 
   // Remove a prerequisite edge between two tasks
-  app.delete('/api/products/:productId/tasks/:taskId/dependencies/:prerequisiteId', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, taskId, prerequisiteId } = req.params as { productId: string; taskId: string; prerequisiteId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
-    if (!await requireTabWrite(productId, req.user, ['canvas'], reply)) return;
-    try {
-      await prisma.taskDependency.delete({ where: { dependentId_prerequisiteId: { dependentId: taskId, prerequisiteId } } });
-      reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
-    }
-  });
+  app.delete(
+    '/api/products/:productId/tasks/:taskId/dependencies/:prerequisiteId',
+    { preHandler: requireAuth },
+    async (req, reply) => {
+      const { productId, taskId, prerequisiteId } = req.params as {
+        productId: string;
+        taskId: string;
+        prerequisiteId: string;
+      };
+      if (!(await requireProductMember(productId, req.user, reply))) return;
+      if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
+      try {
+        await prisma.taskDependency.delete({
+          where: { dependentId_prerequisiteId: { dependentId: taskId, prerequisiteId } },
+        });
+        reply.send({ ok: true });
+      } catch {
+        reply.status(404).send({ error: 'Not found' });
+      }
+    },
+  );
 
   // Return the full task dependency graph (nodes + edges) for canvas rendering
   app.get('/api/products/:productId/graph', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!(await requireProductMember(productId, req.user, reply))) return;
     // Load all active tasks and their dependency edges for canvas graph rendering
     const [tasks, deps] = await Promise.all([
       prisma.task.findMany({ where: { productId, ...TASK_WHERE_ACTIVE }, include: TASK_INCLUDE }),

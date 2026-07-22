@@ -23,7 +23,7 @@ async function loginAs(app: FastifyInstance, email: string, password: string) {
 describe.skipIf(!HAS_DB)('RBAC integration', () => {
   let app: FastifyInstance;
   const suffix = randomSuffix();
-  const ownerEmail  = `owner_${suffix}@example.com`;
+  const ownerEmail = `owner_${suffix}@example.com`;
   const memberEmail = `member_${suffix}@example.com`;
   let productId: string;
   let ownerToken: string;
@@ -32,14 +32,14 @@ describe.skipIf(!HAS_DB)('RBAC integration', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const owner  = await createTestUser({ email: ownerEmail,  username: `owner_${suffix}`,  password: 'pass123' });
+    const owner = await createTestUser({ email: ownerEmail, username: `owner_${suffix}`, password: 'pass123' });
     const member = await createTestUser({ email: memberEmail, username: `member_${suffix}`, password: 'pass123' });
 
     const team = await createTestTeam(owner.id, [member.id]);
     const product = await createTestProduct(owner.id, team.id);
     productId = product.id;
 
-    ownerToken  = await loginAs(app, ownerEmail,  'pass123');
+    ownerToken = await loginAs(app, ownerEmail, 'pass123');
     memberToken = await loginAs(app, memberEmail, 'pass123');
   });
 

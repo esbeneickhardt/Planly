@@ -24,12 +24,18 @@ export default function AdminRestore({ showToast }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setProjects(await api.admin.deletedProjects()); }
-    catch (e) { showToast((e as Error).message, 'error'); }
-    finally { setLoading(false); }
+    try {
+      setProjects(await api.admin.deletedProjects());
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setLoading(false);
+    }
   }, [showToast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function handleRestore(id: string, name: string) {
     setRestoring(id);
@@ -44,7 +50,12 @@ export default function AdminRestore({ showToast }: Props) {
     }
   }
 
-  if (loading) return <p className="text-sm" style={{ color: 'var(--text-3)' }}>Loading…</p>;
+  if (loading)
+    return (
+      <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+        Loading…
+      </p>
+    );
 
   if (projects.length === 0) {
     return (
@@ -76,14 +87,20 @@ export default function AdminRestore({ showToast }: Props) {
             <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
               <td className="py-2.5 pr-4">
                 <span className="font-medium" style={{ color: 'var(--text)' }}>
-                  {p.emoji && <span className="mr-1.5">{p.emoji}</span>}{p.name}
+                  {p.emoji && <span className="mr-1.5">{p.emoji}</span>}
+                  {p.name}
                 </span>
               </td>
               <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-                {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}{p.ownerUsername ?? '-'}
+                {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}
+                {p.ownerUsername ?? '-'}
               </td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.memberCount}</td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.taskCount}</td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                {p.memberCount}
+              </td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                {p.taskCount}
+              </td>
               <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
                 {new Date(p.deletedAt).toLocaleDateString()}
               </td>
@@ -92,7 +109,12 @@ export default function AdminRestore({ showToast }: Props) {
                   onClick={() => handleRestore(p.id, p.name)}
                   disabled={restoring === p.id}
                   className="text-xs px-3 py-1 rounded-full font-medium transition-colors"
-                  style={{ background: 'var(--brand-subtle)', color: 'var(--brand)', border: '1px solid var(--brand)', opacity: restoring === p.id ? 0.6 : 1 }}
+                  style={{
+                    background: 'var(--brand-subtle)',
+                    color: 'var(--brand)',
+                    border: '1px solid var(--brand)',
+                    opacity: restoring === p.id ? 0.6 : 1,
+                  }}
                 >
                   {restoring === p.id ? 'Restoring…' : 'Restore'}
                 </button>

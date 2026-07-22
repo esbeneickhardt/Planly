@@ -20,7 +20,7 @@ const createTokenSchema = z.object({
   name: z.string().min(1),
   expiresAt: z.string().optional(),
   productId: z.string().uuid().optional(), // when set, token is restricted to this product only
-  readOnly: z.boolean().optional(),        // when true, token can only perform GET requests
+  readOnly: z.boolean().optional(), // when true, token can only perform GET requests
 });
 
 // Returns a SHA-256 hex digest for safe storage without exposing the raw secret
@@ -29,7 +29,16 @@ function hashToken(raw: string): string {
 }
 
 // Fields returned for token listings — never includes tokenHash
-const TOKEN_SELECT = { id: true, name: true, appId: true, productId: true, readOnly: true, lastUsedAt: true, expiresAt: true, createdAt: true };
+const TOKEN_SELECT = {
+  id: true,
+  name: true,
+  appId: true,
+  productId: true,
+  readOnly: true,
+  lastUsedAt: true,
+  expiresAt: true,
+  createdAt: true,
+};
 
 export async function apiTokenRoutes(app: FastifyInstance) {
   // List the current user's tokens (never exposes the raw token)
@@ -58,7 +67,8 @@ export async function apiTokenRoutes(app: FastifyInstance) {
 
     // Enforce per-user token limit
     const existingCount = await prisma.apiToken.count({ where: { userId: req.user.userId } });
-    if (existingCount >= 25) return reply.status(400).send({ error: 'Maximum 25 tokens allowed per user. Revoke an existing token first.' });
+    if (existingCount >= 25)
+      return reply.status(400).send({ error: 'Maximum 25 tokens allowed per user. Revoke an existing token first.' });
 
     // Generate token value and hash for storage
     // Format: planly_<48 hex chars> = 55 chars total, easy to identify in logs
@@ -77,7 +87,11 @@ export async function apiTokenRoutes(app: FastifyInstance) {
       select: TOKEN_SELECT,
     });
 
-    logAdminEvent('PAT_CREATED', { actorName: req.user.username, targetName: req.user.username, metadata: { tokenId: token.id, name: name.trim(), scoped: !!productId, readOnly: readOnly ?? false } });
+    logAdminEvent('PAT_CREATED', {
+      actorName: req.user.username,
+      targetName: req.user.username,
+      metadata: { tokenId: token.id, name: name.trim(), scoped: !!productId, readOnly: readOnly ?? false },
+    });
     // Include raw token in response - never stored, never retrievable again
     reply.status(201).send({ ...token, token: rawToken });
   });
@@ -85,10 +99,17 @@ export async function apiTokenRoutes(app: FastifyInstance) {
   // Revoke a token
   app.delete('/api/auth/tokens/:tokenId', { preHandler: requireAuth }, async (req, reply) => {
     const { tokenId } = req.params as { tokenId: string };
-    const deleted = await prisma.apiToken.findFirst({ where: { id: tokenId, userId: req.user.userId }, select: { name: true } });
+    const deleted = await prisma.apiToken.findFirst({
+      where: { id: tokenId, userId: req.user.userId },
+      select: { name: true },
+    });
     const { count } = await prisma.apiToken.deleteMany({ where: { id: tokenId, userId: req.user.userId } });
     if (count === 0) return reply.status(404).send({ error: 'Not found' });
-    logAdminEvent('PAT_REVOKED', { actorName: req.user.username, targetName: req.user.username, metadata: { tokenId, name: deleted?.name } });
+    logAdminEvent('PAT_REVOKED', {
+      actorName: req.user.username,
+      targetName: req.user.username,
+      metadata: { tokenId, name: deleted?.name },
+    });
     reply.status(204).send();
   });
 }

@@ -60,8 +60,12 @@ describe('useGanttDragZoom', () => {
     const opts = makeOptions();
     const { result } = renderHook(() => useGanttDragZoom(opts));
 
-    act(() => { result.current.applyZoom(0.5); }); // zoom in first
-    act(() => { result.current.applyZoom(2); });    // then zoom back out to full
+    act(() => {
+      result.current.applyZoom(0.5);
+    }); // zoom in first
+    act(() => {
+      result.current.applyZoom(2);
+    }); // then zoom back out to full
 
     expect(result.current.vs).toEqual(opts.fullStart);
     expect(result.current.ve).toEqual(opts.fullEnd);
@@ -76,7 +80,9 @@ describe('useGanttDragZoom', () => {
     const { result } = renderHook(() => useGanttDragZoom(opts));
 
     // Zoom in very aggressively - should hit minimum
-    act(() => { result.current.applyZoom(0.01); });
+    act(() => {
+      result.current.applyZoom(0.01);
+    });
 
     const span = result.current.ve.getTime() - result.current.vs.getTime();
     // If the zoom was rejected, span stays at full; if accepted it is >= 3 days

@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Load alerting rules
+rule_files:
+  - 'alerts.yml'
+
+# Alertmanager is optional — remove this block if you don't run one
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: planly
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['backend:3000']
+    metrics_path: /api/metrics
+    # The METRICS_SECRET must match what is set in .env.
+    # Prometheus passes it as a custom header on every scrape request.
+    headers:
+      X-Metrics-Secret: 'REPLACE_WITH_METRICS_SECRET'

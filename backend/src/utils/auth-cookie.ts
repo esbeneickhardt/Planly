@@ -17,8 +17,8 @@
 import type { FastifyReply } from 'fastify';
 import { randomBytes } from 'crypto';
 
-const JWT_MAX_AGE = 60 * 60;           // 1 hour — short so stolen JWTs expire quickly
-const RT_MAX_AGE  = 60 * 60 * 24 * 30; // 30 days for refresh token
+const JWT_MAX_AGE = 60 * 60; // 1 hour — short so stolen JWTs expire quickly
+const RT_MAX_AGE = 60 * 60 * 24 * 30; // 30 days for refresh token
 
 function cookieSecure(): boolean {
   return process.env.COOKIE_SECURE !== 'false';

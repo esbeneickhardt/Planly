@@ -8,12 +8,13 @@ This document covers the security model and all security features in Planly.
 
 ### Session-based (web app)
 
-Login issues two cookies:
+Login issues three cookies:
 
-| Cookie | `httpOnly` | Description |
-|---|---|---|
-| `token` | Yes | 7-day JWT signed with HS256 and `JWT_SECRET`. The browser can't read it - only sent automatically with requests. |
-| `csrf` | No | 24-byte random value. The browser CAN read it, and must echo it as `X-CSRF-Token` on every mutating request. |
+| Cookie | `httpOnly` | Lifetime | Description |
+|---|---|---|---|
+| `token` | Yes | 1 hour | Short-lived JWT signed with HS256 and `JWT_SECRET`. Short lifetime limits the damage window if a token is stolen. |
+| `csrf` | No | 30 days | Random 24-byte value. The browser CAN read it, and must echo it as `X-CSRF-Token` on every mutating request. |
+| `refresh_token` | Yes | 30 days | Long-lived token, path-restricted to `/api/auth/refresh-token`. Used to silently reissue a new `token` JWT when it expires, so users stay logged in without re-entering credentials. |
 
 Both cookies are `SameSite=Lax` and `Secure` (HTTPS-only) in production.
 
@@ -23,7 +24,7 @@ PATs and App Registration tokens are stored as SHA-256 hashes in the database. T
 
 ### Session Invalidation
 
-Each user has a `tokenVersion` integer. When a user changes their password, resets it, or an admin forces a logout, this counter is incremented. Every cookie-based request validates that the JWT's embedded `tokenVersion` matches the current value in the database - a mismatch instantly invalidates the session without maintaining a blocklist.
+Each user has a `tokenVersion` integer. When a user changes their password, resets it, or an admin forces a logout, this counter is incremented. Every cookie-based request validates that the JWT's embedded `tokenVersion` matches the current value in the database — a mismatch instantly invalidates all outstanding JWTs without maintaining a blocklist. The value is cached in memory for 10 seconds to reduce database round-trips.
 
 ### Email Verification
 

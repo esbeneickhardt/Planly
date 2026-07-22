@@ -38,7 +38,13 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      await api.users.create({ username: form.username, email: form.email, password: form.password, realName: form.realName || undefined, tosAccepted: true });
+      await api.users.create({
+        username: form.username,
+        email: form.email,
+        password: form.password,
+        realName: form.realName || undefined,
+        tosAccepted: true,
+      });
       await login(form.email, form.password);
       navigate(next, { replace: true });
     } catch (err) {
@@ -53,33 +59,95 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
-            <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
+            <img
+              src="/icons/icon.jpg"
+              alt="Planly"
+              className="w-full h-full object-cover"
+              style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+            />
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Create account</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>Start planning your project</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+            Create account
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>
+            Start planning your project
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 space-y-4">
           <div>
-            <label htmlFor="reg-realname" className="label">Full name</label>
-            <input id="reg-realname" type="text" value={form.realName} onChange={set('realName')} className="input" placeholder="Alex Johnson" />
+            <label htmlFor="reg-realname" className="label">
+              Full name
+            </label>
+            <input
+              id="reg-realname"
+              type="text"
+              value={form.realName}
+              onChange={set('realName')}
+              className="input"
+              placeholder="Alex Johnson"
+            />
           </div>
           <div>
-            <label htmlFor="reg-username" className="label">Username</label>
-            <input id="reg-username" type="text" required value={form.username} onChange={set('username')} className="input" placeholder="alexj" />
+            <label htmlFor="reg-username" className="label">
+              Username
+            </label>
+            <input
+              id="reg-username"
+              type="text"
+              required
+              value={form.username}
+              onChange={set('username')}
+              className="input"
+              placeholder="alexj"
+            />
           </div>
           <div>
-            <label htmlFor="reg-email" className="label">Email</label>
-            <input id="reg-email" type="email" required value={form.email} onChange={set('email')} className="input" placeholder="alex@example.com" />
+            <label htmlFor="reg-email" className="label">
+              Email
+            </label>
+            <input
+              id="reg-email"
+              type="email"
+              required
+              value={form.email}
+              onChange={set('email')}
+              className="input"
+              placeholder="alex@example.com"
+            />
           </div>
           <div>
-            <label htmlFor="reg-password" className="label">Password</label>
-            <input id="reg-password" type="password" required minLength={8} value={form.password} onChange={set('password')} className="input" placeholder="••••••••" />
-            <p className="text-xs mt-1" style={{ color: 'var(--text-2)' }}>Min 8 characters, at least one number and one special character</p>
+            <label htmlFor="reg-password" className="label">
+              Password
+            </label>
+            <input
+              id="reg-password"
+              type="password"
+              required
+              minLength={8}
+              value={form.password}
+              onChange={set('password')}
+              className="input"
+              placeholder="••••••••"
+            />
+            <p className="text-xs mt-1" style={{ color: 'var(--text-2)' }}>
+              Min 8 characters, at least one number and one special character
+            </p>
           </div>
           <div>
-            <label htmlFor="reg-confirm" className="label">Confirm password</label>
-            <input id="reg-confirm" type="password" required minLength={8} value={form.confirmPassword} onChange={set('confirmPassword')} className="input" placeholder="••••••••" />
+            <label htmlFor="reg-confirm" className="label">
+              Confirm password
+            </label>
+            <input
+              id="reg-confirm"
+              type="password"
+              required
+              minLength={8}
+              value={form.confirmPassword}
+              onChange={set('confirmPassword')}
+              className="input"
+              placeholder="••••••••"
+            />
           </div>
           <label className="flex items-start gap-2 cursor-pointer select-none">
             <input
@@ -90,22 +158,37 @@ export default function RegisterPage() {
             />
             <span className="text-sm" style={{ color: 'var(--text-2)' }}>
               I agree to the{' '}
-              <a href="/terms" target="_blank" className="underline" style={{ color: 'var(--brand)' }}>Terms of Service</a>
-              {' '}and{' '}
-              <a href="/privacy" target="_blank" className="underline" style={{ color: 'var(--brand)' }}>Privacy Policy</a>
+              <a href="/terms" target="_blank" className="underline" style={{ color: 'var(--brand)' }}>
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a href="/privacy" target="_blank" className="underline" style={{ color: 'var(--brand)' }}>
+                Privacy Policy
+              </a>
             </span>
           </label>
           {error && (
-            <div role="alert" className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
+            <div
+              role="alert"
+              className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"
+            >
+              {error}
+            </div>
           )}
           <button type="submit" disabled={loading} className="btn-primary w-full justify-center flex">
-            {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Create account'}
+            {loading ? (
+              <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              'Create account'
+            )}
           </button>
         </form>
 
         <p className="text-center text-sm mt-4" style={{ color: 'var(--text-2)' }}>
           Already have an account?{' '}
-          <Link to="/login" className="font-medium" style={{ color: 'var(--brand)' }}>Sign in</Link>
+          <Link to="/login" className="font-medium" style={{ color: 'var(--brand)' }}>
+            Sign in
+          </Link>
         </p>
       </div>
     </div>

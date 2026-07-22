@@ -4,8 +4,15 @@ import { isBeforeToday } from '../../utils/dates';
 import type { AdminProject } from './types';
 
 interface DeletedProject {
-  id: string; name: string; emoji: string | null; deletedAt: string; createdAt: string;
-  ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number;
+  id: string;
+  name: string;
+  emoji: string | null;
+  deletedAt: string;
+  createdAt: string;
+  ownerUsername: string | null;
+  ownerEmoji: string | null;
+  memberCount: number;
+  taskCount: number;
 }
 
 interface Props {
@@ -29,11 +36,16 @@ export default function AdminProjects({ showToast }: Props) {
       const [active, gone] = await Promise.all([api.admin.projects(), api.admin.deletedProjects()]);
       setProjects(active);
       setDeleted(gone);
-    } catch (e) { showToast((e as Error).message, 'error'); }
-    finally { setLoading(false); }
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setLoading(false);
+    }
   }, [showToast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function handleRestore(id: string, name: string) {
     setRestoring(id);
@@ -63,7 +75,12 @@ export default function AdminProjects({ showToast }: Props) {
     }
   }
 
-  if (loading) return <p className="text-sm" style={{ color: 'var(--text-3)' }}>Loading…</p>;
+  if (loading)
+    return (
+      <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+        Loading…
+      </p>
+    );
 
   return (
     <div className="space-y-8">
@@ -84,22 +101,37 @@ export default function AdminProjects({ showToast }: Props) {
             <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
               <td className="py-2.5 pr-4">
                 <span className="font-medium" style={{ color: 'var(--text)' }}>
-                  {p.emoji && <span className="mr-1.5">{p.emoji}</span>}{p.name}
+                  {p.emoji && <span className="mr-1.5">{p.emoji}</span>}
+                  {p.name}
                 </span>
               </td>
               <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-                {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}{p.ownerUsername ?? '-'}
+                {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}
+                {p.ownerUsername ?? '-'}
               </td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.memberCount}</td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.taskCount}</td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: p.deadline && isBeforeToday(p.deadline) ? '#ef4444' : 'var(--text-3)' }}>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                {p.memberCount}
+              </td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                {p.taskCount}
+              </td>
+              <td
+                className="py-2.5 pr-4 text-xs"
+                style={{ color: p.deadline && isBeforeToday(p.deadline) ? '#ef4444' : 'var(--text-3)' }}
+              >
                 {p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}
               </td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(p.createdAt).toLocaleDateString()}</td>
+              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                {new Date(p.createdAt).toLocaleDateString()}
+              </td>
             </tr>
           ))}
           {projects.length === 0 && (
-            <tr><td colSpan={6} className="py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No projects yet.</td></tr>
+            <tr>
+              <td colSpan={6} className="py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>
+                No projects yet.
+              </td>
+            </tr>
           )}
         </tbody>
       </table>
@@ -114,7 +146,12 @@ export default function AdminProjects({ showToast }: Props) {
           >
             <span>{showDeleted ? '▾' : '▸'}</span>
             Deleted projects
-            <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>{deleted.length}</span>
+            <span
+              className="text-xs px-1.5 py-0.5 rounded-full"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+            >
+              {deleted.length}
+            </span>
           </button>
 
           {showDeleted && (
@@ -132,33 +169,56 @@ export default function AdminProjects({ showToast }: Props) {
               <tbody>
                 {deleted.map((p) => (
                   <>
-                    <tr key={p.id} style={{ borderBottom: confirmId === p.id ? 'none' : '1px solid var(--border)', opacity: 0.8 }}>
+                    <tr
+                      key={p.id}
+                      style={{ borderBottom: confirmId === p.id ? 'none' : '1px solid var(--border)', opacity: 0.8 }}
+                    >
                       <td className="py-2.5 pr-4">
                         <span className="font-medium" style={{ color: 'var(--text)' }}>
-                          {p.emoji && <span className="mr-1.5">{p.emoji}</span>}{p.name}
+                          {p.emoji && <span className="mr-1.5">{p.emoji}</span>}
+                          {p.name}
                         </span>
                       </td>
                       <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-                        {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}{p.ownerUsername ?? '-'}
+                        {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}
+                        {p.ownerUsername ?? '-'}
                       </td>
-                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.memberCount}</td>
-                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{p.taskCount}</td>
-                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(p.deletedAt).toLocaleDateString()}</td>
+                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                        {p.memberCount}
+                      </td>
+                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                        {p.taskCount}
+                      </td>
+                      <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                        {new Date(p.deletedAt).toLocaleDateString()}
+                      </td>
                       <td className="py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleRestore(p.id, p.name)}
                             disabled={!!restoring || !!hardDeleting}
                             className="text-xs px-3 py-1 rounded-full font-medium transition-colors"
-                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)', border: '1px solid var(--brand)', opacity: restoring === p.id ? 0.6 : 1 }}
+                            style={{
+                              background: 'var(--brand-subtle)',
+                              color: 'var(--brand)',
+                              border: '1px solid var(--brand)',
+                              opacity: restoring === p.id ? 0.6 : 1,
+                            }}
                           >
                             {restoring === p.id ? 'Restoring…' : 'Restore'}
                           </button>
                           <button
-                            onClick={() => { setConfirmId(confirmId === p.id ? null : p.id); setConfirmInput(''); }}
+                            onClick={() => {
+                              setConfirmId(confirmId === p.id ? null : p.id);
+                              setConfirmInput('');
+                            }}
                             disabled={!!restoring || !!hardDeleting}
                             className="text-xs px-3 py-1 rounded-full font-medium transition-colors"
-                            style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                            style={{
+                              background: 'rgba(239,68,68,0.08)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239,68,68,0.3)',
+                            }}
                           >
                             Delete permanently
                           </button>
@@ -168,8 +228,14 @@ export default function AdminProjects({ showToast }: Props) {
                     {confirmId === p.id && (
                       <tr key={`${p.id}-confirm`} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td colSpan={6} className="pb-3 pt-1 pr-4">
-                          <div className="rounded-lg px-3 py-2.5 text-xs space-y-2" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                            <p style={{ color: '#ef4444' }}>This permanently deletes all tasks, messages, and settings. Type <strong>{p.name}</strong> to confirm.</p>
+                          <div
+                            className="rounded-lg px-3 py-2.5 text-xs space-y-2"
+                            style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
+                          >
+                            <p style={{ color: '#ef4444' }}>
+                              This permanently deletes all tasks, messages, and settings. Type <strong>{p.name}</strong>{' '}
+                              to confirm.
+                            </p>
                             <div className="flex gap-2">
                               <input
                                 autoFocus
@@ -177,18 +243,30 @@ export default function AdminProjects({ showToast }: Props) {
                                 onChange={(e) => setConfirmInput(e.target.value)}
                                 placeholder={p.name}
                                 className="input text-xs flex-1"
-                                onKeyDown={(e) => { if (e.key === 'Escape') { setConfirmId(null); setConfirmInput(''); } }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') {
+                                    setConfirmId(null);
+                                    setConfirmInput('');
+                                  }
+                                }}
                               />
                               <button
                                 onClick={() => handleHardDelete(p.id, p.name)}
                                 disabled={confirmInput !== p.name || hardDeleting === p.id}
                                 className="text-xs px-3 py-1 rounded-lg font-medium"
-                                style={{ background: confirmInput === p.name ? '#ef4444' : 'var(--surface-2)', color: confirmInput === p.name ? 'white' : 'var(--text-3)', transition: 'background 0.15s' }}
+                                style={{
+                                  background: confirmInput === p.name ? '#ef4444' : 'var(--surface-2)',
+                                  color: confirmInput === p.name ? 'white' : 'var(--text-3)',
+                                  transition: 'background 0.15s',
+                                }}
                               >
                                 {hardDeleting === p.id ? 'Deleting…' : 'Confirm'}
                               </button>
                               <button
-                                onClick={() => { setConfirmId(null); setConfirmInput(''); }}
+                                onClick={() => {
+                                  setConfirmId(null);
+                                  setConfirmInput('');
+                                }}
                                 className="text-xs px-3 py-1 rounded-lg"
                                 style={{ color: 'var(--text-3)' }}
                               >

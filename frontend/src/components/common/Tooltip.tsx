@@ -21,13 +21,22 @@ export default function Tooltip({ content, children, side = 'top', delay = 350, 
   }
 
   const posStyle: React.CSSProperties =
-    side === 'top'    ? { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6 } :
-    side === 'bottom' ? { top: '100%',    left: '50%', transform: 'translateX(-50%)', marginTop: 6 } :
-    side === 'left'   ? { right: '100%',  top: '50%',  transform: 'translateY(-50%)', marginRight: 6 } :
-                        { left: '100%',   top: '50%',  transform: 'translateY(-50%)', marginLeft: 6 };
+    side === 'top'
+      ? { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6 }
+      : side === 'bottom'
+        ? { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6 }
+        : side === 'left'
+          ? { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: 6 }
+          : { left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 6 };
 
   return (
-    <div className={className ?? 'relative inline-flex'} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
+    <div
+      className={className ?? 'relative inline-flex'}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+    >
       {children}
       {visible && (
         <div

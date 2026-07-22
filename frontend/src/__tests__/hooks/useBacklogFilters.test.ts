@@ -27,11 +27,18 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 const TASKS: Task[] = [
-  makeTask({ id: 't1', name: 'Alpha', status: 'backlog',     ownerId: 'user-1', createdAt: '2024-01-01T00:00:00Z' }),
-  makeTask({ id: 't2', name: 'Beta',  status: 'todo',        ownerId: 'user-2', createdAt: '2024-01-02T00:00:00Z' }),
-  makeTask({ id: 't3', name: 'Gamma', status: 'in_progress', ownerId: 'user-1', createdAt: '2024-01-03T00:00:00Z', deadline: '2020-01-01' /* overdue */ }),
-  makeTask({ id: 't4', name: 'Delta', status: 'done',        ownerId: undefined, createdAt: '2024-01-04T00:00:00Z' }),
-  makeTask({ id: 't5', name: 'Epsilon', status: 'blocked',   ownerId: undefined, createdAt: '2024-01-05T00:00:00Z' }),
+  makeTask({ id: 't1', name: 'Alpha', status: 'backlog', ownerId: 'user-1', createdAt: '2024-01-01T00:00:00Z' }),
+  makeTask({ id: 't2', name: 'Beta', status: 'todo', ownerId: 'user-2', createdAt: '2024-01-02T00:00:00Z' }),
+  makeTask({
+    id: 't3',
+    name: 'Gamma',
+    status: 'in_progress',
+    ownerId: 'user-1',
+    createdAt: '2024-01-03T00:00:00Z',
+    deadline: '2020-01-01' /* overdue */,
+  }),
+  makeTask({ id: 't4', name: 'Delta', status: 'done', ownerId: undefined, createdAt: '2024-01-04T00:00:00Z' }),
+  makeTask({ id: 't5', name: 'Epsilon', status: 'blocked', ownerId: undefined, createdAt: '2024-01-05T00:00:00Z' }),
 ];
 
 describe('useBacklogFilters', () => {
@@ -70,7 +77,10 @@ describe('useBacklogFilters', () => {
   // mineOnly stacks with the active status tab; here "all" + mineOnly = user-1's tasks only
   it('mineOnly filters to tasks owned by the current user', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => { result.current.setStatusTab('all'); result.current.setMineOnly(true); });
+    act(() => {
+      result.current.setStatusTab('all');
+      result.current.setMineOnly(true);
+    });
     const ids = result.current.filteredTasks.map((t) => t.id);
     expect(ids).toContain('t1');
     expect(ids).toContain('t3');
@@ -88,21 +98,30 @@ describe('useBacklogFilters', () => {
   // Search is case-insensitive so "gam" matches "Gamma"
   it('search filters by task name (case-insensitive)', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => { result.current.setStatusTab('all'); result.current.setSearch('gam'); });
+    act(() => {
+      result.current.setStatusTab('all');
+      result.current.setSearch('gam');
+    });
     expect(result.current.filteredTasks.map((t) => t.id)).toEqual(['t3']);
   });
 
   // No results is a valid state, not an error — the list should be empty not undefined
   it('search with no match returns empty list', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => { result.current.setStatusTab('all'); result.current.setSearch('zzznomatch'); });
+    act(() => {
+      result.current.setStatusTab('all');
+      result.current.setSearch('zzznomatch');
+    });
     expect(result.current.filteredTasks).toHaveLength(0);
   });
 
   // Alpha sort uses localeCompare so accented characters sort correctly
   it('sortKey=alpha sorts tasks alphabetically', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => { result.current.setStatusTab('all'); result.current.setSortKey('alpha'); });
+    act(() => {
+      result.current.setStatusTab('all');
+      result.current.setSortKey('alpha');
+    });
     const names = result.current.filteredTasks.map((t) => t.name);
     expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
   });
@@ -110,7 +129,10 @@ describe('useBacklogFilters', () => {
   // Newest-first descending by createdAt; most recently created appears at top of list
   it('sortKey=newest sorts newest first', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => { result.current.setStatusTab('all'); result.current.setSortKey('newest'); });
+    act(() => {
+      result.current.setStatusTab('all');
+      result.current.setSortKey('newest');
+    });
     const dates = result.current.filteredTasks.map((t) => new Date(t.createdAt).getTime());
     expect(dates).toEqual([...dates].sort((a, b) => b - a));
   });
@@ -118,7 +140,10 @@ describe('useBacklogFilters', () => {
   // Unassigned sort helps triage: tasks with no owner bubble to the top
   it('sortKey=unassigned puts tasks without ownerId first', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => { result.current.setStatusTab('all'); result.current.setSortKey('unassigned'); });
+    act(() => {
+      result.current.setStatusTab('all');
+      result.current.setSortKey('unassigned');
+    });
     const tasks = result.current.filteredTasks;
     const firstAssigned = tasks.findIndex((t) => t.ownerId);
     const lastUnassigned = tasks.map((t) => !t.ownerId).lastIndexOf(true);
@@ -128,7 +153,10 @@ describe('useBacklogFilters', () => {
   // Tasks without a deadline go to the bottom so upcoming deadlines stay visible
   it('sortKey=deadline sorts tasks with nearest deadline first, no-deadline last', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => { result.current.setStatusTab('all'); result.current.setSortKey('deadline'); });
+    act(() => {
+      result.current.setStatusTab('all');
+      result.current.setSortKey('deadline');
+    });
     const tasks = result.current.filteredTasks;
     const withDeadline = tasks.filter((t) => t.deadline);
     const withoutDeadline = tasks.filter((t) => !t.deadline);

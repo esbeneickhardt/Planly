@@ -9,7 +9,10 @@
 // Not configured → silently no-op; alerting is optional
 const WEBHOOK_URL = process.env.SECURITY_ALERT_WEBHOOK_URL;
 
-export type SecurityAlertPayload = { event: string; account: string; ip: string; timestamp: string } & Record<string, unknown>;
+export type SecurityAlertPayload = { event: string; account: string; ip: string; timestamp: string } & Record<
+  string,
+  unknown
+>;
 
 export async function sendSecurityAlert(payload: SecurityAlertPayload) {
   if (!WEBHOOK_URL) return;

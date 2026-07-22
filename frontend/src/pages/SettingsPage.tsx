@@ -23,13 +23,13 @@ import SettingsDanger from './settings/SettingsDanger';
 type SettingsTab = 'project' | 'team' | 'permissions' | 'colors' | 'apps' | 'webhooks' | 'danger';
 
 const PAGE_TABS: { key: SettingsTab; label: string; danger?: boolean }[] = [
-  { key: 'project',     label: 'Project' },
-  { key: 'team',        label: 'Team' },
+  { key: 'project', label: 'Project' },
+  { key: 'team', label: 'Team' },
   { key: 'permissions', label: 'Permissions' },
-  { key: 'colors',      label: 'Color labels' },
-  { key: 'apps',        label: 'Apps' },
-  { key: 'webhooks',    label: 'Webhooks' },
-  { key: 'danger',      label: 'Danger zone', danger: true },
+  { key: 'colors', label: 'Color labels' },
+  { key: 'apps', label: 'Apps' },
+  { key: 'webhooks', label: 'Webhooks' },
+  { key: 'danger', label: 'Danger zone', danger: true },
 ];
 
 export default function SettingsPage() {
@@ -58,7 +58,9 @@ export default function SettingsPage() {
     setTeam(await api.teams.get(activeProduct.teamId));
   }, [activeProduct?.id]);
 
-  useEffect(() => { loadTeam(); }, [loadTeam]);
+  useEffect(() => {
+    loadTeam();
+  }, [loadTeam]);
 
   if (!activeProduct) {
     return (
@@ -76,15 +78,19 @@ export default function SettingsPage() {
         <button
           onClick={async () => {
             if (!currentUser) return;
-            if (!await confirm(`Leave "${activeProduct.name}"? You will lose access until re-invited.`)) return;
+            if (!(await confirm(`Leave "${activeProduct.name}"? You will lose access until re-invited.`))) return;
             try {
               await api.teams.removeMember(activeProduct.teamId, currentUser.id);
               await refreshProducts();
-            } catch (err) { showToast((err as Error).message, 'error'); }
+            } catch (err) {
+              showToast((err as Error).message, 'error');
+            }
           }}
           className="text-sm px-4 py-2 rounded-lg transition-colors bg-[rgba(239,68,68,0.06)] hover:bg-[rgba(239,68,68,0.12)]"
           style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
-        >Leave project</button>
+        >
+          Leave project
+        </button>
       </div>
     );
   }
@@ -101,8 +107,18 @@ export default function SettingsPage() {
         </h1>
         {ownerMember && (
           <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-            Owner: <span style={{ color: 'var(--text-2)' }}>{ownerMember.user.avatarEmoji} {displayName(ownerMember.user)}</span>
-            {isOwner && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}>You</span>}
+            Owner:{' '}
+            <span style={{ color: 'var(--text-2)' }}>
+              {ownerMember.user.avatarEmoji} {displayName(ownerMember.user)}
+            </span>
+            {isOwner && (
+              <span
+                className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium"
+                style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+              >
+                You
+              </span>
+            )}
           </p>
         )}
       </div>
@@ -116,14 +132,19 @@ export default function SettingsPage() {
               className="px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap"
               style={{
                 color: danger
-                  ? (activeTab === key ? '#ef4444' : 'rgba(239,68,68,0.6)')
-                  : (activeTab === key ? 'var(--brand)' : 'var(--text-3)'),
-                borderBottom: activeTab === key
-                  ? `2px solid ${danger ? '#ef4444' : 'var(--brand)'}`
-                  : '2px solid transparent',
+                  ? activeTab === key
+                    ? '#ef4444'
+                    : 'rgba(239,68,68,0.6)'
+                  : activeTab === key
+                    ? 'var(--brand)'
+                    : 'var(--text-3)',
+                borderBottom:
+                  activeTab === key ? `2px solid ${danger ? '#ef4444' : 'var(--brand)'}` : '2px solid transparent',
                 marginBottom: -1,
               }}
-            >{label}</button>
+            >
+              {label}
+            </button>
           ))}
         </div>
       </div>
@@ -166,24 +187,12 @@ export default function SettingsPage() {
           />
         )}
 
-        {activeTab === 'colors' && (
-          <SettingsColors productId={activeProduct.id} />
-        )}
+        {activeTab === 'colors' && <SettingsColors productId={activeProduct.id} />}
 
-        {activeTab === 'apps' && (
-          <SettingsApps
-            activeProduct={activeProduct}
-            showToast={showToast}
-            confirm={confirm}
-          />
-        )}
+        {activeTab === 'apps' && <SettingsApps activeProduct={activeProduct} showToast={showToast} confirm={confirm} />}
 
         {activeTab === 'webhooks' && (
-          <SettingsWebhooks
-            activeProduct={activeProduct}
-            showToast={showToast}
-            confirm={confirm}
-          />
+          <SettingsWebhooks activeProduct={activeProduct} showToast={showToast} confirm={confirm} />
         )}
 
         {activeTab === 'danger' && (

@@ -5,7 +5,12 @@
 import type { Task, KanbanColumn } from '../../types';
 import { displayName } from '../../api/client';
 
-interface User { id: string; username: string; avatarEmoji?: string | null; realName?: string | null; }
+interface User {
+  id: string;
+  username: string;
+  avatarEmoji?: string | null;
+  realName?: string | null;
+}
 
 interface Props {
   columns: KanbanColumn[];
@@ -24,15 +29,27 @@ export default function KanbanMobileList({ columns, tasks, users, onOpenDetail, 
         return (
           <section key={col.id} aria-labelledby={`col-heading-${col.id}`}>
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: col.color }} aria-hidden="true" />
-              <h2 id={`col-heading-${col.id}`} className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+              <span
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ background: col.color }}
+                aria-hidden="true"
+              />
+              <h2
+                id={`col-heading-${col.id}`}
+                className="text-xs font-semibold uppercase tracking-widest"
+                style={{ color: 'var(--text-3)' }}
+              >
                 {col.label}
               </h2>
-              <span className="text-xs" style={{ color: 'var(--text-3)' }}>({colTasks.length})</span>
+              <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                ({colTasks.length})
+              </span>
             </div>
 
             {colTasks.length === 0 && (
-              <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>No tasks</p>
+              <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
+                No tasks
+              </p>
             )}
 
             <ul className="space-y-2" role="list">
@@ -47,7 +64,9 @@ export default function KanbanMobileList({ columns, tasks, users, onOpenDetail, 
                       onClick={() => onOpenDetail(task)}
                       aria-label={`${task.name}${owner ? `, assigned to ${displayName(owner)}` : ''}${task.deadline ? `, due ${new Date(task.deadline).toLocaleDateString()}` : ''}`}
                     >
-                      <p className="text-sm font-medium leading-snug" style={{ color: 'var(--text)' }}>{task.name}</p>
+                      <p className="text-sm font-medium leading-snug" style={{ color: 'var(--text)' }}>
+                        {task.name}
+                      </p>
                       <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                         {owner && (
                           <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
@@ -77,7 +96,9 @@ export default function KanbanMobileList({ columns, tasks, users, onOpenDetail, 
         );
       })}
       {tasks.length === 0 && (
-        <p className="text-sm text-center py-16" style={{ color: 'var(--text-3)' }}>No tasks match the current filters</p>
+        <p className="text-sm text-center py-16" style={{ color: 'var(--text-3)' }}>
+          No tasks match the current filters
+        </p>
       )}
 
       {/* Add task FAB */}
@@ -88,7 +109,10 @@ export default function KanbanMobileList({ columns, tasks, users, onOpenDetail, 
           className="sticky bottom-4 ml-auto flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold shadow-lg"
           style={{ background: 'var(--brand)', color: 'white', display: 'flex' }}
         >
-          <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add task
+          <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>
+            +
+          </span>{' '}
+          Add task
         </button>
       )}
     </div>

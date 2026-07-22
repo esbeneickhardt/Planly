@@ -19,17 +19,17 @@ const HAS_DB = !!process.env.TEST_DATABASE_URL;
 
 // ── Storage mock ────────────────────────────────────────────────────────────
 
-const mockStoreFile    = vi.fn().mockResolvedValue(undefined);
+const mockStoreFile = vi.fn().mockResolvedValue(undefined);
 const mockGetFileBuffer = vi.fn().mockResolvedValue(Buffer.from('file-bytes'));
-const mockDeleteFile   = vi.fn().mockResolvedValue(undefined);
+const mockDeleteFile = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../utils/storage', async (importOriginal) => {
   const real = await importOriginal<typeof import('../../utils/storage')>();
   return {
     ...real,
-    storeFile:    (...args: Parameters<typeof real.storeFile>) => mockStoreFile(...args),
+    storeFile: (...args: Parameters<typeof real.storeFile>) => mockStoreFile(...args),
     getFileBuffer: (...args: Parameters<typeof real.getFileBuffer>) => mockGetFileBuffer(...args),
-    deleteFile:   (...args: Parameters<typeof real.deleteFile>) => mockDeleteFile(...args),
+    deleteFile: (...args: Parameters<typeof real.deleteFile>) => mockDeleteFile(...args),
   };
 });
 
@@ -37,7 +37,7 @@ vi.mock('../../utils/storage', async (importOriginal) => {
 
 /** Minimal PNG magic bytes - enough for verifyMimeBytes. */
 function pngBytes() {
-  return Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  return Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 }
 
 /** Builds a minimal multipart/form-data body for a single file field. */
@@ -46,8 +46,8 @@ function multipart(content: Buffer, filename: string, mime: string) {
   const body = Buffer.concat([
     Buffer.from(
       `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
-      `Content-Type: ${mime}\r\n\r\n`,
+        `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+        `Content-Type: ${mime}\r\n\r\n`,
     ),
     content,
     Buffer.from(`\r\n--${boundary}--\r\n`),
@@ -61,7 +61,7 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
   let app: FastifyInstance;
   const suffix = randomSuffix();
   const uploaderEmail = `uploader_${suffix}@example.com`;
-  const otherEmail    = `other_up_${suffix}@example.com`;
+  const otherEmail = `other_up_${suffix}@example.com`;
 
   let uploaderId: string;
   let uploaderToken: string;
@@ -71,12 +71,16 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const uploader = await createTestUser({ email: uploaderEmail, username: `uploader_${suffix}`, password: 'pass1234' });
+    const uploader = await createTestUser({
+      email: uploaderEmail,
+      username: `uploader_${suffix}`,
+      password: 'pass1234',
+    });
     await createTestUser({ email: otherEmail, username: `other_up_${suffix}`, password: 'pass1234' });
     uploaderId = uploader.id;
 
     uploaderToken = await loginAs(app, uploaderEmail, 'pass1234');
-    otherToken    = await loginAs(app, otherEmail, 'pass1234');
+    otherToken = await loginAs(app, otherEmail, 'pass1234');
 
     const { raw } = await createTestApiToken(uploader.id, { name: 'upload-test-pat' });
     uploaderPat = raw;
@@ -101,7 +105,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
     it('returns 401 when unauthenticated', async () => {
       const { body, contentType } = multipart(pngBytes(), 'photo.png', 'image/png');
       const res = await app.inject({
-        method: 'POST', url: '/api/upload',
+        method: 'POST',
+        url: '/api/upload',
         headers: { 'content-type': contentType },
         payload: body,
       });
@@ -111,7 +116,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
     it('stores file and returns url, name, type on success', async () => {
       const { body, contentType } = multipart(pngBytes(), 'photo.png', 'image/png');
       const res = await app.inject({
-        method: 'POST', url: '/api/upload',
+        method: 'POST',
+        url: '/api/upload',
         headers: { ...bearerHeaders(uploaderPat), 'content-type': contentType },
         payload: body,
       });
@@ -126,7 +132,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
     it('returns 400 for a disallowed MIME type', async () => {
       const { body, contentType } = multipart(Buffer.from('video'), 'clip.mp4', 'video/mp4');
       const res = await app.inject({
-        method: 'POST', url: '/api/upload',
+        method: 'POST',
+        url: '/api/upload',
         headers: { ...bearerHeaders(uploaderPat), 'content-type': contentType },
         payload: body,
       });
@@ -139,7 +146,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
       const htmlContent = Buffer.from('<html><body>evil</body></html>');
       const { body, contentType } = multipart(htmlContent, 'evil.png', 'image/png');
       const res = await app.inject({
-        method: 'POST', url: '/api/upload',
+        method: 'POST',
+        url: '/api/upload',
         headers: { ...bearerHeaders(uploaderPat), 'content-type': contentType },
         payload: body,
       });
@@ -149,7 +157,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
 
     it('returns 400 when no file is attached', async () => {
       const res = await app.inject({
-        method: 'POST', url: '/api/upload',
+        method: 'POST',
+        url: '/api/upload',
         headers: { ...bearerHeaders(uploaderPat), 'content-type': 'multipart/form-data; boundary=empty' },
         payload: Buffer.from('--empty--\r\n'),
       });
@@ -166,7 +175,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
       // Upload a real file so the DB record exists
       const { body, contentType } = multipart(pngBytes(), 'get-test.png', 'image/png');
       const res = await app.inject({
-        method: 'POST', url: '/api/upload',
+        method: 'POST',
+        url: '/api/upload',
         headers: { ...bearerHeaders(uploaderPat), 'content-type': contentType },
         payload: body,
       });
@@ -180,7 +190,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
 
     it('returns file bytes and correct Content-Type when authenticated', async () => {
       const res = await app.inject({
-        method: 'GET', url: `/api/uploads/${uploadedFilename}`,
+        method: 'GET',
+        url: `/api/uploads/${uploadedFilename}`,
         cookies: cookieJar(uploaderToken),
       });
       expect(res.statusCode).toBe(200);
@@ -191,7 +202,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
     it('returns 404 for a filename that has no record', async () => {
       mockGetFileBuffer.mockRejectedValueOnce(new Error('ENOENT'));
       const res = await app.inject({
-        method: 'GET', url: '/api/uploads/doesnotexist.png',
+        method: 'GET',
+        url: '/api/uploads/doesnotexist.png',
         cookies: cookieJar(uploaderToken),
       });
       expect(res.statusCode).toBe(404);
@@ -200,7 +212,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
     it('strips path-traversal characters from the requested filename', async () => {
       mockGetFileBuffer.mockRejectedValueOnce(new Error('ENOENT'));
       await app.inject({
-        method: 'GET', url: '/api/uploads/..%2F..%2Fetc%2Fpasswd',
+        method: 'GET',
+        url: '/api/uploads/..%2F..%2Fetc%2Fpasswd',
         cookies: cookieJar(uploaderToken),
       });
       if ((mockGetFileBuffer.mock.calls as unknown[]).length > 0) {
@@ -221,7 +234,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
       // Upload a fresh file before each deletion test
       const { body, contentType } = multipart(pngBytes(), 'del-test.png', 'image/png');
       const res = await app.inject({
-        method: 'POST', url: '/api/upload',
+        method: 'POST',
+        url: '/api/upload',
         headers: { ...bearerHeaders(uploaderPat), 'content-type': contentType },
         payload: body,
       });
@@ -236,7 +250,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
 
     it('returns 403 when a different user tries to delete the file', async () => {
       const res = await app.inject({
-        method: 'DELETE', url: `/api/uploads/${filename}`,
+        method: 'DELETE',
+        url: `/api/uploads/${filename}`,
         cookies: cookieJar(otherToken),
       });
       expect(res.statusCode).toBe(403);
@@ -245,7 +260,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
 
     it('deletes the file and returns ok when called by the uploader', async () => {
       const res = await app.inject({
-        method: 'DELETE', url: `/api/uploads/${filename}`,
+        method: 'DELETE',
+        url: `/api/uploads/${filename}`,
         cookies: cookieJar(uploaderToken),
       });
       expect(res.statusCode).toBe(200);
@@ -255,7 +271,8 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
 
     it('returns 404 for a filename that does not exist in the DB', async () => {
       const res = await app.inject({
-        method: 'DELETE', url: '/api/uploads/nonexistent.png',
+        method: 'DELETE',
+        url: '/api/uploads/nonexistent.png',
         cookies: cookieJar(uploaderToken),
       });
       expect(res.statusCode).toBe(404);

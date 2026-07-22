@@ -24,7 +24,13 @@ interface ProductContextValue {
   refreshTasks: () => Promise<void>;
   refreshProducts: () => Promise<void>;
   createProduct: (data: { name: string; emoji?: string; description?: string; deadline: string }) => Promise<Product>;
-  createTask: (data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string }) => Promise<Task>;
+  createTask: (data: {
+    name: string;
+    description?: string;
+    ownerId?: string;
+    color?: string;
+    deadline?: string;
+  }) => Promise<Task>;
   patchTaskPositions: (updates: { taskId: string; canvasX: number; canvasY: number }[]) => void;
   addRealtimeListener: (fn: (e: RealtimeEvent) => void) => () => void;
 }
@@ -65,28 +71,43 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   // Called after drag-stop and auto-layout so the next mount reads correct positions.
   const patchTaskPositions = useCallback((updates: { taskId: string; canvasX: number; canvasY: number }[]) => {
     const map = new Map(updates.map((u) => [u.taskId, u]));
-    setTasks((prev) => prev.map((t) => {
-      const u = map.get(t.id);
-      return u ? { ...t, canvasX: u.canvasX, canvasY: u.canvasY } : t;
-    }));
+    setTasks((prev) =>
+      prev.map((t) => {
+        const u = map.get(t.id);
+        return u ? { ...t, canvasX: u.canvasX, canvasY: u.canvasY } : t;
+      }),
+    );
   }, []);
 
   // Extra listeners registered by child components to receive WS events without a second connection
   const listenersRef = useRef<Set<(e: RealtimeEvent) => void>>(new Set());
   const addRealtimeListener = useCallback((fn: (e: RealtimeEvent) => void) => {
     listenersRef.current.add(fn);
-    return () => { listenersRef.current.delete(fn); };
+    return () => {
+      listenersRef.current.delete(fn);
+    };
   }, []);
 
   // Realtime: refresh task list on task events and on reconnect (to catch up on missed broadcasts)
-  useRealtimeUpdates(activeProduct?.id, useCallback((e) => {
-    if (e.event === 'task.created' || e.event === 'task.updated' || e.event === 'task.deleted' ||
-        e.event === 'task.status_changed' || e.event === 'task.assigned' ||
-        e.event === 'ws.reconnected') {
-      refreshTasks();
-    }
-    listenersRef.current.forEach(fn => fn(e));
-  }, [refreshTasks]));
+  useRealtimeUpdates(
+    activeProduct?.id,
+    useCallback(
+      (e) => {
+        if (
+          e.event === 'task.created' ||
+          e.event === 'task.updated' ||
+          e.event === 'task.deleted' ||
+          e.event === 'task.status_changed' ||
+          e.event === 'task.assigned' ||
+          e.event === 'ws.reconnected'
+        ) {
+          refreshTasks();
+        }
+        listenersRef.current.forEach((fn) => fn(e));
+      },
+      [refreshTasks],
+    ),
+  );
 
   // Effects: load products on login; reload tasks when active product changes
   useEffect(() => {
@@ -114,7 +135,13 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     return product;
   }
 
-  async function createTask(data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string }) {
+  async function createTask(data: {
+    name: string;
+    description?: string;
+    ownerId?: string;
+    color?: string;
+    deadline?: string;
+  }) {
     if (!activeProduct) throw new Error('No active product');
     const task = await api.tasks.create(activeProduct.id, data);
     await refreshTasks();
@@ -122,7 +149,21 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ProductContext.Provider value={{ products, activeProduct, tasks, tasksLoaded, setActiveProduct, refreshTasks, refreshProducts, createProduct, createTask, patchTaskPositions, addRealtimeListener }}>
+    <ProductContext.Provider
+      value={{
+        products,
+        activeProduct,
+        tasks,
+        tasksLoaded,
+        setActiveProduct,
+        refreshTasks,
+        refreshProducts,
+        createProduct,
+        createTask,
+        patchTaskPositions,
+        addRealtimeListener,
+      }}
+    >
       {children}
     </ProductContext.Provider>
   );

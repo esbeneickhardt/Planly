@@ -35,8 +35,17 @@ interface Options {
 }
 
 export function useCanvasSnapshots({
-  activeProduct, nodes, getViewport, setViewport, setNodes,
-  viewMode, simpleMode, setViewMode, setSimpleMode, save, showToast,
+  activeProduct,
+  nodes,
+  getViewport,
+  setViewport,
+  setNodes,
+  viewMode,
+  simpleMode,
+  setViewMode,
+  setSimpleMode,
+  save,
+  showToast,
 }: Options) {
   // State
   const [showShareModal, setShowShareModal] = useState(false);
@@ -63,7 +72,9 @@ export function useCanvasSnapshots({
     setSavingSnapshot(true);
     try {
       const positions: Record<string, { x: number; y: number }> = {};
-      nodes.forEach((n) => { positions[n.id] = { x: n.position.x, y: n.position.y }; });
+      nodes.forEach((n) => {
+        positions[n.id] = { x: n.position.x, y: n.position.y };
+      });
       const vp = getViewport();
       await api.canvasSnapshots.create(activeProduct.id, {
         name: snapshotName.trim(),
@@ -81,16 +92,21 @@ export function useCanvasSnapshots({
 
   function applySnapshot(snap: CanvasSnapshot) {
     if (!activeProduct) return;
-    setNodes((prev) => prev.map((n) => {
-      const pos = snap.positions[n.id];
-      return pos ? { ...n, position: pos } : n;
-    }));
+    setNodes((prev) =>
+      prev.map((n) => {
+        const pos = snap.positions[n.id];
+        return pos ? { ...n, position: pos } : n;
+      }),
+    );
     const { x, y, zoom } = snap.viewport as { x: number; y: number; zoom: number };
     setViewport({ x, y, zoom });
     const snapVp = snap.viewport as { viewMode?: ViewMode; simpleMode?: boolean };
     // Persist snapshot positions to localStorage so this user's canvas restores correctly on reload
     const patch: CanvasPatch = { viewport: { x, y, zoom }, positions: snap.positions };
-    if (snapVp.viewMode) { setViewMode(snapVp.viewMode); patch.viewMode = snapVp.viewMode; }
+    if (snapVp.viewMode) {
+      setViewMode(snapVp.viewMode);
+      patch.viewMode = snapVp.viewMode;
+    }
     save(patch);
     if (snapVp.simpleMode !== undefined) setSimpleMode(snapVp.simpleMode);
     setShowLoadModal(false);
@@ -104,10 +120,13 @@ export function useCanvasSnapshots({
   }
 
   return {
-    showShareModal, setShowShareModal,
-    showLoadModal, setShowLoadModal,
+    showShareModal,
+    setShowShareModal,
+    showLoadModal,
+    setShowLoadModal,
     snapshots,
-    snapshotName, setSnapshotName,
+    snapshotName,
+    setSnapshotName,
     savingSnapshot,
     openShareModal,
     openLoadModal,

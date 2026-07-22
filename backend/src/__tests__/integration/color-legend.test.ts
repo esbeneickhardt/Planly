@@ -21,7 +21,10 @@ describe.skipIf(!HAS_DB)('Color legend routes smoke', () => {
 
   beforeAll(async () => {
     app = await buildTestApp();
-    const owner = await createTestUser({ username: `legend_owner_${suffix}`, email: `legend_owner_${suffix}@example.com` });
+    const owner = await createTestUser({
+      username: `legend_owner_${suffix}`,
+      email: `legend_owner_${suffix}@example.com`,
+    });
     ownerId = owner.id;
     const team = await createTestTeam(ownerId);
     teamId = team.id;

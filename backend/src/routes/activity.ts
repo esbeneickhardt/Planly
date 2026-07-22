@@ -13,7 +13,7 @@ import { requireProductMember } from '../utils/product-guard';
 export async function activityRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/activity', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!(await requireProductMember(productId, req.user, reply))) return;
 
     // Verify the activity feed is accessible (same analytics-enabled gate as /analytics)
     const product = await prisma.product.findUnique({
@@ -57,7 +57,10 @@ export async function activityRoutes(app: FastifyInstance) {
 
     const enriched = events.map((e) => {
       const actor = actorMap.get(e.actorId);
-      return { ...e, metadata: { ...(e.metadata as object ?? {}), actorName: actor?.username, actorEmoji: actor?.avatarEmoji } };
+      return {
+        ...e,
+        metadata: { ...((e.metadata as object) ?? {}), actorName: actor?.username, actorEmoji: actor?.avatarEmoji },
+      };
     });
 
     reply.send({

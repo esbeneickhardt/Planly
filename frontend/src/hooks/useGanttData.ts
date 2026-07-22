@@ -43,10 +43,7 @@ export function useGanttData(
   useEffect(() => {
     if (!activeProduct) return;
     setLoading(true);
-    Promise.all([
-      api.milestones.list(activeProduct.id),
-      api.sprints.list(activeProduct.id),
-    ])
+    Promise.all([api.milestones.list(activeProduct.id), api.sprints.list(activeProduct.id)])
       .then(([{ milestones: ms, product: p }, sprintList]) => {
         setMilestones(ms);
         setSprints(sprintList);
@@ -57,8 +54,19 @@ export function useGanttData(
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct, tasks]);
 
-  return { milestones, sprints, product, loading, setMilestones, setSprints, setProduct, milestonesRef, sprintsRef, productRef };
+  return {
+    milestones,
+    sprints,
+    product,
+    loading,
+    setMilestones,
+    setSprints,
+    setProduct,
+    milestonesRef,
+    sprintsRef,
+    productRef,
+  };
 }

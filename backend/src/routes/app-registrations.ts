@@ -26,11 +26,11 @@ const updateAppSchema = z.object({ name: z.string().optional(), description: z.s
 // Per-tab permission levels for an app registration (all fields optional — absent means 'write')
 const level = z.enum(['write', 'read', 'none']).optional();
 const permissionsSchema = z.object({
-  kanban:    level,
-  backlog:   level,
-  gantt:     level,
-  canvas:    level,
-  messages:  level,
+  kanban: level,
+  backlog: level,
+  gantt: level,
+  canvas: level,
+  messages: level,
   analytics: level,
 });
 // Validates token creation within an app; inherits productId scope from the parent registration
@@ -45,7 +45,15 @@ function hashToken(raw: string): string {
 }
 
 // Fields returned for app registration listings — never includes token hashes
-const APP_SELECT = { id: true, name: true, description: true, ownerId: true, productId: true, permissions: true, createdAt: true };
+const APP_SELECT = {
+  id: true,
+  name: true,
+  description: true,
+  ownerId: true,
+  productId: true,
+  permissions: true,
+  createdAt: true,
+};
 // Fields returned for token listings under an app — never includes tokenHash
 const TOKEN_SELECT = { id: true, name: true, appId: true, lastUsedAt: true, expiresAt: true, createdAt: true };
 
@@ -78,7 +86,11 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
       data: { name: name.trim(), description, ownerId: req.user.userId, productId: productId ?? null },
       select: APP_SELECT,
     });
-    logAdminEvent('APP_CREATED', { actorName: req.user.username, targetName: name.trim(), metadata: { appId: registration.id, scoped: !!productId } });
+    logAdminEvent('APP_CREATED', {
+      actorName: req.user.username,
+      targetName: name.trim(),
+      metadata: { appId: registration.id, scoped: !!productId },
+    });
     reply.status(201).send(registration);
   });
 
@@ -104,7 +116,10 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   app.delete('/api/apps/:appId', { preHandler: requireAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
     try {
-      const existing = await prisma.appRegistration.findUnique({ where: { id: appId, ownerId: req.user.userId }, select: { name: true } });
+      const existing = await prisma.appRegistration.findUnique({
+        where: { id: appId, ownerId: req.user.userId },
+        select: { name: true },
+      });
       if (!existing) return reply.status(404).send({ error: 'Not found' });
       await prisma.appRegistration.delete({ where: { id: appId, ownerId: req.user.userId } });
       logAdminEvent('APP_DELETED', { actorName: req.user.username, targetName: existing.name, metadata: { appId } });
@@ -130,7 +145,10 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   // Create a token for an app - acts as the owning user's identity, inherits app's product scope
   app.post('/api/apps/:appId/tokens', { preHandler: requireAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
-    const appExists = await prisma.appRegistration.findUnique({ where: { id: appId, ownerId: req.user.userId }, select: { name: true, productId: true } });
+    const appExists = await prisma.appRegistration.findUnique({
+      where: { id: appId, ownerId: req.user.userId },
+      select: { name: true, productId: true },
+    });
     if (!appExists) return reply.status(404).send({ error: 'Not found' });
 
     const tokenBody = validate(createAppTokenSchema, req.body, reply);
@@ -152,7 +170,11 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
       },
       select: TOKEN_SELECT,
     });
-    logAdminEvent('APP_TOKEN_CREATED', { actorName: req.user.username, targetName: appExists.name, metadata: { appId, tokenId: token.id, name: name.trim(), scoped: !!appExists.productId } });
+    logAdminEvent('APP_TOKEN_CREATED', {
+      actorName: req.user.username,
+      targetName: appExists.name,
+      metadata: { appId, tokenId: token.id, name: name.trim(), scoped: !!appExists.productId },
+    });
     reply.status(201).send({ ...token, token: rawToken });
   });
 
@@ -176,10 +198,16 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   // Revoke a specific app token
   app.delete('/api/apps/:appId/tokens/:tokenId', { preHandler: requireAuth }, async (req, reply) => {
     const { appId, tokenId } = req.params as { appId: string; tokenId: string };
-    const existing = await prisma.apiToken.findFirst({ where: { id: tokenId, appId, userId: req.user.userId }, select: { name: true } });
+    const existing = await prisma.apiToken.findFirst({
+      where: { id: tokenId, appId, userId: req.user.userId },
+      select: { name: true },
+    });
     const { count } = await prisma.apiToken.deleteMany({ where: { id: tokenId, appId, userId: req.user.userId } });
     if (count === 0) return reply.status(404).send({ error: 'Not found' });
-    logAdminEvent('APP_TOKEN_REVOKED', { actorName: req.user.username, metadata: { appId, tokenId, name: existing?.name } });
+    logAdminEvent('APP_TOKEN_REVOKED', {
+      actorName: req.user.username,
+      metadata: { appId, tokenId, name: existing?.name },
+    });
     reply.send({ ok: true });
   });
 }

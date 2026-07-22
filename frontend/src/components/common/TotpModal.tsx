@@ -19,8 +19,12 @@ export default function TotpModal({ onClose }: Props) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.auth.totpStatus()
-      .then((s) => { setTotpEnabled(s.totpEnabled); setStep('status'); })
+    api.auth
+      .totpStatus()
+      .then((s) => {
+        setTotpEnabled(s.totpEnabled);
+        setStep('status');
+      })
       .catch(() => {});
   }, []);
 
@@ -32,8 +36,11 @@ export default function TotpModal({ onClose }: Props) {
       setQrDataUrl(res.qrDataUrl);
       setManualSecret(res.secret);
       setStep('setup');
-    } catch (err) { setError((err as Error).message); }
-    finally { setLoading(false); }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleConfirm() {
@@ -47,7 +54,9 @@ export default function TotpModal({ onClose }: Props) {
     } catch (err) {
       setError((err as Error).message);
       setConfirmCode('');
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleDisable() {
@@ -61,7 +70,9 @@ export default function TotpModal({ onClose }: Props) {
     } catch (err) {
       setError((err as Error).message);
       setDisableCode('');
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
   const inputCls = 'input text-center text-2xl tracking-widest';
@@ -70,16 +81,27 @@ export default function TotpModal({ onClose }: Props) {
     <div
       className="fixed inset-0 flex items-center justify-center z-50 p-4"
       style={{ background: 'rgba(0,0,0,0.5)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className="w-full max-w-sm rounded-2xl p-6 space-y-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div
+        className="w-full max-w-sm rounded-2xl p-6 space-y-5"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      >
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Two-factor authentication</h2>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: 'var(--text-3)' }}>×</button>
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
+            Two-factor authentication
+          </h2>
+          <button onClick={onClose} className="text-xl leading-none" style={{ color: 'var(--text-3)' }}>
+            ×
+          </button>
         </div>
 
         {error && (
-          <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
+          <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            {error}
+          </div>
         )}
 
         {/* Status */}
@@ -99,12 +121,22 @@ export default function TotpModal({ onClose }: Props) {
               </div>
             </div>
             {totpEnabled ? (
-              <button onClick={() => { setStep('disable'); setError(''); }} className="btn-danger w-full justify-center flex">
+              <button
+                onClick={() => {
+                  setStep('disable');
+                  setError('');
+                }}
+                className="btn-danger w-full justify-center flex"
+              >
                 Disable two-factor auth
               </button>
             ) : (
               <button onClick={handleSetup} disabled={loading} className="btn-primary w-full justify-center flex">
-                {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Set up two-factor auth'}
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Set up two-factor auth'
+                )}
               </button>
             )}
           </div>
@@ -114,16 +146,25 @@ export default function TotpModal({ onClose }: Props) {
         {step === 'setup' && (
           <div className="space-y-4">
             <p className="text-sm" style={{ color: 'var(--text-2)' }}>
-              Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.), then enter the 6-digit code below to confirm.
+              Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.), then enter
+              the 6-digit code below to confirm.
             </p>
             {qrDataUrl && (
               <div className="flex justify-center">
-                <img src={qrDataUrl} alt="TOTP QR code" className="w-48 h-48 rounded-xl" style={{ background: 'white', padding: 8 }} />
+                <img
+                  src={qrDataUrl}
+                  alt="TOTP QR code"
+                  className="w-48 h-48 rounded-xl"
+                  style={{ background: 'white', padding: 8 }}
+                />
               </div>
             )}
             <details className="text-xs" style={{ color: 'var(--text-3)' }}>
               <summary className="cursor-pointer select-none">Can't scan? Enter manually</summary>
-              <code className="block mt-2 p-2 rounded-lg break-all font-mono" style={{ background: 'var(--surface-2)', color: 'var(--text)' }}>
+              <code
+                className="block mt-2 p-2 rounded-lg break-all font-mono"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+              >
                 {manualSecret}
               </code>
             </details>
@@ -142,9 +183,25 @@ export default function TotpModal({ onClose }: Props) {
               />
             </div>
             <div className="flex gap-2">
-              <button onClick={() => { setStep('status'); setError(''); }} className="btn-secondary flex-1 justify-center flex">Back</button>
-              <button onClick={handleConfirm} disabled={loading || confirmCode.length < 6} className="btn-primary flex-1 justify-center flex">
-                {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Activate'}
+              <button
+                onClick={() => {
+                  setStep('status');
+                  setError('');
+                }}
+                className="btn-secondary flex-1 justify-center flex"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={loading || confirmCode.length < 6}
+                className="btn-primary flex-1 justify-center flex"
+              >
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Activate'
+                )}
               </button>
             </div>
           </div>
@@ -153,12 +210,24 @@ export default function TotpModal({ onClose }: Props) {
         {/* Backup codes */}
         {step === 'backup' && (
           <div className="space-y-4">
-            <div className="text-sm p-3 rounded-xl" style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', color: 'var(--text)' }}>
-              Save these backup codes somewhere safe. Each can be used once if you lose access to your authenticator app. They will not be shown again.
+            <div
+              className="text-sm p-3 rounded-xl"
+              style={{
+                background: 'rgba(234,179,8,0.1)',
+                border: '1px solid rgba(234,179,8,0.3)',
+                color: 'var(--text)',
+              }}
+            >
+              Save these backup codes somewhere safe. Each can be used once if you lose access to your authenticator
+              app. They will not be shown again.
             </div>
             <div className="grid grid-cols-2 gap-2">
               {backupCodes.map((c) => (
-                <code key={c} className="text-sm font-mono px-3 py-2 rounded-lg text-center" style={{ background: 'var(--surface-2)', color: 'var(--text)' }}>
+                <code
+                  key={c}
+                  className="text-sm font-mono px-3 py-2 rounded-lg text-center"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+                >
                   {c}
                 </code>
               ))}
@@ -172,7 +241,9 @@ export default function TotpModal({ onClose }: Props) {
             >
               Copy all codes
             </button>
-            <button onClick={onClose} className="btn-primary w-full justify-center flex">Done</button>
+            <button onClick={onClose} className="btn-primary w-full justify-center flex">
+              Done
+            </button>
           </div>
         )}
 
@@ -196,9 +267,25 @@ export default function TotpModal({ onClose }: Props) {
               />
             </div>
             <div className="flex gap-2">
-              <button onClick={() => { setStep('status'); setError(''); }} className="btn-secondary flex-1 justify-center flex">Cancel</button>
-              <button onClick={handleDisable} disabled={loading || disableCode.length < 6} className="btn-danger flex-1 justify-center flex">
-                {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Disable'}
+              <button
+                onClick={() => {
+                  setStep('status');
+                  setError('');
+                }}
+                className="btn-secondary flex-1 justify-center flex"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDisable}
+                disabled={loading || disableCode.length < 6}
+                className="btn-danger flex-1 justify-center flex"
+              >
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Disable'
+                )}
               </button>
             </div>
           </div>

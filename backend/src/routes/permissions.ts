@@ -15,11 +15,15 @@ import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 
 // Validates a batch permission update — up to 100 user+tab+level tuples per request
-const permissionUpdateSchema = z.array(z.object({
-  userId: z.string(),
-  tab: z.enum(['kanban', 'backlog', 'gantt', 'canvas', 'messages', 'analytics', 'settings']),
-  level: z.enum(['write', 'read', 'none']),
-})).max(100);
+const permissionUpdateSchema = z
+  .array(
+    z.object({
+      userId: z.string(),
+      tab: z.enum(['kanban', 'backlog', 'gantt', 'canvas', 'messages', 'analytics', 'settings']),
+      level: z.enum(['write', 'read', 'none']),
+    }),
+  )
+  .max(100);
 
 export async function permissionRoutes(app: FastifyInstance) {
   // Returns the authenticated user's tab permissions across all their projects (used to populate the client's permission cache)
@@ -57,7 +61,7 @@ export async function permissionRoutes(app: FastifyInstance) {
   // Get all per-user, per-tab permission rows for a project (co-owner only)
   app.get('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
     const rows = await prisma.tabPermission.findMany({ where: { productId } });
     reply.send(rows);
   });
@@ -75,12 +79,12 @@ export async function permissionRoutes(app: FastifyInstance) {
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     // product.team.members is already scoped to this product's team via the Prisma query above
-    const myMembership = product.team.members.find(m => m.userId === req.user.userId);
+    const myMembership = product.team.members.find((m) => m.userId === req.user.userId);
     const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
     if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
 
     // Reject any target user who is not a member of this project's team
-    const memberUserIds = new Set(product.team.members.map(m => m.userId));
+    const memberUserIds = new Set(product.team.members.map((m) => m.userId));
     for (const u of updates) {
       if (!memberUserIds.has(u.userId)) {
         return reply.status(400).send({ error: `User ${u.userId} is not a member of this project` });
@@ -97,7 +101,11 @@ export async function permissionRoutes(app: FastifyInstance) {
         }),
       ),
     );
-    logAdminEvent('PERMISSION_UPDATED', { actorName: req.user.username, targetName: productId, metadata: { updateCount: updates.length } });
+    logAdminEvent('PERMISSION_UPDATED', {
+      actorName: req.user.username,
+      targetName: productId,
+      metadata: { updateCount: updates.length },
+    });
     reply.send({ ok: true });
   });
 }

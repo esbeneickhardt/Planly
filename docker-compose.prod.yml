@@ -57,6 +57,13 @@ services:
       LOG_LEVEL: info
       TRUSTED_PROXY_DEPTH: "1"
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      # Redis for WebSocket pub/sub across replicas
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # Prometheus metrics endpoint auth
+      METRICS_SECRET: ${METRICS_SECRET}
+      # Production rate limits
+      RATE_LIMIT_LOGIN_MAX: "${RATE_LIMIT_LOGIN_MAX:-10}"
+      RATE_LIMIT_REGISTER_MAX: "${RATE_LIMIT_REGISTER_MAX:-5}"
       # SMTP (optional - leave empty to log emails to console)
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -64,11 +71,14 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-Planly <noreply@planly.app>}
+      SECURITY_ALERT_WEBHOOK_URL: ${SECURITY_ALERT_WEBHOOK_URL:-}
     volumes:
       - uploads_data:/data/uploads
       - ./logs:/app/logs
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     logging:
       driver: json-file
@@ -149,7 +159,46 @@ services:
         max-size: "5m"
         max-file: "2"
 
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  # Requires METRICS_SECRET in .env. Access at http://localhost:9090 (localhost only).
+  prometheus:
+    image: prom/prometheus:latest
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
 volumes:
   db_data:
   uploads_data:
   letsencrypt_data:
+  redis_data:
+  prometheus_data:

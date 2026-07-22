@@ -36,7 +36,16 @@ export function MermaidBlock({ code }: { code: string }) {
 
   if (error) {
     return (
-      <pre style={{ background: 'var(--surface)', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#ef4444', margin: '8px 0' }}>
+      <pre
+        style={{
+          background: 'var(--surface)',
+          borderRadius: 6,
+          padding: '8px 10px',
+          fontSize: 12,
+          color: '#ef4444',
+          margin: '8px 0',
+        }}
+      >
         {error}
       </pre>
     );

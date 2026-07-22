@@ -17,14 +17,22 @@ describe('Modal', () => {
   // ── Accessibility attributes ──────────────────────────────────────────────
 
   it('renders with role="dialog" and aria-modal="true"', () => {
-    render(<Modal title="Test" onClose={onClose}><button>OK</button></Modal>);
+    render(
+      <Modal title="Test" onClose={onClose}>
+        <button>OK</button>
+      </Modal>,
+    );
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAttribute('aria-modal', 'true');
   });
 
   it('sets aria-labelledby pointing to the h2 title', () => {
-    render(<Modal title="My Modal" onClose={onClose}><button>OK</button></Modal>);
+    render(
+      <Modal title="My Modal" onClose={onClose}>
+        <button>OK</button>
+      </Modal>,
+    );
     const dialog = screen.getByRole('dialog');
     const labelId = dialog.getAttribute('aria-labelledby');
     expect(labelId).toBeTruthy();
@@ -34,26 +42,42 @@ describe('Modal', () => {
   });
 
   it('renders the close button with aria-label="Close dialog"', () => {
-    render(<Modal title="Test" onClose={onClose}><button>OK</button></Modal>);
+    render(
+      <Modal title="Test" onClose={onClose}>
+        <button>OK</button>
+      </Modal>,
+    );
     expect(screen.getByRole('button', { name: 'Close dialog' })).toBeInTheDocument();
   });
 
   // ── Dismissal ────────────────────────────────────────────────────────────
 
   it('calls onClose when the close button is clicked', () => {
-    render(<Modal title="Test" onClose={onClose}><button>OK</button></Modal>);
+    render(
+      <Modal title="Test" onClose={onClose}>
+        <button>OK</button>
+      </Modal>,
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('calls onClose when Escape is pressed', () => {
-    render(<Modal title="Test" onClose={onClose}><button>OK</button></Modal>);
+    render(
+      <Modal title="Test" onClose={onClose}>
+        <button>OK</button>
+      </Modal>,
+    );
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('calls onClose when the backdrop is clicked', () => {
-    render(<Modal title="Test" onClose={onClose}><button>OK</button></Modal>);
+    render(
+      <Modal title="Test" onClose={onClose}>
+        <button>OK</button>
+      </Modal>,
+    );
     // The backdrop is the absolute-positioned div inside the fixed container
     const backdrop = document.querySelector('.absolute.inset-0');
     expect(backdrop).not.toBeNull();
@@ -100,12 +124,20 @@ describe('Modal', () => {
   // ── Rendering ─────────────────────────────────────────────────────────────
 
   it('renders children inside the dialog', () => {
-    render(<Modal title="Test" onClose={onClose}><p>Hello from child</p></Modal>);
+    render(
+      <Modal title="Test" onClose={onClose}>
+        <p>Hello from child</p>
+      </Modal>,
+    );
     expect(screen.getByText('Hello from child')).toBeInTheDocument();
   });
 
   it('accepts a custom width class', () => {
-    render(<Modal title="Test" onClose={onClose} width="max-w-sm"><button>OK</button></Modal>);
+    render(
+      <Modal title="Test" onClose={onClose} width="max-w-sm">
+        <button>OK</button>
+      </Modal>,
+    );
     const dialog = screen.getByRole('dialog');
     expect(dialog.className).toContain('max-w-sm');
   });

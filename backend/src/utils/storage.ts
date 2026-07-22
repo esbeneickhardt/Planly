@@ -22,12 +22,14 @@ async function getS3() {
     region: process.env.AWS_REGION ?? 'us-east-1',
     // AWS_ENDPOINT_URL enables LocalStack and S3-compatible stores (e.g. MinIO)
     ...(process.env.AWS_ENDPOINT_URL ? { endpoint: process.env.AWS_ENDPOINT_URL, forcePathStyle: true } : {}),
-    ...(process.env.AWS_ACCESS_KEY_ID ? {
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
-    } : {}),
+    ...(process.env.AWS_ACCESS_KEY_ID
+      ? {
+          credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+          },
+        }
+      : {}),
   });
   return s3Client;
 }
@@ -67,21 +69,34 @@ export function verifyMimeBytes(buf: Buffer, declaredMime: string): boolean {
   if (buf.length < 4) return false;
   const b = buf;
 
-  if (declaredMime === 'image/jpeg') return b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF;
-  if (declaredMime === 'image/png')  return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47;
-  if (declaredMime === 'image/gif')  return b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46;
-  if (declaredMime === 'image/webp') return buf.length >= 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
+  if (declaredMime === 'image/jpeg') return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  if (declaredMime === 'image/png') return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+  if (declaredMime === 'image/gif') return b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46;
+  if (declaredMime === 'image/webp')
+    return (
+      buf.length >= 12 &&
+      b[0] === 0x52 &&
+      b[1] === 0x49 &&
+      b[2] === 0x46 &&
+      b[3] === 0x46 &&
+      b[8] === 0x57 &&
+      b[9] === 0x45 &&
+      b[10] === 0x42 &&
+      b[11] === 0x50
+    );
   if (declaredMime === 'application/pdf') return b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46;
   // ZIP-based formats (docx, xlsx, pptx, zip)
-  const isZipFamily = ['application/zip','application/x-zip-compressed',
+  const isZipFamily = [
+    'application/zip',
+    'application/x-zip-compressed',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   ].includes(declaredMime);
-  if (isZipFamily) return b[0] === 0x50 && b[1] === 0x4B;
+  if (isZipFamily) return b[0] === 0x50 && b[1] === 0x4b;
   // Legacy Office formats
   if (declaredMime === 'application/msword' || declaredMime === 'application/vnd.ms-excel') {
-    return b[0] === 0xD0 && b[1] === 0xCF && b[2] === 0x11 && b[3] === 0xE0;
+    return b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
   }
   return false;
 }
@@ -102,12 +117,14 @@ export async function storeFile(buffer: Buffer, filename: string, mimeType: stri
   const s3 = await getS3();
   if (s3) {
     const { PutObjectCommand } = await import('@aws-sdk/client-s3');
-    await s3.send(new PutObjectCommand({
-      Bucket: S3_BUCKET,
-      Key: `${S3_PREFIX}/${filename}`,
-      Body: buffer,
-      ContentType: mimeType,
-    }));
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: `${S3_PREFIX}/${filename}`,
+        Body: buffer,
+        ContentType: mimeType,
+      }),
+    );
     return;
   }
   // Local disk fallback - ensure directory exists before writing
@@ -133,10 +150,12 @@ export async function getFileBuffer(filename: string): Promise<Buffer> {
   const s3 = await getS3();
   if (s3) {
     const { GetObjectCommand } = await import('@aws-sdk/client-s3');
-    const res = await s3.send(new GetObjectCommand({
-      Bucket: S3_BUCKET,
-      Key: `${S3_PREFIX}/${safe}`,
-    }));
+    const res = await s3.send(
+      new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: `${S3_PREFIX}/${safe}`,
+      }),
+    );
     // Stream the S3 response body into a Buffer
     const chunks: Uint8Array[] = [];
     for await (const chunk of res.Body as AsyncIterable<Uint8Array>) {
@@ -149,15 +168,22 @@ export async function getFileBuffer(filename: string): Promise<Buffer> {
 
 // Reverse map for serving files: derive Content-Type from stored extension
 const EXT_TO_MIME: Record<string, string> = {
-  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-  gif: 'image/gif', webp: 'image/webp',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
   pdf: 'application/pdf',
-  txt: 'text/plain', md: 'text/plain', csv: 'text/csv', json: 'application/json',
+  txt: 'text/plain',
+  md: 'text/plain',
+  csv: 'text/csv',
+  json: 'application/json',
   zip: 'application/zip',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  doc: 'application/msword', xls: 'application/vnd.ms-excel',
+  doc: 'application/msword',
+  xls: 'application/vnd.ms-excel',
 };
 
 export function mimeFromExt(ext: string): string {

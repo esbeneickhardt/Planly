@@ -15,42 +15,58 @@ const SEEN_KEY = 'admin_notif_seen_at';
 const CLEARED_KEY = 'admin_notif_cleared_at';
 
 const BellIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.75"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
     <path d="M13.73 21a2 2 0 0 1-3.46 0" />
   </svg>
 );
 
-type AdminEntry = { id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string };
+type AdminEntry = {
+  id: string;
+  action: string;
+  actorName: string | null;
+  targetName: string | null;
+  metadata: unknown;
+  createdAt: string;
+};
 
 const ADMIN_ACTION_LABELS: Record<string, string> = {
-  USER_REGISTERED:           'New user registered',
-  LOGIN_FAILED:              'Login failed',
-  LOGIN_LOCKED:              'Account locked',
-  LOGIN_UNLOCKED:            'Account unlocked',
-  USER_PROMOTED:             'User promoted to admin',
-  USER_DEMOTED:              'User demoted from admin',
-  CROWN_TRANSFERRED:         'Ownership transferred',
+  USER_REGISTERED: 'New user registered',
+  LOGIN_FAILED: 'Login failed',
+  LOGIN_LOCKED: 'Account locked',
+  LOGIN_UNLOCKED: 'Account unlocked',
+  USER_PROMOTED: 'User promoted to admin',
+  USER_DEMOTED: 'User demoted from admin',
+  CROWN_TRANSFERRED: 'Ownership transferred',
   FOUNDING_ADMIN_REGISTERED: 'Founding admin registered',
-  EMAIL_VERIFIED_BY_ADMIN:   'Email verified by admin',
-  USER_DELETED:              'User deleted',
-  SERVER_CONFIG_UPDATED:     'Server config updated',
-  LOGS_PRUNED:               'Audit logs pruned',
+  EMAIL_VERIFIED_BY_ADMIN: 'Email verified by admin',
+  USER_DELETED: 'User deleted',
+  SERVER_CONFIG_UPDATED: 'Server config updated',
+  LOGS_PRUNED: 'Audit logs pruned',
 };
 
 const ADMIN_ACTION_ICON: Record<string, string> = {
-  USER_REGISTERED:           '👤',
-  LOGIN_FAILED:              '⚠️',
-  LOGIN_LOCKED:              '🔒',
-  LOGIN_UNLOCKED:            '🔓',
-  USER_PROMOTED:             '🛡️',
-  USER_DEMOTED:              '👤',
-  CROWN_TRANSFERRED:         '👑',
+  USER_REGISTERED: '👤',
+  LOGIN_FAILED: '⚠️',
+  LOGIN_LOCKED: '🔒',
+  LOGIN_UNLOCKED: '🔓',
+  USER_PROMOTED: '🛡️',
+  USER_DEMOTED: '👤',
+  CROWN_TRANSFERRED: '👑',
   FOUNDING_ADMIN_REGISTERED: '👑',
-  EMAIL_VERIFIED_BY_ADMIN:   '✅',
-  USER_DELETED:              '🗑️',
-  SERVER_CONFIG_UPDATED:     '⚙️',
-  LOGS_PRUNED:               '🧹',
+  EMAIL_VERIFIED_BY_ADMIN: '✅',
+  USER_DELETED: '🗑️',
+  SERVER_CONFIG_UPDATED: '⚙️',
+  LOGS_PRUNED: '🧹',
 };
 
 export default function NotificationBell({ adminMode, productId }: { adminMode?: boolean; productId?: string }) {
@@ -136,23 +152,27 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
         setAdminEntries(visible);
         setHasNewAdmin(visible.some((e) => new Date(e.createdAt) > new Date(seenAt)));
         setAdminUnread(0);
-      } catch {}
-      finally { setAdminLoading(false); }
+      } catch {
+      } finally {
+        setAdminLoading(false);
+      }
     } else {
       setLoading(true);
       try {
         const { notifications: n } = await api.notifications.list(undefined, productId);
         setNotifications(n);
         setUnread(0);
-      } catch {}
-      finally { setLoading(false); }
+      } catch {
+      } finally {
+        setLoading(false);
+      }
     }
   }
 
   // ── Normal mode actions ──
   async function markRead(id: string) {
     await api.notifications.markRead([id]).catch(() => {});
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }
 
   async function markAllRead() {
@@ -195,8 +215,11 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
       showToast('You have joined the project', 'success');
       setOpen(false);
       navigate('/kanban');
-    } catch (err) { showToast((err as Error).message, 'error'); }
-    finally { setInviteActing(null); }
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setInviteActing(null);
+    }
   }
 
   async function handleDeclineInvite(n: Notification) {
@@ -206,8 +229,11 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
     try {
       await api.invites.decline(token);
       await dismiss(n.id);
-    } catch (err) { showToast((err as Error).message, 'error'); }
-    finally { setInviteActing(null); }
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setInviteActing(null);
+    }
   }
 
   const displayUnread = adminMode ? adminUnread : unread;
@@ -223,7 +249,11 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
           background: isActive ? 'var(--brand-subtle)' : 'var(--surface-2)',
           border: isActive ? '1px solid var(--brand)' : '1px solid transparent',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brand)'; e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = 'var(--brand-subtle)'; }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = 'var(--brand)';
+          e.currentTarget.style.borderColor = 'var(--brand)';
+          e.currentTarget.style.background = 'var(--brand-subtle)';
+        }}
         onMouseLeave={(e) => {
           e.currentTarget.style.color = isActive ? 'var(--brand)' : 'var(--text-3)';
           e.currentTarget.style.borderColor = isActive ? 'var(--brand)' : 'transparent';
@@ -247,7 +277,10 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
           className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-2xl overflow-hidden"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
         >
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '1px solid var(--border)' }}
+          >
             <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
               {adminMode ? 'Admin notifications' : 'Notifications'}
             </span>
@@ -255,7 +288,12 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
               <div className="flex items-center gap-3">
                 {hasNewAdmin && (
                   <button
-                    onClick={() => { const now = new Date().toISOString(); localStorage.setItem(SEEN_KEY, now); setAdminSeenAt(now); setHasNewAdmin(false); }}
+                    onClick={() => {
+                      const now = new Date().toISOString();
+                      localStorage.setItem(SEEN_KEY, now);
+                      setAdminSeenAt(now);
+                      setHasNewAdmin(false);
+                    }}
                     className="text-xs transition-opacity"
                     style={{ color: 'var(--brand)' }}
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
@@ -265,7 +303,15 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                   </button>
                 )}
                 <button
-                  onClick={() => { const now = new Date().toISOString(); localStorage.setItem(SEEN_KEY, now); localStorage.setItem(CLEARED_KEY, now); setAdminUnread(0); setHasNewAdmin(false); setAdminEntries([]); setOpen(false); }}
+                  onClick={() => {
+                    const now = new Date().toISOString();
+                    localStorage.setItem(SEEN_KEY, now);
+                    localStorage.setItem(CLEARED_KEY, now);
+                    setAdminUnread(0);
+                    setHasNewAdmin(false);
+                    setAdminEntries([]);
+                    setOpen(false);
+                  }}
                   className="text-xs transition-opacity"
                   style={{ color: 'var(--text-3)' }}
                   onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
@@ -307,7 +353,10 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
               <>
                 {adminLoading && (
                   <div className="flex justify-center py-8">
-                    <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
+                    <div
+                      className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                    />
                   </div>
                 )}
                 {!adminLoading && adminEntries.length === 0 && (
@@ -315,26 +364,39 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                     No admin activity yet
                   </div>
                 )}
-                {!adminLoading && adminEntries.map((entry) => {
-                  const isNew = adminSeenAt ? new Date(entry.createdAt) > new Date(adminSeenAt) : false;
-                  const body = [entry.actorName, entry.targetName].filter(Boolean).join(' → ');
-                  return (
-                    <div
-                      key={entry.id}
-                      className="flex gap-3 px-4 py-3"
-                      style={{ background: isNew ? 'var(--brand-subtle)' : 'transparent', borderBottom: '1px solid var(--border)' }}
-                    >
-                      <div className="flex-shrink-0 mt-0.5 text-base">{ADMIN_ACTION_ICON[entry.action] ?? '🔔'}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm leading-snug ${isNew ? 'font-medium' : ''}`} style={{ color: 'var(--text)' }}>
-                          {ADMIN_ACTION_LABELS[entry.action] ?? entry.action}
-                        </p>
-                        {body && <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-3)' }}>{body}</p>}
-                        <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>{formatRelative(entry.createdAt)}</p>
+                {!adminLoading &&
+                  adminEntries.map((entry) => {
+                    const isNew = adminSeenAt ? new Date(entry.createdAt) > new Date(adminSeenAt) : false;
+                    const body = [entry.actorName, entry.targetName].filter(Boolean).join(' → ');
+                    return (
+                      <div
+                        key={entry.id}
+                        className="flex gap-3 px-4 py-3"
+                        style={{
+                          background: isNew ? 'var(--brand-subtle)' : 'transparent',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        <div className="flex-shrink-0 mt-0.5 text-base">{ADMIN_ACTION_ICON[entry.action] ?? '🔔'}</div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm leading-snug ${isNew ? 'font-medium' : ''}`}
+                            style={{ color: 'var(--text)' }}
+                          >
+                            {ADMIN_ACTION_LABELS[entry.action] ?? entry.action}
+                          </p>
+                          {body && (
+                            <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-3)' }}>
+                              {body}
+                            </p>
+                          )}
+                          <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
+                            {formatRelative(entry.createdAt)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </>
             )}
 
@@ -343,7 +405,10 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
               <>
                 {loading && (
                   <div className="flex justify-center py-8">
-                    <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
+                    <div
+                      className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                    />
                   </div>
                 )}
                 {!loading && notifications.length === 0 && (
@@ -351,56 +416,82 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                     No notifications
                   </div>
                 )}
-                {!loading && notifications.map((n) => {
-                  const isInvite = n.type === 'invite_received';
-                  const hasToken = !!(n.metadata as { inviteToken?: string } | null)?.inviteToken;
-                  return (
-                    <div
-                      key={n.id}
-                      className={`group relative flex gap-3 px-4 py-3 transition-colors ${isInvite ? '' : 'cursor-pointer'}`}
-                      style={{ background: n.read ? 'transparent' : 'var(--brand-subtle)', borderBottom: '1px solid var(--border)' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = n.read ? 'transparent' : 'var(--brand-subtle)')}
-                      onClick={() => handleNotificationClick(n)}
-                    >
-                      <div className="flex-shrink-0 mt-0.5">
-                        <span className="text-base">{getIcon(n.type)}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm leading-snug ${n.read ? '' : 'font-medium'}`} style={{ color: 'var(--text)' }}>
-                          {n.title}
-                        </p>
-                        {n.body && <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>{n.body}</p>}
-                        <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
-                          {formatRelative(n.createdAt)}
-                        </p>
-                        {isInvite && hasToken && (
-                          <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => handleAcceptInvite(n)}
-                              disabled={inviteActing === n.id}
-                              className="btn-primary text-xs px-3 py-1"
-                            >{inviteActing === n.id ? '…' : 'Accept'}</button>
-                            <button
-                              onClick={() => handleDeclineInvite(n)}
-                              disabled={inviteActing === n.id}
-                              className="text-xs px-3 py-1 rounded-lg transition-colors"
-                              style={{ color: 'var(--text-3)', border: '1px solid var(--border)', background: 'transparent' }}
-                            >Decline</button>
-                          </div>
+                {!loading &&
+                  notifications.map((n) => {
+                    const isInvite = n.type === 'invite_received';
+                    const hasToken = !!(n.metadata as { inviteToken?: string } | null)?.inviteToken;
+                    return (
+                      <div
+                        key={n.id}
+                        className={`group relative flex gap-3 px-4 py-3 transition-colors ${isInvite ? '' : 'cursor-pointer'}`}
+                        style={{
+                          background: n.read ? 'transparent' : 'var(--brand-subtle)',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = n.read ? 'transparent' : 'var(--brand-subtle)')
+                        }
+                        onClick={() => handleNotificationClick(n)}
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          <span className="text-base">{getIcon(n.type)}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm leading-snug ${n.read ? '' : 'font-medium'}`}
+                            style={{ color: 'var(--text)' }}
+                          >
+                            {n.title}
+                          </p>
+                          {n.body && (
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+                              {n.body}
+                            </p>
+                          )}
+                          <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
+                            {formatRelative(n.createdAt)}
+                          </p>
+                          {isInvite && hasToken && (
+                            <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => handleAcceptInvite(n)}
+                                disabled={inviteActing === n.id}
+                                className="btn-primary text-xs px-3 py-1"
+                              >
+                                {inviteActing === n.id ? '…' : 'Accept'}
+                              </button>
+                              <button
+                                onClick={() => handleDeclineInvite(n)}
+                                disabled={inviteActing === n.id}
+                                className="text-xs px-3 py-1 rounded-lg transition-colors"
+                                style={{
+                                  color: 'var(--text-3)',
+                                  border: '1px solid var(--border)',
+                                  background: 'transparent',
+                                }}
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {!isInvite && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              dismiss(n.id);
+                            }}
+                            className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-xs transition-all"
+                            style={{ color: 'var(--text-3)' }}
+                            title="Dismiss"
+                          >
+                            ✕
+                          </button>
                         )}
                       </div>
-                      {!isInvite && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
-                          className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-xs transition-all"
-                          style={{ color: 'var(--text-3)' }}
-                          title="Dismiss"
-                        >✕</button>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </>
             )}
           </div>
@@ -412,15 +503,24 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
 
 function getIcon(type: string) {
   switch (type) {
-    case 'task_assigned':        return '📋';
-    case 'task_commented':       return '💬';
-    case 'mention':              return '@';
-    case 'access_approved':      return '✅';
-    case 'access_rejected':      return '❌';
-    case 'access_requested':     return '🔑';
-    case 'invite_received':      return '✉️';
-    case 'sprint_started':       return '🚀';
-    default: return '🔔';
+    case 'task_assigned':
+      return '📋';
+    case 'task_commented':
+      return '💬';
+    case 'mention':
+      return '@';
+    case 'access_approved':
+      return '✅';
+    case 'access_rejected':
+      return '❌';
+    case 'access_requested':
+      return '🔑';
+    case 'invite_received':
+      return '✉️';
+    case 'sprint_started':
+      return '🚀';
+    default:
+      return '🔔';
   }
 }
 
