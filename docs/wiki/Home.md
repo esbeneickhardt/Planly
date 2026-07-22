@@ -34,6 +34,8 @@ Welcome to the Planly documentation wiki. Use the navigation below to find what 
 |---|---|
 | [Security](Security.md) | Authentication model, CSRF, MFA, SSO, IP restrictions, audit logging |
 | [Development](Development.md) | Local dev setup, architecture overview, contributing |
+| [Smoke Test](Testing-Smoke.md) | Manual pre-release checklist — real-time, drag-and-drop, permissions |
+| [Integrations Test](Testing-Integrations.md) | Manual PAT, App Registration, Webhook, GitHub, iCal, and TOTP tests |
 
 ---
 
