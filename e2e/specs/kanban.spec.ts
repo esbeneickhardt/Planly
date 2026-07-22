@@ -20,16 +20,38 @@ async function loginAndGoToKanban(browser: import('@playwright/test').Browser) {
 
   // Create a project via the project picker dropdown in the TopBar
   await createProjectViaTopBar(page, 'Kanban Project');
+
+  // Pre-create a "To Do" column via API so .kanban-col is guaranteed to exist when
+  // the board loads. Without this, the board relies on lazy seeding from the backend
+  // (GET /api/products/:id/columns triggers column creation on first access), but that
+  // fetch may still be in-flight when the test asserts on .kanban-col.
+  const csrfToken = await page.evaluate(
+    () => document.cookie.split('; ').find(c => c.startsWith('csrf='))?.split('=')[1] ?? ''
+  );
+  const prodsRes = await page.request.get('/api/products');
+  if (prodsRes.ok()) {
+    const prods = await prodsRes.json() as Array<{ id: string }>;
+    const prod = prods[0];
+    if (prod) {
+      await page.request.post(`/api/products/${prod.id}/columns`, {
+        data: { name: 'To Do', order: 0 },
+        headers: { 'X-CSRF-Token': csrfToken },
+      }).catch(() => {});
+    }
+  }
+
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitForKanbanReady(page);
-  // Wait for the default columns the backend seeds on first board access.
-  // If they don't appear in 10s, reload once — gives loadColumns() a second chance.
+  // Wait for the column we created via API to appear. If not in 10s, reload once.
   const hasColumns = await page.locator('.kanban-col').first()
     .waitFor({ state: 'visible', timeout: 10_000 })
     .then(() => true).catch(() => false);
   if (!hasColumns) {
     await page.reload({ waitUntil: 'load', timeout: 20_000 }).catch(() => {});
     await waitForKanbanReady(page);
+    await page.locator('.kanban-col').first()
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .catch(() => {});
   }
   return { page, u };
 }
