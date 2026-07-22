@@ -52,12 +52,12 @@ export default function KanbanMobileList({ columns, tasks, users, onOpenDetail, 
               </p>
             )}
 
-            <ul className="space-y-2" role="list">
+            <ul className="space-y-2">
               {colTasks.map((task) => {
                 const owner = users.find((u) => u.id === task.ownerId);
                 const isOverdue = task.deadline && new Date(task.deadline) < new Date() && !col.isDone;
                 return (
-                  <li key={task.id} role="listitem">
+                  <li key={task.id}>
                     <button
                       className="w-full text-left rounded-xl px-4 py-3 transition-colors"
                       style={{ background: 'var(--surface)', border: `2px solid ${task.color ?? 'var(--border)'}` }}

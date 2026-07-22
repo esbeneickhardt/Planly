@@ -124,7 +124,7 @@ export function broadcastAll(event: string, data?: unknown) {
       if (client.readyState === 1 /* OPEN */) {
         try {
           client.send(message);
-        } catch {}
+        } catch { /* client disconnected between readyState check and send */ }
       }
     }
   }
