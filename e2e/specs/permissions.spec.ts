@@ -95,8 +95,9 @@ test.describe('Settings access', () => {
     await page.goto('/settings');
     // Should render the settings page, not redirect
     await expect(page).toHaveURL(/\/settings/, { timeout: 8_000 });
-    // Settings page must have some content
-    await expect(page.locator('h1, h2, [data-testid="settings-title"]').first()).toBeVisible({ timeout: 8_000 });
+    // Wait for the full auth → products → permissions chain; PermSpinner can hold for several seconds
+    // on a cold SPA load before canManage is resolved and the settings h1 is rendered.
+    await expect(page.locator('h1, h2, [data-testid="settings-title"]').first()).toBeVisible({ timeout: 20_000 });
     await page.close();
   });
 });
