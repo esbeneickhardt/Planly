@@ -33,7 +33,7 @@ const PAGE_TABS: { key: SettingsTab; label: string; danger?: boolean }[] = [
 ];
 
 export default function SettingsPage() {
-  const { activeProduct, refreshProducts } = useProduct();
+  const { activeProduct, productsLoaded, refreshProducts } = useProduct();
   const { user: currentUser } = useAuth();
   const { refresh: refreshPerms, canManage, isOwner } = usePermission();
   const { showToast } = useToast();
@@ -63,6 +63,18 @@ export default function SettingsPage() {
   }, [loadTeam]);
 
   if (!activeProduct) {
+    // Still loading — show spinner rather than the empty-state message so the UI
+    // doesn't flash "Select a project" during the auth→products→permissions chain.
+    if (!productsLoaded) {
+      return (
+        <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+          <div
+            className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
+            style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+          />
+        </div>
+      );
+    }
     return (
       <div className="h-full flex items-center justify-center" style={{ color: 'var(--text-3)' }}>
         <p className="text-sm">Select a project to manage its settings.</p>
