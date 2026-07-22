@@ -147,20 +147,25 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
     });
     memberToken = (memberLogin.headers['set-cookie']?.[0]?.split(';')[0] ?? '').replace('token=', '');
 
-    // Disable project creation for non-admins
-    await prisma.serverConfig.upsert({
-      where: { id: 'main' },
-      update: { allowProjectCreation: false },
-      create: { id: 'main', allowProjectCreation: false },
+    // Disable project creation for non-admins via the API so the in-memory cache is invalidated
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/server-config',
+      cookies: { token: adminToken },
+      payload: { allowProjectCreation: false },
     });
   });
 
   afterAll(async () => {
-    await prisma.serverConfig.upsert({
-      where: { id: 'main' },
-      update: { allowProjectCreation: true },
-      create: { id: 'main', allowProjectCreation: true },
+    // Restore the gate via the API so the cache is invalidated for any tests sharing this process
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/server-config',
+      cookies: { token: adminToken },
+      payload: { allowProjectCreation: true },
     });
+    // Products must be deleted before the team due to the FK constraint
+    await prisma.product.deleteMany({ where: { teamId } });
     await prisma.team.deleteMany({ where: { id: teamId } });
     await prisma.user.deleteMany({ where: { email: { in: [adminEmail, memberEmail] } } });
     await app.close();
