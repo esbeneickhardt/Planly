@@ -127,6 +127,6 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
     const res = await app.inject({ method: 'GET', url: '/api/auth/totp/status', cookies: { token } });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(typeof body.enabled).toBe('boolean');
+    expect(typeof body.totpEnabled).toBe('boolean');
   });
 });

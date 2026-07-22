@@ -7,7 +7,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
-import { requireAdmin } from '../../middleware/auth';
+import { requireAdmin, invalidateCachedTokenVersion } from '../../middleware/auth';
 import prisma from '../../db/client';
 import { validate } from '../../utils/validate';
 import { sendSecurityAlert } from '../../utils/security-alert';
@@ -174,6 +174,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     const target = await prisma.user.findUnique({ where: { id }, select: { username: true } });
     if (!target) return reply.status(404).send({ error: 'User not found' });
     await prisma.user.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
+    invalidateCachedTokenVersion(id);
     await prisma.adminLog.create({
       data: { action: 'USER_FORCE_LOGGED_OUT', actorName: actor?.username, targetName: target.username },
     });
@@ -209,6 +210,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
       where: { id },
       data: { passwordHash, mustChangePassword: true, tokenVersion: { increment: 1 } },
     });
+    invalidateCachedTokenVersion(id);
     await prisma.adminLog.create({
       data: { action: 'PASSWORD_RESET_BY_ADMIN', actorName: actor?.username, targetName: target.username },
     });
