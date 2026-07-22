@@ -18,7 +18,7 @@ import { config } from '../config/env';
 import { issueAuthCookie } from '../utils/auth-cookie';
 import { issueRefreshToken } from '../utils/refresh-tokens';
 import { sendEmail, emailEnabled, getSmtpSettings, resetPasswordEmail, verifyEmailTemplate } from '../utils/email';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, invalidateCachedTokenVersion } from '../middleware/auth';
 import { logAdminEvent } from '../utils/audit';
 import { validate } from '../utils/validate';
 
@@ -200,6 +200,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
       data: { passwordHash, mustChangePassword: false, tokenVersion: { increment: 1 } },
       select: { tokenVersion: true },
     });
+    invalidateCachedTokenVersion(user.id);
     logAdminEvent('PASSWORD_CHANGED', { actorName: user.username, targetName: user.username });
     // Re-issue session cookie with the new tokenVersion so the user stays logged in
     const token = jwt.sign(

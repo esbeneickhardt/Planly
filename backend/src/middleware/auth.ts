@@ -42,6 +42,13 @@ function setCachedTokenVersion(userId: string, tokenVersion: number) {
   _tvCache.set(userId, { tokenVersion, expiresAt: Date.now() + TV_TTL_MS });
 }
 
+// Evict a user from the tokenVersion cache so the next request reads from the DB.
+// Call this immediately after any in-process tokenVersion increment (password change,
+// admin forced-logout) to prevent the 10-second cache window from masking the change.
+export function invalidateCachedTokenVersion(userId: string) {
+  _tvCache.delete(userId);
+}
+
 // Routes where an authenticated but unverified user must still be allowed through
 // (so they can verify themselves or change their password)
 const EMAIL_VERIFY_EXEMPT = new Set([
