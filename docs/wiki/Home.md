@@ -11,6 +11,7 @@ Welcome to the Planly documentation wiki. Use the navigation below to find what 
 | [Getting Started](Getting-Started.md) | Install Planly for the first time, create your first team |
 | [Configuration](Configuration.md) | Environment variables, SMTP, SSO/OIDC, security settings |
 | [Deployment](Deployment.md) | Development vs production setups, upgrades, backups |
+| [Operations](Operations.md) | Incident response, scaling, backup/restore, monitoring, emergency procedures |
 
 ## Using Planly
 
