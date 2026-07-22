@@ -10,7 +10,7 @@ import { randomBytes, createHash } from 'crypto';
 import { requireAdmin } from '../../middleware/auth';
 import { config } from '../../config/env';
 import prisma from '../../db/client';
-import { getServerConfig } from '../../utils/server-config';
+import { getServerConfig, invalidateServerConfigCache } from '../../utils/server-config';
 import { getSmtpSettings, sendEmail, verifyEmailTemplate } from '../../utils/email';
 import { validate } from '../../utils/validate';
 
@@ -162,6 +162,7 @@ export async function adminConfigRoutes(app: FastifyInstance) {
       }
     }
 
+    invalidateServerConfigCache();
     const updatedConfig = await getServerConfig();
     reply.send({ ok: true, verificationEmailsSent, ...updatedConfig });
   });
