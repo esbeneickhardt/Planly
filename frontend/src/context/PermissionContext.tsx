@@ -34,7 +34,7 @@ const PermissionContext = createContext<PermissionContextValue>({
 
 export function PermissionProvider({ children }: { children: ReactNode }) {
   // State
-  const { activeProduct } = useProduct();
+  const { activeProduct, productsLoaded } = useProduct();
   const { user } = useAuth();
   const [myPerms, setMyPerms] = useState<Record<string, Level>>({});
   const [myRole, setMyRole] = useState<string>('member');
@@ -44,9 +44,14 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
   // which is accessible to all roles (unlike the co-owner-only /api/products/:id/permissions endpoint).
   const refresh = useCallback(async () => {
     if (!activeProduct || !user) {
-      setMyPerms({});
-      setMyRole('member');
-      setPermissionsLoaded(true);
+      // Only mark loaded once we know the product list is final. If user is set but
+      // products haven't been fetched yet, stay in the loading state so guards don't
+      // redirect prematurely (race between ProductContext and PermissionContext init).
+      if (!user || productsLoaded) {
+        setMyPerms({});
+        setMyRole('member');
+        setPermissionsLoaded(true);
+      }
       return;
     }
     try {
@@ -66,7 +71,7 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
     } finally {
       setPermissionsLoaded(true);
     }
-  }, [activeProduct?.id, user?.id]);
+  }, [activeProduct?.id, user?.id, productsLoaded]);
 
   // Re-fetch whenever product or user changes; reset loaded flag first to block stale UI
   useEffect(() => {

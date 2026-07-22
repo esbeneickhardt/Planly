@@ -18,6 +18,7 @@ export interface RealtimeEvent {
 interface ProductContextValue {
   products: Product[];
   activeProduct: Product | null;
+  productsLoaded: boolean;
   tasks: Task[];
   tasksLoaded: boolean;
   setActiveProduct: (p: Product) => void;
@@ -42,6 +43,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [activeProduct, setActiveProductState] = useState<Product | null>(null);
+  const [productsLoaded, setProductsLoaded] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoaded, setTasksLoaded] = useState(false);
 
@@ -55,6 +57,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       if (prev) return ps.find((p) => p.id === prev.id) ?? ps[0] ?? null;
       return ps[0] ?? null;
     });
+    setProductsLoaded(true);
   }, []);
 
   const refreshTasks = useCallback(async () => {
@@ -153,6 +156,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       value={{
         products,
         activeProduct,
+        productsLoaded,
         tasks,
         tasksLoaded,
         setActiveProduct,

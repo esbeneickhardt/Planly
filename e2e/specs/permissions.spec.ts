@@ -169,23 +169,23 @@ test.describe('API permission enforcement', () => {
 test.describe('Admin-only API operations', () => {
   test.skip(!process.env.E2E_ADMIN_EMAIL, 'E2E_ADMIN_EMAIL not set');
 
-  test('GET /api/admin/statistics returns 200 for admin', async ({ browser }) => {
+  test('GET /api/admin/stats returns 200 for admin', async ({ browser }) => {
     const { email, password } = await getAdminCredentials();
     const page = await browser.newPage();
     await loginViaUI(page, email, password);
 
-    const res = await page.request.get('/api/admin/statistics');
+    const res = await page.request.get('/api/admin/stats');
     expect(res.status()).toBe(200);
     await page.close();
   });
 
-  test('GET /api/admin/statistics returns 401/403 for non-admin', async ({ browser }) => {
+  test('GET /api/admin/stats returns 401/403 for non-admin', async ({ browser }) => {
     const u = uniqueUser('admin_perm');
     const page = await browser.newPage();
     await page.context().clearCookies();
     await registerViaUI(page, u.email, u.username, u.password);
 
-    const res = await page.request.get('/api/admin/statistics');
+    const res = await page.request.get('/api/admin/stats');
     expect([401, 403]).toContain(res.status());
     await page.close();
   });
