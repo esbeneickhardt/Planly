@@ -62,16 +62,35 @@ npm run dev
 
 ### Running tests
 
+**Unit tests** (no database required):
 ```bash
-cd backend
-
-# Unit tests
-npm test
-
-# Integration tests (requires the database)
-DATABASE_URL=postgresql://planly:dev@localhost:5432/planly \
-  npm run test:integration
+cd backend && npm test
 ```
+
+**Integration tests** — run inside Docker so the Prisma Alpine binary is used:
+```bash
+# One-time: build the test image
+docker build -f backend/Dockerfile --target builder -t planly-backend-test backend/
+
+# One-time: create the test database
+docker compose exec db createdb -U planly planly_test
+docker compose exec backend sh -c \
+  "DATABASE_URL=postgresql://planly:planly_dev@db:5432/planly_test npx prisma migrate deploy"
+
+# Run tests (stack must be up)
+./run-tests.sh
+```
+
+**E2E tests** (Playwright against the full Docker stack):
+```bash
+docker compose up -d      # stack must be running
+./run-e2e.sh              # creates a temporary admin, runs the suite, cleans up
+```
+
+**Manual testing** — for flows that can't be automated (drag-and-drop, real-time, TOTP with a real device):
+
+- [Smoke test](Testing-Smoke.md) (~30 min) — golden path with two browser windows
+- [Integrations test](Testing-Integrations.md) (~15 min) — PATs, App Registrations, Webhooks, GitHub, iCal, TOTP via `curl`
 
 ---
 
