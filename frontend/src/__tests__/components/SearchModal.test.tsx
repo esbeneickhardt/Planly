@@ -124,7 +124,7 @@ describe('SearchModal', () => {
     render(<SearchModal onClose={onClose} />);
     const input = screen.getByPlaceholderText(/search/i);
     fireEvent.keyDown(input, { key: 'ArrowDown' }); // idx 0
-    fireEvent.keyDown(input, { key: 'ArrowUp' });   // tries to go to -1, should stay at 0
+    fireEvent.keyDown(input, { key: 'ArrowUp' }); // tries to go to -1, should stay at 0
     fireEvent.keyDown(input, { key: 'Enter' });
     // Should still navigate to first item
     expect(mockNavigate).toHaveBeenCalled();

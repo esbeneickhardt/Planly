@@ -15,9 +15,9 @@ import { useAuth } from '../../context/AuthContext';
 import { ChatContext } from '../../context/ChatContext';
 
 const TAB_ROUTES: { path: string; tab: string }[] = [
-  { path: '/canvas',  tab: 'canvas' },
-  { path: '/kanban',  tab: 'kanban' },
-  { path: '/gantt',   tab: 'gantt' },
+  { path: '/canvas', tab: 'canvas' },
+  { path: '/kanban', tab: 'kanban' },
+  { path: '/gantt', tab: 'gantt' },
   { path: '/backlog', tab: 'backlog' },
 ];
 
@@ -77,7 +77,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   // Keyboard shortcuts: Ctrl+K opens search; Escape closes it
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true); }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch(true);
+      }
       if (e.key === 'Escape') setShowSearch(false);
     }
     window.addEventListener('keydown', onKey);
@@ -100,12 +103,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ChatContext.Provider value={{
-      openChat: activeAdminMode ? () => setShowAdminChat((v) => !v) : openProductChat,
-      chatOpen: activeAdminMode ? showAdminChat : showProductChat,
-      chatTaskId: chatInitialTask?.id,
-      adminMode: activeAdminMode,
-    }}>
+    <ChatContext.Provider
+      value={{
+        openChat: activeAdminMode ? () => setShowAdminChat((v) => !v) : openProductChat,
+        chatOpen: activeAdminMode ? showAdminChat : showProductChat,
+        chatTaskId: chatInitialTask?.id,
+        adminMode: activeAdminMode,
+      }}
+    >
       <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
         {/* Skip navigation link - visually hidden until focused by keyboard */}
         <a
@@ -117,9 +122,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </a>
         <TopBar
           onOpenSearch={() => setShowSearch(true)}
-          onOpenChat={activeAdminMode
-            ? () => setShowAdminChat((v) => !v)
-            : () => openProductChat()}
+          onOpenChat={activeAdminMode ? () => setShowAdminChat((v) => !v) : () => openProductChat()}
           onOpenVision={() => setShowVision(true)}
           chatOpen={activeAdminMode ? showAdminChat : showProductChat}
           chatIsAdmin={activeAdminMode}
@@ -127,18 +130,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           onExitAdmin={() => setAdminMode(false)}
         />
         <PermissionGuard>
-          <main id="main-content" className="flex-1 overflow-auto min-w-0">{children}</main>
+          <main id="main-content" className="flex-1 overflow-auto min-w-0">
+            {children}
+          </main>
         </PermissionGuard>
         {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
         {showProductChat && (
           <ChatPanel
             initialTask={chatInitialTask}
-            onClose={() => { setShowProductChat(false); setChatInitialTask(undefined); }}
+            onClose={() => {
+              setShowProductChat(false);
+              setChatInitialTask(undefined);
+            }}
           />
         )}
-        {showAdminChat && (
-          <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />
-        )}
+        {showAdminChat && <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />}
         {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
       </div>
     </ChatContext.Provider>

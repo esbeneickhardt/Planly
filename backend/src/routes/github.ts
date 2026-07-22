@@ -73,31 +73,35 @@ export async function githubRoutes(app: FastifyInstance) {
 
   // ── Webhook receiver (public, protected by HMAC signature) ─────────────────
 
-  app.post('/api/github/webhook', {
-    config: { rawBody: true },
-  }, async (req, reply) => {
-    const config = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
-    const secret = config?.githubWebhookSecret;
+  app.post(
+    '/api/github/webhook',
+    {
+      config: { rawBody: true },
+    },
+    async (req, reply) => {
+      const config = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
+      const secret = config?.githubWebhookSecret;
 
-    if (secret) {
-      const sig = req.headers['x-hub-signature-256'] as string | undefined;
-      const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody ?? Buffer.from(JSON.stringify(req.body));
-      if (!verifySignature(secret, rawBody, sig)) {
-        return reply.status(401).send({ error: 'Invalid signature' });
+      if (secret) {
+        const sig = req.headers['x-hub-signature-256'] as string | undefined;
+        const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody ?? Buffer.from(JSON.stringify(req.body));
+        if (!verifySignature(secret, rawBody, sig)) {
+          return reply.status(401).send({ error: 'Invalid signature' });
+        }
       }
-    }
 
-    const event = req.headers['x-github-event'] as string | undefined;
-    const payload = req.body as Record<string, unknown>;
+      const event = req.headers['x-github-event'] as string | undefined;
+      const payload = req.body as Record<string, unknown>;
 
-    try {
-      await handleGithubEvent(event, payload, config);
-    } catch (err) {
-      logger.warn({ err: (err as Error).message, event }, 'github webhook handler error');
-    }
+      try {
+        await handleGithubEvent(event, payload, config);
+      } catch (err) {
+        logger.warn({ err: (err as Error).message, event }, 'github webhook handler error');
+      }
 
-    reply.send({ ok: true });
-  });
+      reply.send({ ok: true });
+    },
+  );
 }
 
 async function handleGithubEvent(

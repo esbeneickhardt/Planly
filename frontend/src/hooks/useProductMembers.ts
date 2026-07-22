@@ -22,9 +22,7 @@ export function clearMembersCache(teamId?: string) {
 }
 
 export function useProductMembers(teamId: string | undefined): Member[] {
-  const [members, setMembers] = useState<Member[]>(() =>
-    teamId ? (membersCache.get(teamId) ?? []) : [],
-  );
+  const [members, setMembers] = useState<Member[]>(() => (teamId ? (membersCache.get(teamId) ?? []) : []));
 
   useEffect(() => {
     if (!teamId) return;
@@ -32,7 +30,8 @@ export function useProductMembers(teamId: string | undefined): Member[] {
       setMembers(membersCache.get(teamId)!);
       return;
     }
-    api.teams.get(teamId)
+    api.teams
+      .get(teamId)
       .then((team) => {
         const m = team.members.map((m) => m.user);
         membersCache.set(teamId, m);

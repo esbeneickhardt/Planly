@@ -132,23 +132,25 @@ planly/
 
 ## Migrations
 
-Planly uses Prisma Migrate.
+Planly uses Prisma Migrate. Migration files live in `prisma/migrations/` and must be committed alongside schema changes.
 
 ```bash
 cd backend
 
-# Create a new migration after editing schema.prisma
+# Create a new migration after editing schema.prisma (dev only — applies immediately)
 npx prisma migrate dev --name add-my-feature
 
-# Sync schema to the database (runs automatically on backend startup via `prisma db push`)
-npx prisma db push
+# Apply pending migrations without creating new ones (what the backend runs on startup)
+npx prisma migrate deploy
 
-# Regenerate the Prisma client after schema changes
+# Regenerate the Prisma client after schema changes (needed locally; CI/Docker do this automatically)
 npx prisma generate
 
 # Open Prisma Studio (GUI database browser)
 npx prisma studio
 ```
+
+> **Never use `prisma db push` on a real database.** It can silently drop columns to match the schema. `db push` is only appropriate for throwaway test databases where data loss is acceptable.
 
 ---
 

@@ -2,8 +2,8 @@
  * Imports environment variables and validates their formats and if required
  * variables are set.
  *
- * This module is imported as the very first line of index.ts so the process exits 
- * immediately with a clear error message if any required variable is missing or too 
+ * This module is imported as the very first line of index.ts so the process exits
+ * immediately with a clear error message if any required variable is missing or too
  * short. All other modules import `config` from here instead of reading the environment
  * variables directly via process.env.
  */
@@ -30,7 +30,9 @@ if (jwtSecret.length < 32) {
 // Checking ENCRYPTION_KEY format (must be exactly 64 lowercase hex characters = 32 bytes)
 const encryptionKey = process.env.ENCRYPTION_KEY!;
 if (!/^[0-9a-f]{64}$/.test(encryptionKey)) {
-  console.error('FATAL: ENCRYPTION_KEY must be exactly 64 lowercase hex characters (32 bytes). Generate with: openssl rand -hex 32');
+  console.error(
+    'FATAL: ENCRYPTION_KEY must be exactly 64 lowercase hex characters (32 bytes). Generate with: openssl rand -hex 32',
+  );
   process.exit(1);
 }
 

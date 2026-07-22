@@ -61,14 +61,16 @@ export async function realtimeRoutes(app: FastifyInstance) {
           return;
         }
         userId = payload.userId;
-      } catch { /* invalid or expired JWT in Authorization header - fall through to ticket auth */ }
+      } catch {
+        /* invalid or expired JWT in Authorization header - fall through to ticket auth */
+      }
     }
 
     // 2. One-time ticket (issued via POST /ws-ticket - session JWT never in query string)
     if (!userId) {
       const ticket = (req.query as Record<string, string | undefined>).ticket;
       if (ticket) {
-        userId = await consumeTicket(ticket) ?? null;
+        userId = (await consumeTicket(ticket)) ?? null;
       }
     }
 
@@ -129,7 +131,13 @@ export async function realtimeRoutes(app: FastifyInstance) {
     }, 25000);
 
     // Clean up on disconnect or error
-    ws.on('close', () => { clearInterval(heartbeat); leaveRoom(productId, ws, userId); });
-    ws.on('error', () => { clearInterval(heartbeat); leaveRoom(productId, ws, userId); });
+    ws.on('close', () => {
+      clearInterval(heartbeat);
+      leaveRoom(productId, ws, userId);
+    });
+    ws.on('error', () => {
+      clearInterval(heartbeat);
+      leaveRoom(productId, ws, userId);
+    });
   });
 }

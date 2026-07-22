@@ -51,9 +51,7 @@ function makeTask(id: string, overrides: Partial<Task> = {}): Task {
   } as unknown as Task;
 }
 
-const USERS = [
-  { id: 'u1', username: 'alice', avatarEmoji: '😀', realName: 'Alice' },
-];
+const USERS = [{ id: 'u1', username: 'alice', avatarEmoji: '😀', realName: 'Alice' }];
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -79,7 +77,14 @@ describe('KanbanMobileList', () => {
   });
 
   it('renders the task name inside a button', () => {
-    render(<KanbanMobileList columns={[makeColumn()]} tasks={[makeTask('t1', { name: 'Fix login bug' })]} users={[]} onOpenDetail={onOpenDetail} />);
+    render(
+      <KanbanMobileList
+        columns={[makeColumn()]}
+        tasks={[makeTask('t1', { name: 'Fix login bug' })]}
+        users={[]}
+        onOpenDetail={onOpenDetail}
+      />,
+    );
     expect(screen.getByText('Fix login bug')).toBeInTheDocument();
   });
 

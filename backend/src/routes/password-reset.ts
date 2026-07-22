@@ -29,14 +29,20 @@ const tokenBodySchema = z.object({ token: z.string() });
 // Validates the password reset form; enforces complexity rules (number + special character)
 const resetPasswordBodySchema = z.object({
   token: z.string(),
-  password: z.string().min(8).max(1024)
+  password: z
+    .string()
+    .min(8)
+    .max(1024)
     .refine((p) => /[0-9]/.test(p), 'Password must contain at least one number')
     .refine((p) => /[^a-zA-Z0-9]/.test(p), 'Password must contain at least one special character'),
 });
 // Validates the change-password form for authenticated users; currentPassword skipped when mustChangePassword is set
 const changePasswordBodySchema = z.object({
   currentPassword: z.string().optional(),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(1024)
+  newPassword: z
+    .string()
+    .min(8, 'New password must be at least 8 characters')
+    .max(1024)
     .refine((p) => /[0-9]/.test(p), 'Password must contain at least one number')
     .refine((p) => /[^a-zA-Z0-9]/.test(p), 'Password must contain at least one special character'),
 });
@@ -50,7 +56,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
   // Request password reset - sends email with link
   app.post('/api/auth/forgot-password', async (req, reply) => {
     if (!emailEnabled) {
-      return reply.status(503).send({ error: 'Email is not configured on this server. Ask your administrator to set up SMTP.' });
+      return reply
+        .status(503)
+        .send({ error: 'Email is not configured on this server. Ask your administrator to set up SMTP.' });
     }
     const body = validate(emailBodySchema, req.body, reply);
     if (!body) return;
@@ -131,7 +139,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     // Generate and store verification token (24-hour TTL)
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');
-    await prisma.emailVerifyToken.create({ data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
+    await prisma.emailVerifyToken.create({
+      data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+    });
     await sendEmail({
       to: user.email,
       subject: 'Verify your Planly email',
@@ -175,7 +185,8 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const { currentPassword, newPassword } = body;
     const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
     if (!user) return reply.status(404).send({ error: 'Not found' });
-    if (!user.passwordHash) return reply.status(400).send({ error: 'This account uses SSO - password cannot be changed here.' });
+    if (!user.passwordHash)
+      return reply.status(400).send({ error: 'This account uses SSO - password cannot be changed here.' });
     // If mustChangePassword is set, skip current-password check (they can't know it)
     if (!user.mustChangePassword) {
       if (!currentPassword) return reply.status(400).send({ error: 'Current password required' });

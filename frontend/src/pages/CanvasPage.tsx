@@ -15,11 +15,14 @@ export default function CanvasPage() {
         role="status"
         aria-label="Canvas not available on mobile"
       >
-        <span style={{ fontSize: 48 }} aria-hidden="true">🗺️</span>
-        <p className="text-base font-medium" style={{ color: 'var(--text)' }}>Canvas requires a larger screen</p>
+        <span style={{ fontSize: 48 }} aria-hidden="true">
+          🗺️
+        </span>
+        <p className="text-base font-medium" style={{ color: 'var(--text)' }}>
+          Canvas requires a larger screen
+        </p>
         <p className="text-sm max-w-xs">
-          The dependency graph relies on precise pointer interaction.
-          Open Planly on a desktop or tablet to use Canvas.
+          The dependency graph relies on precise pointer interaction. Open Planly on a desktop or tablet to use Canvas.
         </p>
       </div>
       {/* Full canvas — hidden on small screens */}

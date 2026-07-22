@@ -38,6 +38,9 @@ services:
 
       # ── Mandatory ─────────────────────────────────────────────────────────
       DATABASE_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
+      # Only set when using PgBouncer — points migrations directly at Postgres,
+      # bypassing the pooler (prisma migrate deploy is incompatible with transaction mode).
+      # DATABASE_DIRECT_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
@@ -100,9 +103,9 @@ services:
       ADMIN_LOG_RETENTION_DAYS: ${ADMIN_LOG_RETENTION_DAYS:-90}
 
       # ── Rate limits ────────────────────────────────────────────────────────
-      # Higher limits so E2E test suites don't exhaust the per-IP budgets
-      RATE_LIMIT_LOGIN_MAX: "1000"
-      RATE_LIMIT_REGISTER_MAX: "1000"
+      # Override in .env for E2E test environments (e.g. RATE_LIMIT_LOGIN_MAX=1000)
+      RATE_LIMIT_LOGIN_MAX: "${RATE_LIMIT_LOGIN_MAX:-10}"
+      RATE_LIMIT_REGISTER_MAX: "${RATE_LIMIT_REGISTER_MAX:-5}"
 
   # ── Frontend ──────────────────────────────────────────────────────────────
   frontend:
@@ -187,25 +190,55 @@ services:
   #     timeout: 5s
   #     retries: 5
 
+  # ── PgBouncer (optional) ─────────────────────────────────────────────────
+  # Connection pooler — only needed when multiple backend replicas each maintain
+  # their own Prisma pool and the total connection count approaches PostgreSQL's
+  # max_connections (default: 100). A single backend instance does not need this.
+  #
+  # When enabling:
+  #   1. Uncomment the pgbouncer service below.
+  #   2. In the backend environment above, change DATABASE_URL to point at PgBouncer:
+  #        DATABASE_URL: postgresql://planly:${DB_PASSWORD}@pgbouncer:5432/planly?pgbouncer=true
+  #      The ?pgbouncer=true flag disables Prisma features incompatible with transaction mode.
+  #   3. Add DATABASE_DIRECT_URL so migrations bypass PgBouncer (required — prisma migrate
+  #      deploy cannot run through a transaction-mode pooler):
+  #        DATABASE_DIRECT_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
+  #
+  # pgbouncer:
+  #   image: bitnami/pgbouncer:latest
+  #   restart: unless-stopped
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   environment:
+  #     POSTGRESQL_HOST: db
+  #     POSTGRESQL_PORT: 5432
+  #     POSTGRESQL_USERNAME: planly
+  #     POSTGRESQL_PASSWORD: ${DB_PASSWORD}
+  #     POSTGRESQL_DATABASE: planly
+  #     PGBOUNCER_DATABASE: planly
+  #     PGBOUNCER_POOL_MODE: transaction
+  #     PGBOUNCER_MAX_CLIENT_CONN: 1000
+  #     PGBOUNCER_DEFAULT_POOL_SIZE: 20
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U planly || exit 1"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
   # ── Prometheus (optional) ─────────────────────────────────────────────────
   # Scrapes /api/metrics on the backend. Requires METRICS_SECRET in .env.
+  # Alert rules are defined in monitoring/alerts.yml.
   # Access Prometheus UI at http://localhost:9090
   #
   # prometheus:
   #   image: prom/prometheus:latest
   #   volumes:
-  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
   #     - prometheus_data:/prometheus
   #   ports:
   #     - "9090:9090"
-  #
-  # prometheus.yml example:
-  #   scrape_configs:
-  #     - job_name: planly
-  #       scrape_interval: 15s
-  #       static_configs:
-  #         - targets: ['backend:3000']
-  #       metrics_path: /api/metrics
 
 volumes:
   db_data:

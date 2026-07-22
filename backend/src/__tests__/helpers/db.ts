@@ -11,12 +11,14 @@ export function randomSuffix() {
   return randomBytes(6).toString('hex');
 }
 
-export async function createTestUser(overrides: {
-  username?: string;
-  email?: string;
-  password?: string;
-  isAdmin?: boolean;
-} = {}) {
+export async function createTestUser(
+  overrides: {
+    username?: string;
+    email?: string;
+    password?: string;
+    isAdmin?: boolean;
+  } = {},
+) {
   const suffix = randomSuffix();
   const password = overrides.password ?? 'test-password-123';
   return prisma.user.create({
@@ -64,7 +66,10 @@ export async function cleanupTestTeams(names: string[]) {
 
 /** Creates a raw PAT and returns both the plaintext token (for use in Bearer headers)
  *  and the DB record. The token is hashed before storage - the raw value is never saved. */
-export async function createTestApiToken(userId: string, opts: { productId?: string; name?: string; expiresAt?: Date } = {}) {
+export async function createTestApiToken(
+  userId: string,
+  opts: { productId?: string; name?: string; expiresAt?: Date } = {},
+) {
   const raw = randomBytes(32).toString('hex');
   const tokenHash = createHash('sha256').update(raw).digest('hex');
   const record = await prisma.apiToken.create({

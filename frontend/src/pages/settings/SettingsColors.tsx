@@ -14,8 +14,12 @@ export default function SettingsColors({ productId }: Props) {
 
   return (
     <div className="max-w-lg">
-      <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Color labels</h2>
-      <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>Toggle which colors are active and give them a name for this project.</p>
+      <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
+        Color labels
+      </h2>
+      <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+        Toggle which colors are active and give them a name for this project.
+      </p>
       <div className="space-y-2">
         {PRESET_COLORS.map((color) => {
           const on = enabledColors.includes(color);
@@ -29,7 +33,10 @@ export default function SettingsColors({ productId }: Props) {
                 onClick={() => toggleEnabled(color)}
                 title={on ? 'Disable' : 'Enable'}
                 className="w-6 h-6 rounded-full flex-shrink-0 transition-all"
-                style={{ background: color, boxShadow: on ? `0 0 0 2px var(--surface-2), 0 0 0 3.5px ${color}` : 'none' }}
+                style={{
+                  background: color,
+                  boxShadow: on ? `0 0 0 2px var(--surface-2), 0 0 0 3.5px ${color}` : 'none',
+                }}
               />
               <input
                 type="text"

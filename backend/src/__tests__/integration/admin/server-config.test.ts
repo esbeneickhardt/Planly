@@ -30,13 +30,22 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const admin = await createTestUser({ email: `cfg_admin_${suffix}@t.com`, username: `cfg_admin_${suffix}`, password: pw, isAdmin: true });
-    const user  = await createTestUser({ email: `cfg_user_${suffix}@t.com`,  username: `cfg_user_${suffix}`,  password: pw });
+    const admin = await createTestUser({
+      email: `cfg_admin_${suffix}@t.com`,
+      username: `cfg_admin_${suffix}`,
+      password: pw,
+      isAdmin: true,
+    });
+    const user = await createTestUser({
+      email: `cfg_user_${suffix}@t.com`,
+      username: `cfg_user_${suffix}`,
+      password: pw,
+    });
     adminId = admin.id;
-    userId  = user.id;
+    userId = user.id;
 
     adminCookie = await loginAs(app, `cfg_admin_${suffix}@t.com`, pw);
-    userCookie  = await loginAs(app, `cfg_user_${suffix}@t.com`,  pw);
+    userCookie = await loginAs(app, `cfg_user_${suffix}@t.com`, pw);
 
     // Ensure the ServerConfig singleton exists (created on first request)
     await app.inject({ method: 'GET', url: '/api/admin/server-config', cookies: cookieJar(adminCookie) });
@@ -44,7 +53,9 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
   afterAll(async () => {
     // Restore defaults so other test runs aren't affected
-    await prisma.serverConfig.updateMany({ data: { requireEmailVerification: false, requireWhitelist: false, allowProjectCreation: false } });
+    await prisma.serverConfig.updateMany({
+      data: { requireEmailVerification: false, requireWhitelist: false, allowProjectCreation: false },
+    });
     await prisma.user.deleteMany({ where: { id: { in: [adminId, userId] } } });
     await app.close();
     await prisma.$disconnect();
@@ -72,7 +83,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
   it('PUT /api/admin/server-config returns 403 for regular user', async () => {
     const res = await app.inject({
-      method: 'PUT', url: '/api/admin/server-config',
+      method: 'PUT',
+      url: '/api/admin/server-config',
       cookies: cookieJar(userCookie),
       payload: { requireWhitelist: true },
     });
@@ -83,7 +95,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
   it('admin can enable requireWhitelist and value is persisted', async () => {
     const put = await app.inject({
-      method: 'PUT', url: '/api/admin/server-config',
+      method: 'PUT',
+      url: '/api/admin/server-config',
       cookies: cookieJar(adminCookie),
       payload: { requireWhitelist: true },
     });
@@ -95,7 +108,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
   it('admin can disable requireWhitelist', async () => {
     const put = await app.inject({
-      method: 'PUT', url: '/api/admin/server-config',
+      method: 'PUT',
+      url: '/api/admin/server-config',
       cookies: cookieJar(adminCookie),
       payload: { requireWhitelist: false },
     });
@@ -105,7 +119,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
   it('admin can toggle requireEmailVerification', async () => {
     const put = await app.inject({
-      method: 'PUT', url: '/api/admin/server-config',
+      method: 'PUT',
+      url: '/api/admin/server-config',
       cookies: cookieJar(adminCookie),
       payload: { requireEmailVerification: true },
     });
@@ -114,7 +129,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
     // reset
     await app.inject({
-      method: 'PUT', url: '/api/admin/server-config',
+      method: 'PUT',
+      url: '/api/admin/server-config',
       cookies: cookieJar(adminCookie),
       payload: { requireEmailVerification: false },
     });
@@ -122,7 +138,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
   it('admin can enable announcementsEnabled', async () => {
     const put = await app.inject({
-      method: 'PUT', url: '/api/admin/server-config',
+      method: 'PUT',
+      url: '/api/admin/server-config',
       cookies: cookieJar(adminCookie),
       payload: { announcementsEnabled: true, announcementPostRole: 'admin' },
     });
@@ -134,7 +151,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
   it('admin can set allowProjectCreation', async () => {
     const put = await app.inject({
-      method: 'PUT', url: '/api/admin/server-config',
+      method: 'PUT',
+      url: '/api/admin/server-config',
       cookies: cookieJar(adminCookie),
       payload: { allowProjectCreation: true },
     });
@@ -154,7 +172,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
   it('admin can grant admin rights to another user', async () => {
     const put = await app.inject({
-      method: 'PUT', url: `/api/admin/users/${userId}`,
+      method: 'PUT',
+      url: `/api/admin/users/${userId}`,
       cookies: cookieJar(adminCookie),
       payload: { isAdmin: true },
     });
@@ -163,7 +182,8 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
 
     // revoke
     await app.inject({
-      method: 'PUT', url: `/api/admin/users/${userId}`,
+      method: 'PUT',
+      url: `/api/admin/users/${userId}`,
       cookies: cookieJar(adminCookie),
       payload: { isAdmin: false },
     });

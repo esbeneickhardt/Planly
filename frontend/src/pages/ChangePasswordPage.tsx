@@ -26,8 +26,14 @@ export default function ChangePasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (newPassword.length < 8) { setError('Password must be at least 8 characters'); return; }
-    if (newPassword !== confirm) { setError('Passwords do not match'); return; }
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+    if (newPassword !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
     setSaving(true);
     try {
       await api.auth.changePassword({ newPassword });
@@ -42,24 +48,36 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
-      <div className="w-full max-w-sm p-8 rounded-2xl shadow-lg" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div
+        className="w-full max-w-sm p-8 rounded-2xl shadow-lg"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      >
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0">
             <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" />
           </div>
           <div>
-            <h1 className="text-base font-bold" style={{ color: 'var(--text)' }}>Set your password</h1>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>Choose a password to secure your account</p>
+            <h1 className="text-base font-bold" style={{ color: 'var(--text)' }}>
+              Set your password
+            </h1>
+            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+              Choose a password to secure your account
+            </p>
           </div>
         </div>
 
-        <div className="mb-5 p-3 rounded-lg text-xs" style={{ background: '#f59e0b18', border: '1px solid #f59e0b44', color: '#f59e0b' }}>
+        <div
+          className="mb-5 p-3 rounded-lg text-xs"
+          style={{ background: '#f59e0b18', border: '1px solid #f59e0b44', color: '#f59e0b' }}
+        >
           Your account was created with a temporary password. Please set a new one before continuing.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>New password</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+              New password
+            </label>
             <input
               type="password"
               className="input w-full"
@@ -70,7 +88,9 @@ export default function ChangePasswordPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>Confirm password</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+              Confirm password
+            </label>
             <input
               type="password"
               className="input w-full"
@@ -79,7 +99,11 @@ export default function ChangePasswordPage() {
               onChange={(e) => setConfirm(e.target.value)}
             />
           </div>
-          {error && <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>}
+          {error && (
+            <p className="text-xs" style={{ color: '#ef4444' }}>
+              {error}
+            </p>
+          )}
           <button type="submit" disabled={saving} className="btn-primary w-full py-2 text-sm">
             {saving ? 'Saving…' : 'Set password and continue →'}
           </button>

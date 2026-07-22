@@ -32,7 +32,10 @@ export async function requireProductMember(
   // App token scoped to this product — skip creator membership check
   if (user.appName && user.scopedProductId === productId) {
     const exists = await prisma.product.findFirst({ where: { id: productId, deletedAt: null }, select: { id: true } });
-    if (!exists) { reply.status(404).send({ error: 'Not found' }); return false; }
+    if (!exists) {
+      reply.status(404).send({ error: 'Not found' });
+      return false;
+    }
     return true;
   }
 
@@ -47,8 +50,14 @@ export async function requireProductMember(
     },
   });
 
-  if (!product) { reply.status(404).send({ error: 'Not found' }); return false; }
-  if (product.team.members.length === 0) { reply.status(403).send({ error: 'Forbidden' }); return false; }
+  if (!product) {
+    reply.status(404).send({ error: 'Not found' });
+    return false;
+  }
+  if (product.team.members.length === 0) {
+    reply.status(403).send({ error: 'Forbidden' });
+    return false;
+  }
   return true;
 }
 
@@ -68,7 +77,10 @@ export async function requireTabWrite(
   if (user.appName && user.scopedProductId === productId) {
     const perms = user.appPermissions ?? {};
     const hasWrite = tabs.some((tab) => (perms[tab] ?? 'write') === 'write');
-    if (!hasWrite) { reply.status(403).send({ error: 'Write access required' }); return false; }
+    if (!hasWrite) {
+      reply.status(403).send({ error: 'Write access required' });
+      return false;
+    }
     return true;
   }
 
@@ -81,11 +93,17 @@ export async function requireTabWrite(
     },
   });
 
-  if (!product) { reply.status(404).send({ error: 'Not found' }); return false; }
+  if (!product) {
+    reply.status(404).send({ error: 'Not found' });
+    return false;
+  }
   if (product.ownerId === userId) return true;
 
   const member = product.team.members[0];
-  if (!member) { reply.status(403).send({ error: 'Forbidden' }); return false; }
+  if (!member) {
+    reply.status(403).send({ error: 'Forbidden' });
+    return false;
+  }
   if (member.role === 'co_owner') return true;
 
   const rows = await prisma.tabPermission.findMany({
@@ -98,7 +116,10 @@ export async function requireTabWrite(
     return !row || row.level === 'write';
   });
 
-  if (!hasWrite) { reply.status(403).send({ error: 'Write access required' }); return false; }
+  if (!hasWrite) {
+    reply.status(403).send({ error: 'Write access required' });
+    return false;
+  }
   return true;
 }
 
@@ -118,7 +139,10 @@ export async function requireTabRead(
   if (user.appName && user.scopedProductId === productId) {
     const perms = user.appPermissions ?? {};
     const canRead = tabs.some((tab) => (perms[tab] ?? 'write') !== 'none');
-    if (!canRead) { reply.status(403).send({ error: 'Access denied' }); return false; }
+    if (!canRead) {
+      reply.status(403).send({ error: 'Access denied' });
+      return false;
+    }
     return true;
   }
 
@@ -131,11 +155,17 @@ export async function requireTabRead(
     },
   });
 
-  if (!product) { reply.status(404).send({ error: 'Not found' }); return false; }
+  if (!product) {
+    reply.status(404).send({ error: 'Not found' });
+    return false;
+  }
   if (product.ownerId === userId) return true;
 
   const member = product.team.members[0];
-  if (!member) { reply.status(403).send({ error: 'Forbidden' }); return false; }
+  if (!member) {
+    reply.status(403).send({ error: 'Forbidden' });
+    return false;
+  }
   if (member.role === 'co_owner') return true;
 
   const rows = await prisma.tabPermission.findMany({
@@ -148,7 +178,10 @@ export async function requireTabRead(
     return !row || row.level !== 'none';
   });
 
-  if (!canRead) { reply.status(403).send({ error: 'Access denied' }); return false; }
+  if (!canRead) {
+    reply.status(403).send({ error: 'Access denied' });
+    return false;
+  }
   return true;
 }
 
@@ -157,11 +190,7 @@ export async function requireTabRead(
  * App tokens never satisfy this guard — project management operations require a human.
  * Sends 404/403 and returns false on deny.
  */
-export async function requireProductCoOwner(
-  productId: string,
-  userId: string,
-  reply: FastifyReply,
-): Promise<boolean> {
+export async function requireProductCoOwner(productId: string, userId: string, reply: FastifyReply): Promise<boolean> {
   const product = await prisma.product.findFirst({
     where: { id: productId, deletedAt: null },
     select: {
@@ -170,7 +199,10 @@ export async function requireProductCoOwner(
     },
   });
 
-  if (!product) { reply.status(404).send({ error: 'Not found' }); return false; }
+  if (!product) {
+    reply.status(404).send({ error: 'Not found' });
+    return false;
+  }
   if (product.ownerId === userId) return true;
 
   const member = product.team.members[0];

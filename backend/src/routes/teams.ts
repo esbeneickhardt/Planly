@@ -25,7 +25,11 @@ const addMemberSchema = z.object({ userId: z.string() });
 const updateRoleSchema = z.object({ role: z.enum(['member', 'co_owner']) });
 
 // Prisma include shape that returns all team members with their public profile fields
-const MEMBER_INCLUDE = { members: { include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true } } } } };
+const MEMBER_INCLUDE = {
+  members: {
+    include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true } } },
+  },
+};
 
 // Decrypt realName for every member in a team before sending to the client
 function decryptTeam<T extends { members: { user: { realName: string | null } }[] }>(team: T): T {
@@ -102,7 +106,9 @@ export async function teamRoutes(app: FastifyInstance) {
     try {
       const team = await prisma.team.update({ where: { id }, data: { name }, include: MEMBER_INCLUDE });
       reply.send(decryptTeam(team));
-    } catch (e) { handleNotFound(e, reply); }
+    } catch (e) {
+      handleNotFound(e, reply);
+    }
   });
 
   // Invite a user to the team (admin only) - creates a pending invite the user must accept
@@ -115,9 +121,13 @@ export async function teamRoutes(app: FastifyInstance) {
     if (!addBody) return;
     const { userId } = addBody;
 
-    const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true, email: true, acceptsInvites: true } });
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true, email: true, acceptsInvites: true },
+    });
     if (!target) return reply.status(404).send({ error: 'User not found' });
-    if (!target.acceptsInvites) return reply.status(403).send({ error: 'This user is not accepting project invitations' });
+    if (!target.acceptsInvites)
+      return reply.status(403).send({ error: 'This user is not accepting project invitations' });
 
     // Prevent duplicate membership
     const existing = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: id, userId } } });
@@ -147,10 +157,20 @@ export async function teamRoutes(app: FastifyInstance) {
       type: 'invite_received',
       title: `You've been invited to "${projectName}"`,
       body: `${req.user.username} invited you to join the project`,
-      metadata: { inviteToken: invite.token, inviteId: invite.id, teamId: id, inviterName: req.user.username, projectName },
+      metadata: {
+        inviteToken: invite.token,
+        inviteId: invite.id,
+        teamId: id,
+        inviterName: req.user.username,
+        projectName,
+      },
     });
 
-    logAdminEvent('TEAM_INVITE_SENT', { actorName: req.user.username, targetName: target.username, metadata: { teamId: id, userId } });
+    logAdminEvent('TEAM_INVITE_SENT', {
+      actorName: req.user.username,
+      targetName: target.username,
+      metadata: { teamId: id, userId },
+    });
     reply.status(201).send({ pending: true, inviteId: invite.id });
   });
 
@@ -166,7 +186,11 @@ export async function teamRoutes(app: FastifyInstance) {
     try {
       const removed = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
       await prisma.teamMember.delete({ where: { teamId_userId: { teamId: id, userId } } });
-      logAdminEvent('TEAM_MEMBER_REMOVED', { actorName: req.user.username, targetName: removed?.username, metadata: { teamId: id, userId, self: userId === req.user.userId } });
+      logAdminEvent('TEAM_MEMBER_REMOVED', {
+        actorName: req.user.username,
+        targetName: removed?.username,
+        metadata: { teamId: id, userId, self: userId === req.user.userId },
+      });
     } catch (err) {
       // P2025 = record not found - for self-removal this is fine (already gone)
       if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025')) {
@@ -188,7 +212,7 @@ export async function teamRoutes(app: FastifyInstance) {
     const { role } = roleBody;
     const team = await prisma.team.findUnique({ where: { id: teamId }, include: { products: true } });
     if (!team) return reply.status(404).send({ error: 'Not found' });
-    const isOwner = team.products.some(p => p.ownerId === req.user.userId);
+    const isOwner = team.products.some((p) => p.ownerId === req.user.userId);
     if (!isOwner) return reply.status(403).send({ error: 'Only the product owner can change roles' });
     const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
     await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role } });
@@ -200,7 +224,11 @@ export async function teamRoutes(app: FastifyInstance) {
       title: `Your role in "${projectName}" has been updated`,
       body: `${req.user.username} made you a ${roleLabel}`,
     });
-    logAdminEvent('TEAM_MEMBER_ROLE_CHANGED', { actorName: req.user.username, targetName: target?.username, metadata: { teamId, userId, newRole: role } });
+    logAdminEvent('TEAM_MEMBER_ROLE_CHANGED', {
+      actorName: req.user.username,
+      targetName: target?.username,
+      metadata: { teamId, userId, newRole: role },
+    });
     reply.send({ ok: true });
   });
 
@@ -213,6 +241,8 @@ export async function teamRoutes(app: FastifyInstance) {
     try {
       await prisma.team.delete({ where: { id } });
       reply.send({ ok: true });
-    } catch (e) { handleNotFound(e, reply); }
+    } catch (e) {
+      handleNotFound(e, reply);
+    }
   });
 }

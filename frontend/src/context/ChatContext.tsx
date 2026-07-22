@@ -19,5 +19,7 @@ const ChatContext = createContext<ChatContextValue>({
   adminMode: false,
 });
 
-export function useChat() { return useContext(ChatContext); }
+export function useChat() {
+  return useContext(ChatContext);
+}
 export { ChatContext };

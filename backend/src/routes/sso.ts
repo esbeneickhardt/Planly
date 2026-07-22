@@ -126,7 +126,8 @@ export async function ssoRoutes(app: FastifyInstance) {
 
       if (!user) {
         // Auto-provision a new account for first-time SSO users
-        const baseUsername = (rawEmail.split('@')[0] || name || sub).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30) || 'user';
+        const baseUsername =
+          (rawEmail.split('@')[0] || name || sub).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30) || 'user';
         let username = baseUsername;
         let attempt = 0;
         while (await prisma.user.findUnique({ where: { username } })) {
@@ -146,7 +147,10 @@ export async function ssoRoutes(app: FastifyInstance) {
         });
       } else if (!user.ssoSub) {
         // Link existing account to SSO - only reached when emailForLinking matched (verified)
-        await prisma.user.update({ where: { id: user.id }, data: { ssoSub: sub, ssoProvider: config.oidc.providerName } });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { ssoSub: sub, ssoProvider: config.oidc.providerName },
+        });
       }
 
       // Issue session cookie and redirect to the app

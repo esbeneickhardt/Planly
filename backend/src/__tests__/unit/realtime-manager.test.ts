@@ -24,7 +24,9 @@ const { mockPublish, mockPsubscribe, getPmessageHandler, capturePmessageHandler 
   const mockPublish = vi.fn().mockResolvedValue(1);
   const mockPsubscribe = vi.fn();
   let _handler: ((pat: string, ch: string, msg: string) => void) | null = null;
-  const capturePmessageHandler = (h: (pat: string, ch: string, msg: string) => void) => { _handler = h; };
+  const capturePmessageHandler = (h: (pat: string, ch: string, msg: string) => void) => {
+    _handler = h;
+  };
   const getPmessageHandler = () => _handler;
   return { mockPublish, mockPsubscribe, getPmessageHandler, capturePmessageHandler };
 });
@@ -49,8 +51,12 @@ function makeFakeWs(open = true): WebSocket {
   return { readyState: open ? 1 : 3, send: vi.fn() } as unknown as WebSocket;
 }
 
-function uid() { return 'u-' + Math.random().toString(36).slice(2); }
-function randIp() { return `10.${Math.floor(Math.random() * 200)}.${Math.floor(Math.random() * 200)}.1`; }
+function uid() {
+  return 'u-' + Math.random().toString(36).slice(2);
+}
+function randIp() {
+  return `10.${Math.floor(Math.random() * 200)}.${Math.floor(Math.random() * 200)}.1`;
+}
 
 // ── Per-user connection cap ───────────────────────────────────────────────
 
@@ -100,7 +106,8 @@ describe('checkWsRateLimit', () => {
   });
 
   it('treats distinct IPs independently', () => {
-    const a = randIp(), b = randIp();
+    const a = randIp(),
+      b = randIp();
     for (let i = 0; i < 30; i++) checkWsRateLimit(a);
     expect(checkWsRateLimit(a)).toBe(false);
     expect(checkWsRateLimit(b)).toBe(true);
@@ -110,7 +117,9 @@ describe('checkWsRateLimit', () => {
 // ── broadcast via Redis pub/sub ───────────────────────────────────────────
 
 describe('broadcast (Redis path)', () => {
-  beforeEach(() => { mockPublish.mockClear(); });
+  beforeEach(() => {
+    mockPublish.mockClear();
+  });
 
   it('publishes to the planly:room:<productId> channel', async () => {
     broadcast('prod-123', 'task.updated', { id: 't1' });

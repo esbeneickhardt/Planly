@@ -36,7 +36,9 @@ describe('useMessageEdit', () => {
   // startEdit pre-fills the draft with the message's current text
   it('startEdit sets editingId and editDraft', () => {
     const { result } = renderHook(() => useMessageEdit(makeOptions()));
-    act(() => { result.current.startEdit('msg-1', 'Hello world'); });
+    act(() => {
+      result.current.startEdit('msg-1', 'Hello world');
+    });
     expect(result.current.editingId).toBe('msg-1');
     expect(result.current.editDraft).toBe('Hello world');
   });
@@ -44,8 +46,12 @@ describe('useMessageEdit', () => {
   // cancelEdit returns to idle state without making any API call
   it('cancelEdit clears editingId and editDraft', () => {
     const { result } = renderHook(() => useMessageEdit(makeOptions()));
-    act(() => { result.current.startEdit('msg-1', 'Hello'); });
-    act(() => { result.current.cancelEdit(); });
+    act(() => {
+      result.current.startEdit('msg-1', 'Hello');
+    });
+    act(() => {
+      result.current.cancelEdit();
+    });
     expect(result.current.editingId).toBeNull();
     expect(result.current.editDraft).toBe('');
   });
@@ -53,8 +59,12 @@ describe('useMessageEdit', () => {
   // setEditDraft is called on every keystroke; the final value is what gets submitted
   it('setEditDraft updates the draft', () => {
     const { result } = renderHook(() => useMessageEdit(makeOptions()));
-    act(() => { result.current.startEdit('msg-1', 'Original'); });
-    act(() => { result.current.setEditDraft('Updated'); });
+    act(() => {
+      result.current.startEdit('msg-1', 'Original');
+    });
+    act(() => {
+      result.current.setEditDraft('Updated');
+    });
     expect(result.current.editDraft).toBe('Updated');
   });
 });

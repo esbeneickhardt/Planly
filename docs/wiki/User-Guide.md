@@ -30,11 +30,11 @@ If a team is set to "approval required", visitors see an **Request Access** butt
 
 | Role | Permissions |
 |---|---|
-| **Co-owner** | Full control: manage members, settings, delete team |
+| **Owner** | The team creator. Full control, including transferring ownership. |
+| **Co-owner** | Full control: manage members, change settings, delete the team |
 | **Member** | Create and edit tasks, comment, use all views |
-| **Viewer** | Read-only across the team's projects |
 
-Per-project tab permissions can further restrict or grant access to individual views. Set them via Project → **Settings** → **Permissions**.
+**Read-only access** is not a separate role — it is configured per-project via tab-level permissions. A member whose Kanban tab is set to **read** can see cards but cannot create or move them. Setting a tab to **none** hides it entirely from that member. Set these under Project → **Settings** → **Permissions**.
 
 ---
 

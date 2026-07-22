@@ -25,8 +25,14 @@ export default function ResetPasswordPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (password !== confirm) { setError('Passwords do not match'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (password !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -45,47 +51,85 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl overflow-hidden mx-auto mb-4">
-            <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
+            <img
+              src="/icons/icon.jpg"
+              alt="Planly"
+              className="w-full h-full object-cover"
+              style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+            />
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Set new password</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+            Set new password
+          </h1>
         </div>
 
         {done ? (
-          <div className="rounded-2xl p-6 text-center space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div
+            className="rounded-2xl p-6 text-center space-y-3"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
             <div className="text-3xl">✅</div>
-            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Password updated!</p>
-            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Redirecting you to sign in…</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+              Password updated!
+            </p>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+              Redirecting you to sign in…
+            </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-2xl p-6 space-y-4"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
             <div>
               <label className="label">New password</label>
               <input
-                type="password" required autoFocus minLength={8}
-                value={password} onChange={(e) => setPassword(e.target.value)}
-                className="input" placeholder="At least 8 characters"
+                type="password"
+                required
+                autoFocus
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input"
+                placeholder="At least 8 characters"
               />
             </div>
             <div>
               <label className="label">Confirm password</label>
               <input
-                type="password" required minLength={8}
-                value={confirm} onChange={(e) => setConfirm(e.target.value)}
-                className="input" placeholder="Repeat password"
+                type="password"
+                required
+                minLength={8}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="input"
+                placeholder="Repeat password"
               />
             </div>
             {error && (
-              <div className="text-sm px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <div
+                className="text-sm px-3 py-2 rounded-lg"
+                style={{
+                  background: 'rgba(239,68,68,0.08)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239,68,68,0.2)',
+                }}
+              >
                 {error}
               </div>
             )}
             <button type="submit" disabled={loading || !token} className="btn-primary w-full flex justify-center">
-              {loading
-                ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                : 'Reset password'}
+              {loading ? (
+                <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Reset password'
+              )}
             </button>
             <p className="text-center text-sm" style={{ color: 'var(--text-3)' }}>
-              <Link to="/login" style={{ color: 'var(--brand)' }}>Back to sign in</Link>
+              <Link to="/login" style={{ color: 'var(--brand)' }}>
+                Back to sign in
+              </Link>
             </p>
           </form>
         )}

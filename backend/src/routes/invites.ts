@@ -56,15 +56,17 @@ export async function inviteRoutes(app: FastifyInstance) {
       include: { toUser: { select: { id: true, username: true, avatarEmoji: true } } },
       orderBy: { createdAt: 'desc' },
     });
-    reply.send(invites.map((i) => ({
-      id: i.id,
-      email: i.email,
-      toUser: i.toUser,
-      token: i.token,
-      inviteUrl: `${config.appUrl}/invite/${i.token}`,
-      expiresAt: i.expiresAt,
-      createdAt: i.createdAt,
-    })));
+    reply.send(
+      invites.map((i) => ({
+        id: i.id,
+        email: i.email,
+        toUser: i.toUser,
+        token: i.token,
+        inviteUrl: `${config.appUrl}/invite/${i.token}`,
+        expiresAt: i.expiresAt,
+        createdAt: i.createdAt,
+      })),
+    );
   });
 
   // Create invite link (admins only)
@@ -133,16 +135,18 @@ export async function inviteRoutes(app: FastifyInstance) {
       },
       orderBy: { createdAt: 'desc' },
     });
-    reply.send(pending.map((i) => ({
-      id: i.id,
-      token: i.token,
-      teamId: i.teamId,
-      projectName: i.team.products[0]?.name ?? i.team.name,
-      projectEmoji: i.team.products[0]?.emoji ?? null,
-      productId: i.team.products[0]?.id ?? null,
-      expiresAt: i.expiresAt,
-      createdAt: i.createdAt,
-    })));
+    reply.send(
+      pending.map((i) => ({
+        id: i.id,
+        token: i.token,
+        teamId: i.teamId,
+        projectName: i.team.products[0]?.name ?? i.team.name,
+        projectEmoji: i.team.products[0]?.emoji ?? null,
+        productId: i.team.products[0]?.id ?? null,
+        expiresAt: i.expiresAt,
+        createdAt: i.createdAt,
+      })),
+    );
   });
 
   // Get invite info (public - no auth required, used on the accept page)
@@ -198,7 +202,11 @@ export async function inviteRoutes(app: FastifyInstance) {
       data: { useCount: newUseCount, ...(isNowExhausted ? { usedAt: new Date() } : {}) },
     });
 
-    logAdminEvent('INVITE_ACCEPTED', { actorName: req.user.username, targetName: invite.team.name, metadata: { inviteId: invite.id, teamId: invite.teamId, useCount: newUseCount, maxUses: invite.maxUses } });
+    logAdminEvent('INVITE_ACCEPTED', {
+      actorName: req.user.username,
+      targetName: invite.team.name,
+      metadata: { inviteId: invite.id, teamId: invite.teamId, useCount: newUseCount, maxUses: invite.maxUses },
+    });
 
     reply.send({ ok: true, teamId: invite.teamId, teamName: invite.team.name });
   });

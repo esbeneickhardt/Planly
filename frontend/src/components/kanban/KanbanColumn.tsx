@@ -25,19 +25,19 @@ interface Props {
 }
 
 const SORT_LABELS: Record<SortMode, string> = {
-  default:     'Custom (drag order)',
-  'alpha-asc':  'A → Z',
+  default: 'Custom (drag order)',
+  'alpha-asc': 'A → Z',
   'alpha-desc': 'Z → A',
-  deadline:    'Deadline',
-  oldest:      'Oldest first',
-  newest:      'Newest first',
+  deadline: 'Deadline',
+  oldest: 'Oldest first',
+  newest: 'Newest first',
 };
 const SORT_CYCLE: SortMode[] = ['default', 'alpha-asc', 'alpha-desc', 'deadline', 'oldest', 'newest'];
 
 function sortTasks(tasks: Task[], mode: SortMode): Task[] {
   if (mode === 'default') return tasks;
   return [...tasks].sort((a, b) => {
-    if (mode === 'alpha-asc')  return a.name.localeCompare(b.name);
+    if (mode === 'alpha-asc') return a.name.localeCompare(b.name);
     if (mode === 'alpha-desc') return b.name.localeCompare(a.name);
     if (mode === 'deadline') {
       if (a.deadline && b.deadline) return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
@@ -50,7 +50,15 @@ function sortTasks(tasks: Task[], mode: SortMode): Task[] {
   });
 }
 
-export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, onDeleteRequest, onAddTask, isOverlay = false }: Props) {
+export default function KanbanColumn({
+  column,
+  tasks,
+  onOpenDetail,
+  onRename,
+  onDeleteRequest,
+  onAddTask,
+  isOverlay = false,
+}: Props) {
   // Sortable (for column reordering)
   const {
     setNodeRef: setSortableRef,
@@ -152,7 +160,13 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onBlur={commitRename}
-                onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setDraft(column.label); setEditing(false); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename();
+                  if (e.key === 'Escape') {
+                    setDraft(column.label);
+                    setEditing(false);
+                  }
+                }}
                 onClick={(e) => e.stopPropagation()}
                 className="flex-1 text-sm font-semibold bg-transparent border-b outline-none"
                 style={{ color: 'var(--text)', borderColor: column.color, cursor: 'text' }}
@@ -167,7 +181,10 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
               </h2>
             )}
 
-            <span className="text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: 'var(--surface)', color: 'var(--text-3)' }}>
+            <span
+              className="text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0"
+              style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
+            >
               {tasks.length}
             </span>
 
@@ -195,7 +212,13 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
                     <button
                       key={mode}
                       onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => { setSortMode(mode); try { localStorage.setItem(`planly-col-sort-${column.id}`, mode); } catch {} setShowSortMenu(false); }}
+                      onClick={() => {
+                        setSortMode(mode);
+                        try {
+                          localStorage.setItem(`planly-col-sort-${column.id}`, mode);
+                        } catch {}
+                        setShowSortMenu(false);
+                      }}
                       className="w-full text-left px-3 py-1.5 text-xs transition-colors"
                       style={{
                         color: sortMode === mode ? column.color : 'var(--text-2)',
@@ -214,11 +237,20 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
             {!column.isDone && (
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onDeleteRequest(column); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteRequest(column);
+                }}
                 className="text-xs transition-all flex-shrink-0"
                 style={{ color: 'var(--text-3)', opacity: 0.35 }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.opacity = '1'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.opacity = '0.35'; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ef4444';
+                  e.currentTarget.style.opacity = '1';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-3)';
+                  e.currentTarget.style.opacity = '0.35';
+                }}
                 title="Delete column"
               >
                 ✕
@@ -228,10 +260,17 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
 
           {sortMode !== 'default' && (
             <div className="mt-1 flex items-center gap-1.5">
-              <span className="text-[10px]" style={{ color: column.color }}>↕ {SORT_LABELS[sortMode]}</span>
+              <span className="text-[10px]" style={{ color: column.color }}>
+                ↕ {SORT_LABELS[sortMode]}
+              </span>
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => { setSortMode('default'); try { localStorage.removeItem(`planly-col-sort-${column.id}`); } catch {} }}
+                onClick={() => {
+                  setSortMode('default');
+                  try {
+                    localStorage.removeItem(`planly-col-sort-${column.id}`);
+                  } catch {}
+                }}
                 className="text-[10px] underline"
                 style={{ color: 'var(--text-3)' }}
               >
@@ -248,18 +287,28 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
           style={{ background: isOver ? `${column.color}15` : 'transparent' }}
         >
           {/* Quick-add form - pinned to top of column */}
-          {!isOverlay && onAddTask && !readOnly && (
-            addingTask ? (
-              <div className="mb-1 rounded-lg overflow-hidden" style={{ border: `1px solid ${column.color}`, background: 'var(--surface)' }}>
+          {!isOverlay &&
+            onAddTask &&
+            !readOnly &&
+            (addingTask ? (
+              <div
+                className="mb-1 rounded-lg overflow-hidden"
+                style={{ border: `1px solid ${column.color}`, background: 'var(--surface)' }}
+              >
                 <input
                   ref={addInputRef}
                   value={newTaskName}
                   onChange={(e) => setNewTaskName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); }
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      submitQuickAdd();
+                    }
                     if (e.key === 'Escape') cancelQuickAdd();
                   }}
-                  onBlur={() => { if (!newTaskName.trim()) cancelQuickAdd(); }}
+                  onBlur={() => {
+                    if (!newTaskName.trim()) cancelQuickAdd();
+                  }}
                   placeholder="Task name…"
                   className="w-full px-2.5 py-2 text-xs bg-transparent outline-none"
                   style={{ color: 'var(--text)' }}
@@ -270,7 +319,11 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
                     onClick={submitQuickAdd}
                     disabled={submitting || !newTaskName.trim()}
                     className="text-xs px-2.5 py-1 rounded font-medium transition-colors"
-                    style={{ background: column.color, color: 'white', opacity: submitting || !newTaskName.trim() ? 0.5 : 1 }}
+                    style={{
+                      background: column.color,
+                      color: 'white',
+                      opacity: submitting || !newTaskName.trim() ? 0.5 : 1,
+                    }}
                   >
                     {submitting ? '…' : 'Add'}
                   </button>
@@ -290,14 +343,19 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
                 onClick={openQuickAdd}
                 className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-all mb-1"
                 style={{ color: 'var(--text-3)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.color = column.color; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--surface)';
+                  e.currentTarget.style.color = column.color;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-3)';
+                }}
               >
                 <span className="text-sm leading-none">+</span>
                 New task
               </button>
-            )
-          )}
+            ))}
 
           <SortableContext items={sortedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             {sortedTasks.map((task) => (
@@ -305,7 +363,10 @@ export default function KanbanColumn({ column, tasks, onOpenDetail, onRename, on
             ))}
           </SortableContext>
           {tasks.length === 0 && !addingTask && (
-            <div className="flex items-center justify-center h-16 rounded-lg border-2 border-dashed" style={{ borderColor: 'var(--border)', color: 'var(--text-3)' }}>
+            <div
+              className="flex items-center justify-center h-16 rounded-lg border-2 border-dashed"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-3)' }}
+            >
               <span className="text-xs">Drop here</span>
             </div>
           )}

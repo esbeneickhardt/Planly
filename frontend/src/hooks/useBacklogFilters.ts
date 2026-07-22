@@ -31,7 +31,12 @@ export function useBacklogFilters(tasks: Task[], userId: string | undefined): Ba
     const s = localStorage.getItem('planly_backlog_sort') as SortKey | null;
     return s && ['oldest', 'newest', 'alpha', 'unassigned', 'deadline'].includes(s) ? s : 'oldest';
   });
-  const setSortKey = (k: SortKey) => { setSortKeyRaw(k); try { localStorage.setItem('planly_backlog_sort', k); } catch {} };
+  const setSortKey = (k: SortKey) => {
+    setSortKeyRaw(k);
+    try {
+      localStorage.setItem('planly_backlog_sort', k);
+    } catch {}
+  };
   const [statusTab, setStatusTab] = useState<StatusTab>('backlog');
   const [mineOnly, setMineOnly] = useState(false);
   const [search, setSearch] = useState('');
@@ -39,7 +44,9 @@ export function useBacklogFilters(tasks: Task[], userId: string | undefined): Ba
   const tabCounts = useMemo(() => {
     const base = mineOnly ? tasks.filter((t) => t.ownerId === userId) : tasks;
     const counts: Record<string, number> = { all: base.length };
-    base.forEach((t) => { counts[t.status] = (counts[t.status] ?? 0) + 1; });
+    base.forEach((t) => {
+      counts[t.status] = (counts[t.status] ?? 0) + 1;
+    });
     return counts;
   }, [tasks, mineOnly, userId]);
 
@@ -68,5 +75,18 @@ export function useBacklogFilters(tasks: Task[], userId: string | undefined): Ba
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && isBeforeToday(t.deadline)).length;
 
-  return { sortKey, setSortKey, statusTab, setStatusTab, mineOnly, setMineOnly, search, setSearch, filteredTasks, tabCounts, unassignedCount, overdueCount };
+  return {
+    sortKey,
+    setSortKey,
+    statusTab,
+    setStatusTab,
+    mineOnly,
+    setMineOnly,
+    search,
+    setSearch,
+    filteredTasks,
+    tabCounts,
+    unassignedCount,
+    overdueCount,
+  };
 }

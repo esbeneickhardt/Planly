@@ -89,7 +89,7 @@ import bcrypt from 'bcryptjs';
 import { randomBytes, randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 
-// Ensures a server admin account exists for ADMIN_EMAIL; creates one on first start, restores 
+// Ensures a server admin account exists for ADMIN_EMAIL; creates one on first start, restores
 // the isAdmin flag if it was revoked
 async function ensureAdminAccount() {
   if (!config.admin.email) return;
@@ -101,7 +101,9 @@ async function ensureAdminAccount() {
     // The founding-admin seat belongs to whoever holds it in the DB (managed via Transfer Ownership).
     if (!existing.isAdmin) {
       await prisma.user.update({ where: { email: adminEmail }, data: { isAdmin: true } });
-      process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: 'admin flag restored', email: adminEmail }) + '\n');
+      process.stdout.write(
+        JSON.stringify({ level: 30, time: Date.now(), msg: 'admin flag restored', email: adminEmail }) + '\n',
+      );
     }
     return;
   }
@@ -113,7 +115,11 @@ async function ensureAdminAccount() {
 
   // Derive a username from the email local-part. If someone has already claimed it, append a
   // numeric suffix — this is cosmetic only; admin rights come from isFoundingAdmin, not the username.
-  const base = (adminEmail.split('@')[0] ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 32) || 'admin';
+  const base =
+    (adminEmail.split('@')[0] ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '_')
+      .slice(0, 32) || 'admin';
   let username = base;
   let suffix = 0;
   while (await prisma.user.findUnique({ where: { username } })) username = `${base}${++suffix}`;
@@ -131,7 +137,15 @@ async function ensureAdminAccount() {
   });
 
   if (useEnvPassword) {
-    process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: 'founding admin created', email: adminEmail, source: 'ADMIN_PASSWORD env var' }) + '\n');
+    process.stdout.write(
+      JSON.stringify({
+        level: 30,
+        time: Date.now(),
+        msg: 'founding admin created',
+        email: adminEmail,
+        source: 'ADMIN_PASSWORD env var',
+      }) + '\n',
+    );
   } else {
     // Write banner as structured JSON so log aggregators capture it, but keep it readable
     const lines = [
@@ -154,7 +168,10 @@ async function emergencyRecrown() {
 
   const target = await prisma.user.findUnique({ where: { email } });
   if (!target) {
-    process.stderr.write(JSON.stringify({ level: 50, time: Date.now(), msg: 'RECROWN_EMAIL set but user not found - skipping', email }) + '\n');
+    process.stderr.write(
+      JSON.stringify({ level: 50, time: Date.now(), msg: 'RECROWN_EMAIL set but user not found - skipping', email }) +
+        '\n',
+    );
     return;
   }
 
@@ -163,7 +180,14 @@ async function emergencyRecrown() {
   await prisma.$transaction([
     prisma.user.updateMany({ where: { isFoundingAdmin: true }, data: { isFoundingAdmin: false } }),
     prisma.user.update({ where: { email }, data: { isAdmin: true, isFoundingAdmin: true } }),
-    prisma.adminLog.create({ data: { action: 'CROWN_TRANSFERRED', actorName: 'SYSTEM (RECROWN_EMAIL)', targetName: target.username, metadata: { reason: 'Emergency recovery via RECROWN_EMAIL env var' } } }),
+    prisma.adminLog.create({
+      data: {
+        action: 'CROWN_TRANSFERRED',
+        actorName: 'SYSTEM (RECROWN_EMAIL)',
+        targetName: target.username,
+        metadata: { reason: 'Emergency recovery via RECROWN_EMAIL env var' },
+      },
+    }),
   ]);
 
   const rcrownLines = [
@@ -174,7 +198,9 @@ async function emergencyRecrown() {
     '║   and restart to clear this message.     ║',
     '╚══════════════════════════════════════════╝',
   ];
-  rcrownLines.forEach((line) => process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: line, event: 'recrown' }) + '\n'));
+  rcrownLines.forEach((line) =>
+    process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: line, event: 'recrown' }) + '\n'),
+  );
 }
 
 // In-memory counters for /api/metrics - avoids a DB query on every Prometheus scrape
@@ -234,7 +260,7 @@ async function main() {
     req.id = sanitized || randomUUID();
     done();
   });
-  
+
   // Update in-memory request counters used by /api/metrics
   app.addHook('onResponse', (_req, reply, done) => {
     metrics.requestsTotal++;
@@ -249,7 +275,10 @@ async function main() {
     reply.header('X-Request-Id', _req.id as string);
     const ct = reply.getHeader('content-type');
     if (ct && typeof ct === 'string' && ct.includes('text/html')) {
-      reply.header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'");
+      reply.header(
+        'Content-Security-Policy',
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'",
+      );
     }
     done();
   });
@@ -285,7 +314,10 @@ async function main() {
     const site = req.headers['sec-fetch-site'];
     if (site && site === 'cross-site' && MUTATING_METHODS.has(req.method)) {
       // Allow the SSO callback which arrives as a cross-site navigation POST from the IdP
-      if (req.url.startsWith('/api/auth/sso/callback')) { done(); return; }
+      if (req.url.startsWith('/api/auth/sso/callback')) {
+        done();
+        return;
+      }
       reply.status(403).send({ error: 'Cross-site requests are not allowed' });
       return;
     }
@@ -296,7 +328,11 @@ async function main() {
   // Violations appear when injected scripts or rogue resources are blocked by the CSP.
   // Set SECURITY_ALERT_WEBHOOK_URL to route high-frequency violations to Slack/Discord.
   app.addContentTypeParser('application/csp-report', { parseAs: 'string' }, (_req, body, done) => {
-    try { done(null, JSON.parse(body as string)); } catch { done(null, {}); }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch {
+      done(null, {});
+    }
   });
   app.post('/api/csp-report', async (req, reply) => {
     req.log.warn({ cspViolation: req.body }, 'CSP violation reported');
@@ -327,7 +363,9 @@ async function main() {
           const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { isAdmin: true } });
           if (user?.isAdmin) return;
         }
-      } catch { /* invalid / expired token — apply IP rules */ }
+      } catch {
+        /* invalid / expired token — apply IP rules */
+      }
     }
 
     const [allowlist, blocklist] = await Promise.all([
@@ -341,7 +379,9 @@ async function main() {
     }
     // If an allowlist exists, the IP must be on it
     if (allowlist.length > 0 && !allowlist.some((r) => matchesCidr(ip, r.cidr))) {
-      return reply.status(403).send({ error: 'Access denied: your IP address is not on the allowlist.', code: 'IP_BLOCKED' });
+      return reply
+        .status(403)
+        .send({ error: 'Access denied: your IP address is not on the allowlist.', code: 'IP_BLOCKED' });
     }
   });
 
@@ -361,16 +401,16 @@ async function main() {
   // Expensive read endpoints (search, exports) use tighter limits to resist scraping.
   const loginRateMax = parseInt(process.env.RATE_LIMIT_LOGIN_MAX ?? '10', 10);
   const ROUTE_RATE_LIMITS: Record<string, { max: number; timeWindow: string }> = {
-    '/api/auth/login':                   { max: loginRateMax, timeWindow: '1 minute' },
-    '/api/auth/refresh-token':           { max: 60, timeWindow: '1 minute' },
-    '/api/auth/forgot-password':         { max: 10, timeWindow: '1 minute' },
-    '/api/auth/reset-password':          { max: 10, timeWindow: '1 minute' },
-    '/api/auth/change-password':         { max: 5,  timeWindow: '15 minutes' },
-    '/api/auth/resend-verification':     { max: 5,  timeWindow: '15 minutes' },
-    '/api/auth/register':                { max: 10, timeWindow: '1 hour' },
-    '/api/search':                       { max: 30, timeWindow: '1 minute' },
-    '/api/admin/logs/export':            { max: 10, timeWindow: '1 minute' },
-    '/api/me/export':                    { max: 5,  timeWindow: '1 hour' },
+    '/api/auth/login': { max: loginRateMax, timeWindow: '1 minute' },
+    '/api/auth/refresh-token': { max: 60, timeWindow: '1 minute' },
+    '/api/auth/forgot-password': { max: 10, timeWindow: '1 minute' },
+    '/api/auth/reset-password': { max: 10, timeWindow: '1 minute' },
+    '/api/auth/change-password': { max: 5, timeWindow: '15 minutes' },
+    '/api/auth/resend-verification': { max: 5, timeWindow: '15 minutes' },
+    '/api/auth/register': { max: 10, timeWindow: '1 hour' },
+    '/api/search': { max: 30, timeWindow: '1 minute' },
+    '/api/admin/logs/export': { max: 10, timeWindow: '1 minute' },
+    '/api/me/export': { max: 5, timeWindow: '1 hour' },
   };
 
   app.addHook('onRoute', (route) => {
@@ -473,21 +513,36 @@ async function main() {
   // Purges old rows across several tables to keep the database lean; runs once at startup then every 24h
   async function runRetentionCleanup() {
     try {
-      const notifCutoff        = new Date(Date.now() -  90 * 24 * 60 * 60 * 1000); // notifications: 90 days
-      const activityCutoff     = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000); // activity feed: 180 days
-      const softDeleteCutoff   = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // soft-deleted tasks: 1 year
+      const notifCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); // notifications: 90 days
+      const activityCutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000); // activity feed: 180 days
+      const softDeleteCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // soft-deleted tasks: 1 year
       const adminLogRetentionDays = parseInt(process.env.ADMIN_LOG_RETENTION_DAYS ?? '90', 10);
-      const adminLogCutoff     = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000); // audit log: configurable (default 90d)
+      const adminLogCutoff = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000); // audit log: configurable (default 90d)
       const [notifResult, activityResult, taskResult, adminLogResult, ssoStateResult] = await Promise.all([
         prisma.notification.deleteMany({ where: { createdAt: { lt: notifCutoff } } }),
         prisma.activityEvent.deleteMany({ where: { createdAt: { lt: activityCutoff } } }),
-        prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }),    // hard-delete tasks soft-deleted over a year ago
+        prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }), // hard-delete tasks soft-deleted over a year ago
         prisma.adminLog.deleteMany({ where: { createdAt: { lt: adminLogCutoff } } }),
-        prisma.ssoState.deleteMany({ where: { expiresAt: { lt: new Date() } } }),      // OIDC flow nonces (short-lived, expire on their own)
-        prisma.wsTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }),      // WebSocket auth tickets (short-lived, expire on their own)
+        prisma.ssoState.deleteMany({ where: { expiresAt: { lt: new Date() } } }), // OIDC flow nonces (short-lived, expire on their own)
+        prisma.wsTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }), // WebSocket auth tickets (short-lived, expire on their own)
       ]);
-      if (notifResult.count > 0 || activityResult.count > 0 || taskResult.count > 0 || adminLogResult.count > 0 || ssoStateResult.count > 0) {
-        app.log.info({ notificationsDeleted: notifResult.count, activityEventsDeleted: activityResult.count, tasksHardDeleted: taskResult.count, adminLogsDeleted: adminLogResult.count, ssoStatesDeleted: ssoStateResult.count }, 'Retention cleanup completed');
+      if (
+        notifResult.count > 0 ||
+        activityResult.count > 0 ||
+        taskResult.count > 0 ||
+        adminLogResult.count > 0 ||
+        ssoStateResult.count > 0
+      ) {
+        app.log.info(
+          {
+            notificationsDeleted: notifResult.count,
+            activityEventsDeleted: activityResult.count,
+            tasksHardDeleted: taskResult.count,
+            adminLogsDeleted: adminLogResult.count,
+            ssoStatesDeleted: ssoStateResult.count,
+          },
+          'Retention cleanup completed',
+        );
       }
     } catch (err) {
       app.log.warn({ err }, 'Retention cleanup failed');

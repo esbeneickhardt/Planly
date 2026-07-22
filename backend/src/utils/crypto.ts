@@ -19,9 +19,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'crypto'
 function getKey(): Buffer {
   const secret = process.env.ENCRYPTION_KEY;
   if (!secret) throw new Error('ENCRYPTION_KEY env var is required for encryption operations');
-  return Buffer.from(
-    hkdfSync('sha256', Buffer.from(secret, 'utf8'), 'planly-v1', 'aes-256-gcm-key', 32),
-  );
+  return Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), 'planly-v1', 'aes-256-gcm-key', 32));
 }
 
 // Encryption helpers
@@ -56,7 +54,9 @@ export function decryptUserPii<T extends { realName?: string | null; phone?: str
 
 // Decrypt the author's realName on a message before sending to the client.
 // Also decrypts replyTo.author.realName so quoted message previews show the correct name.
-export function decryptMessageAuthor<T extends { author: { realName: string | null }; replyTo?: { author: { realName: string | null } } | null }>(msg: T): T {
+export function decryptMessageAuthor<
+  T extends { author: { realName: string | null }; replyTo?: { author: { realName: string | null } } | null },
+>(msg: T): T {
   const decName = (n: string | null) => (n ? safeDecryptValue(n) : null);
   return {
     ...msg,

@@ -93,7 +93,9 @@ export async function searchRoutes(app: FastifyInstance) {
 
     reply.send({
       tasks: allTasks.map((t) => ({ ...t, owner: dec(t.owner), product: productMap[t.productId] })),
-      messages: messages.filter((m) => m.productId).map((m) => ({ ...m, author: dec(m.author)!, product: productMap[m.productId!] })),
+      messages: messages
+        .filter((m) => m.productId)
+        .map((m) => ({ ...m, author: dec(m.author)!, product: productMap[m.productId!] })),
     });
   });
 }

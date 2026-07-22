@@ -21,7 +21,7 @@ After the first build, omit `--build` for faster starts:
 docker compose up
 ```
 
-The backend auto-applies schema changes on startup via `prisma db push` - no manual steps needed.
+The backend runs `prisma migrate deploy` on startup — migration files in `prisma/migrations/` are applied in order. No manual steps needed for routine upgrades.
 
 ---
 
@@ -133,13 +133,15 @@ docker compose -f docker-compose.prod.yml build --no-cache && docker compose -f 
 
 > **Important:** `docker compose restart` only restarts existing containers - it does **not** apply updated images. Always use `--force-recreate` when deploying new code.
 
-Schema changes are applied automatically on backend startup via `prisma db push`.
+Database migrations run automatically on backend startup via `prisma migrate deploy`.
 
 ### Rolling back a migration
 
-Prisma does not support automatic rollbacks. The safest recovery path is **always a forward migration** (write a new migration that undoes the change). If you must roll back manually:
+Prisma does not support automatic rollbacks. The safest recovery path is to **restore from backup** and re-deploy the previous image — see the RUNBOOK.md for the exact steps.
 
-1. **Reverse the schema change with SQL** - connect to Postgres and undo the DDL:
+If you must perform a manual forward-migration rollback (not recommended for production without a backup):
+
+1. **Reverse the schema change with SQL** — connect to Postgres and undo the DDL:
    ```sql
    -- Example: undo an ADD COLUMN
    ALTER TABLE "Task" DROP COLUMN IF EXISTS "githubUrl";
@@ -153,7 +155,7 @@ Prisma does not support automatic rollbacks. The safest recovery path is **alway
 
 3. **Remove or revert the migration file** from `prisma/migrations/` to prevent it from being re-applied on the next startup.
 
-> **Note:** The safest approach in production is always to write a new forward migration that reverses the unwanted change. Rollbacks require manual SQL and careful coordination with code deployments.
+> **Note:** Manual rollbacks require careful coordination between code and schema state. The backup/restore path in RUNBOOK.md is always safer.
 
 ---
 

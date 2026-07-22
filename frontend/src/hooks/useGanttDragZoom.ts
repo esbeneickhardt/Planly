@@ -7,8 +7,15 @@ import { useState, useRef } from 'react';
 
 type ResizeType = 'milestone' | 'sprint' | 'sprint-start' | 'product';
 
-interface ResizeEvent { type: ResizeType; id: string; date: Date; }
-interface ResizedEvent { type: ResizeType; id: string; }
+interface ResizeEvent {
+  type: ResizeType;
+  id: string;
+  date: Date;
+}
+interface ResizedEvent {
+  type: ResizeType;
+  id: string;
+}
 
 interface Options {
   fullStart: Date;
@@ -45,12 +52,22 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
     const minSpan = 3 * 86_400_000;
     const maxSpan = fe.getTime() - fs.getTime();
     if (newSpan < minSpan) return;
-    if (newSpan >= maxSpan) { setViewStart(fs); setViewEnd(fe); return; }
+    if (newSpan >= maxSpan) {
+      setViewStart(fs);
+      setViewEnd(fe);
+      return;
+    }
     const anchor = v.getTime() + anchorRatio * span;
     let newStart = anchor - anchorRatio * newSpan;
     let newEnd = anchor + (1 - anchorRatio) * newSpan;
-    if (newStart < fs.getTime()) { newStart = fs.getTime(); newEnd = fs.getTime() + newSpan; }
-    if (newEnd > fe.getTime()) { newEnd = fe.getTime(); newStart = Math.max(fs.getTime(), fe.getTime() - newSpan); }
+    if (newStart < fs.getTime()) {
+      newStart = fs.getTime();
+      newEnd = fs.getTime() + newSpan;
+    }
+    if (newEnd > fe.getTime()) {
+      newEnd = fe.getTime();
+      newStart = Math.max(fs.getTime(), fe.getTime() - newSpan);
+    }
     setViewStart(new Date(newStart));
     setViewEnd(new Date(newEnd));
   }
@@ -60,48 +77,64 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
     if (!el) return;
     if ((el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached) return;
     (el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached = true;
-    el.addEventListener('wheel', (e: WheelEvent) => {
-      e.preventDefault();
-      const { vs: v, ve: en, fullStart: fs, fullEnd: fe } = viewRef.current;
-      const rect = el.getBoundingClientRect();
-      const span = en.getTime() - v.getTime();
-      const maxSpan = fe.getTime() - fs.getTime();
+    el.addEventListener(
+      'wheel',
+      (e: WheelEvent) => {
+        e.preventDefault();
+        const { vs: v, ve: en, fullStart: fs, fullEnd: fe } = viewRef.current;
+        const rect = el.getBoundingClientRect();
+        const span = en.getTime() - v.getTime();
+        const maxSpan = fe.getTime() - fs.getTime();
 
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        const deltaMs = (e.deltaX / rect.width) * span * 1.5;
-        let newStart = v.getTime() + deltaMs;
-        let newEnd = en.getTime() + deltaMs;
-        if (newStart < fs.getTime()) { newStart = fs.getTime(); newEnd = fs.getTime() + span; }
-        if (newEnd > fe.getTime()) { newEnd = fe.getTime(); newStart = Math.max(fs.getTime(), fe.getTime() - span); }
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+          const deltaMs = (e.deltaX / rect.width) * span * 1.5;
+          let newStart = v.getTime() + deltaMs;
+          let newEnd = en.getTime() + deltaMs;
+          if (newStart < fs.getTime()) {
+            newStart = fs.getTime();
+            newEnd = fs.getTime() + span;
+          }
+          if (newEnd > fe.getTime()) {
+            newEnd = fe.getTime();
+            newStart = Math.max(fs.getTime(), fe.getTime() - span);
+          }
+          viewRef.current.vs = new Date(newStart);
+          viewRef.current.ve = new Date(newEnd);
+          setViewStart(new Date(newStart));
+          setViewEnd(new Date(newEnd));
+          return;
+        }
+
+        const mouseRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const factor = e.deltaY > 0 ? 1.25 : 0.8;
+        const newSpan = span * factor;
+        const minSpan = 3 * 86_400_000;
+        if (newSpan < minSpan) return;
+        if (newSpan >= maxSpan) {
+          viewRef.current.vs = fs;
+          viewRef.current.ve = fe;
+          setViewStart(new Date(fs));
+          setViewEnd(new Date(fe));
+          return;
+        }
+        const anchor = v.getTime() + mouseRatio * span;
+        let newStart = anchor - mouseRatio * newSpan;
+        let newEnd = anchor + (1 - mouseRatio) * newSpan;
+        if (newStart < fs.getTime()) {
+          newStart = fs.getTime();
+          newEnd = fs.getTime() + newSpan;
+        }
+        if (newEnd > fe.getTime()) {
+          newEnd = fe.getTime();
+          newStart = Math.max(fs.getTime(), fe.getTime() - newSpan);
+        }
         viewRef.current.vs = new Date(newStart);
         viewRef.current.ve = new Date(newEnd);
         setViewStart(new Date(newStart));
         setViewEnd(new Date(newEnd));
-        return;
-      }
-
-      const mouseRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const factor = e.deltaY > 0 ? 1.25 : 0.8;
-      const newSpan = span * factor;
-      const minSpan = 3 * 86_400_000;
-      if (newSpan < minSpan) return;
-      if (newSpan >= maxSpan) {
-        viewRef.current.vs = fs;
-        viewRef.current.ve = fe;
-        setViewStart(new Date(fs));
-        setViewEnd(new Date(fe));
-        return;
-      }
-      const anchor = v.getTime() + mouseRatio * span;
-      let newStart = anchor - mouseRatio * newSpan;
-      let newEnd = anchor + (1 - mouseRatio) * newSpan;
-      if (newStart < fs.getTime()) { newStart = fs.getTime(); newEnd = fs.getTime() + newSpan; }
-      if (newEnd > fe.getTime()) { newEnd = fe.getTime(); newStart = Math.max(fs.getTime(), fe.getTime() - newSpan); }
-      viewRef.current.vs = new Date(newStart);
-      viewRef.current.ve = new Date(newEnd);
-      setViewStart(new Date(newStart));
-      setViewEnd(new Date(newEnd));
-    }, { passive: false });
+      },
+      { passive: false },
+    );
   };
 
   // Pointer handlers: distinguish resize (data-resize element) from pan (empty area)
@@ -139,8 +172,14 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
     const deltaMs = -(dx / rect.width) * span;
     let newStart = dragState.current.vs.getTime() + deltaMs;
     let newEnd = dragState.current.ve.getTime() + deltaMs;
-    if (newStart < fs.getTime()) { newStart = fs.getTime(); newEnd = fs.getTime() + span; }
-    if (newEnd > fe.getTime()) { newEnd = fe.getTime(); newStart = Math.max(fs.getTime(), fe.getTime() - span); }
+    if (newStart < fs.getTime()) {
+      newStart = fs.getTime();
+      newEnd = fs.getTime() + span;
+    }
+    if (newEnd > fe.getTime()) {
+      newEnd = fe.getTime();
+      newStart = Math.max(fs.getTime(), fe.getTime() - span);
+    }
     setViewStart(new Date(newStart));
     setViewEnd(new Date(newEnd));
   }
@@ -157,9 +196,18 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
   }
 
   return {
-    vs, ve, viewStart, viewEnd, setViewStart, setViewEnd,
-    isDragging, isResizing,
-    applyZoom, attachWheel,
-    handlePointerDown, handlePointerMove, handlePointerUp,
+    vs,
+    ve,
+    viewStart,
+    viewEnd,
+    setViewStart,
+    setViewEnd,
+    isDragging,
+    isResizing,
+    applyZoom,
+    attachWheel,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
   };
 }

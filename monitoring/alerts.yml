@@ -1,0 +1,92 @@
+groups:
+  - name: planly
+    interval: 30s
+    rules:
+
+      # ── Availability ────────────────────────────────────────────────────────
+
+      - alert: PlanlyDown
+        expr: absent(process_uptime_seconds)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Planly backend is not responding'
+          description: >
+            The /api/metrics endpoint has been unreachable for over 1 minute.
+            The backend is likely crashed, OOM-killed, or the container is down.
+            Runbook: check `docker compose ps` and `docker compose logs backend`.
+
+      - alert: PlanlyUnexpectedRestart
+        expr: process_uptime_seconds < 120
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Planly backend restarted in the last 2 minutes'
+          description: >
+            process_uptime_seconds is {{ $value | humanizeDuration }}.
+            An unexpected restart may indicate OOM, a fatal error, or a bad deploy.
+            Runbook: check `docker compose logs backend --since 10m` for the exit reason.
+
+      # ── Error rate ───────────────────────────────────────────────────────────
+      #
+      # The backend exports http_requests_by_status_total{status="5xx"} as a
+      # cumulative counter. We use irate() over 5 minutes to get a per-second rate.
+
+      - alert: HighServerErrorRate
+        expr: >
+          (
+            irate(http_requests_by_status_total{status="5xx"}[5m])
+            /
+            irate(http_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Server error rate above 5% for 5 minutes'
+          description: >
+            {{ $value | humanizePercentage }} of requests are returning 5xx.
+            Runbook: check `docker compose logs backend --since 30m | grep '"level":"error"'`.
+
+      - alert: ElevatedClientErrorRate
+        expr: >
+          (
+            irate(http_requests_by_status_total{status="4xx"}[5m])
+            /
+            irate(http_requests_total[5m])
+          ) > 0.25
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Client error rate above 25% for 10 minutes'
+          description: >
+            {{ $value | humanizePercentage }} of requests are returning 4xx.
+            This may indicate a broken client build, an attack, or a rate-limit storm.
+
+      # ── WebSocket ────────────────────────────────────────────────────────────
+
+      - alert: HighWebSocketConnections
+        expr: ws_connections_active > 2000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Over 2000 active WebSocket connections'
+          description: >
+            ws_connections_active = {{ $value }}.
+            At this level, in-memory room state is large. Consider enabling Redis
+            (REDIS_URL in .env) and running multiple backend replicas.
+
+      - alert: WebSocketConnectionsNearLimit
+        expr: ws_connections_active > 4000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'WebSocket connections above 4000 — approaching per-process limits'
+          description: >
+            ws_connections_active = {{ $value }}. Enable Redis + horizontal scaling
+            immediately to avoid connection refusals. See RUNBOOK.md § Scaling.

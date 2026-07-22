@@ -155,9 +155,7 @@ export async function totpRoutes(app: FastifyInstance) {
     if (!user) return reply.status(404).send({ error: 'Not found' });
     if (!user.totpEnabled) return reply.status(409).send({ error: 'TOTP is not enabled' });
 
-    const codeOk = user.totpSecret
-      ? verifyCode(user.totpSecret, user.username, body.code)
-      : false;
+    const codeOk = user.totpSecret ? verifyCode(user.totpSecret, user.username, body.code) : false;
     const backupOk = !codeOk && (await checkBackupCode(user.id, body.code));
 
     if (!codeOk && !backupOk) {
@@ -170,7 +168,12 @@ export async function totpRoutes(app: FastifyInstance) {
     ]);
 
     logAdminEvent('TOTP_DISABLED', { actorName: user.username, targetName: user.username });
-    sendSecurityAlert({ event: 'TOTP_DISABLED', account: user.username, ip: req.ip, timestamp: new Date().toISOString() });
+    sendSecurityAlert({
+      event: 'TOTP_DISABLED',
+      account: user.username,
+      ip: req.ip,
+      timestamp: new Date().toISOString(),
+    });
 
     reply.send({ ok: true });
   });
@@ -220,13 +223,27 @@ export async function totpRoutes(app: FastifyInstance) {
     );
 
     // Log successful TOTP login in the audit trail
-    await prisma.adminLog.create({
-      data: { action: 'LOGIN_TOTP', actorName: user.username, targetName: user.username },
-    }).catch(() => {});
+    await prisma.adminLog
+      .create({
+        data: { action: 'LOGIN_TOTP', actorName: user.username, targetName: user.username },
+      })
+      .catch(() => {});
 
     const rt = await issueRefreshToken(user.id);
     issueAuthCookie(reply, token, rt);
-    reply.send(decryptUserPii({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified }));
+    reply.send(
+      decryptUserPii({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        realName: user.realName,
+        avatarEmoji: user.avatarEmoji,
+        mustChangePassword: user.mustChangePassword,
+        isAdmin: user.isAdmin,
+        isFoundingAdmin: user.isFoundingAdmin,
+        emailVerified: user.emailVerified,
+      }),
+    );
   });
 
   // Returns whether TOTP is enabled for the current user.

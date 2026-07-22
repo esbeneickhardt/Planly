@@ -20,7 +20,12 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const adminUser = await createTestUser({ email: adminEmail, username: `admin_${suffix}`, password: 'pass1234', isAdmin: true });
+    const adminUser = await createTestUser({
+      email: adminEmail,
+      username: `admin_${suffix}`,
+      password: 'pass1234',
+      isAdmin: true,
+    });
     await prisma.user.update({ where: { id: adminUser.id }, data: { isFoundingAdmin: true } });
     const target = await createTestUser({ email: targetEmail, username: `target_${suffix}`, password: 'pass1234' });
     targetId = target.id;
@@ -112,7 +117,12 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const admin = await createTestUser({ email: adminEmail, username: `admin2_${suffix}`, password: 'pass1234', isAdmin: true });
+    const admin = await createTestUser({
+      email: adminEmail,
+      username: `admin2_${suffix}`,
+      password: 'pass1234',
+      isAdmin: true,
+    });
     const member = await createTestUser({ email: memberEmail, username: `member2_${suffix}`, password: 'pass1234' });
 
     const team = await prisma.team.create({
@@ -123,10 +133,18 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
     });
     teamId = team.id;
 
-    const adminLogin = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: adminEmail, password: 'pass1234' } });
+    const adminLogin = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { identifier: adminEmail, password: 'pass1234' },
+    });
     adminToken = (adminLogin.headers['set-cookie']?.[0]?.split(';')[0] ?? '').replace('token=', '');
 
-    const memberLogin = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: memberEmail, password: 'pass1234' } });
+    const memberLogin = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { identifier: memberEmail, password: 'pass1234' },
+    });
     memberToken = (memberLogin.headers['set-cookie']?.[0]?.split(';')[0] ?? '').replace('token=', '');
 
     // Disable project creation for non-admins
@@ -138,7 +156,11 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
   });
 
   afterAll(async () => {
-    await prisma.serverConfig.upsert({ where: { id: 'main' }, update: { allowProjectCreation: true }, create: { id: 'main', allowProjectCreation: true } });
+    await prisma.serverConfig.upsert({
+      where: { id: 'main' },
+      update: { allowProjectCreation: true },
+      create: { id: 'main', allowProjectCreation: true },
+    });
     await prisma.team.deleteMany({ where: { id: teamId } });
     await prisma.user.deleteMany({ where: { email: { in: [adminEmail, memberEmail] } } });
     await app.close();

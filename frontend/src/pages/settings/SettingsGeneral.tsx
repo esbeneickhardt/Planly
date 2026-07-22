@@ -21,7 +21,14 @@ interface Props {
 }
 
 export default function SettingsGeneral({
-  activeProduct, isOwner, canManage, currentUser, members, refreshProducts, showToast, confirm,
+  activeProduct,
+  isOwner,
+  canManage,
+  currentUser,
+  members,
+  refreshProducts,
+  showToast,
+  confirm,
 }: Props) {
   const [projName, setProjName] = useState(activeProduct.name);
   const [projEmoji, setProjEmoji] = useState(activeProduct.emoji ?? '');
@@ -46,38 +53,50 @@ export default function SettingsGeneral({
     try {
       await api.products.update(activeProduct.id, { analyticsEnabled: !activeProduct.analyticsEnabled });
       await refreshProducts();
-    } catch (err) { showToast((err as Error).message, 'error'); }
-    finally { setTogglingAnalytics(false); }
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setTogglingAnalytics(false);
+    }
   }
 
   async function transferOwnership() {
     if (!transferTo) return;
-    if (!await confirm(`Transfer ownership of "${activeProduct.name}"? You will become a regular member.`)) return;
+    if (!(await confirm(`Transfer ownership of "${activeProduct.name}"? You will become a regular member.`))) return;
     setTransferring(true);
     try {
       await api.products.update(activeProduct.id, { ownerId: transferTo });
       await refreshProducts();
       showToast('Ownership transferred', 'success');
       setTransferTo('');
-    } catch (err) { showToast((err as Error).message, 'error'); }
-    finally { setTransferring(false); }
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setTransferring(false);
+    }
   }
 
   return (
     <div className="max-w-2xl space-y-8">
-
       {/* Project details */}
       {canManage && (
         <div>
-          <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Project details</h2>
-          <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>Change the project name, icon, and description.</p>
+          <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
+            Project details
+          </h2>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
+            Change the project name, icon, and description.
+          </p>
           <div className="space-y-3">
             <div className="flex gap-2 items-start">
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker((v) => !v)}
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors flex-shrink-0"
-                style={{ background: showEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)', border: `1px solid ${showEmojiPicker ? 'var(--brand)' : 'var(--border)'}` }}
+                style={{
+                  background: showEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  border: `1px solid ${showEmojiPicker ? 'var(--brand)' : 'var(--border)'}`,
+                }}
                 title="Pick an icon"
               >
                 {projEmoji || '🎯'}
@@ -85,7 +104,10 @@ export default function SettingsGeneral({
               <input
                 className="input text-sm flex-1"
                 value={projName}
-                onChange={(e) => { setProjName(e.target.value); setProjDirty(true); }}
+                onChange={(e) => {
+                  setProjName(e.target.value);
+                  setProjDirty(true);
+                }}
                 placeholder="Project name"
               />
             </div>
@@ -93,21 +115,34 @@ export default function SettingsGeneral({
               <div>
                 <EmojiPicker
                   value={projEmoji}
-                  onChange={(e) => { setProjEmoji(e); setProjDirty(true); setShowEmojiPicker(false); }}
+                  onChange={(e) => {
+                    setProjEmoji(e);
+                    setProjDirty(true);
+                    setShowEmojiPicker(false);
+                  }}
                 />
                 {projEmoji && (
                   <button
                     type="button"
-                    onClick={() => { setProjEmoji(''); setProjDirty(true); setShowEmojiPicker(false); }}
+                    onClick={() => {
+                      setProjEmoji('');
+                      setProjDirty(true);
+                      setShowEmojiPicker(false);
+                    }}
                     className="mt-1 w-full text-xs py-1 rounded-lg transition-colors"
                     style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
-                  >Remove icon</button>
+                  >
+                    Remove icon
+                  </button>
                 )}
               </div>
             )}
             <MarkdownEditor
               value={projDesc}
-              onChange={(v) => { setProjDesc(v); setProjDirty(true); }}
+              onChange={(v) => {
+                setProjDesc(v);
+                setProjDirty(true);
+              }}
               rows={6}
               placeholder="Describe the project… (markdown supported, images can be pasted or attached)"
             />
@@ -117,11 +152,17 @@ export default function SettingsGeneral({
                 if (!projName.trim()) return;
                 setSavingProj(true);
                 try {
-                  await api.products.update(activeProduct.id, { name: projName.trim(), emoji: projEmoji || undefined, description: projDesc || undefined });
+                  await api.products.update(activeProduct.id, {
+                    name: projName.trim(),
+                    emoji: projEmoji || undefined,
+                    description: projDesc || undefined,
+                  });
                   await refreshProducts();
                   setProjDirty(false);
                   showToast('Project updated', 'success');
-                } finally { setSavingProj(false); }
+                } finally {
+                  setSavingProj(false);
+                }
               }}
               className="btn-primary text-sm px-4"
             >
@@ -135,9 +176,12 @@ export default function SettingsGeneral({
       {isOwner && (
         <>
           <div>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Analytics</h2>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
+              Analytics
+            </h2>
             <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
-              When enabled, all team members can see the Analytics tab. Disable it if your team prefers to work without visible metrics.
+              When enabled, all team members can see the Analytics tab. Disable it if your team prefers to work without
+              visible metrics.
             </p>
             <button
               onClick={toggleAnalytics}
@@ -150,12 +194,18 @@ export default function SettingsGeneral({
               }}
             >
               <span>{activeProduct.analyticsEnabled ? '✓' : '○'}</span>
-              {togglingAnalytics ? 'Saving…' : activeProduct.analyticsEnabled ? 'Analytics enabled (visible to all members)' : 'Analytics disabled (hidden from team)'}
+              {togglingAnalytics
+                ? 'Saving…'
+                : activeProduct.analyticsEnabled
+                  ? 'Analytics enabled (visible to all members)'
+                  : 'Analytics disabled (hidden from team)'}
             </button>
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Export project data</h2>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
+              Export project data
+            </h2>
             <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
               Download a complete JSON export of this project including all tasks, sprints, messages, and settings.
             </p>
@@ -170,16 +220,26 @@ export default function SettingsGeneral({
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Transfer ownership</h2>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
+              Transfer ownership
+            </h2>
             <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
               Hand over ownership to another team member. You will become a regular member after this action.
             </p>
             <div className="flex gap-3 items-center">
-              <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} className="input text-sm flex-1 max-w-xs">
+              <select
+                value={transferTo}
+                onChange={(e) => setTransferTo(e.target.value)}
+                className="input text-sm flex-1 max-w-xs"
+              >
                 <option value="">Select new owner…</option>
-                {members.filter(({ userId }) => userId !== currentUser?.id).map(({ userId, user }) => (
-                  <option key={userId} value={userId}>{user.avatarEmoji} {user.username}</option>
-                ))}
+                {members
+                  .filter(({ userId }) => userId !== currentUser?.id)
+                  .map(({ userId, user }) => (
+                    <option key={userId} value={userId}>
+                      {user.avatarEmoji} {user.username}
+                    </option>
+                  ))}
               </select>
               <button
                 onClick={transferOwnership}
