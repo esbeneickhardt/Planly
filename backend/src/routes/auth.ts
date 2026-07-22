@@ -27,7 +27,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../db/client';
 import { config } from '../config/env';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, invalidateCachedTokenVersion } from '../middleware/auth';
 import { issueAuthCookie, clearAuthCookies } from '../utils/auth-cookie';
 import { issueRefreshToken, rotateRefreshToken, revokeRefreshFamily } from '../utils/refresh-tokens';
 import { getServerConfig } from '../utils/server-config';
