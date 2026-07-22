@@ -12,21 +12,30 @@ import type { Task } from '../../types';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const SPRINT_PALETTE = [
-  '#7c3aed', '#3b82f6', '#10b981', '#f59e0b',
-  '#ef4444', '#ec4899', '#06b6d4', '#f97316',
+  '#7c3aed',
+  '#3b82f6',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#ec4899',
+  '#06b6d4',
+  '#f97316',
 ] as const;
 
 export const STATUS_OPTIONS = [
-  { key: 'backlog',     label: 'Not started', color: '#64748b' },
-  { key: 'todo',        label: 'To Do',       color: '#3b82f6' },
+  { key: 'backlog', label: 'Not started', color: '#64748b' },
+  { key: 'todo', label: 'To Do', color: '#3b82f6' },
   { key: 'in_progress', label: 'In Progress', color: '#f59e0b' },
-  { key: 'blocked',     label: 'Blocked',     color: '#ef4444' },
-  { key: 'done',        label: 'Done',        color: '#10b981' },
+  { key: 'blocked', label: 'Blocked', color: '#ef4444' },
+  { key: 'done', label: 'Done', color: '#10b981' },
 ] as const;
 
 // ─── Shared context (consumed by TaskNode via useContext) ──────────────────────
 
-export interface CanvasCtx { showSprintAura: boolean; simpleMode: boolean; }
+export interface CanvasCtx {
+  showSprintAura: boolean;
+  simpleMode: boolean;
+}
 export const CanvasContext = createContext<CanvasCtx>({ showSprintAura: false, simpleMode: false });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,20 +57,29 @@ export interface CanvasState {
 }
 
 export interface CtxMenu {
-  x: number; y: number;
+  x: number;
+  y: number;
   type: 'edge' | 'node';
-  edgeId?: string; srcId?: string; tgtId?: string; taskId?: string;
+  edgeId?: string;
+  srcId?: string;
+  tgtId?: string;
+  taskId?: string;
 }
 
 // ─── LocalStorage helpers ─────────────────────────────────────────────────────
 
 export function loadState(id: string): CanvasState {
-  try { return JSON.parse(localStorage.getItem(`planly-canvas-${id}`) ?? '{}') as CanvasState; }
-  catch { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem(`planly-canvas-${id}`) ?? '{}') as CanvasState;
+  } catch {
+    return {};
+  }
 }
 
 export function patchState(id: string, p: Partial<CanvasState>) {
-  try { localStorage.setItem(`planly-canvas-${id}`, JSON.stringify({ ...loadState(id), ...p })); } catch {}
+  try {
+    localStorage.setItem(`planly-canvas-${id}`, JSON.stringify({ ...loadState(id), ...p }));
+  } catch {}
 }
 
 // ─── Graph construction ───────────────────────────────────────────────────────
@@ -150,9 +168,7 @@ export function runAutoLayout(nodes: Node[], edges: Edge[]): Node[] {
   if (nonProduct.length > 0) {
     const maxRight = Math.max(...nonProduct.map((n) => n.position.x + 200));
     const midY = nonProduct.reduce((s, n) => s + n.position.y, 0) / nonProduct.length;
-    return laid.map((n) =>
-      n.id.startsWith('product-') ? { ...n, position: { x: maxRight + 80, y: midY - 40 } } : n,
-    );
+    return laid.map((n) => (n.id.startsWith('product-') ? { ...n, position: { x: maxRight + 80, y: midY - 40 } } : n));
   }
   return laid;
 }

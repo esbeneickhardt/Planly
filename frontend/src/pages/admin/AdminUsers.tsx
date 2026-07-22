@@ -15,16 +15,17 @@ interface Props {
   showToast: (msg: string, type: 'success' | 'error') => void;
 }
 
-export default function AdminUsers({
-  users, isFoundingAdmin, currentUserId, onUsersChanged, showToast,
-}: Props) {
+export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUsersChanged, showToast }: Props) {
   // Stores a temporary password to display once after an admin reset
   const [tempPassDisplay, setTempPassDisplay] = useState<{ userId: string; password: string } | null>(null);
 
   // Shared error-boundary for mutations so each row button doesn't need try/catch
   async function act(fn: () => Promise<void>) {
-    try { await fn(); }
-    catch (e) { showToast((e as Error).message, 'error'); }
+    try {
+      await fn();
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    }
   }
 
   return (
@@ -46,18 +47,36 @@ export default function AdminUsers({
               <div className="flex items-center gap-1.5">
                 {u.isFoundingAdmin && <span title="Server owner">👑</span>}
                 {u.isAdmin && !u.isFoundingAdmin && <span title="Admin">🛡️</span>}
-                <span className="font-medium" style={{ color: 'var(--text)' }}>{u.username}</span>
+                <span className="font-medium" style={{ color: 'var(--text)' }}>
+                  {u.username}
+                </span>
               </div>
             </td>
-            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{u.email}</td>
+            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+              {u.email}
+            </td>
             <td className="py-2.5 pr-4">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: u.emailVerified ? '#10b98122' : '#f59e0b22', color: u.emailVerified ? '#10b981' : '#f59e0b' }}>
+                <span
+                  className="text-xs px-1.5 py-0.5 rounded"
+                  style={{
+                    background: u.emailVerified ? '#10b98122' : '#f59e0b22',
+                    color: u.emailVerified ? '#10b981' : '#f59e0b',
+                  }}
+                >
                   {u.emailVerified ? 'Yes' : 'No'}
                 </span>
                 {!u.emailVerified && (
-                  <button onClick={() => act(async () => { await api.admin.verifyEmail(u.id); await onUsersChanged(); })}
-                    className="text-xs underline opacity-60 hover:opacity-100" style={{ color: 'var(--text-3)' }}>
+                  <button
+                    onClick={() =>
+                      act(async () => {
+                        await api.admin.verifyEmail(u.id);
+                        await onUsersChanged();
+                      })
+                    }
+                    className="text-xs underline opacity-60 hover:opacity-100"
+                    style={{ color: 'var(--text-3)' }}
+                  >
                     Force verify
                   </button>
                 )}
@@ -70,18 +89,36 @@ export default function AdminUsers({
                   const mins = Math.ceil((new Date(u.loginLockedUntil!).getTime() - Date.now()) / 60000);
                   return (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#ef444422', color: '#ef4444' }}>
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded"
+                        style={{ background: '#ef444422', color: '#ef4444' }}
+                      >
                         Locked {mins}m
                       </span>
-                      <button onClick={() => act(async () => { await api.admin.unlock(u.id); await onUsersChanged(); })}
-                        className="text-xs underline opacity-60 hover:opacity-100" style={{ color: 'var(--text-3)' }}>
+                      <button
+                        onClick={() =>
+                          act(async () => {
+                            await api.admin.unlock(u.id);
+                            await onUsersChanged();
+                          })
+                        }
+                        className="text-xs underline opacity-60 hover:opacity-100"
+                        style={{ color: 'var(--text-3)' }}
+                      >
                         Unlock
                       </button>
                     </div>
                   );
                 }
                 if (u.failedLoginAttempts > 0) {
-                  return <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#f59e0b22', color: '#f59e0b' }}>{u.failedLoginAttempts} fail{u.failedLoginAttempts === 1 ? '' : 's'}</span>;
+                  return (
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded"
+                      style={{ background: '#f59e0b22', color: '#f59e0b' }}
+                    >
+                      {u.failedLoginAttempts} fail{u.failedLoginAttempts === 1 ? '' : 's'}
+                    </span>
+                  );
                 }
                 if (u.lastLoginAt) {
                   const ms = Date.now() - new Date(u.lastLoginAt).getTime();
@@ -92,36 +129,75 @@ export default function AdminUsers({
                   const active = days < 7;
                   const label = mins2 < 60 ? `${mins2}m ago` : hours < 24 ? `${hours}h ago` : `${days}d ago`;
                   return (
-                    <span className="text-xs px-1.5 py-0.5 rounded" title={new Date(u.lastLoginAt).toLocaleString()} style={{ background: active ? '#10b98122' : 'var(--surface-2)', color: active ? '#10b981' : 'var(--text-3)' }}>
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded"
+                      title={new Date(u.lastLoginAt).toLocaleString()}
+                      style={{
+                        background: active ? '#10b98122' : 'var(--surface-2)',
+                        color: active ? '#10b981' : 'var(--text-3)',
+                      }}
+                    >
                       {label}
                     </span>
                   );
                 }
-                return <span className="text-xs" style={{ color: 'var(--text-3)' }}>Never</span>;
+                return (
+                  <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                    Never
+                  </span>
+                );
               })()}
             </td>
-            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>{new Date(u.createdAt).toLocaleDateString()}</td>
+            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+              {new Date(u.createdAt).toLocaleDateString()}
+            </td>
             {isFoundingAdmin && (
               <td className="py-2.5">
                 <div className="flex items-center gap-2 justify-end">
                   {u.id === currentUserId ? (
-                    <span className="text-xs" style={{ color: 'var(--text-3)' }}>You</span>
+                    <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                      You
+                    </span>
                   ) : u.isFoundingAdmin ? (
-                    <span className="text-xs" style={{ color: 'var(--text-3)' }}>Owner</span>
+                    <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                      Owner
+                    </span>
                   ) : u.isAdmin ? (
-                    <button onClick={() => { if (!confirm(`Demote ${u.username}?`)) return; act(async () => { await api.admin.demote(u.id); await onUsersChanged(); }); }}
-                      className="text-xs px-2 py-1 rounded" style={{ background: '#ef444422', color: '#ef4444' }}>
+                    <button
+                      onClick={() => {
+                        if (!confirm(`Demote ${u.username}?`)) return;
+                        act(async () => {
+                          await api.admin.demote(u.id);
+                          await onUsersChanged();
+                        });
+                      }}
+                      className="text-xs px-2 py-1 rounded"
+                      style={{ background: '#ef444422', color: '#ef4444' }}
+                    >
                       Demote
                     </button>
                   ) : (
-                    <button onClick={() => act(async () => { await api.admin.promote(u.id); await onUsersChanged(); })}
-                      className="text-xs px-2 py-1 rounded" style={{ background: '#6366f122', color: '#6366f1' }}>
+                    <button
+                      onClick={() =>
+                        act(async () => {
+                          await api.admin.promote(u.id);
+                          await onUsersChanged();
+                        })
+                      }
+                      className="text-xs px-2 py-1 rounded"
+                      style={{ background: '#6366f122', color: '#6366f1' }}
+                    >
                       Make admin
                     </button>
                   )}
                   {u.id !== currentUserId && (
                     <button
-                      onClick={() => act(async () => { await api.admin.forceLogout(u.id); showToast(`${u.username} logged out`, 'success'); })}
+                      onClick={() =>
+                        act(async () => {
+                          await api.admin.forceLogout(u.id);
+                          showToast(`${u.username} logged out`, 'success');
+                        })
+                      }
                       className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100"
                       style={{ background: '#f59e0b15', color: '#f59e0b' }}
                       title="Immediately invalidate all active sessions"
@@ -131,11 +207,17 @@ export default function AdminUsers({
                   )}
                   {u.id !== currentUserId && !u.isFoundingAdmin && (
                     <button
-                      onClick={() => act(async () => {
-                        const res = await api.admin.resetPassword(u.id);
-                        try { await navigator.clipboard.writeText(res.tempPassword); } catch { /* ignore */ }
-                        setTempPassDisplay({ userId: u.id, password: res.tempPassword });
-                      })}
+                      onClick={() =>
+                        act(async () => {
+                          const res = await api.admin.resetPassword(u.id);
+                          try {
+                            await navigator.clipboard.writeText(res.tempPassword);
+                          } catch {
+                            /* ignore */
+                          }
+                          setTempPassDisplay({ userId: u.id, password: res.tempPassword });
+                        })
+                      }
                       className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100"
                       style={{ background: '#10b98115', color: '#10b981' }}
                       title="Generate a temporary password and copy it to clipboard"
@@ -148,7 +230,10 @@ export default function AdminUsers({
                       className="text-xs px-2 py-1 rounded font-mono"
                       style={{ background: '#10b98122', color: '#10b981' }}
                       title="Click to copy again"
-                      onClick={() => { navigator.clipboard.writeText(tempPassDisplay.password).catch(() => {}); showToast('Password copied', 'success'); }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(tempPassDisplay.password).catch(() => {});
+                        showToast('Password copied', 'success');
+                      }}
                     >
                       {tempPassDisplay.password}
                     </button>

@@ -9,15 +9,15 @@ type DiscoverProduct = Product & { requestStatus: string | null; team: { id: str
 function descriptionPreview(raw: string | undefined): string {
   if (!raw?.trim()) return '';
   return raw
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')        // remove images
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // remove images
     .replace(/\[[^\]]*\]\([^)]*\)/g, (m) => m.replace(/\[([^\]]*)\]\([^)]*\)/, '$1')) // links → text
-    .replace(/^#{1,6}\s*/gm, '')                  // strip heading markers
-    .replace(/[*_`]/g, '')                         // strip inline formatting
+    .replace(/^#{1,6}\s*/gm, '') // strip heading markers
+    .replace(/[*_`]/g, '') // strip inline formatting
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
     .join('\n')
-    .replace(/\n{3,}/g, '\n\n')                   // collapse 3+ blank lines → 1
+    .replace(/\n{3,}/g, '\n\n') // collapse 3+ blank lines → 1
     .trim();
 }
 
@@ -38,7 +38,9 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
       .then((ps) => {
         setProducts(ps as DiscoverProduct[]);
         const initial: Record<string, string | null> = {};
-        (ps as DiscoverProduct[]).forEach((p) => { initial[p.id] = p.requestStatus; });
+        (ps as DiscoverProduct[]).forEach((p) => {
+          initial[p.id] = p.requestStatus;
+        });
         setStatusMap(initial);
       })
       .catch(() => {})
@@ -47,8 +49,7 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
 
   const filtered = products.filter(
     (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.team?.name?.toLowerCase().includes(search.toLowerCase())
+      p.name.toLowerCase().includes(search.toLowerCase()) || p.team?.name?.toLowerCase().includes(search.toLowerCase()),
   );
 
   async function handleRequest(productId: string) {
@@ -114,7 +115,9 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                   <div className="flex items-start gap-3">
                     <span className="text-2xl flex-shrink-0 mt-0.5">{p.emoji ?? '📦'}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{p.name}</p>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                        {p.name}
+                      </p>
                       {(() => {
                         const preview = descriptionPreview(p.description);
                         const lines = preview.split('\n');
@@ -123,15 +126,28 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                         return (
                           <div className="mt-1">
                             {preview ? (
-                              <p className="text-xs" style={{ color: 'var(--text-2)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{truncated}{isLong ? '…' : ''}</p>
+                              <p
+                                className="text-xs"
+                                style={{ color: 'var(--text-2)', lineHeight: 1.6, whiteSpace: 'pre-line' }}
+                              >
+                                {truncated}
+                                {isLong ? '…' : ''}
+                              </p>
                             ) : (
-                              <p className="text-xs italic" style={{ color: 'var(--text-3)' }}>No description set</p>
+                              <p className="text-xs italic" style={{ color: 'var(--text-3)' }}>
+                                No description set
+                              </p>
                             )}
                             <button
-                              onClick={() => { navigate(`/project/${p.id}/about`); onClose(); }}
+                              onClick={() => {
+                                navigate(`/project/${p.id}/about`);
+                                onClose();
+                              }}
                               className="text-xs mt-0.5 font-medium transition-colors"
                               style={{ color: 'var(--brand)' }}
-                            >Read more →</button>
+                            >
+                              Read more →
+                            </button>
                           </div>
                         );
                       })()}
@@ -143,7 +159,11 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                         <button
                           onClick={() => setShowNoteFor(isShowingNote ? null : p.id)}
                           className="text-xs px-3 py-1 rounded-full font-medium transition-colors"
-                          style={{ background: 'var(--brand-subtle)', color: 'var(--brand)', border: '1px solid var(--brand)' }}
+                          style={{
+                            background: 'var(--brand-subtle)',
+                            color: 'var(--brand)',
+                            border: '1px solid var(--brand)',
+                          }}
                         >
                           Request access
                         </button>
@@ -168,10 +188,7 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                         >
                           {requesting === p.id ? '…' : 'Send request'}
                         </button>
-                        <button
-                          onClick={() => setShowNoteFor(null)}
-                          className="btn-secondary text-xs px-3"
-                        >
+                        <button onClick={() => setShowNoteFor(null)} className="btn-secondary text-xs px-3">
                           Cancel
                         </button>
                       </div>

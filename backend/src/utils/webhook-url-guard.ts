@@ -19,7 +19,12 @@ import { isIPv4, isIPv6 } from 'net';
 // Blocks SSRF via webhook URLs by resolving the hostname and rejecting private/reserved ranges.
 // Called before persisting any webhook URL (create and update).
 
-interface Ipv4Parts { a: number; b: number; c: number; d: number }
+interface Ipv4Parts {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+}
 
 function parseIpv4(ip: string): Ipv4Parts | null {
   const parts = ip.split('.').map(Number);
@@ -33,31 +38,31 @@ function isPrivateIpv4(ip: string): boolean {
   if (!p) return true; // can't parse → block by default
   const { a, b, c, d } = p;
   return (
-    a === 127 ||                                               // 127.0.0.0/8  loopback
-    a === 10 ||                                                // 10.0.0.0/8   private
-    (a === 172 && b >= 16 && b <= 31) ||                       // 172.16.0.0/12 private
-    (a === 192 && b === 168) ||                                // 192.168.0.0/16 private
-    (a === 169 && b === 254) ||                                // 169.254.0.0/16 link-local / metadata
-    (a === 100 && (b & 0xc0) === 64) ||                       // 100.64.0.0/10  CGNAT
-    a === 0 ||                                                 // 0.0.0.0/8     this-network
-    (a === 192 && b === 0 && c === 2) ||                       // 192.0.2.0/24  TEST-NET-1
-    (a === 198 && b === 51 && c === 100) ||                    // 198.51.100.0/24 TEST-NET-2
-    (a === 203 && b === 0 && c === 113) ||                     // 203.0.113.0/24 TEST-NET-3
-    (a === 255 && b === 255 && c === 255 && d === 255) ||      // broadcast
-    (a >= 224)                                                 // 224.0.0.0/3   multicast + reserved
+    a === 127 || // 127.0.0.0/8  loopback
+    a === 10 || // 10.0.0.0/8   private
+    (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12 private
+    (a === 192 && b === 168) || // 192.168.0.0/16 private
+    (a === 169 && b === 254) || // 169.254.0.0/16 link-local / metadata
+    (a === 100 && (b & 0xc0) === 64) || // 100.64.0.0/10  CGNAT
+    a === 0 || // 0.0.0.0/8     this-network
+    (a === 192 && b === 0 && c === 2) || // 192.0.2.0/24  TEST-NET-1
+    (a === 198 && b === 51 && c === 100) || // 198.51.100.0/24 TEST-NET-2
+    (a === 203 && b === 0 && c === 113) || // 203.0.113.0/24 TEST-NET-3
+    (a === 255 && b === 255 && c === 255 && d === 255) || // broadcast
+    a >= 224 // 224.0.0.0/3   multicast + reserved
   );
 }
 
 function isPrivateIpv6(ip: string): boolean {
   const lower = ip.toLowerCase().replace(/^\[|\]$/g, '');
   return (
-    lower === '::1' ||                                  // loopback
-    lower.startsWith('fe80:') ||                        // fe80::/10 link-local
-    lower.startsWith('fc') ||                           // fc00::/7  unique local
-    lower.startsWith('fd') ||                           //   (continuation)
-    lower.startsWith('::ffff:127.') ||                  // IPv4-mapped loopback
-    lower === '::' ||                                   // unspecified
-    lower.startsWith('ff')                              // multicast
+    lower === '::1' || // loopback
+    lower.startsWith('fe80:') || // fe80::/10 link-local
+    lower.startsWith('fc') || // fc00::/7  unique local
+    lower.startsWith('fd') || //   (continuation)
+    lower.startsWith('::ffff:127.') || // IPv4-mapped loopback
+    lower === '::' || // unspecified
+    lower.startsWith('ff') // multicast
   );
 }
 

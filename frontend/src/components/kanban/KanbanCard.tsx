@@ -16,7 +16,18 @@ interface Props {
   isOverlay?: boolean;
 }
 
-function CardContent({ task, onOpenDetail, expanded, setExpanded, addingSubtask, setAddingSubtask, newName, setNewName, toggleSubtask, addSubtask }: {
+function CardContent({
+  task,
+  onOpenDetail,
+  expanded,
+  setExpanded,
+  addingSubtask,
+  setAddingSubtask,
+  newName,
+  setNewName,
+  toggleSubtask,
+  addSubtask,
+}: {
   task: Task;
   onOpenDetail: (task: Task) => void;
   expanded: boolean;
@@ -50,14 +61,20 @@ function CardContent({ task, onOpenDetail, expanded, setExpanded, addingSubtask,
         )}
 
         {isMilestone && (
-          <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded font-medium"
+            style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}
+          >
             Milestone
           </span>
         )}
 
         {task.subtasks.length > 0 && (
           <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
             className="text-xs flex items-center gap-1 transition-opacity"
             style={{ color: 'var(--text-3)' }}
           >
@@ -77,10 +94,13 @@ function CardContent({ task, onOpenDetail, expanded, setExpanded, addingSubtask,
                 className="rounded flex-shrink-0"
                 style={{ accentColor: 'var(--brand)' }}
               />
-              <span className="text-xs" style={{
-                color: s.completed ? 'var(--text-3)' : 'var(--text-2)',
-                textDecoration: s.completed ? 'line-through' : 'none',
-              }}>
+              <span
+                className="text-xs"
+                style={{
+                  color: s.completed ? 'var(--text-3)' : 'var(--text-2)',
+                  textDecoration: s.completed ? 'line-through' : 'none',
+                }}
+              >
                 {s.name}
               </span>
             </label>
@@ -89,17 +109,29 @@ function CardContent({ task, onOpenDetail, expanded, setExpanded, addingSubtask,
           {addingSubtask ? (
             <div className="flex gap-1.5 mt-1">
               <input
-                autoFocus type="text" value={newName}
+                autoFocus
+                type="text"
+                value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addSubtask(); if (e.key === 'Escape') setAddingSubtask(false); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') addSubtask();
+                  if (e.key === 'Escape') setAddingSubtask(false);
+                }}
                 placeholder="Subtask name"
                 className="input text-xs py-1 flex-1"
               />
-              <button onClick={addSubtask} className="text-xs font-medium" style={{ color: 'var(--brand)' }}>Add</button>
-              <button onClick={() => setAddingSubtask(false)} className="text-xs" style={{ color: 'var(--text-3)' }}>✕</button>
+              <button onClick={addSubtask} className="text-xs font-medium" style={{ color: 'var(--brand)' }}>
+                Add
+              </button>
+              <button onClick={() => setAddingSubtask(false)} className="text-xs" style={{ color: 'var(--text-3)' }}>
+                ✕
+              </button>
             </div>
           ) : (
-            <button onClick={() => setAddingSubtask(true)} className="text-xs mt-0.5 transition-colors" style={{ color: 'var(--text-3)' }}
+            <button
+              onClick={() => setAddingSubtask(true)}
+              className="text-xs mt-0.5 transition-colors"
+              style={{ color: 'var(--text-3)' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
             >
@@ -145,7 +177,18 @@ export default function KanbanCard({ task, onOpenDetail, isOverlay = false }: Pr
   if (isOverlay) {
     return (
       <div className="card rounded-xl overflow-hidden" style={{ borderLeft: borderStyle, cursor: 'grabbing' }}>
-        <CardContent task={task} onOpenDetail={() => {}} expanded={false} setExpanded={() => {}} addingSubtask={false} setAddingSubtask={() => {}} newName="" setNewName={() => {}} toggleSubtask={() => {}} addSubtask={() => {}} />
+        <CardContent
+          task={task}
+          onOpenDetail={() => {}}
+          expanded={false}
+          setExpanded={() => {}}
+          addingSubtask={false}
+          setAddingSubtask={() => {}}
+          newName=""
+          setNewName={() => {}}
+          toggleSubtask={() => {}}
+          addSubtask={() => {}}
+        />
       </div>
     );
   }
@@ -165,7 +208,18 @@ export default function KanbanCard({ task, onOpenDetail, isOverlay = false }: Pr
       }}
       className="card rounded-xl overflow-hidden select-none"
     >
-      <CardContent task={task} onOpenDetail={onOpenDetail} expanded={expanded} setExpanded={setExpanded} addingSubtask={addingSubtask} setAddingSubtask={setAddingSubtask} newName={newName} setNewName={setNewName} toggleSubtask={toggleSubtask} addSubtask={addSubtask} />
+      <CardContent
+        task={task}
+        onOpenDetail={onOpenDetail}
+        expanded={expanded}
+        setExpanded={setExpanded}
+        addingSubtask={addingSubtask}
+        setAddingSubtask={setAddingSubtask}
+        newName={newName}
+        setNewName={setNewName}
+        toggleSubtask={toggleSubtask}
+        addSubtask={addSubtask}
+      />
     </div>
   );
 }

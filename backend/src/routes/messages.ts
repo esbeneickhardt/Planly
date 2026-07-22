@@ -15,7 +15,15 @@ import { requireAuth } from '../middleware/auth';
 import { requireProductMember } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { broadcast } from '../realtime/manager';
-import { storeFile, getFileBuffer, deleteFile, generateFilename, mimeFromExt, ALLOWED_MIME_TYPES, verifyMimeBytes } from '../utils/storage';
+import {
+  storeFile,
+  getFileBuffer,
+  deleteFile,
+  generateFilename,
+  mimeFromExt,
+  ALLOWED_MIME_TYPES,
+  verifyMimeBytes,
+} from '../utils/storage';
 import { sendEmail, mentionEmail } from '../utils/email';
 import { createNotification } from '../utils/notifications';
 import { MESSAGE_INCLUDE } from '../db/selects';
@@ -24,23 +32,27 @@ import { decryptMessageAuthor } from '../utils/crypto';
 
 // Validates attachment references; URL must point to this server's own upload path to prevent injection
 const attachmentItemSchema = z.object({
-  url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
+  url: z
+    .string()
+    .regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
   name: z.string(),
   type: z.string(),
 });
 // Role badge values a sender can claim; verified against actual permissions at write time
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
 // Message creation payload — content OR at least one attachment required; up to 20 attachments per message
-const createMessageSchema = z.object({
-  content: z.string().max(10000),
-  taskId: z.string().optional(),
-  replyToId: z.string().optional().nullable(),
-  attachments: z.array(attachmentItemSchema).max(20).optional(),
-  postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
-}).refine((d) => d.content.trim().length > 0 || (d.attachments?.length ?? 0) > 0, {
-  message: 'Message must have content or at least one attachment',
-  path: ['content'],
-});
+const createMessageSchema = z
+  .object({
+    content: z.string().max(10000),
+    taskId: z.string().optional(),
+    replyToId: z.string().optional().nullable(),
+    attachments: z.array(attachmentItemSchema).max(20).optional(),
+    postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
+  })
+  .refine((d) => d.content.trim().length > 0 || (d.attachments?.length ?? 0) > 0, {
+    message: 'Message must have content or at least one attachment',
+    path: ['content'],
+  });
 // Edit payload — content required and cannot be blank
 const updateMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 // Validates the emoji character(s) for a reaction toggle
@@ -50,35 +62,41 @@ export async function messageRoutes(app: FastifyInstance) {
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 5, fieldSize: 1024 } });
 
   // Upload file - returns a URL that can be embedded in messages
-  app.post('/api/upload', { preHandler: requireAuth, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req, reply) => {
-    const { productId } = req.query as { productId?: string };
-    const data = await req.file();
-    if (!data) return reply.status(400).send({ error: 'No file' });
+  app.post(
+    '/api/upload',
+    { preHandler: requireAuth, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (req, reply) => {
+      const { productId } = req.query as { productId?: string };
+      const data = await req.file();
+      if (!data) return reply.status(400).send({ error: 'No file' });
 
-    const ext = ALLOWED_MIME_TYPES[data.mimetype];
-    if (!ext) return reply.status(400).send({ error: `File type not allowed: ${data.mimetype}` });
+      const ext = ALLOWED_MIME_TYPES[data.mimetype];
+      if (!ext) return reply.status(400).send({ error: `File type not allowed: ${data.mimetype}` });
 
-    const buf = await data.toBuffer();
+      const buf = await data.toBuffer();
 
-    // Verify file content matches declared MIME type
-    if (!verifyMimeBytes(buf, data.mimetype)) {
-      return reply.status(400).send({ error: 'File content does not match declared type' });
-    }
+      // Verify file content matches declared MIME type
+      if (!verifyMimeBytes(buf, data.mimetype)) {
+        return reply.status(400).send({ error: 'File content does not match declared type' });
+      }
 
-    const filename = generateFilename(buf, ext);
-    await storeFile(buf, filename, data.mimetype);
+      const filename = generateFilename(buf, ext);
+      await storeFile(buf, filename, data.mimetype);
 
-    // Track upload ownership for access control
-    await prisma.fileUpload.create({
-      data: {
-        filename,
-        uploaderId: req.user.userId,
-        productId: productId ?? null,
-      },
-    }).catch(() => {});
+      // Track upload ownership for access control
+      await prisma.fileUpload
+        .create({
+          data: {
+            filename,
+            uploaderId: req.user.userId,
+            productId: productId ?? null,
+          },
+        })
+        .catch(() => {});
 
-    reply.send({ url: `/api/uploads/${filename}`, name: data.filename, type: data.mimetype });
-  });
+      reply.send({ url: `/api/uploads/${filename}`, name: data.filename, type: data.mimetype });
+    },
+  );
 
   // Serve uploaded files
   app.get('/api/uploads/:filename', { preHandler: requireAuth }, async (req, reply) => {
@@ -127,8 +145,13 @@ export async function messageRoutes(app: FastifyInstance) {
   // List messages for a product (or a specific task)
   app.get('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
-    const { taskId, all, cursor, limit = '100' } = req.query as { taskId?: string; all?: string; cursor?: string; limit?: string };
+    if (!(await requireProductMember(productId, req.user, reply))) return;
+    const {
+      taskId,
+      all,
+      cursor,
+      limit = '100',
+    } = req.query as { taskId?: string; all?: string; cursor?: string; limit?: string };
     const take = Math.min(parseInt(limit), 200);
     const where = all === 'true' ? { productId } : { productId, taskId: taskId ?? null };
     const messages = await prisma.message.findMany({
@@ -157,52 +180,71 @@ export async function messageRoutes(app: FastifyInstance) {
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
     const msg = await prisma.message.create({
-      data: { productId, taskId: taskId ?? null, replyToId: replyToId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [], postedAsRole },
+      data: {
+        productId,
+        taskId: taskId ?? null,
+        replyToId: replyToId ?? null,
+        authorId: req.user.userId,
+        content: content.trim(),
+        attachments: attachments ?? [],
+        postedAsRole,
+      },
       include: MESSAGE_INCLUDE,
     });
     const decryptedMsg = decryptMessageAuthor(msg);
-    dispatchWebhooks(productId, 'message.created', decryptedMsg).catch((err) => { req.log.warn({ err }, '[messages] Webhook dispatch failed'); });
+    dispatchWebhooks(productId, 'message.created', decryptedMsg).catch((err) => {
+      req.log.warn({ err }, '[messages] Webhook dispatch failed');
+    });
     broadcast(productId, 'message.created', decryptedMsg);
     // message.created is intentionally not logged to the activity feed — chat volume would drown out task/sprint events
 
     // Create notifications and optional emails for @mentioned users (fire-and-forget)
-    const mentionedUsernames = [...content.matchAll(/@(\w+)/g)].map((m) => m[1]).filter((u): u is string => u !== undefined);
+    const mentionedUsernames = [...content.matchAll(/@(\w+)/g)]
+      .map((m) => m[1])
+      .filter((u): u is string => u !== undefined);
     if (mentionedUsernames.length > 0) {
-      prisma.user.findMany({
-        where: {
-          username: { in: mentionedUsernames },
-          id: { not: req.user.userId },
-          // Only notify users who are actually members of this project
-          teams: { some: { team: { products: { some: { id: productId } } } } },
-        },
-        select: { id: true, email: true, notificationPreferences: true },
-      }).then(async (users) => {
-        if (!users.length) return;
-        const taskName = msg.task?.name;
-        const snippet = content.slice(0, 200);
-        const appUrl = config.appUrl;
-        for (const u of users) {
-          const prefs = (u.notificationPreferences as Record<string, boolean> | null) ?? {};
-          // In-app notification (respects mention pref, default on)
-          await createNotification({
-            userId: u.id,
-            type: 'mention',
-            title: `${req.user.username} mentioned you${taskName ? ` in "${taskName}"` : ''}`,
-            body: snippet,
-            productId,
-            taskId: taskId ?? undefined,
-          });
-          // Email notification (off by default, opt-in via emailMentions pref)
-          if (prefs.emailMentions === true) {
-            const context = taskName ?? '';
-            sendEmail({
-              to: u.email,
-              subject: `@${req.user.username} mentioned you in Planly`,
-              html: mentionEmail(req.user.username, context, snippet, appUrl),
-            }).catch((err) => { req.log.error({ err }, '[messages] mention email failed'); });
+      prisma.user
+        .findMany({
+          where: {
+            username: { in: mentionedUsernames },
+            id: { not: req.user.userId },
+            // Only notify users who are actually members of this project
+            teams: { some: { team: { products: { some: { id: productId } } } } },
+          },
+          select: { id: true, email: true, notificationPreferences: true },
+        })
+        .then(async (users) => {
+          if (!users.length) return;
+          const taskName = msg.task?.name;
+          const snippet = content.slice(0, 200);
+          const appUrl = config.appUrl;
+          for (const u of users) {
+            const prefs = (u.notificationPreferences as Record<string, boolean> | null) ?? {};
+            // In-app notification (respects mention pref, default on)
+            await createNotification({
+              userId: u.id,
+              type: 'mention',
+              title: `${req.user.username} mentioned you${taskName ? ` in "${taskName}"` : ''}`,
+              body: snippet,
+              productId,
+              taskId: taskId ?? undefined,
+            });
+            // Email notification (off by default, opt-in via emailMentions pref)
+            if (prefs.emailMentions === true) {
+              const context = taskName ?? '';
+              sendEmail({
+                to: u.email,
+                subject: `@${req.user.username} mentioned you in Planly`,
+                html: mentionEmail(req.user.username, context, snippet, appUrl),
+              }).catch((err) => {
+                req.log.error({ err }, '[messages] mention email failed');
+              });
+            }
           }
-        }
-      }).catch((err) => { req.log.error({ err }, '[messages] mention notification failed'); });
+        })
+        .catch((err) => {
+          req.log.error({ err }, '[messages] mention notification failed');
+        });
     }
 
     reply.status(201).send(decryptedMsg);
@@ -211,7 +253,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Edit own message content
   app.patch('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!(await requireProductMember(productId, req.user, reply))) return;
     const editBody = validate(updateMessageSchema, req.body, reply);
     if (!editBody) return;
     const { content } = editBody;
@@ -229,7 +271,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Delete own message
   app.delete('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!(await requireProductMember(productId, req.user, reply))) return;
     const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
@@ -238,23 +280,30 @@ export async function messageRoutes(app: FastifyInstance) {
   });
 
   // Toggle emoji reaction (add if missing, remove if already present)
-  app.post('/api/products/:productId/messages/:messageId/reactions', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, messageId } = req.params as { productId: string; messageId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
-    const rxnBody = validate(addReactionSchema, req.body, reply);
-    if (!rxnBody) return;
-    const { emoji } = rxnBody;
+  app.post(
+    '/api/products/:productId/messages/:messageId/reactions',
+    { preHandler: requireAuth },
+    async (req, reply) => {
+      const { productId, messageId } = req.params as { productId: string; messageId: string };
+      if (!(await requireProductMember(productId, req.user, reply))) return;
+      const rxnBody = validate(addReactionSchema, req.body, reply);
+      if (!rxnBody) return;
+      const { emoji } = rxnBody;
 
-    const key = { messageId, userId: req.user.userId, emoji };
-    const existing = await prisma.messageReaction.findUnique({ where: { messageId_userId_emoji: key } });
-    if (existing) {
-      await prisma.messageReaction.delete({ where: { messageId_userId_emoji: key } });
-    } else {
-      await prisma.messageReaction.create({ data: key });
-    }
+      const key = { messageId, userId: req.user.userId, emoji };
+      const existing = await prisma.messageReaction.findUnique({ where: { messageId_userId_emoji: key } });
+      if (existing) {
+        await prisma.messageReaction.delete({ where: { messageId_userId_emoji: key } });
+      } else {
+        await prisma.messageReaction.create({ data: key });
+      }
 
-    const reactions = await prisma.messageReaction.findMany({ where: { messageId }, select: { emoji: true, userId: true } });
-    broadcast(productId, 'message.reacted', { messageId, reactions });
-    reply.send({ reactions });
-  });
+      const reactions = await prisma.messageReaction.findMany({
+        where: { messageId },
+        select: { emoji: true, userId: true },
+      });
+      broadcast(productId, 'message.reacted', { messageId, reactions });
+      reply.send({ reactions });
+    },
+  );
 }

@@ -16,8 +16,8 @@ export async function milestoneRoutes(app: FastifyInstance) {
   // Fetch milestones (tasks with deadlines) plus their transitive dependency progress for the Gantt view
   app.get('/api/products/:productId/milestones', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
-    if (!await requireTabRead(productId, req.user, ['gantt'], reply)) return;
+    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabRead(productId, req.user, ['gantt'], reply))) return;
 
     const [product, milestones] = await Promise.all([
       prisma.product.findUnique({ where: { id: productId } }),
@@ -32,7 +32,9 @@ export async function milestoneRoutes(app: FastifyInstance) {
     // Fetch all transitive prerequisites for every milestone in one recursive CTE
     const milestoneIds = milestones.map((m) => m.id);
 
-    const depRows = await prisma.$queryRaw<{ milestoneId: string; id: string; status: string; name: string; ownerId: string | null }[]>`
+    const depRows = await prisma.$queryRaw<
+      { milestoneId: string; id: string; status: string; name: string; ownerId: string | null }[]
+    >`
       WITH RECURSIVE reachable AS (
         SELECT "dependentId" AS "milestoneId", "prerequisiteId" AS id
         FROM "TaskDependency"
@@ -67,7 +69,12 @@ export async function milestoneRoutes(app: FastifyInstance) {
         name: milestone.name,
         status: milestone.status,
         deadline: milestone.deadline,
-        owner: milestone.owner ? { ...milestone.owner, realName: milestone.owner.realName ? safeDecryptValue(milestone.owner.realName) : null } : null,
+        owner: milestone.owner
+          ? {
+              ...milestone.owner,
+              realName: milestone.owner.realName ? safeDecryptValue(milestone.owner.realName) : null,
+            }
+          : null,
         totalDependencies: total,
         doneDependencies: done,
         progress: total > 0 ? done / total : milestone.status === 'done' ? 1 : 0,

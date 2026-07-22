@@ -13,8 +13,8 @@ import { requireProductMember, requireTabRead } from '../utils/product-guard';
 export async function analyticsRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/analytics', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
-    if (!await requireTabRead(productId, req.user, ['analytics'], reply)) return;
+    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabRead(productId, req.user, ['analytics'], reply))) return;
 
     // Verify analytics access — owners and co-owners can view even when disabled
     const product = await prisma.product.findUnique({
@@ -85,16 +85,25 @@ export async function analyticsRoutes(app: FastifyInstance) {
       select: { id: true, name: true, startDate: true, endDate: true, color: true },
       orderBy: { startDate: 'asc' },
     });
-    const sprintVelocity = await Promise.all(sprints.map(async (s) => {
-      const count = await prisma.task.count({
-        where: {
-          productId,
-          deletedAt: null,
-          completedAt: { gte: s.startDate, lte: s.endDate },
-        },
-      });
-      return { sprintId: s.id, name: s.name, startDate: s.startDate, endDate: s.endDate, color: s.color, completed: count };
-    }));
+    const sprintVelocity = await Promise.all(
+      sprints.map(async (s) => {
+        const count = await prisma.task.count({
+          where: {
+            productId,
+            deletedAt: null,
+            completedAt: { gte: s.startDate, lte: s.endDate },
+          },
+        });
+        return {
+          sprintId: s.id,
+          name: s.name,
+          startDate: s.startDate,
+          endDate: s.endDate,
+          color: s.color,
+          completed: count,
+        };
+      }),
+    );
 
     // Totals
     const [totalCompleted, totalActive] = await Promise.all([
@@ -108,7 +117,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
   // Personal workload - returns only the requesting user's own tasks, nobody else's
   app.get('/api/products/:productId/analytics/workload', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductMember(productId, req.user, reply)) return;
+    if (!(await requireProductMember(productId, req.user, reply))) return;
 
     const userId = req.user.userId;
 
@@ -121,7 +130,9 @@ export async function analyticsRoutes(app: FastifyInstance) {
       }),
       prisma.task.findMany({
         where: {
-          productId, ownerId: userId, deletedAt: null,
+          productId,
+          ownerId: userId,
+          deletedAt: null,
           completedAt: { gte: new Date(Date.now() - 30 * 86400000) },
         },
         select: { completedAt: true },

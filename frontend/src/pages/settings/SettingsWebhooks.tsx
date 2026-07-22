@@ -9,15 +9,15 @@ import type { Webhook } from '../../api/client';
 import type { Product } from '../../types';
 
 const WEBHOOK_EVENTS = [
-  { value: 'task.created',        label: 'Task created' },
-  { value: 'task.updated',        label: 'Task updated' },
-  { value: 'task.deleted',        label: 'Task deleted' },
+  { value: 'task.created', label: 'Task created' },
+  { value: 'task.updated', label: 'Task updated' },
+  { value: 'task.deleted', label: 'Task deleted' },
   { value: 'task.status_changed', label: 'Task status changed' },
-  { value: 'task.assigned',       label: 'Task assigned' },
-  { value: 'subplan.created',      label: 'Sub-plan created' },
-  { value: 'subplan.updated',      label: 'Sub-plan updated' },
-  { value: 'subplan.deleted',      label: 'Sub-plan deleted' },
-  { value: 'message.created',     label: 'Message created' },
+  { value: 'task.assigned', label: 'Task assigned' },
+  { value: 'subplan.created', label: 'Sub-plan created' },
+  { value: 'subplan.updated', label: 'Sub-plan updated' },
+  { value: 'subplan.deleted', label: 'Sub-plan deleted' },
+  { value: 'message.created', label: 'Message created' },
 ];
 
 interface Props {
@@ -34,23 +34,34 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try { setWebhooks(await api.webhooks.list(activeProduct.id)); } catch {}
+    try {
+      setWebhooks(await api.webhooks.list(activeProduct.id));
+    } catch {}
   }, [activeProduct.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>Webhooks</h2>
+        <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
+          Webhooks
+        </h2>
         <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-          Webhooks send HTTP POST requests to your URL when events happen in this project.
-          Each delivery is signed with HMAC-SHA256 using the webhook secret in the <code>X-Planly-Signature</code> header.
+          Webhooks send HTTP POST requests to your URL when events happen in this project. Each delivery is signed with
+          HMAC-SHA256 using the webhook secret in the <code>X-Planly-Signature</code> header.
         </p>
 
         {/* Create webhook */}
-        <div className="p-4 rounded-xl mb-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-          <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text)' }}>Add webhook</h3>
+        <div
+          className="p-4 rounded-xl mb-4"
+          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+        >
+          <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text)' }}>
+            Add webhook
+          </h3>
           <div className="space-y-3">
             <input
               type="url"
@@ -60,19 +71,23 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
               className="input text-sm w-full"
             />
             <div>
-              <p className="text-xs mb-2" style={{ color: 'var(--text-3)' }}>Events to send:</p>
+              <p className="text-xs mb-2" style={{ color: 'var(--text-3)' }}>
+                Events to send:
+              </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {WEBHOOK_EVENTS.map(({ value, label }) => (
                   <label key={value} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={newEvents.includes(value)}
-                      onChange={(e) => setNewEvents((prev) =>
-                        e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)
-                      )}
+                      onChange={(e) =>
+                        setNewEvents((prev) => (e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)))
+                      }
                       className="rounded"
                     />
-                    <span className="text-xs" style={{ color: 'var(--text-2)' }}>{label}</span>
+                    <span className="text-xs" style={{ color: 'var(--text-2)' }}>
+                      {label}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -85,36 +100,63 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                 try {
                   const wh = await api.webhooks.create(activeProduct.id, { url: newUrl, events: newEvents });
                   setRevealedSecret(wh.secret!);
-                  setNewUrl(''); setNewEvents([]);
+                  setNewUrl('');
+                  setNewEvents([]);
                   await load();
                   showToast('Webhook created', 'success');
-                } catch (err) { showToast((err as Error).message, 'error'); }
-                finally { setCreating(false); }
+                } catch (err) {
+                  showToast((err as Error).message, 'error');
+                } finally {
+                  setCreating(false);
+                }
               }}
-            >{creating ? '…' : 'Add webhook'}</button>
+            >
+              {creating ? '…' : 'Add webhook'}
+            </button>
           </div>
         </div>
 
         {/* Secret is surfaced once after creation; the state is cleared when the user dismisses it */}
         {revealedSecret && (
-          <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}>
-            <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>Save this secret - it will not be shown again.</p>
+          <div
+            className="p-4 rounded-xl mb-4"
+            style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}
+          >
+            <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>
+              Save this secret - it will not be shown again.
+            </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs break-all px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+              <code
+                className="flex-1 text-xs break-all px-3 py-2 rounded-lg"
+                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+              >
                 {revealedSecret}
               </code>
               <button
                 className="btn-secondary text-xs flex-shrink-0"
-                onClick={() => { navigator.clipboard.writeText(revealedSecret); showToast('Copied!', 'success'); }}
-              >Copy</button>
-              <button className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }} onClick={() => setRevealedSecret(null)}>Dismiss</button>
+                onClick={() => {
+                  navigator.clipboard.writeText(revealedSecret);
+                  showToast('Copied!', 'success');
+                }}
+              >
+                Copy
+              </button>
+              <button
+                className="text-xs flex-shrink-0"
+                style={{ color: 'var(--text-3)' }}
+                onClick={() => setRevealedSecret(null)}
+              >
+                Dismiss
+              </button>
             </div>
           </div>
         )}
 
         {/* Webhook list */}
         {webhooks.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--text-3)' }}>No webhooks configured.</p>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+            No webhooks configured.
+          </p>
         ) : (
           <div className="space-y-3">
             {webhooks.map((wh) => (
@@ -122,36 +164,65 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                 <div className="px-4 py-3 flex items-center gap-3" style={{ background: 'var(--surface-2)' }}>
                   <span className="text-base flex-shrink-0">{wh.active ? '✅' : '⏸️'}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{wh.url}</p>
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
+                      {wh.url}
+                    </p>
                     <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                      {wh.events.length} event{wh.events.length !== 1 ? 's' : ''} · Created {new Date(wh.createdAt).toLocaleDateString()}
+                      {wh.events.length} event{wh.events.length !== 1 ? 's' : ''} · Created{' '}
+                      {new Date(wh.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
                     <button
                       className="text-xs px-2.5 py-1 rounded-lg"
-                      style={{ color: wh.active ? 'var(--text-3)' : 'var(--brand)', border: '1px solid var(--border)', background: 'transparent' }}
+                      style={{
+                        color: wh.active ? 'var(--text-3)' : 'var(--brand)',
+                        border: '1px solid var(--border)',
+                        background: 'transparent',
+                      }}
                       onClick={async () => {
                         try {
                           await api.webhooks.update(activeProduct.id, wh.id, { active: !wh.active });
                           await load();
-                        } catch (err) { showToast((err as Error).message, 'error'); }
+                        } catch (err) {
+                          showToast((err as Error).message, 'error');
+                        }
                       }}
-                    >{wh.active ? 'Disable' : 'Enable'}</button>
+                    >
+                      {wh.active ? 'Disable' : 'Enable'}
+                    </button>
                     <button
                       className="text-xs px-2.5 py-1 rounded-lg"
                       style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', background: 'transparent' }}
                       onClick={async () => {
-                        if (!await confirm('Delete this webhook?')) return;
-                        try { await api.webhooks.delete(activeProduct.id, wh.id); await load(); showToast('Deleted', 'success'); }
-                        catch (err) { showToast((err as Error).message, 'error'); }
+                        if (!(await confirm('Delete this webhook?'))) return;
+                        try {
+                          await api.webhooks.delete(activeProduct.id, wh.id);
+                          await load();
+                          showToast('Deleted', 'success');
+                        } catch (err) {
+                          showToast((err as Error).message, 'error');
+                        }
                       }}
-                    >Delete</button>
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
-                <div className="px-4 py-2 flex flex-wrap gap-1.5" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+                <div
+                  className="px-4 py-2 flex flex-wrap gap-1.5"
+                  style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}
+                >
                   {wh.events.map((ev) => (
-                    <span key={ev} className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
+                    <span
+                      key={ev}
+                      className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                      style={{
+                        background: 'var(--surface-2)',
+                        color: 'var(--text-3)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
                       {ev}
                     </span>
                   ))}
@@ -162,9 +233,17 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
         )}
 
         {/* Verification hint */}
-        <div className="mt-6 p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-2)' }}>Verifying webhook signatures</p>
-          <code className="block text-xs px-3 py-2 rounded-lg whitespace-pre" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>{`const sig = req.headers['x-planly-signature'];
+        <div
+          className="mt-6 p-4 rounded-xl"
+          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+        >
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
+            Verifying webhook signatures
+          </p>
+          <code
+            className="block text-xs px-3 py-2 rounded-lg whitespace-pre"
+            style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+          >{`const sig = req.headers['x-planly-signature'];
 const expected = 'sha256=' +
   crypto.createHmac('sha256', SECRET)
     .update(JSON.stringify(req.body))

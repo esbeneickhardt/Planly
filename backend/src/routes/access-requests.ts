@@ -46,7 +46,9 @@ export async function accessRequestRoutes(app: FastifyInstance) {
       where: { userId: req.user.userId, productId: { in: products.map((p) => p.id) } },
     });
     // Only surface 'pending' status - 'approved' is stale (user was removed) and 'rejected' should allow re-request
-    const requestMap = Object.fromEntries(requests.filter((r) => r.status === 'pending').map((r) => [r.productId, r.status]));
+    const requestMap = Object.fromEntries(
+      requests.filter((r) => r.status === 'pending').map((r) => [r.productId, r.status]),
+    );
     const nextCursor = products.length === take ? (products[products.length - 1]?.id ?? null) : null;
     reply.send({ products: products.map((p) => ({ ...p, requestStatus: requestMap[p.id] ?? null })), nextCursor });
   });
@@ -69,15 +71,26 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     });
     if (existing) {
       // Allow re-request after rejection, or after approval if the user was subsequently removed
-      const canReapply = existing.status === 'rejected' || (existing.status === 'approved' && !(await prisma.teamMember.findFirst({
-        where: { userId: req.user.userId, team: { products: { some: { id: productId } } } },
-      })));
+      const canReapply =
+        existing.status === 'rejected' ||
+        (existing.status === 'approved' &&
+          !(await prisma.teamMember.findFirst({
+            where: { userId: req.user.userId, team: { products: { some: { id: productId } } } },
+          })));
       if (canReapply) {
         const updated = await prisma.accessRequest.update({
           where: { id: existing.id },
           data: { status: 'pending', note: note ?? null },
         });
-        if (product.ownerId) await notifyAdmins(product.id, product.name, product.ownerId, product.team.members.map((m) => m.userId), req.user.userId, req.user.username ?? 'Someone');
+        if (product.ownerId)
+          await notifyAdmins(
+            product.id,
+            product.name,
+            product.ownerId,
+            product.team.members.map((m) => m.userId),
+            req.user.userId,
+            req.user.username ?? 'Someone',
+          );
         return reply.send(updated);
       }
       return reply.status(409).send({ error: 'Request already exists' });
@@ -85,22 +98,39 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     const req2 = await prisma.accessRequest.create({
       data: { productId, userId: req.user.userId, note: note ?? null },
     });
-    if (product.ownerId) await notifyAdmins(product.id, product.name, product.ownerId, product.team.members.map((m) => m.userId), req.user.userId, req.user.username ?? 'Someone');
+    if (product.ownerId)
+      await notifyAdmins(
+        product.id,
+        product.name,
+        product.ownerId,
+        product.team.members.map((m) => m.userId),
+        req.user.userId,
+        req.user.username ?? 'Someone',
+      );
     reply.status(201).send(req2);
   });
 
   // Notify all co-owners of a new access request (fire-and-forget via await at call site)
-  async function notifyAdmins(productId: string, productName: string, ownerId: string, coOwnerIds: string[], requesterId: string, requesterName: string) {
+  async function notifyAdmins(
+    productId: string,
+    productName: string,
+    ownerId: string,
+    coOwnerIds: string[],
+    requesterId: string,
+    requesterName: string,
+  ) {
     const adminIds = new Set([ownerId, ...coOwnerIds]);
     adminIds.delete(requesterId);
-    await Promise.all([...adminIds].map((userId) =>
-      createNotification({
-        userId,
-        type: 'access_requested',
-        title: `${requesterName} requested access to "${productName}"`,
-        productId,
-      })
-    ));
+    await Promise.all(
+      [...adminIds].map((userId) =>
+        createNotification({
+          userId,
+          type: 'access_requested',
+          title: `${requesterName} requested access to "${productName}"`,
+          productId,
+        }),
+      ),
+    );
   }
 
   // List access requests for a product (owner or co-owner only)
@@ -111,7 +141,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
       include: { team: { include: { members: true } } },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    const myMembership = product.team.members.find(m => m.userId === req.user.userId);
+    const myMembership = product.team.members.find((m) => m.userId === req.user.userId);
     const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
     if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
     const requests = await prisma.accessRequest.findMany({
@@ -133,7 +163,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
       include: { team: { include: { members: true } } },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    const myMembership = product.team.members.find(m => m.userId === req.user.userId);
+    const myMembership = product.team.members.find((m) => m.userId === req.user.userId);
     const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
     if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
     const accessReq = await prisma.accessRequest.findFirst({ where: { id: requestId, productId } });
@@ -148,7 +178,8 @@ export async function accessRequestRoutes(app: FastifyInstance) {
       });
       await prisma.accessRequest.update({ where: { id: requestId }, data: { status: 'approved' } });
       createNotification({
-        userId: accessReq.userId, type: 'access_approved',
+        userId: accessReq.userId,
+        type: 'access_approved',
         title: `Your access request to "${product.name}" was approved`,
         productId,
       });
@@ -156,7 +187,8 @@ export async function accessRequestRoutes(app: FastifyInstance) {
       // Mark rejected and notify requester
       await prisma.accessRequest.update({ where: { id: requestId }, data: { status: 'rejected' } });
       createNotification({
-        userId: accessReq.userId, type: 'access_rejected',
+        userId: accessReq.userId,
+        type: 'access_rejected',
         title: `Your access request to "${product.name}" was declined`,
         productId,
       });

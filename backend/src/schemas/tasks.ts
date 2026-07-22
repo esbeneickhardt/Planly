@@ -6,8 +6,18 @@
 import { z } from 'zod';
 
 // Accepts both full ISO-8601 timestamps and bare date strings (YYYY-MM-DD)
-const isoDate = z.string().datetime({ offset: true }).optional().nullable()
-  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable());
+const isoDate = z
+  .string()
+  .datetime({ offset: true })
+  .optional()
+  .nullable()
+  .or(
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .nullable(),
+  );
 
 export const createTaskSchema = z.object({
   name: z.string().min(1, 'Task name required').max(500),
@@ -16,7 +26,11 @@ export const createTaskSchema = z.object({
   ownerId: z.string().uuid().optional().nullable(),
   reviewerId: z.string().uuid().optional().nullable(),
   deadline: isoDate,
-  color: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional().nullable(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{3,8}$/)
+    .optional()
+    .nullable(),
   canvasX: z.number().finite().optional(),
   canvasY: z.number().finite().optional(),
 });

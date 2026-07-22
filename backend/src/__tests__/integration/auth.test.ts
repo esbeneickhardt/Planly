@@ -15,7 +15,9 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
   let app: FastifyInstance;
   const createdEmails: string[] = [];
 
-  beforeAll(async () => { app = await buildTestApp(); });
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { email: { in: createdEmails } } });
     await app.close();

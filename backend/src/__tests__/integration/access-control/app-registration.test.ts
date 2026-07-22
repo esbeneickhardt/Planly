@@ -15,7 +15,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../../helpers/app';
-import { prisma, createTestUser, createTestTeam, createTestProduct, createTestAppRegistration, randomSuffix } from '../../helpers/db';
+import {
+  prisma,
+  createTestUser,
+  createTestTeam,
+  createTestProduct,
+  createTestAppRegistration,
+  randomSuffix,
+} from '../../helpers/db';
 import { loginAs, bearerHeaders, cookieJar } from '../../helpers/auth';
 
 const HAS_DB = !!process.env.TEST_DATABASE_URL;
@@ -35,12 +42,20 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const owner = await createTestUser({ email: `apreg_owner_${suffix}@t.com`, username: `apreg_owner_${suffix}`, password: pw });
-    const other = await createTestUser({ email: `apreg_other_${suffix}@t.com`, username: `apreg_other_${suffix}`, password: pw });
+    const owner = await createTestUser({
+      email: `apreg_owner_${suffix}@t.com`,
+      username: `apreg_owner_${suffix}`,
+      password: pw,
+    });
+    const other = await createTestUser({
+      email: `apreg_other_${suffix}@t.com`,
+      username: `apreg_other_${suffix}`,
+      password: pw,
+    });
     ownerId = owner.id;
     otherId = other.id;
 
-    const team     = await createTestTeam(owner.id);
+    const team = await createTestTeam(owner.id);
     const teamBoth = await createTestTeam(owner.id, [other.id]);
     const productA = await createTestProduct(owner.id, team.id);
     const productB = await createTestProduct(owner.id, teamBoth.id);
@@ -77,7 +92,8 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
 
   it('owner can create an unscoped app registration', async () => {
     const res = await app.inject({
-      method: 'POST', url: '/api/apps',
+      method: 'POST',
+      url: '/api/apps',
       cookies: cookieJar(ownerCookie),
       payload: { name: 'CI integration', description: 'Used by CI pipeline' },
     });
@@ -90,7 +106,8 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
 
   it('owner can create a scoped app registration (product A)', async () => {
     const res = await app.inject({
-      method: 'POST', url: '/api/apps',
+      method: 'POST',
+      url: '/api/apps',
       cookies: cookieJar(ownerCookie),
       payload: { name: 'Scoped to A', productId: productAId },
     });
@@ -100,7 +117,8 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
 
   it('cannot scope to a product the user is not a member of', async () => {
     const res = await app.inject({
-      method: 'POST', url: '/api/apps',
+      method: 'POST',
+      url: '/api/apps',
       cookies: cookieJar(otherCookie),
       payload: { name: 'Bad scope', productId: productAId },
     });
@@ -109,7 +127,8 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
 
   it('owner can issue a token for an app registration', async () => {
     const res = await app.inject({
-      method: 'POST', url: `/api/apps/${createdAppId}/tokens`,
+      method: 'POST',
+      url: `/api/apps/${createdAppId}/tokens`,
       cookies: cookieJar(ownerCookie),
       payload: { name: 'v1' },
     });
@@ -119,9 +138,10 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
     expect(body.token.length).toBeGreaterThan(16);
   });
 
-  it('non-owner cannot issue a token for someone else\'s registration', async () => {
+  it("non-owner cannot issue a token for someone else's registration", async () => {
     const res = await app.inject({
-      method: 'POST', url: `/api/apps/${createdAppId}/tokens`,
+      method: 'POST',
+      url: `/api/apps/${createdAppId}/tokens`,
       cookies: cookieJar(otherCookie),
       payload: { name: 'steal' },
     });
@@ -134,13 +154,15 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
     const { raw } = await createTestAppRegistration(ownerId, { name: 'unscoped-app' });
 
     const resA = await app.inject({
-      method: 'GET', url: `/api/products/${productAId}/tasks`,
+      method: 'GET',
+      url: `/api/products/${productAId}/tasks`,
       headers: bearerHeaders(raw),
     });
     expect(resA.statusCode).toBe(200);
 
     const resB = await app.inject({
-      method: 'GET', url: `/api/products/${productBId}/tasks`,
+      method: 'GET',
+      url: `/api/products/${productBId}/tasks`,
       headers: bearerHeaders(raw),
     });
     expect(resB.statusCode).toBe(200);
@@ -152,13 +174,15 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
     const { raw } = await createTestAppRegistration(ownerId, { productId: productAId, name: 'scoped-app' });
 
     const resA = await app.inject({
-      method: 'GET', url: `/api/products/${productAId}/tasks`,
+      method: 'GET',
+      url: `/api/products/${productAId}/tasks`,
       headers: bearerHeaders(raw),
     });
     expect(resA.statusCode).toBe(200);
 
     const resB = await app.inject({
-      method: 'GET', url: `/api/products/${productBId}/tasks`,
+      method: 'GET',
+      url: `/api/products/${productBId}/tasks`,
       headers: bearerHeaders(raw),
     });
     expect(resB.statusCode).toBe(403);
@@ -167,7 +191,8 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
   it('scoped app token: cannot access /api/admin', async () => {
     const { raw } = await createTestAppRegistration(ownerId, { productId: productAId, name: 'scoped-admin-attempt' });
     const res = await app.inject({
-      method: 'GET', url: '/api/admin/users',
+      method: 'GET',
+      url: '/api/admin/users',
       headers: bearerHeaders(raw),
     });
     expect(res.statusCode).toBe(403);

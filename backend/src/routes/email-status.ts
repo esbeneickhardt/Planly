@@ -38,7 +38,13 @@ export async function emailStatusRoutes(app: FastifyInstance) {
       enabled: !!settings,
       from: settings?.from ?? null,
       config: settings
-        ? { host: settings.host, port: settings.port, secure: settings.secure, user: settings.user, from: settings.from }
+        ? {
+            host: settings.host,
+            port: settings.port,
+            secure: settings.secure,
+            user: settings.user,
+            from: settings.from,
+          }
         : null,
     });
   });
@@ -76,7 +82,15 @@ export async function emailStatusRoutes(app: FastifyInstance) {
     } else {
       if (!pass) return reply.status(400).send({ error: 'password required for initial setup' });
       await prisma.smtpConfig.create({
-        data: { id: 'default', host: host.trim(), port: port ?? 587, secure: secure ?? false, user: user ?? '', pass: encryptValue(pass), from: from.trim() },
+        data: {
+          id: 'default',
+          host: host.trim(),
+          port: port ?? 587,
+          secure: secure ?? false,
+          user: user ?? '',
+          pass: encryptValue(pass),
+          from: from.trim(),
+        },
       });
     }
     reply.send({ ok: true });

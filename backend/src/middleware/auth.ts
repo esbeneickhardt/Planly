@@ -31,7 +31,10 @@ const TV_TTL_MS = 10_000;
 function getCachedTokenVersion(userId: string): number | undefined {
   const entry = _tvCache.get(userId);
   if (!entry) return undefined;
-  if (Date.now() > entry.expiresAt) { _tvCache.delete(userId); return undefined; }
+  if (Date.now() > entry.expiresAt) {
+    _tvCache.delete(userId);
+    return undefined;
+  }
   return entry.tokenVersion;
 }
 
@@ -57,10 +60,10 @@ const EMAIL_VERIFY_EXEMPT = new Set([
 export interface AuthPayload {
   userId: string;
   username: string;
-  appName?: string;                       // set when the Bearer token belongs to an App Registration (not a PAT)
+  appName?: string; // set when the Bearer token belongs to an App Registration (not a PAT)
   appPermissions?: Record<string, string>; // per-tab permission levels stored on the AppRegistration
-  scopedProductId?: string;               // set when the Bearer token is locked to a specific project
-  tokenVersion?: number;                  // absent on PAT-authenticated requests; checked against DB on cookie auth
+  scopedProductId?: string; // set when the Bearer token is locked to a specific project
+  tokenVersion?: number; // absent on PAT-authenticated requests; checked against DB on cookie auth
 }
 
 // Augments FastifyRequest so req.user is typed everywhere without casting.
@@ -74,7 +77,7 @@ declare module 'fastify' {
 // Called by requireAuth after the JWT is validated to enforce email verification policy.
 // Skipped for exempt routes and for admin routes (admins must stay in control of the toggle).
 async function enforceEmailVerification(req: FastifyRequest, reply: FastifyReply) {
-  if (EMAIL_VERIFY_EXEMPT.has(req.routeOptions?.url ?? (req.url.split('?')[0] ?? ''))) return;
+  if (EMAIL_VERIFY_EXEMPT.has(req.routeOptions?.url ?? req.url.split('?')[0] ?? '')) return;
   const cfg = await getServerConfig();
   if (!cfg.requireEmailVerification) return;
   const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { emailVerified: true } });
@@ -95,16 +98,26 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
     try {
       const apiToken = await prisma.apiToken.findUnique({
         where: { tokenHash },
-        select: { id: true, userId: true, productId: true, readOnly: true, expiresAt: true, user: { select: { username: true } }, app: { select: { name: true, permissions: true } } },
+        select: {
+          id: true,
+          userId: true,
+          productId: true,
+          readOnly: true,
+          expiresAt: true,
+          user: { select: { username: true } },
+          app: { select: { name: true, permissions: true } },
+        },
       });
       if (apiToken && (!apiToken.expiresAt || apiToken.expiresAt > new Date())) {
         req.user = {
           userId: apiToken.userId,
           username: apiToken.app?.name ?? apiToken.user.username,
-          ...(apiToken.app ? {
-            appName: apiToken.app.name,
-            appPermissions: (apiToken.app.permissions ?? {}) as Record<string, string>,
-          } : {}),
+          ...(apiToken.app
+            ? {
+                appName: apiToken.app.name,
+                appPermissions: (apiToken.app.permissions ?? {}) as Record<string, string>,
+              }
+            : {}),
           ...(apiToken.productId ? { scopedProductId: apiToken.productId } : {}),
         };
         prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
@@ -148,7 +161,11 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
       // instantly invalidating every outstanding session without maintaining a blocklist.
       // Tokens issued before tokenVersion was introduced won't have this field; treat them as expired.
       if (typeof payload.tokenVersion !== 'number') {
-        reply.clearCookie('token', { path: '/' }).clearCookie('csrf', { path: '/' }).status(401).send({ error: 'Session expired, please log in again' });
+        reply
+          .clearCookie('token', { path: '/' })
+          .clearCookie('csrf', { path: '/' })
+          .status(401)
+          .send({ error: 'Session expired, please log in again' });
         return false;
       }
       // Verify the tokenVersion in the JWT matches the DB — catches password changes
@@ -159,14 +176,22 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
       if (liveVersion === undefined) {
         const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
         if (!userRow) {
-          reply.clearCookie('token', { path: '/' }).clearCookie('csrf', { path: '/' }).status(401).send({ error: 'Unauthorized' });
+          reply
+            .clearCookie('token', { path: '/' })
+            .clearCookie('csrf', { path: '/' })
+            .status(401)
+            .send({ error: 'Unauthorized' });
           return false;
         }
         liveVersion = userRow.tokenVersion;
         setCachedTokenVersion(payload.userId, liveVersion);
       }
       if (liveVersion !== payload.tokenVersion) {
-        reply.clearCookie('token', { path: '/' }).clearCookie('csrf', { path: '/' }).status(401).send({ error: 'Unauthorized' });
+        reply
+          .clearCookie('token', { path: '/' })
+          .clearCookie('csrf', { path: '/' })
+          .status(401)
+          .send({ error: 'Unauthorized' });
         return false;
       }
       req.user = payload;
@@ -199,7 +224,8 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
 
   // Admin-scope IP restriction — exempt the IP restriction management routes so an admin
   // who misconfigures rules can always fix it without needing server console access
-  if (req.url.startsWith('/api/admin/admin-ip-restrictions') || req.url.startsWith('/api/admin/ip-restrictions')) return;
+  if (req.url.startsWith('/api/admin/admin-ip-restrictions') || req.url.startsWith('/api/admin/ip-restrictions'))
+    return;
 
   const ip = getClientIp(req as never);
   if (!isLocalhost(ip)) {
@@ -208,10 +234,14 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
       prisma.adminIpRestriction.findMany({ where: { listType: 'blocklist' }, select: { cidr: true } }),
     ]);
     if (blocklist.some((r) => matchesCidr(ip, r.cidr))) {
-      return reply.status(403).send({ error: 'Admin access denied: your IP has been blocked.', code: 'ADMIN_IP_BLOCKED' });
+      return reply
+        .status(403)
+        .send({ error: 'Admin access denied: your IP has been blocked.', code: 'ADMIN_IP_BLOCKED' });
     }
     if (allowlist.length > 0 && !allowlist.some((r) => matchesCidr(ip, r.cidr))) {
-      return reply.status(403).send({ error: 'Admin access denied: your IP is not on the admin allowlist.', code: 'ADMIN_IP_BLOCKED' });
+      return reply
+        .status(403)
+        .send({ error: 'Admin access denied: your IP is not on the admin allowlist.', code: 'ADMIN_IP_BLOCKED' });
     }
   }
 }

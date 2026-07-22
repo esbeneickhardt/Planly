@@ -41,7 +41,9 @@ export async function adminConfigRoutes(app: FastifyInstance) {
     if (!wlBody) return;
     const p = wlBody.pattern.trim().toLowerCase();
     if (!p.startsWith('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)) {
-      return reply.status(400).send({ error: 'Pattern must be an email address or a domain starting with @ (e.g. @company.com)' });
+      return reply
+        .status(400)
+        .send({ error: 'Pattern must be an email address or a domain starting with @ (e.g. @company.com)' });
     }
     const type = wlBody.type ?? 'allow';
     try {
@@ -71,7 +73,15 @@ export async function adminConfigRoutes(app: FastifyInstance) {
   app.put('/api/admin/server-config', { preHandler: requireAdmin }, async (req, reply) => {
     const cfgBody = validate(serverConfigSchema, req.body, reply);
     if (!cfgBody) return;
-    const { requireEmailVerification, requireWhitelist, requireBlocklist, allowProjectCreation, announcementsEnabled, announcementPostRole, requireMfa } = cfgBody;
+    const {
+      requireEmailVerification,
+      requireWhitelist,
+      requireBlocklist,
+      allowProjectCreation,
+      announcementsEnabled,
+      announcementPostRole,
+      requireMfa,
+    } = cfgBody;
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
 
     // Snapshot the config before the update so we can detect transitions (e.g. verification just turned on)
@@ -89,10 +99,30 @@ export async function adminConfigRoutes(app: FastifyInstance) {
         ...(announcementPostRole !== undefined ? { announcementPostRole } : {}),
         ...(requireMfa !== undefined ? { requireMfa } : {}),
       },
-      create: { id: 'main', requireEmailVerification: requireEmailVerification ?? false, requireWhitelist: requireWhitelist ?? false, requireBlocklist: requireBlocklist ?? false, allowProjectCreation: allowProjectCreation ?? false, announcementsEnabled: announcementsEnabled ?? false, announcementPostRole: announcementPostRole ?? 'admin', requireMfa: requireMfa ?? false },
+      create: {
+        id: 'main',
+        requireEmailVerification: requireEmailVerification ?? false,
+        requireWhitelist: requireWhitelist ?? false,
+        requireBlocklist: requireBlocklist ?? false,
+        allowProjectCreation: allowProjectCreation ?? false,
+        announcementsEnabled: announcementsEnabled ?? false,
+        announcementPostRole: announcementPostRole ?? 'admin',
+        requireMfa: requireMfa ?? false,
+      },
     });
     await prisma.adminLog.create({
-      data: { action: 'SERVER_CONFIG_UPDATED', actorName: actor?.username, metadata: { requireEmailVerification, requireWhitelist, allowProjectCreation, announcementsEnabled, announcementPostRole, requireMfa } },
+      data: {
+        action: 'SERVER_CONFIG_UPDATED',
+        actorName: actor?.username,
+        metadata: {
+          requireEmailVerification,
+          requireWhitelist,
+          allowProjectCreation,
+          announcementsEnabled,
+          announcementPostRole,
+          requireMfa,
+        },
+      },
     });
 
     // Bulk-send verification emails when the feature is toggled on for the first time
@@ -100,18 +130,33 @@ export async function adminConfigRoutes(app: FastifyInstance) {
     if (requireEmailVerification === true && !prevConfig.requireEmailVerification) {
       const smtp = await getSmtpSettings();
       if (smtp) {
-        const unverified = await prisma.user.findMany({ where: { emailVerified: false }, select: { id: true, email: true, username: true } });
+        const unverified = await prisma.user.findMany({
+          where: { emailVerified: false },
+          select: { id: true, email: true, username: true },
+        });
         req.log.info(`[email-verification] Sending verification emails to ${unverified.length} unverified user(s)`);
-        const results = await Promise.allSettled(unverified.map(async (u) => {
-          // Store only the hash; the raw token goes in the email link
-          const raw = randomBytes(32).toString('hex');
-          const tokenHash = createHash('sha256').update(raw).digest('hex');
-          await prisma.emailVerifyToken.create({ data: { userId: u.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
-          await sendEmail({ to: u.email, subject: 'Verify your Planly email', html: verifyEmailTemplate(`${config.appUrl}/verify-email?token=${raw}`, u.username) });
-        }));
+        const results = await Promise.allSettled(
+          unverified.map(async (u) => {
+            // Store only the hash; the raw token goes in the email link
+            const raw = randomBytes(32).toString('hex');
+            const tokenHash = createHash('sha256').update(raw).digest('hex');
+            await prisma.emailVerifyToken.create({
+              data: { userId: u.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+            });
+            await sendEmail({
+              to: u.email,
+              subject: 'Verify your Planly email',
+              html: verifyEmailTemplate(`${config.appUrl}/verify-email?token=${raw}`, u.username),
+            });
+          }),
+        );
         verificationEmailsSent = results.filter((r) => r.status === 'fulfilled').length;
         const failed = results.filter((r) => r.status === 'rejected');
-        if (failed.length > 0) req.log.error({ errors: failed.map((r) => (r as PromiseRejectedResult).reason) }, `[email-verification] ${failed.length} failed`);
+        if (failed.length > 0)
+          req.log.error(
+            { errors: failed.map((r) => (r as PromiseRejectedResult).reason) },
+            `[email-verification] ${failed.length} failed`,
+          );
       } else {
         req.log.warn('[email-verification] Email not configured - skipping bulk verification send');
       }

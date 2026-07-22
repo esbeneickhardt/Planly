@@ -17,13 +17,23 @@ export default function AdminStats({ users, showToast }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
 
   const load = useCallback(async () => {
-    try { setStats(await api.admin.stats()); }
-    catch (e) { showToast((e as Error).message, 'error'); }
+    try {
+      setStats(await api.admin.stats());
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    }
   }, [showToast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  if (!stats) return <p className="text-sm" style={{ color: 'var(--text-3)' }}>Loading…</p>;
+  if (!stats)
+    return (
+      <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+        Loading…
+      </p>
+    );
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

@@ -19,22 +19,26 @@ const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
 // Validates attachment references; URL must be a server-local upload path to prevent link injection
 const attachmentSchema = z.object({
   // Restrict attachment URLs to this server's own upload paths to prevent link-injection
-  url: z.string().regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
+  url: z
+    .string()
+    .regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
   name: z.string(),
   type: z.string(),
 });
 // Role badge values accepted in admin chat (server-level roles only)
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
 // Message creation payload — content OR at least one attachment required
-const createMessageSchema = z.object({
-  content: z.string().max(10000),
-  replyToId: z.string().optional().nullable(),
-  attachments: z.array(attachmentSchema).optional(),
-  postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
-}).refine((d) => d.content.trim().length > 0 || (d.attachments?.length ?? 0) > 0, {
-  message: 'Message must have content or at least one attachment',
-  path: ['content'],
-});
+const createMessageSchema = z
+  .object({
+    content: z.string().max(10000),
+    replyToId: z.string().optional().nullable(),
+    attachments: z.array(attachmentSchema).optional(),
+    postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
+  })
+  .refine((d) => d.content.trim().length > 0 || (d.attachments?.length ?? 0) > 0, {
+    message: 'Message must have content or at least one attachment',
+    path: ['content'],
+  });
 // Edit payload — content is required and cannot be blank
 const editMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 
@@ -61,12 +65,22 @@ export async function adminChatRoutes(app: FastifyInstance) {
     if (!body) return;
     const { content, replyToId, attachments, postedAsRole: rawRole } = body;
     // Validate claimed role; admin chat only ever shows server-level roles
-    const sender = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } });
+    const sender = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { isAdmin: true, isFoundingAdmin: true },
+    });
     let postedAsRole: string | null = rawRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
     const msg = await prisma.message.create({
-      data: { isAdminChat: true, replyToId: replyToId ?? null, authorId: req.user.userId, content: content.trim(), attachments: attachments ?? [], postedAsRole },
+      data: {
+        isAdminChat: true,
+        replyToId: replyToId ?? null,
+        authorId: req.user.userId,
+        content: content.trim(),
+        attachments: attachments ?? [],
+        postedAsRole,
+      },
       include: MESSAGE_INCLUDE,
     });
     reply.status(201).send(decryptMessageAuthor(msg));
@@ -81,7 +95,8 @@ export async function adminChatRoutes(app: FastifyInstance) {
     const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
-    if (Date.now() - msg.createdAt.getTime() > EDIT_TIMEOUT_MS) return reply.status(403).send({ error: 'Edit window expired' });
+    if (Date.now() - msg.createdAt.getTime() > EDIT_TIMEOUT_MS)
+      return reply.status(403).send({ error: 'Edit window expired' });
     const updated = await prisma.message.update({
       where: { id: messageId },
       data: { content: content.trim(), editedAt: new Date() },
@@ -118,7 +133,10 @@ export async function adminChatRoutes(app: FastifyInstance) {
       await prisma.messageReaction.create({ data: key });
     }
     // Return the full updated reaction set so the client can replace its local state
-    const reactions = await prisma.messageReaction.findMany({ where: { messageId }, select: { emoji: true, userId: true } });
+    const reactions = await prisma.messageReaction.findMany({
+      where: { messageId },
+      select: { emoji: true, userId: true },
+    });
     reply.send({ reactions });
   });
 }

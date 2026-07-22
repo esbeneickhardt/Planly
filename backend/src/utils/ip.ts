@@ -24,7 +24,10 @@ export function matchesCidr(clientIp: string, cidr: string): boolean {
 }
 
 // Extracts the real client IP from X-Forwarded-For, accounting for the configured proxy depth
-export function getClientIp(req: { headers: Record<string, string | string[] | undefined>; socket: { remoteAddress?: string } }): string {
+export function getClientIp(req: {
+  headers: Record<string, string | string[] | undefined>;
+  socket: { remoteAddress?: string };
+}): string {
   const raw = process.env.TRUSTED_PROXY_DEPTH;
   const depth = raw === undefined ? config.trustedProxyDepth : parseInt(raw, 10);
 

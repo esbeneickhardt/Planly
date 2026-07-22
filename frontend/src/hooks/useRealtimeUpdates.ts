@@ -20,10 +20,7 @@ interface RealtimeEvent {
   ts?: number;
 }
 
-export function useRealtimeUpdates(
-  productId: string | null | undefined,
-  onEvent: (e: RealtimeEvent) => void,
-) {
+export function useRealtimeUpdates(productId: string | null | undefined, onEvent: (e: RealtimeEvent) => void) {
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 

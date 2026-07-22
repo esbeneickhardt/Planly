@@ -27,7 +27,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialization: load session user and listen for forced-logout events
   useEffect(() => {
-    api.auth.me().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
+    api.auth
+      .me()
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
 
     function handleEmailNotVerified() {
       api.auth.logout().catch(() => {});
@@ -62,7 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    try { await api.auth.logout(); } catch { /* ignore network errors */ }
+    try {
+      await api.auth.logout();
+    } catch {
+      /* ignore network errors */
+    }
     clearMembersCache();
     setUser(null);
   }
@@ -72,7 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, totpChallenge, logout, refreshUser }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, login, totpChallenge, logout, refreshUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

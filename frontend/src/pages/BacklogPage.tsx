@@ -19,12 +19,12 @@ import type { SortKey } from '../hooks/useBacklogFilters';
 import { isBeforeToday } from '../utils/dates';
 
 const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
-  { key: 'all',         label: 'All',         color: 'var(--text-3)' },
-  { key: 'backlog',     label: 'Not started',  color: '#64748b' },
-  { key: 'todo',        label: 'To Do',        color: '#3b82f6' },
-  { key: 'in_progress', label: 'In Progress',  color: '#f59e0b' },
-  { key: 'blocked',     label: 'Blocked',      color: '#ef4444' },
-  { key: 'done',        label: 'Done',         color: '#10b981' },
+  { key: 'all', label: 'All', color: 'var(--text-3)' },
+  { key: 'backlog', label: 'Not started', color: '#64748b' },
+  { key: 'todo', label: 'To Do', color: '#3b82f6' },
+  { key: 'in_progress', label: 'In Progress', color: '#f59e0b' },
+  { key: 'blocked', label: 'Blocked', color: '#ef4444' },
+  { key: 'done', label: 'Done', color: '#10b981' },
 ];
 
 export default function BacklogPage() {
@@ -40,12 +40,32 @@ export default function BacklogPage() {
   const [newTaskName, setNewTaskName] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const { sortKey, setSortKey, statusTab, setStatusTab, mineOnly, setMineOnly, search, setSearch, filteredTasks, tabCounts, unassignedCount, overdueCount } =
-    useBacklogFilters(tasks, user?.id);
+  const {
+    sortKey,
+    setSortKey,
+    statusTab,
+    setStatusTab,
+    mineOnly,
+    setMineOnly,
+    search,
+    setSearch,
+    filteredTasks,
+    tabCounts,
+    unassignedCount,
+    overdueCount,
+  } = useBacklogFilters(tasks, user?.id);
 
   // Toggle a single row in/out of the multi-select set
   function toggleSelect(id: string) {
-    setSelected((s) => { const n = new Set(s); if (n.has(id)) { n.delete(id); } else { n.add(id); } return n; });
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
   }
 
   function toggleAll() {
@@ -66,7 +86,7 @@ export default function BacklogPage() {
 
   // Confirm-then-delete all selected tasks in parallel
   async function bulkDelete() {
-    if (!activeProduct || !await confirm(`Delete ${selected.size} task(s)?`)) return;
+    if (!activeProduct || !(await confirm(`Delete ${selected.size} task(s)?`))) return;
     await Promise.all(Array.from(selected).map((id) => api.tasks.delete(activeProduct.id, id)));
     await refreshTasks();
     setSelected(new Set());
@@ -82,7 +102,9 @@ export default function BacklogPage() {
       await createTask({ name: newTaskName.trim() });
       setNewTaskName('');
       setShowNewTask(false);
-    } finally { setCreating(false); }
+    } finally {
+      setCreating(false);
+    }
   }
 
   if (!activeProduct) {
@@ -98,17 +120,26 @@ export default function BacklogPage() {
     <div className="h-full flex flex-col">
       {/* Filters */}
       <div className="px-6 pt-5 pb-3 flex-shrink-0">
-
         {/* Warning banners */}
         {(unassignedCount > 0 || overdueCount > 0) && (
           <div className="flex flex-wrap gap-2 mb-3">
             {unassignedCount > 0 && (
-              <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+              <div
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg"
+                style={{
+                  background: 'rgba(245,158,11,0.1)',
+                  border: '1px solid rgba(245,158,11,0.2)',
+                  color: '#f59e0b',
+                }}
+              >
                 ⚠ {unassignedCount} unassigned in backlog
               </div>
             )}
             {overdueCount > 0 && (
-              <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+              <div
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}
+              >
                 ⏰ {overdueCount} overdue
               </div>
             )}
@@ -123,7 +154,10 @@ export default function BacklogPage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => { setStatusTab(tab.key); setSelected(new Set()); }}
+                onClick={() => {
+                  setStatusTab(tab.key);
+                  setSelected(new Set());
+                }}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex-shrink-0"
                 style={{
                   background: active ? 'var(--surface-2)' : 'transparent',
@@ -133,10 +167,15 @@ export default function BacklogPage() {
               >
                 {tab.key !== 'all' && <span className="w-2 h-2 rounded-full" style={{ background: tab.color }} />}
                 {tab.label}
-                <span className="px-1 py-0.5 rounded text-[10px] leading-none" style={{
-                  background: active ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                  color: active ? 'var(--brand)' : 'var(--text-3)',
-                }}>{count}</span>
+                <span
+                  className="px-1 py-0.5 rounded text-[10px] leading-none"
+                  style={{
+                    background: active ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                    color: active ? 'var(--brand)' : 'var(--text-3)',
+                  }}
+                >
+                  {count}
+                </span>
               </button>
             );
           })}
@@ -165,7 +204,12 @@ export default function BacklogPage() {
             className="input text-xs"
             style={{ width: 160 }}
           />
-          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="input text-xs" style={{ width: 'auto' }}>
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            className="input text-xs"
+            style={{ width: 'auto' }}
+          >
             <option value="oldest">Oldest first</option>
             <option value="newest">Newest first</option>
             <option value="alpha">A–Z</option>
@@ -177,9 +221,13 @@ export default function BacklogPage() {
             <div className="flex items-center gap-3 text-xs ml-2">
               <span style={{ color: 'var(--text-3)' }}>{selected.size} selected</span>
               {statusTab !== 'done' && (
-                <button onClick={bulkMoveTodo} className="font-medium" style={{ color: 'var(--brand)' }}>Move to To Do</button>
+                <button onClick={bulkMoveTodo} className="font-medium" style={{ color: 'var(--brand)' }}>
+                  Move to To Do
+                </button>
               )}
-              <button onClick={bulkDelete} className="font-medium" style={{ color: '#ef4444' }}>Delete</button>
+              <button onClick={bulkDelete} className="font-medium" style={{ color: '#ef4444' }}>
+                Delete
+              </button>
             </div>
           )}
         </div>
@@ -191,7 +239,11 @@ export default function BacklogPage() {
           <div className="flex flex-col items-center justify-center h-48 gap-3" style={{ color: 'var(--text-3)' }}>
             <span className="text-4xl opacity-30">{search ? '🔍' : '✓'}</span>
             <p className="text-sm">{search ? `No tasks matching "${search}"` : 'No tasks in this view'}</p>
-            {!search && !readOnly && <button onClick={() => setShowNewTask(true)} className="btn-primary text-xs">+ Add first task</button>}
+            {!search && !readOnly && (
+              <button onClick={() => setShowNewTask(true)} className="btn-primary text-xs">
+                + Add first task
+              </button>
+            )}
           </div>
         ) : (
           <table className="w-full min-w-[640px] text-sm border-collapse">
@@ -199,11 +251,22 @@ export default function BacklogPage() {
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {!readOnly && (
                   <th className="w-10 px-4 py-3">
-                    <input type="checkbox" checked={selected.size === filteredTasks.length && filteredTasks.length > 0} onChange={toggleAll} style={{ accentColor: 'var(--brand)' }} />
+                    <input
+                      type="checkbox"
+                      checked={selected.size === filteredTasks.length && filteredTasks.length > 0}
+                      onChange={toggleAll}
+                      style={{ accentColor: 'var(--brand)' }}
+                    />
                   </th>
                 )}
                 {['Task', 'Status', 'Owner', 'Subtasks', 'Deadline', 'Created', ''].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>
+                  <th
+                    key={h}
+                    className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: 'var(--text-3)' }}
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -218,7 +281,10 @@ export default function BacklogPage() {
                   onToggle={() => toggleSelect(task.id)}
                   onOpen={() => setSelectedTask(task)}
                   onMoveTodo={async () => {
-                    if (!task.ownerId) { setSelectedTask(task); return; }
+                    if (!task.ownerId) {
+                      setSelectedTask(task);
+                      return;
+                    }
                     await api.tasks.update(activeProduct.id, task.id, { status: 'todo' });
                     await refreshTasks();
                   }}
@@ -239,8 +305,14 @@ export default function BacklogPage() {
           task={selectedTask}
           readOnly={readOnly}
           onClose={() => setSelectedTask(null)}
-          onUpdated={async (updated) => { setSelectedTask(updated); await refreshTasks(); }}
-          onDeleted={async () => { setSelectedTask(null); await refreshTasks(); }}
+          onUpdated={async (updated) => {
+            setSelectedTask(updated);
+            await refreshTasks();
+          }}
+          onDeleted={async () => {
+            setSelectedTask(null);
+            await refreshTasks();
+          }}
         />
       )}
 
@@ -249,13 +321,27 @@ export default function BacklogPage() {
           <form onSubmit={handleCreateTask} className="space-y-4">
             <div>
               <label className="label">Task name</label>
-              <input autoFocus required type="text" value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="input" placeholder="What needs to be done?" />
+              <input
+                autoFocus
+                required
+                type="text"
+                value={newTaskName}
+                onChange={(e) => setNewTaskName(e.target.value)}
+                className="input"
+                placeholder="What needs to be done?"
+              />
             </div>
             <div className="flex gap-3">
               <button type="submit" disabled={creating} className="btn-primary flex-1 flex justify-center">
-                {creating ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Create task'}
+                {creating ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Create task'
+                )}
               </button>
-              <button type="button" onClick={() => setShowNewTask(false)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={() => setShowNewTask(false)} className="btn-secondary">
+                Cancel
+              </button>
             </div>
           </form>
         </Modal>
@@ -265,15 +351,38 @@ export default function BacklogPage() {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  backlog: '#64748b', todo: '#3b82f6', in_progress: '#f59e0b', done: '#10b981', blocked: '#ef4444',
+  backlog: '#64748b',
+  todo: '#3b82f6',
+  in_progress: '#f59e0b',
+  done: '#10b981',
+  blocked: '#ef4444',
 };
 const STATUS_LABEL: Record<string, string> = {
-  backlog: 'Not started', todo: 'To Do', in_progress: 'In Progress', done: 'Done', blocked: 'Blocked',
+  backlog: 'Not started',
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  done: 'Done',
+  blocked: 'Blocked',
 };
 
-function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, onDelete, readOnly }: {
-  task: Task; selected: boolean; isOverdue: boolean; readOnly?: boolean;
-  onToggle: () => void; onOpen: () => void; onMoveTodo: () => void; onDelete: () => void;
+function BacklogRow({
+  task,
+  selected,
+  isOverdue,
+  onToggle,
+  onOpen,
+  onMoveTodo,
+  onDelete,
+  readOnly,
+}: {
+  task: Task;
+  selected: boolean;
+  isOverdue: boolean;
+  readOnly?: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+  onMoveTodo: () => void;
+  onDelete: () => void;
 }) {
   const done = task.subtasks.filter((s) => s.completed).length;
   const statusColor = STATUS_COLOR[task.status] ?? '#64748b';
@@ -285,8 +394,12 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
         background: selected ? 'var(--brand-subtle)' : 'transparent',
         transition: 'background 0.1s',
       }}
-      onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = 'var(--surface-2)'; }}
-      onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+      onMouseEnter={(e) => {
+        if (!selected) e.currentTarget.style.background = 'var(--surface-2)';
+      }}
+      onMouseLeave={(e) => {
+        if (!selected) e.currentTarget.style.background = 'transparent';
+      }}
     >
       {!readOnly && (
         <td className="px-4 py-3 w-10">
@@ -296,7 +409,9 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           {task.color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />}
-          <button onClick={onOpen} className="font-medium text-left hover:underline" style={{ color: 'var(--text)' }}>{task.name}</button>
+          <button onClick={onOpen} className="font-medium text-left hover:underline" style={{ color: 'var(--text)' }}>
+            {task.name}
+          </button>
         </div>
       </td>
       <td className="px-4 py-3">
@@ -312,7 +427,12 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
             <span>{displayName(task.owner)}</span>
           </span>
         ) : (
-          <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>Unassigned</span>
+          <span
+            className="text-xs px-2 py-0.5 rounded font-medium"
+            style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}
+          >
+            Unassigned
+          </span>
         )}
       </td>
       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-3)' }}>
@@ -324,7 +444,9 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
             {isOverdue && <span>⏰</span>}
             {new Date(task.deadline).toLocaleDateString()}
           </span>
-        ) : '-'}
+        ) : (
+          '-'
+        )}
       </td>
       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-3)' }}>
         {new Date(task.createdAt).toLocaleDateString()}
@@ -332,12 +454,19 @@ function BacklogRow({ task, selected, isOverdue, onToggle, onOpen, onMoveTodo, o
       <td className="px-4 py-3">
         <div className="flex items-center gap-3 justify-end">
           {!readOnly && task.status !== 'todo' && task.status !== 'done' && (
-            <button onClick={onMoveTodo} className="text-xs font-medium whitespace-nowrap transition-colors" style={{ color: 'var(--brand)' }}>
+            <button
+              onClick={onMoveTodo}
+              className="text-xs font-medium whitespace-nowrap transition-colors"
+              style={{ color: 'var(--brand)' }}
+            >
               {task.ownerId ? 'Move to To Do →' : 'Assign owner'}
             </button>
           )}
           {!readOnly && (
-            <button onClick={onDelete} className="text-xs transition-colors" style={{ color: 'var(--text-3)' }}
+            <button
+              onClick={onDelete}
+              className="text-xs transition-colors"
+              style={{ color: 'var(--text-3)' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
             >

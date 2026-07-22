@@ -58,7 +58,8 @@ export async function productRoutes(app: FastifyInstance) {
     const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
     if (!requestingUser?.isAdmin) {
       const cfg = await getServerConfig();
-      if (!cfg.allowProjectCreation) return reply.status(403).send({ error: 'Project creation is restricted to admins on this server.' });
+      if (!cfg.allowProjectCreation)
+        return reply.status(403).send({ error: 'Project creation is restricted to admins on this server.' });
     }
 
     // Verify the requester is a member of the target team
@@ -80,15 +81,37 @@ export async function productRoutes(app: FastifyInstance) {
     const product = await prisma.product.findUnique({
       where: { id, deletedAt: null },
       select: {
-        id: true, name: true, emoji: true, description: true, deadline: true, ownerId: true,
-        team: { select: { members: { include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true } } } } } },
+        id: true,
+        name: true,
+        emoji: true,
+        description: true,
+        deadline: true,
+        ownerId: true,
+        team: {
+          select: {
+            members: { include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true } } } },
+          },
+        },
       },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     const members = product.team.members
-      .map((m) => ({ userId: m.userId, role: m.userId === product.ownerId ? 'owner' : m.role, user: decryptUserPii(m.user) }))
-      .sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : a.role === 'co_owner' ? -1 : b.role === 'co_owner' ? 1 : 0));
-    reply.send({ id: product.id, name: product.name, emoji: product.emoji, description: product.description, deadline: product.deadline, members });
+      .map((m) => ({
+        userId: m.userId,
+        role: m.userId === product.ownerId ? 'owner' : m.role,
+        user: decryptUserPii(m.user),
+      }))
+      .sort((a, b) =>
+        a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : a.role === 'co_owner' ? -1 : b.role === 'co_owner' ? 1 : 0,
+      );
+    reply.send({
+      id: product.id,
+      name: product.name,
+      emoji: product.emoji,
+      description: product.description,
+      deadline: product.deadline,
+      members,
+    });
   });
 
   // Get a project with full team member list (membership check included)
@@ -96,10 +119,14 @@ export async function productRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const product = await prisma.product.findFirst({
       where: { id, deletedAt: null },
-      include: { team: { include: { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } } } } },
+      include: {
+        team: {
+          include: { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } } },
+        },
+      },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    const isMember = product.team.members.some(m => m.userId === req.user.userId);
+    const isMember = product.team.members.some((m) => m.userId === req.user.userId);
     if (!isMember) return reply.status(403).send({ error: 'Forbidden' });
     reply.send(product);
   });
@@ -148,7 +175,9 @@ export async function productRoutes(app: FastifyInstance) {
       const updated = await prisma.product.update({
         where: { id },
         data: {
-          name, emoji, description,
+          name,
+          emoji,
+          description,
           ...(deadline ? { deadline: new Date(deadline) } : {}),
           ...(ownerId !== undefined ? { ownerId } : {}),
           ...(analyticsEnabled !== undefined ? { analyticsEnabled } : {}),
@@ -166,7 +195,8 @@ export async function productRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    if (product.ownerId !== req.user.userId) return reply.status(403).send({ error: 'Only the owner can delete this product' });
+    if (product.ownerId !== req.user.userId)
+      return reply.status(403).send({ error: 'Only the owner can delete this product' });
     await prisma.product.update({ where: { id }, data: { deletedAt: new Date() } });
     reply.send({ ok: true });
   });

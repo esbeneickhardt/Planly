@@ -14,7 +14,7 @@ export async function exportRoutes(app: FastifyInstance) {
   // Full product data export as JSON
   app.get('/api/products/:productId/export', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
 
     // Fetch all project data in parallel
     const [product, tasks, columns, sprints, messages, colorLegend, snapshots] = await Promise.all([
@@ -44,7 +44,10 @@ export async function exportRoutes(app: FastifyInstance) {
         take: 5000,
       }),
       prisma.colorLegendEntry.findMany({ where: { productId } }),
-      prisma.canvasSnapshot.findMany({ where: { productId }, include: { user: { select: { id: true, username: true } } } }),
+      prisma.canvasSnapshot.findMany({
+        where: { productId },
+        include: { user: { select: { id: true, username: true } } },
+      }),
     ]);
 
     if (!product) return reply.status(404).send({ error: 'Not found' });
@@ -52,18 +55,27 @@ export async function exportRoutes(app: FastifyInstance) {
     // Return as a named JSON file attachment
     const exportedAt = new Date().toISOString();
     reply
-      .header('Content-Disposition', `attachment; filename="planly-export-${product.name.replace(/[^a-z0-9]/gi, '-')}-${exportedAt.slice(0, 10)}.json"`)
+      .header(
+        'Content-Disposition',
+        `attachment; filename="planly-export-${product.name.replace(/[^a-z0-9]/gi, '-')}-${exportedAt.slice(0, 10)}.json"`,
+      )
       .header('Content-Type', 'application/json')
-      .send(JSON.stringify({
-        exportedAt,
-        exportVersion: 1,
-        product: { ...product, tasks: undefined },
-        tasks,
-        columns,
-        sprints,
-        colorLegend,
-        canvasSnapshots: snapshots,
-        messages,
-      }, null, 2));
+      .send(
+        JSON.stringify(
+          {
+            exportedAt,
+            exportVersion: 1,
+            product: { ...product, tasks: undefined },
+            tasks,
+            columns,
+            sprints,
+            colorLegend,
+            canvasSnapshots: snapshots,
+            messages,
+          },
+          null,
+          2,
+        ),
+      );
   });
 }

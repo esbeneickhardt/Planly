@@ -33,9 +33,14 @@ const updateWebhookSchema = z.object({
 
 // Exhaustive list of event names that can trigger a webhook delivery
 const VALID_EVENTS = [
-  'task.created', 'task.updated', 'task.deleted',
-  'task.status_changed', 'task.assigned',
-  'subplan.created', 'subplan.updated', 'subplan.deleted',
+  'task.created',
+  'task.updated',
+  'task.deleted',
+  'task.status_changed',
+  'task.assigned',
+  'subplan.created',
+  'subplan.updated',
+  'subplan.deleted',
   'message.created',
 ];
 
@@ -43,7 +48,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   // List webhooks for a product
   app.get('/api/products/:productId/webhooks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
     const webhooks = await prisma.webhook.findMany({
       where: { productId },
       select: { id: true, url: true, events: true, active: true, createdAt: true },
@@ -55,14 +60,17 @@ export async function webhookRoutes(app: FastifyInstance) {
   // Create webhook
   app.post('/api/products/:productId/webhooks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
     const body = validate(createWebhookSchema, req.body, reply);
     if (!body) return;
     const { url, events } = body;
 
     // Enforce max webhook limit per project
     const webhookCount = await prisma.webhook.count({ where: { productId } });
-    if (webhookCount >= 20) return reply.status(400).send({ error: 'Maximum 20 webhooks allowed per project. Delete an existing webhook first.' });
+    if (webhookCount >= 20)
+      return reply
+        .status(400)
+        .send({ error: 'Maximum 20 webhooks allowed per project. Delete an existing webhook first.' });
 
     // Validate requested event types against the supported set
     const invalid = events.filter((e) => !VALID_EVENTS.includes(e));
@@ -78,7 +86,11 @@ export async function webhookRoutes(app: FastifyInstance) {
       data: { productId, url, events, secret: encryptValue(rawSecret) },
       select: { id: true, url: true, events: true, active: true, createdAt: true },
     });
-    logAdminEvent('WEBHOOK_CREATED', { actorName: req.user.username, targetName: productId, metadata: { webhookId: webhook.id, url, events } });
+    logAdminEvent('WEBHOOK_CREATED', {
+      actorName: req.user.username,
+      targetName: productId,
+      metadata: { webhookId: webhook.id, url, events },
+    });
     // Return the raw (unencrypted) secret once at creation
     reply.status(201).send({ ...webhook, secret: rawSecret });
   });
@@ -86,7 +98,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   // Update webhook
   app.patch('/api/products/:productId/webhooks/:webhookId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, webhookId } = req.params as { productId: string; webhookId: string };
-    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
     const patch = validate(updateWebhookSchema, req.body, reply);
     if (!patch) return;
     const { url, events, active } = patch;
@@ -109,45 +121,65 @@ export async function webhookRoutes(app: FastifyInstance) {
       data: { url, events, active },
       select: { id: true, url: true, events: true, active: true, createdAt: true },
     });
-    logAdminEvent('WEBHOOK_UPDATED', { actorName: req.user.username, targetName: productId, metadata: { webhookId, changes: { url, events, active } } });
+    logAdminEvent('WEBHOOK_UPDATED', {
+      actorName: req.user.username,
+      targetName: productId,
+      metadata: { webhookId, changes: { url, events, active } },
+    });
     reply.send(updated);
   });
 
   // Rotate webhook secret
-  app.post('/api/products/:productId/webhooks/:webhookId/rotate-secret', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, webhookId } = req.params as { productId: string; webhookId: string };
-    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
-    const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
-    if (!existing) return reply.status(404).send({ error: 'Not found' });
-    const rawSecret = randomBytes(32).toString('hex');
-    await prisma.webhook.update({ where: { id: webhookId }, data: { secret: encryptValue(rawSecret) } });
-    logAdminEvent('WEBHOOK_SECRET_ROTATED', { actorName: req.user.username, targetName: productId, metadata: { webhookId } });
-    reply.send({ secret: rawSecret });
-  });
+  app.post(
+    '/api/products/:productId/webhooks/:webhookId/rotate-secret',
+    { preHandler: requireAuth },
+    async (req, reply) => {
+      const { productId, webhookId } = req.params as { productId: string; webhookId: string };
+      if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
+      const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
+      if (!existing) return reply.status(404).send({ error: 'Not found' });
+      const rawSecret = randomBytes(32).toString('hex');
+      await prisma.webhook.update({ where: { id: webhookId }, data: { secret: encryptValue(rawSecret) } });
+      logAdminEvent('WEBHOOK_SECRET_ROTATED', {
+        actorName: req.user.username,
+        targetName: productId,
+        metadata: { webhookId },
+      });
+      reply.send({ secret: rawSecret });
+    },
+  );
 
   // Delete webhook
   app.delete('/api/products/:productId/webhooks/:webhookId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, webhookId } = req.params as { productId: string; webhookId: string };
-    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
     const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
     await prisma.webhook.delete({ where: { id: webhookId } });
-    logAdminEvent('WEBHOOK_DELETED', { actorName: req.user.username, targetName: productId, metadata: { webhookId, url: existing.url } });
+    logAdminEvent('WEBHOOK_DELETED', {
+      actorName: req.user.username,
+      targetName: productId,
+      metadata: { webhookId, url: existing.url },
+    });
     reply.send({ ok: true });
   });
 
   // Webhook delivery history
-  app.get('/api/products/:productId/webhooks/:webhookId/deliveries', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, webhookId } = req.params as { productId: string; webhookId: string };
-    if (!await requireProductCoOwner(productId, req.user.userId, reply)) return;
-    const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
-    if (!existing) return reply.status(404).send({ error: 'Not found' });
-    const deliveries = await prisma.webhookDelivery.findMany({
-      where: { webhookId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      select: { id: true, event: true, statusCode: true, success: true, createdAt: true, responseBody: true },
-    });
-    reply.send(deliveries);
-  });
+  app.get(
+    '/api/products/:productId/webhooks/:webhookId/deliveries',
+    { preHandler: requireAuth },
+    async (req, reply) => {
+      const { productId, webhookId } = req.params as { productId: string; webhookId: string };
+      if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
+      const existing = await prisma.webhook.findFirst({ where: { id: webhookId, productId } });
+      if (!existing) return reply.status(404).send({ error: 'Not found' });
+      const deliveries = await prisma.webhookDelivery.findMany({
+        where: { webhookId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: { id: true, event: true, statusCode: true, success: true, createdAt: true, responseBody: true },
+      });
+      reply.send(deliveries);
+    },
+  );
 }

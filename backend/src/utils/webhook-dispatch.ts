@@ -42,10 +42,22 @@ export async function dispatchWebhooks(productId: string, event: string, payload
         // re-pointed to a private IP after the webhook was created and passed the write-time check
         const ssrfError = await validateWebhookUrl(wh.url);
         if (ssrfError) {
-          logger.warn({ webhookId: wh.id, url: wh.url, reason: ssrfError }, 'webhook delivery blocked: SSRF re-check failed');
-          await prisma.webhookDelivery.create({
-            data: { webhookId: wh.id, event, payload, statusCode: null, responseBody: `Blocked: ${ssrfError}`, success: false },
-          }).catch(() => {});
+          logger.warn(
+            { webhookId: wh.id, url: wh.url, reason: ssrfError },
+            'webhook delivery blocked: SSRF re-check failed',
+          );
+          await prisma.webhookDelivery
+            .create({
+              data: {
+                webhookId: wh.id,
+                event,
+                payload,
+                statusCode: null,
+                responseBody: `Blocked: ${ssrfError}`,
+                success: false,
+              },
+            })
+            .catch(() => {});
           return;
         }
         const res = await fetch(wh.url, {
@@ -66,11 +78,13 @@ export async function dispatchWebhooks(productId: string, event: string, payload
         responseBody = (err as Error).message.slice(0, 500);
       }
       // Record the delivery outcome regardless of success or failure
-      await prisma.webhookDelivery.create({
-        data: { webhookId: wh.id, event, payload, statusCode, responseBody, success },
-      }).catch((err) => {
-        logger.warn({ err: (err as Error).message, webhookId: wh.id, event }, 'webhook delivery record failed');
-      });
+      await prisma.webhookDelivery
+        .create({
+          data: { webhookId: wh.id, event, payload, statusCode, responseBody, success },
+        })
+        .catch((err) => {
+          logger.warn({ err: (err as Error).message, webhookId: wh.id, event }, 'webhook delivery record failed');
+        });
     }),
   );
 }

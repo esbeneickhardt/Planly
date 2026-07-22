@@ -41,7 +41,6 @@ function validateCidr(cidr: string): string | null {
 }
 
 export async function ipRestrictionRoutes(app: FastifyInstance) {
-
   // ── User IP rules ─────────────────────────────────────────────────────────────
 
   app.get('/api/admin/ip-restrictions', { preHandler: requireAdmin }, async (req, reply) => {
@@ -59,9 +58,17 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     const err = validateCidr(normalized);
     if (err) return reply.status(400).send({ error: err });
     try {
-      const rule = await prisma.ipRestriction.create({ data: { cidr: normalized, listType: body.listType, description: body.description?.trim() || null } });
+      const rule = await prisma.ipRestriction.create({
+        data: { cidr: normalized, listType: body.listType, description: body.description?.trim() || null },
+      });
       const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
-      await prisma.adminLog.create({ data: { action: 'IP_RULE_ADDED', actorName: actor?.username, metadata: { cidr: normalized, listType: body.listType } } });
+      await prisma.adminLog.create({
+        data: {
+          action: 'IP_RULE_ADDED',
+          actorName: actor?.username,
+          metadata: { cidr: normalized, listType: body.listType },
+        },
+      });
       reply.status(201).send(rule);
     } catch {
       reply.status(409).send({ error: 'That IP / CIDR is already in this list' });
@@ -74,7 +81,13 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     if (!rule) return reply.status(404).send({ error: 'Not found' });
     await prisma.ipRestriction.delete({ where: { id } });
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
-    await prisma.adminLog.create({ data: { action: 'IP_RULE_REMOVED', actorName: actor?.username, metadata: { cidr: rule.cidr, listType: rule.listType } } });
+    await prisma.adminLog.create({
+      data: {
+        action: 'IP_RULE_REMOVED',
+        actorName: actor?.username,
+        metadata: { cidr: rule.cidr, listType: rule.listType },
+      },
+    });
     reply.send({ ok: true });
   });
 
@@ -95,9 +108,17 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     const err = validateCidr(normalized);
     if (err) return reply.status(400).send({ error: err });
     try {
-      const rule = await prisma.adminIpRestriction.create({ data: { cidr: normalized, listType: body.listType, description: body.description?.trim() || null } });
+      const rule = await prisma.adminIpRestriction.create({
+        data: { cidr: normalized, listType: body.listType, description: body.description?.trim() || null },
+      });
       const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
-      await prisma.adminLog.create({ data: { action: 'ADMIN_IP_RULE_ADDED', actorName: actor?.username, metadata: { cidr: normalized, listType: body.listType } } });
+      await prisma.adminLog.create({
+        data: {
+          action: 'ADMIN_IP_RULE_ADDED',
+          actorName: actor?.username,
+          metadata: { cidr: normalized, listType: body.listType },
+        },
+      });
       reply.status(201).send(rule);
     } catch {
       reply.status(409).send({ error: 'That IP / CIDR is already in this admin list' });
@@ -110,7 +131,13 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     if (!rule) return reply.status(404).send({ error: 'Not found' });
     await prisma.adminIpRestriction.delete({ where: { id } });
     const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
-    await prisma.adminLog.create({ data: { action: 'ADMIN_IP_RULE_REMOVED', actorName: actor?.username, metadata: { cidr: rule.cidr, listType: rule.listType } } });
+    await prisma.adminLog.create({
+      data: {
+        action: 'ADMIN_IP_RULE_REMOVED',
+        actorName: actor?.username,
+        metadata: { cidr: rule.cidr, listType: rule.listType },
+      },
+    });
     reply.send({ ok: true });
   });
 }

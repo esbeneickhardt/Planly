@@ -4,16 +4,42 @@ import { useAuth } from '../../context/AuthContext';
 import Modal from './Modal';
 
 const NOTIFICATION_TYPES: { type: string; label: string; description: string; defaultOn: boolean; group?: string }[] = [
-  { type: 'task_assigned',   label: 'Task assigned',     description: 'When a task is assigned to you',        defaultOn: true  },
-  { type: 'task_commented',  label: 'Task comment',      description: 'When someone comments on your task',    defaultOn: true  },
-  { type: 'mention',         label: '@Mention',          description: 'When someone mentions you in a message', defaultOn: true  },
-  { type: 'emailMentions',   label: 'Email for @mentions', description: 'Send an email when you are @mentioned (requires SMTP)', defaultOn: false, group: 'email' },
-  { type: 'access_requested',label: 'Access requests',   description: 'When someone requests project access',  defaultOn: true  },
-  { type: 'access_approved', label: 'Access approved',   description: 'When your access request is approved',  defaultOn: true  },
-  { type: 'access_rejected', label: 'Access rejected',   description: 'When your access request is declined',  defaultOn: true  },
-  { type: 'invite_received', label: 'Team invite',       description: 'Get a notification when you are invited to a project', defaultOn: true  },
-  { type: 'role_changed',    label: 'Role change',       description: 'When your role in a project changes',                  defaultOn: true  },
-  { type: 'sprint_started',  label: 'Sprint started',    description: 'When a sprint begins',                  defaultOn: false },
+  { type: 'task_assigned', label: 'Task assigned', description: 'When a task is assigned to you', defaultOn: true },
+  { type: 'task_commented', label: 'Task comment', description: 'When someone comments on your task', defaultOn: true },
+  { type: 'mention', label: '@Mention', description: 'When someone mentions you in a message', defaultOn: true },
+  {
+    type: 'emailMentions',
+    label: 'Email for @mentions',
+    description: 'Send an email when you are @mentioned (requires SMTP)',
+    defaultOn: false,
+    group: 'email',
+  },
+  {
+    type: 'access_requested',
+    label: 'Access requests',
+    description: 'When someone requests project access',
+    defaultOn: true,
+  },
+  {
+    type: 'access_approved',
+    label: 'Access approved',
+    description: 'When your access request is approved',
+    defaultOn: true,
+  },
+  {
+    type: 'access_rejected',
+    label: 'Access rejected',
+    description: 'When your access request is declined',
+    defaultOn: true,
+  },
+  {
+    type: 'invite_received',
+    label: 'Team invite',
+    description: 'Get a notification when you are invited to a project',
+    defaultOn: true,
+  },
+  { type: 'role_changed', label: 'Role change', description: 'When your role in a project changes', defaultOn: true },
+  { type: 'sprint_started', label: 'Sprint started', description: 'When a sprint begins', defaultOn: false },
 ];
 
 interface Props {
@@ -48,8 +74,10 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
       await api.users.updateNotificationPreferences(user.id, prefs);
       await refreshUser();
       setSaved(true);
-    } catch {}
-    finally { setSaving(false); }
+    } catch {
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -62,7 +90,9 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
             <div key={type}>
               {showDivider && (
                 <div className="pt-2 pb-1 px-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>Email</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                    Email
+                  </p>
                 </div>
               )}
               <button
@@ -82,8 +112,12 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{label}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>{description}</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                    {label}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                    {description}
+                  </p>
                 </div>
               </button>
             </div>
@@ -92,16 +126,18 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
       </div>
 
       <div className="flex gap-3 pt-4 mt-2" style={{ borderTop: '1px solid var(--border)' }}>
-        <button
-          onClick={save}
-          disabled={saving}
-          className="btn-primary flex-1 flex justify-center"
-        >
-          {saving
-            ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-            : saved ? 'Saved' : 'Save preferences'}
+        <button onClick={save} disabled={saving} className="btn-primary flex-1 flex justify-center">
+          {saving ? (
+            <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          ) : saved ? (
+            'Saved'
+          ) : (
+            'Save preferences'
+          )}
         </button>
-        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+        <button type="button" onClick={onClose} className="btn-secondary">
+          Cancel
+        </button>
       </div>
     </Modal>
   );

@@ -9,7 +9,15 @@
  * All FS calls and S3 SDK calls are mocked; no actual files are written.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { verifyMimeBytes, fileExtFromMime, mimeFromExt, generateFilename, storeFile, getFileBuffer, deleteFile } from '../../utils/storage';
+import {
+  verifyMimeBytes,
+  fileExtFromMime,
+  mimeFromExt,
+  generateFilename,
+  storeFile,
+  getFileBuffer,
+  deleteFile,
+} from '../../utils/storage';
 
 // Mocked for local-disk tests. S3 tests use vi.resetModules() + vi.doMock + dynamic import.
 vi.mock('fs/promises', () => ({
@@ -21,19 +29,39 @@ vi.mock('fs/promises', () => ({
 
 // ── Magic byte helpers ─────────────────────────────────────────────────────
 
-function jpegBuf()  { return Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]); }
-function pngBuf()   { return Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A]); }
-function gifBuf()   { return Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]); }
+function jpegBuf() {
+  return Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+}
+function pngBuf() {
+  return Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+}
+function gifBuf() {
+  return Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+}
 function webpBuf() {
   const b = Buffer.alloc(16);
-  b[0]=0x52; b[1]=0x49; b[2]=0x46; b[3]=0x46;
-  b[8]=0x57; b[9]=0x45; b[10]=0x42; b[11]=0x50;
+  b[0] = 0x52;
+  b[1] = 0x49;
+  b[2] = 0x46;
+  b[3] = 0x46;
+  b[8] = 0x57;
+  b[9] = 0x45;
+  b[10] = 0x42;
+  b[11] = 0x50;
   return b;
 }
-function pdfBuf()   { return Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2D]); }
-function zipBuf()   { return Buffer.from([0x50, 0x4B, 0x03, 0x04]); }
-function docBuf()   { return Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1]); }
-function htmlBuf()  { return Buffer.from('<html><body></body></html>'); }
+function pdfBuf() {
+  return Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d]);
+}
+function zipBuf() {
+  return Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+}
+function docBuf() {
+  return Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1]);
+}
+function htmlBuf() {
+  return Buffer.from('<html><body></body></html>');
+}
 
 // ── verifyMimeBytes ────────────────────────────────────────────────────────
 
@@ -111,7 +139,7 @@ describe('verifyMimeBytes', () => {
 
   // Truncated uploads must be rejected rather than causing an out-of-bounds read
   it('rejects buffer shorter than 4 bytes for binary types', () => {
-    expect(verifyMimeBytes(Buffer.from([0xFF, 0xD8]), 'image/jpeg')).toBe(false);
+    expect(verifyMimeBytes(Buffer.from([0xff, 0xd8]), 'image/jpeg')).toBe(false);
   });
 
   it('returns false for unknown MIME types', () => {
@@ -171,7 +199,9 @@ describe('generateFilename', () => {
 // ── local disk storage ─────────────────────────────────────────────────────
 
 describe('local disk storage (no AWS_S3_BUCKET)', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('storeFile creates the uploads dir and writes the buffer', async () => {
     const { mkdir, writeFile } = await import('fs/promises');
@@ -224,10 +254,18 @@ describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
     process.env.AWS_S3_PREFIX = 'pfx';
     vi.doMock('@aws-sdk/client-s3', () => ({
       // All must be regular functions (not arrow) because storage.ts uses `new` on each
-      S3Client: function MockS3Client(this: unknown) { return { send: mockSend }; },
-      PutObjectCommand: function MockPut(this: unknown, input: unknown) { return { _cmd: 'PUT', ...(input as object) }; },
-      GetObjectCommand: function MockGet(this: unknown, input: unknown) { return { _cmd: 'GET', ...(input as object) }; },
-      DeleteObjectCommand: function MockDelete(this: unknown, input: unknown) { return { _cmd: 'DELETE', ...(input as object) }; },
+      S3Client: function MockS3Client(this: unknown) {
+        return { send: mockSend };
+      },
+      PutObjectCommand: function MockPut(this: unknown, input: unknown) {
+        return { _cmd: 'PUT', ...(input as object) };
+      },
+      GetObjectCommand: function MockGet(this: unknown, input: unknown) {
+        return { _cmd: 'GET', ...(input as object) };
+      },
+      DeleteObjectCommand: function MockDelete(this: unknown, input: unknown) {
+        return { _cmd: 'DELETE', ...(input as object) };
+      },
     }));
   });
 
@@ -250,7 +288,10 @@ describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
   });
 
   it('getFileBuffer sends GetObjectCommand and reassembles streamed chunks', async () => {
-    async function* stream() { yield Buffer.from('chunk1'); yield Buffer.from('chunk2'); }
+    async function* stream() {
+      yield Buffer.from('chunk1');
+      yield Buffer.from('chunk2');
+    }
     mockSend.mockResolvedValueOnce({ Body: stream() });
     const { getFileBuffer: s3Get } = await import('../../utils/storage');
     const buf = await s3Get('photo.jpg');
@@ -273,7 +314,9 @@ describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
   });
 
   it('getFileBuffer sanitizes path traversal before building the S3 key', async () => {
-    async function* stream() { yield Buffer.from('data'); }
+    async function* stream() {
+      yield Buffer.from('data');
+    }
     mockSend.mockResolvedValueOnce({ Body: stream() });
     const { getFileBuffer: s3Get } = await import('../../utils/storage');
     await s3Get('../../../etc/passwd.txt');
@@ -295,8 +338,12 @@ describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
     process.env.AWS_S3_PREFIX = 'custom-prefix';
     vi.resetModules();
     vi.doMock('@aws-sdk/client-s3', () => ({
-      S3Client: function MockS3Client(this: unknown) { return { send: mockSend }; },
-      PutObjectCommand: function MockPut(this: unknown, input: unknown) { return { _cmd: 'PUT', ...(input as object) }; },
+      S3Client: function MockS3Client(this: unknown) {
+        return { send: mockSend };
+      },
+      PutObjectCommand: function MockPut(this: unknown, input: unknown) {
+        return { _cmd: 'PUT', ...(input as object) };
+      },
     }));
     const { storeFile: s3Store } = await import('../../utils/storage');
     await s3Store(Buffer.from('x'), 'file.txt', 'text/plain');

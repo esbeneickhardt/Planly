@@ -34,7 +34,7 @@ The test suite creates and tears down its own data — it does not touch the dev
 
 ```bash
 docker compose exec db createdb -U planly planly_test
-docker compose exec backend sh -c "DATABASE_URL=postgresql://planly:planly_dev@db:5432/planly_test npx prisma db push --skip-generate"
+docker compose exec backend sh -c "DATABASE_URL=postgresql://planly:planly_dev@db:5432/planly_test npx prisma migrate deploy"
 ```
 
 ### E2E browser tests (Playwright)
@@ -64,8 +64,8 @@ Run after automated tests pass. Together they take ~45 minutes.
 These areas have no integration tests yet and rely on the manual smoke test:
 
 - Announcements (CRUD, markdown, comments, pin restriction)
-- Team chat / messages
 - Webhooks (delivery, retries, signature)
 - Team invites (open link, email invite, accept flow)
 - Access requests
-- Real-time updates (two-client WebSocket behavior)
+
+The E2E suite (`e2e/specs/`) covers: registration, kanban, permissions (route guards, non-member isolation, API-level enforcement), views (Gantt, Canvas, Backlog), chat (send, persist, real-time two-context WebSocket delivery), and admin-only API operations.

@@ -38,7 +38,6 @@ function esc(s: string): string {
 // ── Routes ─────────────────────────────────────────────────────────────────────
 
 export async function icalRoutes(app: FastifyInstance) {
-
   // ── Calendar feed ─────────────────────────────────────────────────────────
   app.get('/api/products/:productId/calendar.ics', async (req, reply) => {
     const { productId } = req.params as { productId: string };

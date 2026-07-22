@@ -33,11 +33,19 @@ describe.skipIf(!HAS_DB)('Role matrix - endpoint access control', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const owner    = await createTestUser({ email: `rm_owner_${suffix}@t.com`,    username: `rm_owner_${suffix}`,    password: pw });
-    const member   = await createTestUser({ email: `rm_member_${suffix}@t.com`,   username: `rm_member_${suffix}`,   password: pw });
-    await createTestUser({ email: `rm_outside_${suffix}@t.com`,  username: `rm_outside_${suffix}`,  password: pw });
+    const owner = await createTestUser({
+      email: `rm_owner_${suffix}@t.com`,
+      username: `rm_owner_${suffix}`,
+      password: pw,
+    });
+    const member = await createTestUser({
+      email: `rm_member_${suffix}@t.com`,
+      username: `rm_member_${suffix}`,
+      password: pw,
+    });
+    await createTestUser({ email: `rm_outside_${suffix}@t.com`, username: `rm_outside_${suffix}`, password: pw });
 
-    const team    = await createTestTeam(owner.id, [member.id]);
+    const team = await createTestTeam(owner.id, [member.id]);
     const product = await createTestProduct(owner.id, team.id);
     productId = product.id;
 
@@ -47,19 +55,17 @@ describe.skipIf(!HAS_DB)('Role matrix - endpoint access control', () => {
     });
     taskId = task.id;
 
-    ownerToken    = await loginAs(app, `rm_owner_${suffix}@t.com`,   pw);
-    memberToken   = await loginAs(app, `rm_member_${suffix}@t.com`,  pw);
+    ownerToken = await loginAs(app, `rm_owner_${suffix}@t.com`, pw);
+    memberToken = await loginAs(app, `rm_member_${suffix}@t.com`, pw);
     outsiderToken = await loginAs(app, `rm_outside_${suffix}@t.com`, pw);
   });
 
   afterAll(async () => {
     await prisma.task.deleteMany({ where: { productId } });
     await prisma.product.deleteMany({ where: { id: productId } });
-    await prisma.user.deleteMany({ where: { email: { in: [
-      `rm_owner_${suffix}@t.com`,
-      `rm_member_${suffix}@t.com`,
-      `rm_outside_${suffix}@t.com`,
-    ] } } });
+    await prisma.user.deleteMany({
+      where: { email: { in: [`rm_owner_${suffix}@t.com`, `rm_member_${suffix}@t.com`, `rm_outside_${suffix}@t.com`] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
@@ -69,8 +75,8 @@ describe.skipIf(!HAS_DB)('Role matrix - endpoint access control', () => {
   type Role = 'owner' | 'member' | 'outsider' | 'anon';
 
   function token(role: Role): string | undefined {
-    if (role === 'owner')    return ownerToken;
-    if (role === 'member')   return memberToken;
+    if (role === 'owner') return ownerToken;
+    if (role === 'member') return memberToken;
     if (role === 'outsider') return outsiderToken;
     return undefined;
   }
@@ -99,56 +105,96 @@ describe.skipIf(!HAS_DB)('Role matrix - endpoint access control', () => {
   }> = [
     {
       label: 'GET tasks list',
-      method: 'GET', url: () => `/api/products/${productId}/tasks`,
-      owner: 200, member: 200, outsider: 403, anon: 401,
+      method: 'GET',
+      url: () => `/api/products/${productId}/tasks`,
+      owner: 200,
+      member: 200,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'POST create task',
-      method: 'POST', url: () => `/api/products/${productId}/tasks`,
+      method: 'POST',
+      url: () => `/api/products/${productId}/tasks`,
       payload: { name: 'new task' },
-      owner: 201, member: 201, outsider: 403, anon: 401,
+      owner: 201,
+      member: 201,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'PATCH update task',
-      method: 'PATCH', url: () => `/api/products/${productId}/tasks/${taskId}`,
+      method: 'PATCH',
+      url: () => `/api/products/${productId}/tasks/${taskId}`,
       payload: { name: 'renamed' },
-      owner: 200, member: 200, outsider: 403, anon: 401,
+      owner: 200,
+      member: 200,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'DELETE task (owner only)',
-      method: 'DELETE', url: () => `/api/products/${productId}/tasks/${taskId}`,
-      owner: 204, member: 204, outsider: 403, anon: 401,
+      method: 'DELETE',
+      url: () => `/api/products/${productId}/tasks/${taskId}`,
+      owner: 204,
+      member: 204,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'POST create webhook (owner/co-owner only)',
-      method: 'POST', url: () => `/api/products/${productId}/webhooks`,
+      method: 'POST',
+      url: () => `/api/products/${productId}/webhooks`,
       payload: { url: 'https://example.com/hook', events: ['task.created'] },
-      owner: 201, member: 403, outsider: 403, anon: 401,
+      owner: 201,
+      member: 403,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'GET export (owner/co-owner only)',
-      method: 'GET', url: () => `/api/products/${productId}/export`,
-      owner: 200, member: 403, outsider: 403, anon: 401,
+      method: 'GET',
+      url: () => `/api/products/${productId}/export`,
+      owner: 200,
+      member: 403,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'GET sprints (any member)',
-      method: 'GET', url: () => `/api/products/${productId}/sprints`,
-      owner: 200, member: 200, outsider: 403, anon: 401,
+      method: 'GET',
+      url: () => `/api/products/${productId}/sprints`,
+      owner: 200,
+      member: 200,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'GET columns (any member)',
-      method: 'GET', url: () => `/api/products/${productId}/columns`,
-      owner: 200, member: 200, outsider: 403, anon: 401,
+      method: 'GET',
+      url: () => `/api/products/${productId}/columns`,
+      owner: 200,
+      member: 200,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'GET admin users (blocked for non-admin)',
-      method: 'GET', url: () => '/api/admin/users',
-      owner: 403, member: 403, outsider: 403, anon: 401,
+      method: 'GET',
+      url: () => '/api/admin/users',
+      owner: 403,
+      member: 403,
+      outsider: 403,
+      anon: 401,
     },
     {
       label: 'GET admin server-config (blocked for non-admin)',
-      method: 'GET', url: () => '/api/admin/server-config',
-      owner: 403, member: 403, outsider: 403, anon: 401,
+      method: 'GET',
+      url: () => '/api/admin/server-config',
+      owner: 403,
+      member: 403,
+      outsider: 403,
+      anon: 401,
     },
   ];
 

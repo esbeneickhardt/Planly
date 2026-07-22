@@ -22,8 +22,14 @@ export default function ChangePasswordModal({ onClose }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (next !== confirm) { setError('New passwords do not match'); return; }
-    if (next.length < 8) { setError('New password must be at least 8 characters'); return; }
+    if (next !== confirm) {
+      setError('New passwords do not match');
+      return;
+    }
+    if (next.length < 8) {
+      setError('New password must be at least 8 characters');
+      return;
+    }
     setLoading(true);
     try {
       await api.auth.changePassword({ currentPassword: current, newPassword: next });
@@ -39,58 +45,96 @@ export default function ChangePasswordModal({ onClose }: Props) {
     <div
       className="fixed inset-0 flex items-center justify-center z-50 p-4"
       style={{ background: 'rgba(0,0,0,0.5)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className="w-full max-w-sm rounded-2xl p-6 space-y-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div
+        className="w-full max-w-sm rounded-2xl p-6 space-y-5"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      >
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Change password</h2>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: 'var(--text-3)' }}>×</button>
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
+            Change password
+          </h2>
+          <button onClick={onClose} className="text-xl leading-none" style={{ color: 'var(--text-3)' }}>
+            ×
+          </button>
         </div>
 
         {done ? (
           <div className="space-y-4 text-center py-2">
             <div className="text-3xl">✓</div>
-            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Password updated</p>
-            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Other active sessions have been signed out.</p>
-            <button onClick={onClose} className="btn-primary w-full justify-center flex">Done</button>
+            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+              Password updated
+            </p>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+              Other active sessions have been signed out.
+            </p>
+            <button onClick={onClose} className="btn-primary w-full justify-center flex">
+              Done
+            </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="label">Current password</label>
               <input
-                type="password" required autoFocus
-                value={current} onChange={(e) => setCurrent(e.target.value)}
-                className="input w-full" placeholder="Your current password"
+                type="password"
+                required
+                autoFocus
+                value={current}
+                onChange={(e) => setCurrent(e.target.value)}
+                className="input w-full"
+                placeholder="Your current password"
               />
             </div>
             <div>
               <label className="label">New password</label>
               <input
-                type="password" required minLength={8}
-                value={next} onChange={(e) => setNext(e.target.value)}
-                className="input w-full" placeholder="At least 8 characters"
+                type="password"
+                required
+                minLength={8}
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                className="input w-full"
+                placeholder="At least 8 characters"
               />
             </div>
             <div>
               <label className="label">Confirm new password</label>
               <input
-                type="password" required minLength={8}
-                value={confirm} onChange={(e) => setConfirm(e.target.value)}
-                className="input w-full" placeholder="Repeat new password"
+                type="password"
+                required
+                minLength={8}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="input w-full"
+                placeholder="Repeat new password"
               />
             </div>
             {error && (
-              <div className="text-sm px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <div
+                className="text-sm px-3 py-2 rounded-lg"
+                style={{
+                  background: 'rgba(239,68,68,0.08)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239,68,68,0.2)',
+                }}
+              >
                 {error}
               </div>
             )}
             <div className="flex gap-2">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center flex">Cancel</button>
+              <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center flex">
+                Cancel
+              </button>
               <button type="submit" disabled={loading} className="btn-primary flex-1 justify-center flex">
-                {loading
-                  ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  : 'Update password'}
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Update password'
+                )}
               </button>
             </div>
           </form>

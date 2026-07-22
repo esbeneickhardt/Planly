@@ -2,7 +2,7 @@ name: Backup & Restore Test
 
 on:
   schedule:
-    - cron: '0 3 * * 0'  # every Sunday at 03:00 UTC
+    - cron: '0 3 * * 0' # every Sunday at 03:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
 
       - name: Apply schema
         working-directory: backend
-        run: npx prisma db push --accept-data-loss
+        run: npx prisma migrate deploy
 
       - name: Create pg_dump backup
         run: |
@@ -66,9 +66,11 @@ jobs:
             --no-owner --no-privileges \
             /tmp/backup.dump
 
-      - name: Re-apply schema
+      - name: Re-apply schema after restore
         working-directory: backend
-        run: npx prisma db push --accept-data-loss
+        # After pg_restore the _prisma_migrations table is present with the baseline
+        # already marked applied, so migrate deploy is a no-op (correct behaviour).
+        run: npx prisma migrate deploy
 
       - name: Run integration smoke tests
         working-directory: backend

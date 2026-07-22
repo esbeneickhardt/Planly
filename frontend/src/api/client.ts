@@ -76,7 +76,14 @@ export interface InviteInfo {
   expiresAt: string;
 }
 
-export type MinUser = { id: string; username: string; realName: string | null; avatarEmoji: string | null; isAdmin: boolean; isFoundingAdmin: boolean };
+export type MinUser = {
+  id: string;
+  username: string;
+  realName: string | null;
+  avatarEmoji: string | null;
+  isAdmin: boolean;
+  isFoundingAdmin: boolean;
+};
 
 export type DirectMessage = {
   id: string;
@@ -102,7 +109,9 @@ export { displayName } from '../utils/user';
 export interface SearchResults {
   tasks: (Task & { product: { id: string; name: string; emoji: string | null } })[];
   messages: {
-    id: string; content: string; createdAt: string;
+    id: string;
+    content: string;
+    createdAt: string;
     product: { id: string; name: string; emoji: string | null };
     author: MinUser;
     task?: { id: string; name: string } | null;
@@ -112,7 +121,10 @@ export interface SearchResults {
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 function getCsrfToken(): string | undefined {
-  return document.cookie.split('; ').find((c) => c.startsWith('csrf='))?.split('=')[1];
+  return document.cookie
+    .split('; ')
+    .find((c) => c.startsWith('csrf='))
+    ?.split('=')[1];
 }
 
 // Deduplicates concurrent refresh attempts — if multiple requests 401 simultaneously,
@@ -124,7 +136,9 @@ async function tryRefresh(): Promise<boolean> {
     _refreshPromise = fetch('/api/auth/refresh-token', { method: 'POST', credentials: 'include' })
       .then((r) => r.ok)
       .catch(() => false)
-      .finally(() => { _refreshPromise = null; });
+      .finally(() => {
+        _refreshPromise = null;
+      });
   }
   return _refreshPromise;
 }
@@ -139,7 +153,11 @@ async function request<T>(path: string, init?: RequestInit & { _retry?: boolean 
   const res = await fetch(path, {
     credentials: 'include',
     ...init,
-    headers: { ...(init?.body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...csrfHeaders, ...init?.headers },
+    headers: {
+      ...(init?.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...csrfHeaders,
+      ...init?.headers,
+    },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -164,9 +182,15 @@ async function request<T>(path: string, init?: RequestInit & { _retry?: boolean 
 const json = (body: unknown) => JSON.stringify(body);
 
 export interface MilestoneResult {
-  id: string; name: string; status: Status; deadline: string;
+  id: string;
+  name: string;
+  status: Status;
+  deadline: string;
   owner?: Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>;
-  totalDependencies: number; doneDependencies: number; progress: number; unassignedDeps: number;
+  totalDependencies: number;
+  doneDependencies: number;
+  progress: number;
+  unassignedDeps: number;
   dependencyList: { id: string; name: string; status: string; ownerId: string | null }[];
 }
 
@@ -229,7 +253,9 @@ export interface ApiToken {
 }
 
 export type AppPermissionLevel = 'write' | 'read' | 'none';
-export type AppPermissions = Partial<Record<'kanban' | 'backlog' | 'gantt' | 'canvas' | 'messages' | 'analytics', AppPermissionLevel>>;
+export type AppPermissions = Partial<
+  Record<'kanban' | 'backlog' | 'gantt' | 'canvas' | 'messages' | 'analytics', AppPermissionLevel>
+>;
 
 export interface AppRegistration {
   id: string;
@@ -241,33 +267,78 @@ export interface AppRegistration {
   createdAt: string;
 }
 
-export type AnnAuthor = { id: string; username: string; realName: string | null; avatarEmoji: string | null; isAdmin: boolean; isFoundingAdmin: boolean };
-export type AnnTeam   = { id: string; name: string } | null;
-export type AnnItem   = {
-  id: string; title: string; content: string; pinned: boolean;
-  commentsEnabled: boolean; createdAt: string; updatedAt: string;
+export type AnnAuthor = {
+  id: string;
+  username: string;
+  realName: string | null;
+  avatarEmoji: string | null;
+  isAdmin: boolean;
+  isFoundingAdmin: boolean;
+};
+export type AnnTeam = { id: string; name: string } | null;
+export type AnnItem = {
+  id: string;
+  title: string;
+  content: string;
+  pinned: boolean;
+  commentsEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
   postedAsRole: string | null;
-  author: AnnAuthor | null; team: AnnTeam;
+  author: AnnAuthor | null;
+  team: AnnTeam;
   _count: { comments: number };
 };
 export type AnnComment = {
-  id: string; announcementId: string; content: string;
+  id: string;
+  announcementId: string;
+  content: string;
   postedAsRole: string | null;
-  createdAt: string; editedAt: string | null; author: AnnAuthor | null;
+  createdAt: string;
+  editedAt: string | null;
+  author: AnnAuthor | null;
 };
 
 export const api = {
-
   users: {
-    list: () => request<{ users: { id: string; username: string; realName: string | null; avatarEmoji: string | null; acceptsInvites: boolean; isAdmin: boolean }[]; nextCursor: string | null }>('/api/users').then(r => r.users),
-    create: (data: { username: string; email: string; password: string; realName?: string; avatarEmoji?: string; tosAccepted: true }) =>
-      request<User>('/api/users', { method: 'POST', body: json(data) }),
+    list: () =>
+      request<{
+        users: {
+          id: string;
+          username: string;
+          realName: string | null;
+          avatarEmoji: string | null;
+          acceptsInvites: boolean;
+          isAdmin: boolean;
+        }[];
+        nextCursor: string | null;
+      }>('/api/users').then((r) => r.users),
+    create: (data: {
+      username: string;
+      email: string;
+      password: string;
+      realName?: string;
+      avatarEmoji?: string;
+      tosAccepted: true;
+    }) => request<User>('/api/users', { method: 'POST', body: json(data) }),
     get: (id: string) => request<User>(`/api/users/${id}`),
-    getProfile: (id: string) => request<{ id: string; username: string; realName: string | null; avatarEmoji: string | null; projects: { id: string; name: string; emoji?: string; role: string }[] }>(`/api/users/${id}/profile`),
-    update: (id: string, data: Partial<Pick<User, 'realName' | 'phone' | 'avatarEmoji' | 'avatarUrl'> & { acceptsInvites: boolean }>) =>
-      request<User>(`/api/users/${id}`, { method: 'PATCH', body: json(data) }),
+    getProfile: (id: string) =>
+      request<{
+        id: string;
+        username: string;
+        realName: string | null;
+        avatarEmoji: string | null;
+        projects: { id: string; name: string; emoji?: string; role: string }[];
+      }>(`/api/users/${id}/profile`),
+    update: (
+      id: string,
+      data: Partial<Pick<User, 'realName' | 'phone' | 'avatarEmoji' | 'avatarUrl'> & { acceptsInvites: boolean }>,
+    ) => request<User>(`/api/users/${id}`, { method: 'PATCH', body: json(data) }),
     updateNotificationPreferences: (id: string, preferences: Record<string, boolean>) =>
-      request<{ notificationPreferences: Record<string, boolean> }>(`/api/users/${id}/notification-preferences`, { method: 'PATCH', body: json({ preferences }) }),
+      request<{ notificationPreferences: Record<string, boolean> }>(`/api/users/${id}/notification-preferences`, {
+        method: 'PATCH',
+        body: json({ preferences }),
+      }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/users/${id}`, { method: 'DELETE' }),
   },
 
@@ -283,7 +354,10 @@ export const api = {
     removeMember: (id: string, userId: string) =>
       request<{ ok: boolean }>(`/api/teams/${id}/members/${userId}`, { method: 'DELETE' }),
     setMemberRole: (teamId: string, userId: string, role: 'member' | 'co_owner') =>
-      request<{ ok: boolean }>(`/api/teams/${teamId}/members/${userId}/role`, { method: 'PATCH', body: json({ role }) }),
+      request<{ ok: boolean }>(`/api/teams/${teamId}/members/${userId}/role`, {
+        method: 'PATCH',
+        body: json({ role }),
+      }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/teams/${id}`, { method: 'DELETE' }),
   },
 
@@ -292,37 +366,79 @@ export const api = {
     create: (data: { name: string; deadline: string; teamId: string; emoji?: string; description?: string }) =>
       request<Product>('/api/products', { method: 'POST', body: json(data) }),
     get: (id: string) => request<Product>(`/api/products/${id}`),
-    getAbout: (id: string) => request<Pick<Product, 'id' | 'name' | 'emoji' | 'description' | 'deadline'> & { members: { userId: string; role: string; user: { id: string; username: string; realName: string | null; avatarEmoji: string | null } }[] }>(`/api/products/${id}/about`),
-    update: (id: string, data: Partial<Pick<Product, 'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled'>>) =>
-      request<Product>(`/api/products/${id}`, { method: 'PATCH', body: json(data) }),
+    getAbout: (id: string) =>
+      request<
+        Pick<Product, 'id' | 'name' | 'emoji' | 'description' | 'deadline'> & {
+          members: {
+            userId: string;
+            role: string;
+            user: { id: string; username: string; realName: string | null; avatarEmoji: string | null };
+          }[];
+        }
+      >(`/api/products/${id}/about`),
+    update: (
+      id: string,
+      data: Partial<Pick<Product, 'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled'>>,
+    ) => request<Product>(`/api/products/${id}`, { method: 'PATCH', body: json(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/products/${id}`, { method: 'DELETE' }),
   },
 
   tasks: {
     list: (productId: string) => request<Task[]>(`/api/products/${productId}/tasks`),
-    create: (productId: string, data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string; canvasX?: number; canvasY?: number; status?: string }) =>
-      request<Task>(`/api/products/${productId}/tasks`, { method: 'POST', body: json(data) }),
+    create: (
+      productId: string,
+      data: {
+        name: string;
+        description?: string;
+        ownerId?: string;
+        color?: string;
+        deadline?: string;
+        canvasX?: number;
+        canvasY?: number;
+        status?: string;
+      },
+    ) => request<Task>(`/api/products/${productId}/tasks`, { method: 'POST', body: json(data) }),
     get: (productId: string, taskId: string) => request<Task>(`/api/products/${productId}/tasks/${taskId}`),
-    update: (productId: string, taskId: string, data: Partial<Pick<Task, 'name' | 'description' | 'ownerId' | 'color' | 'deadline'> & { status: Status; reviewerId: string | null }>) =>
-      request<Task>(`/api/products/${productId}/tasks/${taskId}`, { method: 'PATCH', body: json(data) }),
+    update: (
+      productId: string,
+      taskId: string,
+      data: Partial<
+        Pick<Task, 'name' | 'description' | 'ownerId' | 'color' | 'deadline'> & {
+          status: Status;
+          reviewerId: string | null;
+        }
+      >,
+    ) => request<Task>(`/api/products/${productId}/tasks/${taskId}`, { method: 'PATCH', body: json(data) }),
     delete: (productId: string, taskId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}`, { method: 'DELETE' }),
     reorder: (productId: string, updates: { taskId: string; order: number }[]) =>
-      request<{ ok: boolean }>(`/api/products/${productId}/tasks/reorder`, { method: 'PATCH', body: json({ updates }) }),
+      request<{ ok: boolean }>(`/api/products/${productId}/tasks/reorder`, {
+        method: 'PATCH',
+        body: json({ updates }),
+      }),
   },
 
   subtasks: {
     create: (productId: string, taskId: string, name: string) =>
       request<Subtask>(`/api/products/${productId}/tasks/${taskId}/subtasks`, { method: 'POST', body: json({ name }) }),
-    update: (productId: string, taskId: string, subtaskId: string, data: Partial<Pick<Subtask, 'name' | 'completed' | 'order'>>) =>
-      request<Subtask>(`/api/products/${productId}/tasks/${taskId}/subtasks/${subtaskId}`, { method: 'PATCH', body: json(data) }),
+    update: (
+      productId: string,
+      taskId: string,
+      subtaskId: string,
+      data: Partial<Pick<Subtask, 'name' | 'completed' | 'order'>>,
+    ) =>
+      request<Subtask>(`/api/products/${productId}/tasks/${taskId}/subtasks/${subtaskId}`, {
+        method: 'PATCH',
+        body: json(data),
+      }),
     delete: (productId: string, taskId: string, subtaskId: string) =>
-      request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}/subtasks/${subtaskId}`, { method: 'DELETE' }),
+      request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}/subtasks/${subtaskId}`, {
+        method: 'DELETE',
+      }),
   },
 
   columns: {
-    list: (productId: string) =>
-      request<KanbanColumn[]>(`/api/products/${productId}/columns`),
+    list: (productId: string) => request<KanbanColumn[]>(`/api/products/${productId}/columns`),
     create: (productId: string, data: { label: string; color?: string }) =>
       request<KanbanColumn>(`/api/products/${productId}/columns`, { method: 'POST', body: json(data) }),
     update: (productId: string, columnId: string, data: { label?: string; color?: string }) =>
@@ -330,7 +446,10 @@ export const api = {
     delete: (productId: string, columnId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/columns/${columnId}`, { method: 'DELETE' }),
     reorder: (productId: string, order: { id: string; order: number }[]) =>
-      request<{ ok: boolean }>(`/api/products/${productId}/columns/reorder`, { method: 'PATCH', body: json({ order }) }),
+      request<{ ok: boolean }>(`/api/products/${productId}/columns/reorder`, {
+        method: 'PATCH',
+        body: json({ order }),
+      }),
   },
 
   milestones: {
@@ -339,8 +458,7 @@ export const api = {
   },
 
   connections: {
-    list: (productId: string) =>
-      request<string[]>(`/api/products/${productId}/connections`),
+    list: (productId: string) => request<string[]>(`/api/products/${productId}/connections`),
     add: (productId: string, taskId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/connections`, { method: 'POST', body: json({ taskId }) }),
     remove: (productId: string, taskId: string) =>
@@ -348,23 +466,29 @@ export const api = {
   },
 
   colorLegend: {
-    list: (productId: string) =>
-      request<ColorLegendEntryResult[]>(`/api/products/${productId}/color-legend`),
+    list: (productId: string) => request<ColorLegendEntryResult[]>(`/api/products/${productId}/color-legend`),
     update: (productId: string, entries: ColorLegendEntryResult[]) =>
       request<{ ok: boolean }>(`/api/products/${productId}/color-legend`, { method: 'PUT', body: json(entries) }),
   },
 
   sprints: {
-    list: (productId: string) =>
-      request<Sprint[]>(`/api/products/${productId}/sprints`),
-    create: (productId: string, data: { name: string; startDate: string; endDate: string; color?: string; taskIds?: string[] }) =>
-      request<Sprint>(`/api/products/${productId}/sprints`, { method: 'POST', body: json(data) }),
-    update: (productId: string, sprintId: string, data: { name?: string; startDate?: string; endDate?: string; color?: string }) =>
-      request<Sprint>(`/api/products/${productId}/sprints/${sprintId}`, { method: 'PATCH', body: json(data) }),
+    list: (productId: string) => request<Sprint[]>(`/api/products/${productId}/sprints`),
+    create: (
+      productId: string,
+      data: { name: string; startDate: string; endDate: string; color?: string; taskIds?: string[] },
+    ) => request<Sprint>(`/api/products/${productId}/sprints`, { method: 'POST', body: json(data) }),
+    update: (
+      productId: string,
+      sprintId: string,
+      data: { name?: string; startDate?: string; endDate?: string; color?: string },
+    ) => request<Sprint>(`/api/products/${productId}/sprints/${sprintId}`, { method: 'PATCH', body: json(data) }),
     delete: (productId: string, sprintId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/sprints/${sprintId}`, { method: 'DELETE' }),
     addTasks: (productId: string, sprintId: string, taskIds: string[]) =>
-      request<{ ok: boolean; added: number }>(`/api/products/${productId}/sprints/${sprintId}/tasks`, { method: 'POST', body: json({ taskIds }) }),
+      request<{ ok: boolean; added: number }>(`/api/products/${productId}/sprints/${sprintId}/tasks`, {
+        method: 'POST',
+        body: json({ taskIds }),
+      }),
     removeTask: (productId: string, sprintId: string, taskId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/sprints/${sprintId}/tasks/${taskId}`, { method: 'DELETE' }),
   },
@@ -372,43 +496,76 @@ export const api = {
   messages: {
     list: (productId: string, taskId?: string) =>
       request<Message[]>(`/api/products/${productId}/messages${taskId ? `?taskId=${taskId}` : ''}`),
-    listAll: (productId: string) =>
-      request<Message[]>(`/api/products/${productId}/messages?all=true`),
-    create: (productId: string, data: { content: string; taskId?: string; replyToId?: string | null; attachments?: { url: string; name: string; type: string }[]; postedAsRole?: string | null }) =>
-      request<Message>(`/api/products/${productId}/messages`, { method: 'POST', body: json(data) }),
+    listAll: (productId: string) => request<Message[]>(`/api/products/${productId}/messages?all=true`),
+    create: (
+      productId: string,
+      data: {
+        content: string;
+        taskId?: string;
+        replyToId?: string | null;
+        attachments?: { url: string; name: string; type: string }[];
+        postedAsRole?: string | null;
+      },
+    ) => request<Message>(`/api/products/${productId}/messages`, { method: 'POST', body: json(data) }),
     update: (productId: string, messageId: string, content: string) =>
-      request<Message>(`/api/products/${productId}/messages/${messageId}`, { method: 'PATCH', body: json({ content }) }),
+      request<Message>(`/api/products/${productId}/messages/${messageId}`, {
+        method: 'PATCH',
+        body: json({ content }),
+      }),
     delete: (productId: string, messageId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/messages/${messageId}`, { method: 'DELETE' }),
     toggleReaction: (productId: string, messageId: string, emoji: string) =>
-      request<{ reactions: { emoji: string; userId: string }[] }>(`/api/products/${productId}/messages/${messageId}/reactions`, { method: 'POST', body: json({ emoji }) }),
+      request<{ reactions: { emoji: string; userId: string }[] }>(
+        `/api/products/${productId}/messages/${messageId}/reactions`,
+        { method: 'POST', body: json({ emoji }) },
+      ),
   },
 
   adminChat: {
     list: (cursor?: string) =>
       request<Message[]>(`/api/admin/chat${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
-    create: (data: { content: string; replyToId?: string | null; attachments?: { url: string; name: string; type: string }[]; postedAsRole?: string | null }) =>
-      request<Message>('/api/admin/chat', { method: 'POST', body: json(data) }),
+    create: (data: {
+      content: string;
+      replyToId?: string | null;
+      attachments?: { url: string; name: string; type: string }[];
+      postedAsRole?: string | null;
+    }) => request<Message>('/api/admin/chat', { method: 'POST', body: json(data) }),
     update: (messageId: string, content: string) =>
       request<Message>(`/api/admin/chat/${messageId}`, { method: 'PATCH', body: json({ content }) }),
-    delete: (messageId: string) =>
-      request<{ ok: boolean }>(`/api/admin/chat/${messageId}`, { method: 'DELETE' }),
+    delete: (messageId: string) => request<{ ok: boolean }>(`/api/admin/chat/${messageId}`, { method: 'DELETE' }),
     toggleReaction: (messageId: string, emoji: string) =>
-      request<{ reactions: { emoji: string; userId: string }[] }>(`/api/admin/chat/${messageId}/reactions`, { method: 'POST', body: json({ emoji }) }),
+      request<{ reactions: { emoji: string; userId: string }[] }>(`/api/admin/chat/${messageId}/reactions`, {
+        method: 'POST',
+        body: json({ emoji }),
+      }),
   },
 
   accessRequests: {
     list: (productId: string) =>
-      request<{ id: string; userId: string; status: string; note: string | null; createdAt: string; user: { id: string; username: string; avatarEmoji: string | null; realName: string | null } }[]>(
-        `/api/products/${productId}/access-requests`
-      ),
+      request<
+        {
+          id: string;
+          userId: string;
+          status: string;
+          note: string | null;
+          createdAt: string;
+          user: { id: string; username: string; avatarEmoji: string | null; realName: string | null };
+        }[]
+      >(`/api/products/${productId}/access-requests`),
     request: (productId: string, note?: string) =>
-      request<{ id: string; status: string }>(`/api/products/${productId}/access-requests`, { method: 'POST', body: json({ note }) }),
+      request<{ id: string; status: string }>(`/api/products/${productId}/access-requests`, {
+        method: 'POST',
+        body: json({ note }),
+      }),
     decide: (productId: string, requestId: string, action: 'approve' | 'reject') =>
-      request<{ ok: boolean }>(`/api/products/${productId}/access-requests/${requestId}`, { method: 'PATCH', body: json({ action }) }),
+      request<{ ok: boolean }>(`/api/products/${productId}/access-requests/${requestId}`, {
+        method: 'PATCH',
+        body: json({ action }),
+      }),
     discover: () =>
-      request<{ products: (Product & { requestStatus: string | null })[]; nextCursor: string | null }>('/api/products/discover')
-        .then((r) => r.products),
+      request<{ products: (Product & { requestStatus: string | null })[]; nextCursor: string | null }>(
+        '/api/products/discover',
+      ).then((r) => r.products),
   },
 
   upload: (file: File) => {
@@ -440,16 +597,22 @@ export const api = {
   },
 
   canvasSnapshots: {
-    list: (productId: string) =>
-      request<CanvasSnapshot[]>(`/api/products/${productId}/canvas-snapshots`),
-    create: (productId: string, data: { name: string; positions: Record<string, { x: number; y: number }>; viewport: { x: number; y: number; zoom: number; viewMode?: string; simpleMode?: boolean } }) =>
-      request<CanvasSnapshot>(`/api/products/${productId}/canvas-snapshots`, { method: 'POST', body: json(data) }),
+    list: (productId: string) => request<CanvasSnapshot[]>(`/api/products/${productId}/canvas-snapshots`),
+    create: (
+      productId: string,
+      data: {
+        name: string;
+        positions: Record<string, { x: number; y: number }>;
+        viewport: { x: number; y: number; zoom: number; viewMode?: string; simpleMode?: boolean };
+      },
+    ) => request<CanvasSnapshot>(`/api/products/${productId}/canvas-snapshots`, { method: 'POST', body: json(data) }),
     delete: (productId: string, snapshotId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/canvas-snapshots/${snapshotId}`, { method: 'DELETE' }),
   },
 
   seed: {
-    examples: () => request<{ ok: boolean; products: string[] }>('/api/seed-examples', { method: 'POST', body: json({}) }),
+    examples: () =>
+      request<{ ok: boolean; products: string[] }>('/api/seed-examples', { method: 'POST', body: json({}) }),
   },
 
   notifications: {
@@ -458,11 +621,16 @@ export const api = {
       if (cursor) params.set('cursor', cursor);
       if (productId) params.set('productId', productId);
       const qs = params.toString();
-      return request<{ notifications: Notification[]; nextCursor: string | null }>(`/api/notifications${qs ? `?${qs}` : ''}`);
+      return request<{ notifications: Notification[]; nextCursor: string | null }>(
+        `/api/notifications${qs ? `?${qs}` : ''}`,
+      );
     },
     unreadCount: (productId?: string) =>
-      request<{ count: number }>(`/api/notifications/unread-count${productId ? `?productId=${encodeURIComponent(productId)}` : ''}`),
-    markRead: (ids: string[]) => request<{ ok: boolean }>('/api/notifications/read', { method: 'PATCH', body: json({ ids }) }),
+      request<{ count: number }>(
+        `/api/notifications/unread-count${productId ? `?productId=${encodeURIComponent(productId)}` : ''}`,
+      ),
+    markRead: (ids: string[]) =>
+      request<{ ok: boolean }>('/api/notifications/read', { method: 'PATCH', body: json({ ids }) }),
     markAllRead: () => request<{ ok: boolean }>('/api/notifications/read-all', { method: 'POST', body: json({}) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/notifications/${id}`, { method: 'DELETE' }),
     clearAll: () => request<{ ok: boolean }>('/api/notifications', { method: 'DELETE' }),
@@ -471,13 +639,19 @@ export const api = {
   webhooks: {
     list: (productId: string) => request<Webhook[]>(`/api/products/${productId}/webhooks`),
     create: (productId: string, data: { url: string; events: string[] }) =>
-      request<Webhook & { secret: string }>(`/api/products/${productId}/webhooks`, { method: 'POST', body: json(data) }),
+      request<Webhook & { secret: string }>(`/api/products/${productId}/webhooks`, {
+        method: 'POST',
+        body: json(data),
+      }),
     update: (productId: string, webhookId: string, data: { url?: string; events?: string[]; active?: boolean }) =>
       request<Webhook>(`/api/products/${productId}/webhooks/${webhookId}`, { method: 'PATCH', body: json(data) }),
     delete: (productId: string, webhookId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/webhooks/${webhookId}`, { method: 'DELETE' }),
     rotateSecret: (productId: string, webhookId: string) =>
-      request<{ secret: string }>(`/api/products/${productId}/webhooks/${webhookId}/rotate-secret`, { method: 'POST', body: json({}) }),
+      request<{ secret: string }>(`/api/products/${productId}/webhooks/${webhookId}/rotate-secret`, {
+        method: 'POST',
+        body: json({}),
+      }),
     deliveries: (productId: string, webhookId: string) =>
       request<WebhookDelivery[]>(`/api/products/${productId}/webhooks/${webhookId}/deliveries`),
   },
@@ -490,23 +664,29 @@ export const api = {
       request<{ ok: boolean }>(`/api/teams/${teamId}/invites/${inviteId}`, { method: 'DELETE' }),
     getInfo: (token: string) => request<InviteInfo>(`/api/invites/${token}`),
     pending: () => request<PendingInvite[]>('/api/invites/pending'),
-    accept: (token: string) => request<{ ok: boolean; teamId: string; teamName: string }>(`/api/invites/${token}/accept`, { method: 'POST', body: json({}) }),
-    decline: (token: string) => request<{ ok: boolean }>(`/api/invites/${token}/decline`, { method: 'POST', body: json({}) }),
+    accept: (token: string) =>
+      request<{ ok: boolean; teamId: string; teamName: string }>(`/api/invites/${token}/accept`, {
+        method: 'POST',
+        body: json({}),
+      }),
+    decline: (token: string) =>
+      request<{ ok: boolean }>(`/api/invites/${token}/decline`, { method: 'POST', body: json({}) }),
   },
 
   auth: {
     login: (identifier: string, password: string) =>
-      request<User | { requiresTOTP: true; mfaToken: string }>('/api/auth/login', { method: 'POST', body: json({ identifier, password }) }),
+      request<User | { requiresTOTP: true; mfaToken: string }>('/api/auth/login', {
+        method: 'POST',
+        body: json({ identifier, password }),
+      }),
     logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST', body: json({}) }),
     me: () => request<User>('/api/auth/me'),
-    emailEnabled: () =>
-      request<{ enabled: boolean }>('/api/auth/email-enabled'),
+    emailEnabled: () => request<{ enabled: boolean }>('/api/auth/email-enabled'),
     forgotPassword: (email: string) =>
       request<{ ok: boolean }>('/api/auth/forgot-password', { method: 'POST', body: json({ email }) }),
     resetPassword: (token: string, password: string) =>
       request<{ ok: boolean }>('/api/auth/reset-password', { method: 'POST', body: json({ token, password }) }),
-    sendVerification: () =>
-      request<{ ok: boolean }>('/api/auth/send-verification', { method: 'POST', body: json({}) }),
+    sendVerification: () => request<{ ok: boolean }>('/api/auth/send-verification', { method: 'POST', body: json({}) }),
     resendVerification: (email: string) =>
       request<{ ok: boolean }>('/api/auth/resend-verification', { method: 'POST', body: json({ email }) }),
     verifyEmail: (token: string) =>
@@ -514,12 +694,17 @@ export const api = {
     ssoConfig: () => request<{ enabled: boolean; providerName: string }>('/api/auth/sso/config'),
     changePassword: (data: { currentPassword?: string; newPassword: string }) =>
       request<{ ok: boolean }>('/api/auth/change-password', { method: 'POST', body: json(data) }),
-    totpStatus: () =>
-      request<{ totpEnabled: boolean }>('/api/auth/totp/status'),
+    totpStatus: () => request<{ totpEnabled: boolean }>('/api/auth/totp/status'),
     totpSetup: () =>
-      request<{ qrDataUrl: string; secret: string; uri: string }>('/api/auth/totp/setup', { method: 'POST', body: json({}) }),
+      request<{ qrDataUrl: string; secret: string; uri: string }>('/api/auth/totp/setup', {
+        method: 'POST',
+        body: json({}),
+      }),
     totpConfirm: (code: string) =>
-      request<{ ok: boolean; backupCodes: string[]; message: string }>('/api/auth/totp/confirm', { method: 'POST', body: json({ code }) }),
+      request<{ ok: boolean; backupCodes: string[]; message: string }>('/api/auth/totp/confirm', {
+        method: 'POST',
+        body: json({ code }),
+      }),
     totpDisable: (code: string) =>
       request<{ ok: boolean }>('/api/auth/totp/disable', { method: 'DELETE', body: json({ code }) }),
     totpChallenge: (mfaToken: string, code: string) =>
@@ -537,8 +722,7 @@ export const api = {
     list: () => request<ApiToken[]>('/api/auth/tokens'),
     create: (data: { name: string; expiresAt?: string; readOnly?: boolean }) =>
       request<ApiToken & { token: string }>('/api/auth/tokens', { method: 'POST', body: json(data) }),
-    delete: (tokenId: string) =>
-      request<{ ok: boolean }>(`/api/auth/tokens/${tokenId}`, { method: 'DELETE' }),
+    delete: (tokenId: string) => request<{ ok: boolean }>(`/api/auth/tokens/${tokenId}`, { method: 'DELETE' }),
   },
 
   appRegistrations: {
@@ -547,10 +731,8 @@ export const api = {
       request<AppRegistration>('/api/apps', { method: 'POST', body: json(data) }),
     update: (appId: string, data: { name?: string; description?: string }) =>
       request<AppRegistration>(`/api/apps/${appId}`, { method: 'PATCH', body: json(data) }),
-    delete: (appId: string) =>
-      request<{ ok: boolean }>(`/api/apps/${appId}`, { method: 'DELETE' }),
-    listTokens: (appId: string) =>
-      request<ApiToken[]>(`/api/apps/${appId}/tokens`),
+    delete: (appId: string) => request<{ ok: boolean }>(`/api/apps/${appId}`, { method: 'DELETE' }),
+    listTokens: (appId: string) => request<ApiToken[]>(`/api/apps/${appId}/tokens`),
     createToken: (appId: string, data: { name: string; expiresAt?: string }) =>
       request<ApiToken & { token: string }>(`/api/apps/${appId}/tokens`, { method: 'POST', body: json(data) }),
     deleteToken: (appId: string, tokenId: string) =>
@@ -560,12 +742,18 @@ export const api = {
   },
 
   emailStatus: {
-    get: () => request<{ enabled: boolean; from: string | null; config: { host: string; port: number; secure: boolean; user: string; from: string } | null }>('/api/email-status'),
+    get: () =>
+      request<{
+        enabled: boolean;
+        from: string | null;
+        config: { host: string; port: number; secure: boolean; user: string; from: string } | null;
+      }>('/api/email-status'),
     test: () => request<{ ok: boolean }>('/api/email-status/test', { method: 'POST', body: json({}) }),
   },
 
   emailConfig: {
-    get: () => request<{ host: string; port: number; secure: boolean; user: string; from: string } | null>('/api/email-config'),
+    get: () =>
+      request<{ host: string; port: number; secure: boolean; user: string; from: string } | null>('/api/email-config'),
     save: (data: { host: string; port: number; secure: boolean; user: string; pass?: string; from: string }) =>
       request<{ ok: boolean }>('/api/email-config', { method: 'PUT', body: json(data) }),
     clear: () => request<{ ok: boolean }>('/api/email-config', { method: 'DELETE' }),
@@ -574,39 +762,123 @@ export const api = {
   publicConfig: () => request<{ contactEmail: string }>('/api/config'),
 
   me: {
-    permissions: () => request<Array<{
-      productId: string;
-      productName: string;
-      productEmoji: string | null;
-      role: string;
-      permissions: Record<string, string>;
-    }>>('/api/me/permissions'),
+    permissions: () =>
+      request<
+        Array<{
+          productId: string;
+          productName: string;
+          productEmoji: string | null;
+          role: string;
+          permissions: Record<string, string>;
+        }>
+      >('/api/me/permissions'),
   },
 
   admin: {
-    users: () => request<{ id: string; username: string; email: string; isAdmin: boolean; isFoundingAdmin: boolean; emailVerified: boolean; createdAt: string; failedLoginAttempts: number; loginLockedUntil: string | null; lastLoginAt: string | null }[]>('/api/admin/users'),
-    promote: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/promote`, { method: 'PUT', body: json({}) }),
-    demote: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/demote`, { method: 'PUT', body: json({}) }),
-    transferCrown: (userId: string) => request<{ ok: boolean }>('/api/admin/transfer-crown', { method: 'PUT', body: json({ userId }) }),
-    verifyEmail: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/verify-email`, { method: 'PUT', body: json({}) }),
+    users: () =>
+      request<
+        {
+          id: string;
+          username: string;
+          email: string;
+          isAdmin: boolean;
+          isFoundingAdmin: boolean;
+          emailVerified: boolean;
+          createdAt: string;
+          failedLoginAttempts: number;
+          loginLockedUntil: string | null;
+          lastLoginAt: string | null;
+        }[]
+      >('/api/admin/users'),
+    promote: (userId: string) =>
+      request<{ ok: boolean }>(`/api/admin/users/${userId}/promote`, { method: 'PUT', body: json({}) }),
+    demote: (userId: string) =>
+      request<{ ok: boolean }>(`/api/admin/users/${userId}/demote`, { method: 'PUT', body: json({}) }),
+    transferCrown: (userId: string) =>
+      request<{ ok: boolean }>('/api/admin/transfer-crown', { method: 'PUT', body: json({ userId }) }),
+    verifyEmail: (userId: string) =>
+      request<{ ok: boolean }>(`/api/admin/users/${userId}/verify-email`, { method: 'PUT', body: json({}) }),
     deleteUser: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
-    unlock: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/unlock`, { method: 'PUT', body: json({}) }),
-    forceLogout: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}/force-logout`, { method: 'PUT', body: json({}) }),
-    resetPassword: (userId: string) => request<{ ok: boolean; tempPassword: string }>(`/api/admin/users/${userId}/reset-password`, { method: 'POST', body: json({}) }),
-    whitelist: () => request<{ id: string; pattern: string; type: string; createdAt: string }[]>('/api/admin/whitelist'),
-    addWhitelist: (pattern: string, type: 'allow' | 'deny' = 'allow') => request<{ id: string; pattern: string; type: string; createdAt: string }>('/api/admin/whitelist', { method: 'POST', body: json({ pattern, type }) }),
+    unlock: (userId: string) =>
+      request<{ ok: boolean }>(`/api/admin/users/${userId}/unlock`, { method: 'PUT', body: json({}) }),
+    forceLogout: (userId: string) =>
+      request<{ ok: boolean }>(`/api/admin/users/${userId}/force-logout`, { method: 'PUT', body: json({}) }),
+    resetPassword: (userId: string) =>
+      request<{ ok: boolean; tempPassword: string }>(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+        body: json({}),
+      }),
+    whitelist: () =>
+      request<{ id: string; pattern: string; type: string; createdAt: string }[]>('/api/admin/whitelist'),
+    addWhitelist: (pattern: string, type: 'allow' | 'deny' = 'allow') =>
+      request<{ id: string; pattern: string; type: string; createdAt: string }>('/api/admin/whitelist', {
+        method: 'POST',
+        body: json({ pattern, type }),
+      }),
     removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
-    serverConfig: () => request<{ adminEmail: string | null; requireEmailVerification: boolean; requireWhitelist: boolean; requireBlocklist: boolean; allowProjectCreation: boolean; announcementsEnabled: boolean; announcementPostRole: string; ipRestrictionMode: string; requireMfa: boolean }>('/api/admin/server-config'),
-    updateServerConfig: (data: { requireEmailVerification?: boolean; requireWhitelist?: boolean; requireBlocklist?: boolean; allowProjectCreation?: boolean; announcementsEnabled?: boolean; announcementPostRole?: string; requireMfa?: boolean }) =>
-      request<{ ok: boolean; verificationEmailsSent?: number }>('/api/admin/server-config', { method: 'PUT', body: json(data) }),
-    ipRestrictions: () => request<{ allowlistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[]; blocklistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[]; yourIp: string }>('/api/admin/ip-restrictions'),
-    addIpRule: (cidr: string, listType: 'allowlist' | 'blocklist', description?: string) => request<{ id: string; cidr: string; listType: string; description: string | null; createdAt: string }>('/api/admin/ip-restrictions', { method: 'POST', body: json({ cidr, listType, description }) }),
+    serverConfig: () =>
+      request<{
+        adminEmail: string | null;
+        requireEmailVerification: boolean;
+        requireWhitelist: boolean;
+        requireBlocklist: boolean;
+        allowProjectCreation: boolean;
+        announcementsEnabled: boolean;
+        announcementPostRole: string;
+        ipRestrictionMode: string;
+        requireMfa: boolean;
+      }>('/api/admin/server-config'),
+    updateServerConfig: (data: {
+      requireEmailVerification?: boolean;
+      requireWhitelist?: boolean;
+      requireBlocklist?: boolean;
+      allowProjectCreation?: boolean;
+      announcementsEnabled?: boolean;
+      announcementPostRole?: string;
+      requireMfa?: boolean;
+    }) =>
+      request<{ ok: boolean; verificationEmailsSent?: number }>('/api/admin/server-config', {
+        method: 'PUT',
+        body: json(data),
+      }),
+    ipRestrictions: () =>
+      request<{
+        allowlistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[];
+        blocklistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[];
+        yourIp: string;
+      }>('/api/admin/ip-restrictions'),
+    addIpRule: (cidr: string, listType: 'allowlist' | 'blocklist', description?: string) =>
+      request<{ id: string; cidr: string; listType: string; description: string | null; createdAt: string }>(
+        '/api/admin/ip-restrictions',
+        { method: 'POST', body: json({ cidr, listType, description }) },
+      ),
     removeIpRule: (id: string) => request<{ ok: boolean }>(`/api/admin/ip-restrictions/${id}`, { method: 'DELETE' }),
-    adminIpRestrictions: () => request<{ allowlistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[]; blocklistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[]; yourIp: string }>('/api/admin/admin-ip-restrictions'),
-    addAdminIpRule: (cidr: string, listType: 'allowlist' | 'blocklist', description?: string) => request<{ id: string; cidr: string; listType: string; description: string | null; createdAt: string }>('/api/admin/admin-ip-restrictions', { method: 'POST', body: json({ cidr, listType, description }) }),
-    removeAdminIpRule: (id: string) => request<{ ok: boolean }>(`/api/admin/admin-ip-restrictions/${id}`, { method: 'DELETE' }),
-    adminNotifications: () => request<{ entries: { id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string }[] }>('/api/admin/notifications'),
-    adminNotificationCount: (since: string) => request<{ count: number }>(`/api/admin/notifications/unread-count?since=${encodeURIComponent(since)}`),
+    adminIpRestrictions: () =>
+      request<{
+        allowlistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[];
+        blocklistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[];
+        yourIp: string;
+      }>('/api/admin/admin-ip-restrictions'),
+    addAdminIpRule: (cidr: string, listType: 'allowlist' | 'blocklist', description?: string) =>
+      request<{ id: string; cidr: string; listType: string; description: string | null; createdAt: string }>(
+        '/api/admin/admin-ip-restrictions',
+        { method: 'POST', body: json({ cidr, listType, description }) },
+      ),
+    removeAdminIpRule: (id: string) =>
+      request<{ ok: boolean }>(`/api/admin/admin-ip-restrictions/${id}`, { method: 'DELETE' }),
+    adminNotifications: () =>
+      request<{
+        entries: {
+          id: string;
+          action: string;
+          actorName: string | null;
+          targetName: string | null;
+          metadata: unknown;
+          createdAt: string;
+        }[];
+      }>('/api/admin/notifications'),
+    adminNotificationCount: (since: string) =>
+      request<{ count: number }>(`/api/admin/notifications/unread-count?since=${encodeURIComponent(since)}`),
     logs: (params?: { cursor?: string; action?: string; from?: string; to?: string }) => {
       const qs = new URLSearchParams();
       if (params?.cursor) qs.set('cursor', params.cursor);
@@ -614,7 +886,17 @@ export const api = {
       if (params?.from) qs.set('from', params.from);
       if (params?.to) qs.set('to', params.to);
       const q = qs.toString();
-      return request<{ logs: { id: string; action: string; actorName: string | null; targetName: string | null; metadata: unknown; createdAt: string }[]; nextCursor: string | null }>(`/api/admin/logs${q ? `?${q}` : ''}`);
+      return request<{
+        logs: {
+          id: string;
+          action: string;
+          actorName: string | null;
+          targetName: string | null;
+          metadata: unknown;
+          createdAt: string;
+        }[];
+        nextCursor: string | null;
+      }>(`/api/admin/logs${q ? `?${q}` : ''}`);
     },
     exportLogs: async (params?: { format?: 'csv' | 'jsonl'; action?: string; from?: string; to?: string }) => {
       const qs = new URLSearchParams({ format: params?.format ?? 'csv' });
@@ -632,33 +914,90 @@ export const api = {
       URL.revokeObjectURL(url);
     },
     pruneLogs: (olderThanDays: number) =>
-      request<{ ok: boolean; deletedCount: number }>('/api/admin/logs/prune', { method: 'DELETE', body: json({ olderThanDays }) }),
-    projects: () => request<{ id: string; name: string; emoji: string | null; deadline: string; createdAt: string; ownerId: string | null; teamId: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number; teamMembers: { userId: string; role: string }[] }[]>('/api/admin/projects'),
-    deletedProjects: () => request<{ id: string; name: string; emoji: string | null; deletedAt: string; createdAt: string; ownerUsername: string | null; ownerEmoji: string | null; memberCount: number; taskCount: number }[]>('/api/admin/projects/deleted'),
-    restoreProject: (id: string) => request<{ ok: boolean }>(`/api/admin/products/${id}/restore`, { method: 'POST', body: json({}) }),
+      request<{ ok: boolean; deletedCount: number }>('/api/admin/logs/prune', {
+        method: 'DELETE',
+        body: json({ olderThanDays }),
+      }),
+    projects: () =>
+      request<
+        {
+          id: string;
+          name: string;
+          emoji: string | null;
+          deadline: string;
+          createdAt: string;
+          ownerId: string | null;
+          teamId: string;
+          ownerUsername: string | null;
+          ownerEmoji: string | null;
+          memberCount: number;
+          taskCount: number;
+          teamMembers: { userId: string; role: string }[];
+        }[]
+      >('/api/admin/projects'),
+    deletedProjects: () =>
+      request<
+        {
+          id: string;
+          name: string;
+          emoji: string | null;
+          deletedAt: string;
+          createdAt: string;
+          ownerUsername: string | null;
+          ownerEmoji: string | null;
+          memberCount: number;
+          taskCount: number;
+        }[]
+      >('/api/admin/projects/deleted'),
+    restoreProject: (id: string) =>
+      request<{ ok: boolean }>(`/api/admin/products/${id}/restore`, { method: 'POST', body: json({}) }),
     hardDeleteProject: (id: string) => request<{ ok: boolean }>(`/api/admin/products/${id}`, { method: 'DELETE' }),
-    stats: () => request<{ userCount: number; projectCount: number; taskCount: number; messageCount: number; newUsers: number; newProjects: number }>('/api/admin/stats'),
-    projectMessages: (productId: string) => request<{ messages: Message[] }>(`/api/admin/products/${productId}/messages`),
-    postProjectMessage: (productId: string, content: string, postedAsRole?: string | null) => request<Message>(`/api/admin/products/${productId}/messages`, { method: 'POST', body: json({ content, postedAsRole }) }),
+    stats: () =>
+      request<{
+        userCount: number;
+        projectCount: number;
+        taskCount: number;
+        messageCount: number;
+        newUsers: number;
+        newProjects: number;
+      }>('/api/admin/stats'),
+    projectMessages: (productId: string) =>
+      request<{ messages: Message[] }>(`/api/admin/products/${productId}/messages`),
+    postProjectMessage: (productId: string, content: string, postedAsRole?: string | null) =>
+      request<Message>(`/api/admin/products/${productId}/messages`, {
+        method: 'POST',
+        body: json({ content, postedAsRole }),
+      }),
   },
 
   announcements: {
-    list: () => request<{
-      announcements: AnnItem[];
-      canPost: boolean;
-      enabled: boolean;
-    }>('/api/announcements'),
-    create: (data: { title: string; content: string; pinned?: boolean; teamId?: string; commentsEnabled?: boolean; postedAsRole?: string | null }) =>
-      request<AnnItem>('/api/announcements', { method: 'POST', body: json(data) }),
+    list: () =>
+      request<{
+        announcements: AnnItem[];
+        canPost: boolean;
+        enabled: boolean;
+      }>('/api/announcements'),
+    create: (data: {
+      title: string;
+      content: string;
+      pinned?: boolean;
+      teamId?: string;
+      commentsEnabled?: boolean;
+      postedAsRole?: string | null;
+    }) => request<AnnItem>('/api/announcements', { method: 'POST', body: json(data) }),
     update: (id: string, data: { title?: string; content?: string; pinned?: boolean; commentsEnabled?: boolean }) =>
       request<AnnItem>(`/api/announcements/${id}`, { method: 'PATCH', body: json(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/announcements/${id}`, { method: 'DELETE' }),
     comments: {
       list: (annId: string) =>
-        request<{ comments: AnnComment[]; nextCursor: string | null }>(`/api/announcements/${annId}/comments`)
-          .then((r) => r.comments),
+        request<{ comments: AnnComment[]; nextCursor: string | null }>(`/api/announcements/${annId}/comments`).then(
+          (r) => r.comments,
+        ),
       create: (annId: string, content: string, postedAsRole?: string | null) =>
-        request<AnnComment>(`/api/announcements/${annId}/comments`, { method: 'POST', body: json({ content, postedAsRole }) }),
+        request<AnnComment>(`/api/announcements/${annId}/comments`, {
+          method: 'POST',
+          body: json({ content, postedAsRole }),
+        }),
       delete: (annId: string, commentId: string) =>
         request<{ ok: boolean }>(`/api/announcements/${annId}/comments/${commentId}`, { method: 'DELETE' }),
     },
@@ -676,44 +1015,80 @@ export const api = {
   },
 
   analytics: {
-    get: (productId: string) => request<{
-      tasksByDay: { date: string; count: number }[];
-      cycleTimeAvgDays: number | null;
-      totalCompleted: number;
-      totalActive: number;
-      statusBreakdown: { status: string; count: number }[];
-      sprintVelocity: { sprintId: string; name: string; startDate: string; endDate: string; color: string; completed: number }[];
-    }>(`/api/products/${productId}/analytics`),
-    activity: (productId: string, cursor?: string) => request<{
-      events: { id: string; actorId: string; action: string; entityType: string; entityId: string | null; entityName: string | null; metadata: unknown; createdAt: string }[];
-      nextCursor: string | null;
-    }>(`/api/products/${productId}/activity${cursor ? `?cursor=${cursor}` : ''}`),
-    workload: (productId: string) => request<{
-      statusBreakdown: { status: string; count: number }[];
-      totalActive: number;
-      totalCompleted: number;
-      completionsByDay: { date: string; count: number }[];
-    }>(`/api/products/${productId}/analytics/workload`),
+    get: (productId: string) =>
+      request<{
+        tasksByDay: { date: string; count: number }[];
+        cycleTimeAvgDays: number | null;
+        totalCompleted: number;
+        totalActive: number;
+        statusBreakdown: { status: string; count: number }[];
+        sprintVelocity: {
+          sprintId: string;
+          name: string;
+          startDate: string;
+          endDate: string;
+          color: string;
+          completed: number;
+        }[];
+      }>(`/api/products/${productId}/analytics`),
+    activity: (productId: string, cursor?: string) =>
+      request<{
+        events: {
+          id: string;
+          actorId: string;
+          action: string;
+          entityType: string;
+          entityId: string | null;
+          entityName: string | null;
+          metadata: unknown;
+          createdAt: string;
+        }[];
+        nextCursor: string | null;
+      }>(`/api/products/${productId}/activity${cursor ? `?cursor=${cursor}` : ''}`),
+    workload: (productId: string) =>
+      request<{
+        statusBreakdown: { status: string; count: number }[];
+        totalActive: number;
+        totalCompleted: number;
+        completionsByDay: { date: string; count: number }[];
+      }>(`/api/products/${productId}/analytics/workload`),
   },
   conversations: {
-    list: (adminChat?: boolean) => request<{ conversations: ConversationSummary[] }>(`/api/conversations${adminChat ? '?admin=true' : ''}`),
-    findOrCreate: (participantId: string, isAdminChat?: boolean) => request<{ id: string }>('/api/conversations', { method: 'POST', body: json({ participantId, isAdminChat: isAdminChat ?? false }) }),
+    list: (adminChat?: boolean) =>
+      request<{ conversations: ConversationSummary[] }>(`/api/conversations${adminChat ? '?admin=true' : ''}`),
+    findOrCreate: (participantId: string, isAdminChat?: boolean) =>
+      request<{ id: string }>('/api/conversations', {
+        method: 'POST',
+        body: json({ participantId, isAdminChat: isAdminChat ?? false }),
+      }),
     messages: (id: string) => request<{ messages: DirectMessage[] }>(`/api/conversations/${id}/messages`),
-    send: (id: string, content: string, replyToId?: string | null) => request<DirectMessage>(`/api/conversations/${id}/messages`, { method: 'POST', body: json({ content, replyToId: replyToId ?? null }) }),
-    markRead: (id: string) => request<{ ok: boolean }>(`/api/conversations/${id}/read`, { method: 'PATCH', body: json({}) }),
-    close: (id: string) => request<{ ok: boolean; closed: boolean }>(`/api/conversations/${id}/close`, { method: 'PATCH', body: json({}) }),
-    unreadCount: (adminChat?: boolean) => request<{ count: number }>(`/api/conversations/unread-count${adminChat ? '?admin=true' : ''}`),
+    send: (id: string, content: string, replyToId?: string | null) =>
+      request<DirectMessage>(`/api/conversations/${id}/messages`, {
+        method: 'POST',
+        body: json({ content, replyToId: replyToId ?? null }),
+      }),
+    markRead: (id: string) =>
+      request<{ ok: boolean }>(`/api/conversations/${id}/read`, { method: 'PATCH', body: json({}) }),
+    close: (id: string) =>
+      request<{ ok: boolean; closed: boolean }>(`/api/conversations/${id}/close`, { method: 'PATCH', body: json({}) }),
+    unreadCount: (adminChat?: boolean) =>
+      request<{ count: number }>(`/api/conversations/unread-count${adminChat ? '?admin=true' : ''}`),
   },
   github: {
-    getConfig: () => request<{
-      webhookUrl: string;
-      hasSecret: boolean;
-      githubImportIssues: boolean;
-      githubImportPrs: boolean;
-      githubDefaultProductId: string | null;
-    }>('/api/github/config'),
-    updateConfig: (data: { githubImportIssues?: boolean; githubImportPrs?: boolean; githubDefaultProductId?: string | null }) =>
-      request<{ ok: boolean }>('/api/github/config', { method: 'POST', body: json(data) }),
-    regenerateSecret: () => request<{ secret: string }>('/api/github/regenerate-secret', { method: 'POST', body: json({}) }),
+    getConfig: () =>
+      request<{
+        webhookUrl: string;
+        hasSecret: boolean;
+        githubImportIssues: boolean;
+        githubImportPrs: boolean;
+        githubDefaultProductId: string | null;
+      }>('/api/github/config'),
+    updateConfig: (data: {
+      githubImportIssues?: boolean;
+      githubImportPrs?: boolean;
+      githubDefaultProductId?: string | null;
+    }) => request<{ ok: boolean }>('/api/github/config', { method: 'POST', body: json(data) }),
+    regenerateSecret: () =>
+      request<{ secret: string }>('/api/github/regenerate-secret', { method: 'POST', body: json({}) }),
   },
 };

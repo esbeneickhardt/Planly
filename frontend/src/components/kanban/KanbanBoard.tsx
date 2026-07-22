@@ -5,13 +5,19 @@
  */
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import {
-  DndContext, DragEndEvent, DragStartEvent, DragOverlay,
-  MouseSensor, TouchSensor, useSensor, useSensors,
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
   pointerWithin,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
-import { api, displayName } from '../../api/client';
+import { api } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +28,8 @@ import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import KanbanColumn from './KanbanColumn';
 import KanbanCard from './KanbanCard';
 import KanbanMobileList from './KanbanMobileList';
+import KanbanFiltersBar from './KanbanFiltersBar';
+import KanbanCompactList from './KanbanCompactList';
 import TaskDetailPanel from '../common/TaskDetailPanel';
 import Modal from '../common/Modal';
 
@@ -58,7 +66,12 @@ export default function KanbanBoard() {
   const { sprints, refresh: refreshSprints } = useSprints(activeProduct?.id);
   const [compact, setCompact] = useState(() => localStorage.getItem('planly_kanban_compact') === '1');
   const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>(() => {
-    try { const s = localStorage.getItem('planly_kanban_sort'); return s ? JSON.parse(s) : { key: 'status', dir: 1 }; } catch { return { key: 'status', dir: 1 }; }
+    try {
+      const s = localStorage.getItem('planly_kanban_sort');
+      return s ? JSON.parse(s) : { key: 'status', dir: 1 };
+    } catch {
+      return { key: 'status', dir: 1 };
+    }
   });
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [bgImage, setBgImage] = useState<string | null>(null);
@@ -68,7 +81,10 @@ export default function KanbanBoard() {
   const { legend: colorLegend } = useColorLegend(activeProduct?.id ?? '');
 
   useLayoutEffect(() => {
-    if (!activeProduct) { setBgImage(null); return; }
+    if (!activeProduct) {
+      setBgImage(null);
+      return;
+    }
     const saved = localStorage.getItem(`planly-kanban-bg-${activeProduct.id}`);
     setBgImage(saved && KANBAN_BACKGROUNDS.some((b) => b.id === saved) ? saved : null);
   }, [activeProduct?.id]);
@@ -116,7 +132,7 @@ export default function KanbanBoard() {
       }
       lastInitializedProductId.current = activeProduct.id;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSprints]);
 
   const loadColumns = useCallback(async () => {
@@ -126,7 +142,9 @@ export default function KanbanBoard() {
     setColumns(cols);
   }, [activeProduct]);
 
-  useEffect(() => { loadColumns(); }, [loadColumns]);
+  useEffect(() => {
+    loadColumns();
+  }, [loadColumns]);
 
   const taskOwners = useMemo(() => {
     const ids = new Set(tasks.filter((t) => t.ownerId).map((t) => t.ownerId!));
@@ -143,9 +161,7 @@ export default function KanbanBoard() {
   const hasFilters = ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null || mineOnly;
 
   const filteredTasks = useMemo(() => {
-    const sprintTaskIds = sprintFilter
-      ? new Set(sprints.find((s) => s.id === sprintFilter)?.taskIds ?? [])
-      : null;
+    const sprintTaskIds = sprintFilter ? new Set(sprints.find((s) => s.id === sprintFilter)?.taskIds ?? []) : null;
     return tasks.filter((t) => {
       if (!visibleStatusKeys.has(t.status)) return false;
       if (mineOnly && t.ownerId !== user?.id) return false;
@@ -156,7 +172,10 @@ export default function KanbanBoard() {
     });
   }, [tasks, visibleStatusKeys, mineOnly, ownerFilters, colorFilters, sprintFilter, sprints, user?.id]);
 
-  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  }
 
   function selectBg(id: string | null) {
     setBgImage(id);
@@ -169,7 +188,8 @@ export default function KanbanBoard() {
   function toggleOwner(id: string) {
     setOwnerFilters((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -177,7 +197,8 @@ export default function KanbanBoard() {
   function toggleColor(c: string) {
     setColorFilters((prev) => {
       const next = new Set(prev);
-      if (next.has(c)) next.delete(c); else next.add(c);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
       return next;
     });
   }
@@ -234,7 +255,10 @@ export default function KanbanBoard() {
       const reordered = arrayMove(columns, oldIdx, newIdx);
       setColumns(reordered); // optimistic
       try {
-        await api.columns.reorder(activeProduct.id, reordered.map((c, i) => ({ id: c.id, order: i })));
+        await api.columns.reorder(
+          activeProduct.id,
+          reordered.map((c, i) => ({ id: c.id, order: i })),
+        );
       } catch {
         await loadColumns(); // rollback
       }
@@ -300,15 +324,22 @@ export default function KanbanBoard() {
         newColumnTasks.map((t, i) => ({ taskId: t.id, order: i })),
       );
       await refreshTasks();
-    } catch (err) { showToast((err as Error).message); }
+    } catch (err) {
+      showToast((err as Error).message);
+    }
   }
 
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
     if (!newTaskName.trim()) return;
     setCreating(true);
-    try { await createTask({ name: newTaskName.trim() }); setNewTaskName(''); setShowNewTask(false); }
-    finally { setCreating(false); }
+    try {
+      await createTask({ name: newTaskName.trim() });
+      setNewTaskName('');
+      setShowNewTask(false);
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function handleQuickAddTask(statusKey: string, name: string) {
@@ -333,13 +364,19 @@ export default function KanbanBoard() {
       await loadColumns();
       setNewColLabel('');
       setShowNewColumn(false);
-    } finally { setCreating(false); }
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function handleRenameColumn(columnId: string, label: string) {
     if (!activeProduct) return;
-    try { await api.columns.update(activeProduct.id, columnId, { label }); await loadColumns(); }
-    catch (err) { showToast((err as Error).message); }
+    try {
+      await api.columns.update(activeProduct.id, columnId, { label });
+      await loadColumns();
+    } catch (err) {
+      showToast((err as Error).message);
+    }
   }
 
   async function handleCompactStatusChange(taskId: string, newStatus: string) {
@@ -348,8 +385,11 @@ export default function KanbanBoard() {
     try {
       await api.tasks.update(activeProduct.id, taskId, { status: newStatus });
       await refreshTasks();
-    } catch (err) { showToast((err as Error).message); }
-    finally { setUpdatingStatus(null); }
+    } catch (err) {
+      showToast((err as Error).message);
+    } finally {
+      setUpdatingStatus(null);
+    }
   }
 
   async function handleDeleteColumn() {
@@ -359,8 +399,11 @@ export default function KanbanBoard() {
       await api.columns.delete(activeProduct.id, pendingDeleteCol.id);
       await Promise.all([loadColumns(), refreshTasks()]);
       setPendingDeleteCol(null);
-    } catch (err) { showToast((err as Error).message); }
-    finally { setDeleting(false); }
+    } catch (err) {
+      showToast((err as Error).message);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (!activeProduct) {
@@ -372,230 +415,61 @@ export default function KanbanBoard() {
     );
   }
 
-  const pendingTaskCount = pendingDeleteCol
-    ? tasks.filter((t) => t.status === pendingDeleteCol.statusKey).length
-    : 0;
+  const pendingTaskCount = pendingDeleteCol ? tasks.filter((t) => t.status === pendingDeleteCol.statusKey).length : 0;
 
-  const boardBgStyle = bgImage ? {
-    backgroundImage: `linear-gradient(rgba(0,0,0,0.38),rgba(0,0,0,0.38)),url(/backgrounds/${bgImage}.jpg)`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-  } : {};
+  const boardBgStyle = bgImage
+    ? {
+        backgroundImage: `linear-gradient(rgba(0,0,0,0.38),rgba(0,0,0,0.38)),url(/backgrounds/${bgImage}.jpg)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }
+    : {};
 
   return (
     <div className="h-full flex flex-col" style={boardBgStyle}>
       {/* ── Filters ── */}
-      <div className="px-4 md:px-6 pt-3 md:pt-4 pb-3 flex-shrink-0 flex items-center gap-2 md:gap-3 flex-wrap">
-        {/* Task count */}
-        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
-          {filteredTasks.length}{hasFilters ? ' filtered' : ''} tasks
-        </span>
-
-        <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
-
-        {/* Mine toggle - visible on all screen sizes */}
-        <button
-          onClick={() => setMineOnly((v) => !v)}
-          className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
-          style={{
-            color: mineOnly ? 'var(--brand)' : 'var(--text-3)',
-            background: mineOnly ? 'var(--brand-subtle)' : 'transparent',
-            border: `1px solid ${mineOnly ? 'var(--brand)' : 'var(--border)'}`,
-          }}
-          title="Show only my tasks"
-        >
-          {user?.avatarEmoji ?? '👤'} Mine
-        </button>
-
-        {/* Desktop-only filters */}
-        <div className="hidden md:contents">
-          {/* Reset */}
-          <button
-            onClick={() => { setOwnerFilters(new Set()); setColorFilters(new Set()); setSprintFilterAndSave(null); setMineOnly(false); }}
-            className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
-            style={{
-              color: hasFilters ? 'var(--brand)' : 'var(--text-3)',
-              background: hasFilters ? 'var(--brand-subtle)' : 'transparent',
-              border: `1px solid ${hasFilters ? 'var(--brand)' : 'var(--border)'}`,
-              opacity: hasFilters ? 1 : 0.45,
-              cursor: hasFilters ? 'pointer' : 'default',
-            }}
-          >
-            ↺ Reset
-          </button>
-
-          {/* Owner filter */}
-          {taskOwners.length > 0 && (
-            <div className="relative flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs" style={{ color: 'var(--text-3)' }}>Owner</span>
-              <button
-                onClick={() => setShowOwnerDropdown((v) => !v)}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all"
-                style={{
-                  background: ownerFilters.size > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                  color: ownerFilters.size > 0 ? 'var(--brand)' : 'var(--text-2)',
-                  border: `1px solid ${ownerFilters.size > 0 ? 'var(--brand)' : 'var(--border)'}`,
-                }}
-              >
-                {ownerFilters.size === 0 ? 'All' : `${ownerFilters.size} selected`}
-                <span className="text-[10px] ml-0.5">▾</span>
-              </button>
-              {showOwnerDropdown && (
-                <div
-                  className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 py-1 overflow-hidden"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }}
-                  onMouseLeave={() => setShowOwnerDropdown(false)}
-                >
-                  {taskOwners.map((u) => {
-                    const active = ownerFilters.has(u.id);
-                    return (
-                      <button
-                        key={u.id}
-                        onClick={() => toggleOwner(u.id)}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
-                        style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
-                      >
-                        <span>{u.avatarEmoji ?? '👤'}</span>
-                        <span className="flex-1 text-left truncate">{u.username}</span>
-                        {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
-                      </button>
-                    );
-                  })}
-                  {ownerFilters.size > 0 && (
-                    <div style={{ borderTop: '1px solid var(--border)' }}>
-                      <button onClick={() => { setOwnerFilters(new Set()); setShowOwnerDropdown(false); }} className="w-full text-left px-3 py-1.5 text-xs transition-colors" style={{ color: 'var(--text-3)' }}>
-                        Clear owners
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Color dots */}
-          {taskColors.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs" style={{ color: 'var(--text-3)' }}>Color</span>
-              <div className="flex items-center gap-2">
-                {taskColors.map((c) => {
-                  const active = colorFilters.has(c);
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => toggleColor(c)}
-                      className="w-4 h-4 rounded-full flex-shrink-0 transition-all"
-                      style={{
-                        background: c,
-                        outline: active ? `2px solid ${c}` : 'none',
-                        outlineOffset: active ? '2px' : '0',
-                        boxShadow: active ? `0 0 0 1px var(--surface)` : 'none',
-                      }}
-                      title={colorLegend[c] || c}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Sprint filter */}
-          {sprints.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs" style={{ color: 'var(--text-3)' }}>Sub-plan</span>
-              {sprintFilter && (() => { const s = sprints.find((s) => s.id === sprintFilter); return s ? <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} /> : null; })()}
-              <select
-                value={sprintFilter ?? ''}
-                onChange={(e) => setSprintFilterAndSave(e.target.value === '' ? null : e.target.value)}
-                className="text-xs px-2 py-0.5 rounded transition-all"
-                style={{
-                  background: sprintFilter !== null ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                  color: sprintFilter !== null ? 'var(--brand)' : 'var(--text-2)',
-                  border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
-                }}
-              >
-                <option value="">All sub-plans</option>
-                {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-          )}
-
-          {toast && (
-            <div className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-              {toast}
-            </div>
-          )}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-          {/* Background picker - desktop only (drag backgrounds aren't useful on touch) */}
-          {!compact && (
-            <div ref={bgPickerRef} className="relative hidden md:block">
-              <button
-                onClick={() => setShowBgPicker((v) => !v)}
-                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
-                title="Board background"
-                style={{
-                  background: bgImage ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                  color: bgImage ? 'var(--brand)' : 'var(--text-3)',
-                  border: `1px solid ${bgImage ? 'var(--brand)' : 'var(--border)'}`,
-                }}
-              >
-                <span>🖼</span> Background
-              </button>
-              {showBgPicker && (
-                <div
-                  className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl overflow-hidden py-1.5 z-50"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }}
-                >
-                  <button
-                    onClick={() => selectBg(null)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${!bgImage ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
-                    style={{ color: !bgImage ? 'var(--brand)' : 'var(--text-2)' }}
-                  >
-                    <span className="w-8 h-6 rounded flex-shrink-0" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }} />
-                    <span>None</span>
-                    {!bgImage && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
-                  </button>
-                  {KANBAN_BACKGROUNDS.map((b) => {
-                    const active = bgImage === b.id;
-                    return (
-                      <button
-                        key={b.id}
-                        onClick={() => selectBg(b.id)}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
-                        style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
-                      >
-                        <span className="w-8 h-6 rounded flex-shrink-0" style={{ background: b.gradient }} />
-                        <span>{b.label}</span>
-                        {active && <span className="ml-auto" style={{ color: 'var(--brand)' }}>✓</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-          {/* Compact toggle */}
-          <button
-            onClick={() => {
-              const next = !compact;
-              setCompact(next);
-              localStorage.setItem('planly_kanban_compact', next ? '1' : '0');
-            }}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
-            title={compact ? 'Switch to board view' : 'Switch to compact list view'}
-            style={{
-              background: compact ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              color: compact ? 'var(--brand)' : 'var(--text-3)',
-              border: `1px solid ${compact ? 'var(--brand)' : 'var(--border)'}`,
-            }}
-          >
-            {compact ? '▦ Board' : '☰ Compact'}
-          </button>
-        </div>
-      </div>
+      <KanbanFiltersBar
+        taskCount={filteredTasks.length}
+        hasFilters={hasFilters}
+        user={user}
+        mineOnly={mineOnly}
+        onMineToggle={() => setMineOnly((v) => !v)}
+        taskOwners={taskOwners}
+        ownerFilters={ownerFilters}
+        showOwnerDropdown={showOwnerDropdown}
+        onToggleOwnerDropdown={() => setShowOwnerDropdown((v) => !v)}
+        onToggleOwner={toggleOwner}
+        onClearOwners={() => {
+          setOwnerFilters(new Set());
+          setShowOwnerDropdown(false);
+        }}
+        taskColors={taskColors}
+        colorFilters={colorFilters}
+        colorLegend={colorLegend}
+        onToggleColor={toggleColor}
+        sprints={sprints}
+        sprintFilter={sprintFilter}
+        onSprintChange={setSprintFilterAndSave}
+        toast={toast}
+        compact={compact}
+        onToggleCompact={() => {
+          const next = !compact;
+          setCompact(next);
+          localStorage.setItem('planly_kanban_compact', next ? '1' : '0');
+        }}
+        bgImage={bgImage}
+        showBgPicker={showBgPicker}
+        bgPickerRef={bgPickerRef}
+        onToggleBgPicker={() => setShowBgPicker((v) => !v)}
+        onSelectBg={selectBg}
+        onReset={() => {
+          setOwnerFilters(new Set());
+          setColorFilters(new Set());
+          setSprintFilterAndSave(null);
+          setMineOnly(false);
+        }}
+      />
 
       {/* Mobile scrollable task list - hidden on md+ where the full board renders */}
       <KanbanMobileList
@@ -609,223 +483,101 @@ export default function KanbanBoard() {
 
       {/* Desktop board area - hidden on small screens to give way to KanbanMobileList */}
       <div className="hidden md:flex flex-col flex-1 overflow-hidden">
-      {/* ── Compact list view ── */}
-      {compact && (() => {
-        const colOrder = Object.fromEntries(columns.map((c, i) => [c.statusKey, i]));
-        const sorted = [...filteredTasks].sort((a, b) => {
-          const { key, dir } = compactSort;
-          if (key === 'status') {
-            const diff = (colOrder[a.status] ?? 99) - (colOrder[b.status] ?? 99);
-            return diff * dir;
-          }
-          if (key === 'name') return a.name.localeCompare(b.name) * dir;
-          if (key === 'owner') {
-            const an = users.find((u) => u.id === a.ownerId) ? displayName(users.find((u) => u.id === a.ownerId)!) : '';
-            const bn = users.find((u) => u.id === b.ownerId) ? displayName(users.find((u) => u.id === b.ownerId)!) : '';
-            return an.localeCompare(bn) * dir;
-          }
-          if (key === 'deadline') {
-            if (!a.deadline && !b.deadline) return 0;
-            if (!a.deadline) return 1;
-            if (!b.deadline) return -1;
-            return (new Date(a.deadline).getTime() - new Date(b.deadline).getTime()) * dir;
-          }
-          return 0;
-        });
-
-        function SortHeader({ k, label }: { k: typeof compactSort['key']; label: string }) {
-          const active = compactSort.key === k;
-          return (
-            <button
-              onClick={() => setCompactSort((prev) => {
-                const next = prev.key === k ? { key: k, dir: (prev.dir * -1) as 1 | -1 } : { key: k, dir: 1 as const };
-                try { localStorage.setItem('planly_kanban_sort', JSON.stringify(next)); } catch {}
+        {/* ── Compact list view ── */}
+        {compact && (
+          <KanbanCompactList
+            tasks={filteredTasks}
+            columns={columns}
+            users={users}
+            sortKey={compactSort.key}
+            sortDir={compactSort.dir}
+            onSortChange={(key) =>
+              setCompactSort((prev) => {
+                const next = prev.key === key ? { key, dir: (prev.dir * -1) as 1 | -1 } : { key, dir: 1 as const };
+                try {
+                  localStorage.setItem('planly_kanban_sort', JSON.stringify(next));
+                } catch {}
                 return next;
-              })}
-              className="flex items-center gap-1 text-left"
-              style={{ color: active ? 'var(--brand)' : 'var(--text-3)', fontWeight: active ? 600 : 400 }}
-            >
-              {label}
-              <span className="text-[10px]">{active ? (compactSort.dir === 1 ? '▲' : '▼') : '⇅'}</span>
-            </button>
-          );
-        }
+              })
+            }
+            readOnly={readOnly}
+            updatingStatus={updatingStatus}
+            onStatusChange={handleCompactStatusChange}
+            onOpenDetail={setSelectedTask}
+          />
+        )}
 
-        return (
-          <div className="flex-1 overflow-auto px-6 pb-6">
-            <table className="w-full text-sm border-separate" style={{ borderSpacing: '0 2px' }}>
-              <thead>
-                <tr className="text-xs" style={{ color: 'var(--text-3)' }}>
-                  <th className="text-left px-3 py-2 w-36"><SortHeader k="status" label="Status" /></th>
-                  <th className="text-left px-3 py-2"><SortHeader k="name" label="Task" /></th>
-                  <th className="text-left px-3 py-2 w-32"><SortHeader k="owner" label="Owner" /></th>
-                  <th className="text-left px-3 py-2 w-28"><SortHeader k="deadline" label="Deadline" /></th>
-                  <th className="w-6" />
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((task) => {
-                  const col = columns.find((c) => c.statusKey === task.status);
-                  const owner = users.find((u) => u.id === task.ownerId);
-                  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && !col?.isDone;
-                  return (
-                    <tr
-                      key={task.id}
-                      onClick={() => setSelectedTask(task)}
-                      className="group cursor-pointer rounded-xl bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors"
-                    >
-                      {/* Status */}
-                      <td className="px-3 py-2 rounded-l-xl" onClick={(e) => e.stopPropagation()}>
-                        {readOnly ? (
-                          <span
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                            style={{ background: `${col?.color ?? '#64748b'}20`, color: col?.color ?? '#64748b' }}
-                          >
-                            {col?.label ?? task.status}
-                          </span>
-                        ) : (
-                          <select
-                            value={task.status}
-                            onChange={(e) => handleCompactStatusChange(task.id, e.target.value)}
-                            disabled={updatingStatus === task.id}
-                            className="text-xs px-2 py-0.5 rounded-full font-medium border-0 outline-none cursor-pointer"
-                            style={{
-                              background: `${col?.color ?? '#64748b'}20`,
-                              color: col?.color ?? '#64748b',
-                              opacity: updatingStatus === task.id ? 0.6 : 1,
-                            }}
-                          >
-                            {columns.map((c) => (
-                              <option key={c.statusKey} value={c.statusKey}>{c.label}</option>
-                            ))}
-                          </select>
-                        )}
-                      </td>
-                      {/* Name */}
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          {task.color && (
-                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
-                          )}
-                          <span
-                            className="font-medium truncate max-w-xs"
-                            style={{
-                              color: 'var(--text)',
-                              textDecoration: col?.isDone ? 'line-through' : 'none',
-                              opacity: col?.isDone ? 0.6 : 1,
-                            }}
-                          >{task.name}</span>
-                          {(task.subtasks?.length ?? 0) > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
-                              {task.subtasks!.filter((s) => s.completed).length}/{task.subtasks!.length}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      {/* Owner */}
-                      <td className="px-3 py-2">
-                        {owner ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm">{owner.avatarEmoji ?? '👤'}</span>
-                            <span className="text-xs truncate" style={{ color: 'var(--text-2)' }}>{displayName(owner)}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>-</span>
-                        )}
-                      </td>
-                      {/* Deadline */}
-                      <td className="px-3 py-2">
-                        {task.deadline ? (
-                          <span className="text-xs" style={{ color: isOverdue ? '#ef4444' : 'var(--text-3)' }}>
-                            {isOverdue && '⚠ '}
-                            {new Date(task.deadline).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                          </span>
-                        ) : (
-                          <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>-</span>
-                        )}
-                      </td>
-                      {/* Arrow */}
-                      <td className="px-2 py-2 rounded-r-xl">
-                        <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-3)' }}>›</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {sorted.length === 0 && (
-              <div className="text-center py-16 text-sm" style={{ color: 'var(--text-3)' }}>No tasks match the current filters</div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* ── Board ── */}
-      {!compact && <DndContext
-        sensors={sensors}
-        collisionDetection={pointerWithin}
-        onDragStart={onDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
-          <div
-            ref={boardRef}
-            className="flex-1 overflow-x-auto overflow-y-auto select-none"
-            style={{ cursor: 'default' }}
-            onMouseDown={onBoardMouseDown}
-            onMouseMove={onBoardMouseMove}
-            onMouseUp={onBoardMouseUp}
-            onMouseLeave={onBoardMouseUp}
+        {/* ── Board ── */}
+        {!compact && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={onDragStart}
+            onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-4 px-6 pt-2 pb-6 min-w-max items-start">
-              {columns.map((col) => (
-                <div key={col.id} className="kanban-col">
+            <SortableContext items={columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
+              <div
+                ref={boardRef}
+                className="flex-1 overflow-x-auto overflow-y-auto select-none"
+                style={{ cursor: 'default' }}
+                onMouseDown={onBoardMouseDown}
+                onMouseMove={onBoardMouseMove}
+                onMouseUp={onBoardMouseUp}
+                onMouseLeave={onBoardMouseUp}
+              >
+                <div className="flex gap-4 px-6 pt-2 pb-6 min-w-max items-start">
+                  {columns.map((col) => (
+                    <div key={col.id} className="kanban-col">
+                      <KanbanColumn
+                        column={col}
+                        tasks={filteredTasks
+                          .filter((t) => t.status === col.statusKey)
+                          .sort((a, b) => a.kanbanOrder - b.kanbanOrder)}
+                        onOpenDetail={setSelectedTask}
+                        onRename={handleRenameColumn}
+                        onDeleteRequest={setPendingDeleteCol}
+                        onAddTask={readOnly ? undefined : (name) => handleQuickAddTask(col.statusKey, name)}
+                      />
+                    </div>
+                  ))}
+
+                  {/* Add column - hidden for read-only users */}
+                  {!readOnly && (
+                    <button
+                      onClick={() => setShowNewColumn(true)}
+                      className="w-72 flex-shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm border-[var(--border)] text-[var(--text-3)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                      style={{ height: 44 }}
+                    >
+                      <span className="text-base leading-none">+</span>
+                      <span>Add column</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </SortableContext>
+
+            <DragOverlay dropAnimation={null}>
+              {activeTask ? (
+                <div style={{ transform: 'rotate(2deg)', width: 288 }}>
+                  <KanbanCard task={activeTask} onOpenDetail={() => {}} isOverlay />
+                </div>
+              ) : activeColumn ? (
+                <div style={{ opacity: 0.9, width: 288 }}>
                   <KanbanColumn
-                    column={col}
-                    tasks={filteredTasks.filter((t) => t.status === col.statusKey).sort((a, b) => a.kanbanOrder - b.kanbanOrder)}
-                    onOpenDetail={setSelectedTask}
-                    onRename={handleRenameColumn}
-                    onDeleteRequest={setPendingDeleteCol}
-                    onAddTask={readOnly ? undefined : (name) => handleQuickAddTask(col.statusKey, name)}
+                    column={activeColumn}
+                    tasks={tasks.filter((t) => t.status === activeColumn.statusKey)}
+                    onOpenDetail={() => {}}
+                    onRename={() => {}}
+                    onDeleteRequest={() => {}}
+                    isOverlay
                   />
                 </div>
-              ))}
-
-              {/* Add column - hidden for read-only users */}
-              {!readOnly && (
-                <button
-                  onClick={() => setShowNewColumn(true)}
-                  className="w-72 flex-shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm border-[var(--border)] text-[var(--text-3)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
-                  style={{ height: 44 }}
-                >
-                  <span className="text-base leading-none">+</span>
-                  <span>Add column</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </SortableContext>
-
-        <DragOverlay dropAnimation={null}>
-          {activeTask ? (
-            <div style={{ transform: 'rotate(2deg)', width: 288 }}>
-              <KanbanCard task={activeTask} onOpenDetail={() => {}} isOverlay />
-            </div>
-          ) : activeColumn ? (
-            <div style={{ opacity: 0.9, width: 288 }}>
-              <KanbanColumn
-                column={activeColumn}
-                tasks={tasks.filter((t) => t.status === activeColumn.statusKey)}
-                onOpenDetail={() => {}}
-                onRename={() => {}}
-                onDeleteRequest={() => {}}
-                isOverlay
-              />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>}
-      </div>{/* end desktop board area */}
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
+      </div>
+      {/* end desktop board area */}
 
       {/* Detail panel */}
       {selectedTask && (
@@ -834,8 +586,14 @@ export default function KanbanBoard() {
           columns={columns}
           readOnly={readOnly}
           onClose={() => setSelectedTask(null)}
-          onUpdated={async (updated) => { setSelectedTask(updated); await refreshTasks(); }}
-          onDeleted={async () => { setSelectedTask(null); await refreshTasks(); }}
+          onUpdated={async (updated) => {
+            setSelectedTask(updated);
+            await refreshTasks();
+          }}
+          onDeleted={async () => {
+            setSelectedTask(null);
+            await refreshTasks();
+          }}
         />
       )}
 
@@ -845,13 +603,27 @@ export default function KanbanBoard() {
           <form onSubmit={handleCreateTask} className="space-y-4">
             <div>
               <label className="label">Task name</label>
-              <input autoFocus required type="text" value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="input" placeholder="What needs to be done?" />
+              <input
+                autoFocus
+                required
+                type="text"
+                value={newTaskName}
+                onChange={(e) => setNewTaskName(e.target.value)}
+                className="input"
+                placeholder="What needs to be done?"
+              />
             </div>
             <div className="flex gap-3">
               <button type="submit" disabled={creating} className="btn-primary flex-1 flex justify-center">
-                {creating ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Create task'}
+                {creating ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Create task'
+                )}
               </button>
-              <button type="button" onClick={() => setShowNewTask(false)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={() => setShowNewTask(false)} className="btn-secondary">
+                Cancel
+              </button>
             </div>
           </form>
         </Modal>
@@ -863,14 +635,30 @@ export default function KanbanBoard() {
           <form onSubmit={handleCreateColumn} className="space-y-4">
             <div>
               <label className="label">Column name</label>
-              <input autoFocus required type="text" value={newColLabel} onChange={(e) => setNewColLabel(e.target.value)} className="input" placeholder="e.g. Review, Testing…" />
+              <input
+                autoFocus
+                required
+                type="text"
+                value={newColLabel}
+                onChange={(e) => setNewColLabel(e.target.value)}
+                className="input"
+                placeholder="e.g. Review, Testing…"
+              />
             </div>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>Added before the completion column. Tasks can be dragged into it.</p>
+            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+              Added before the completion column. Tasks can be dragged into it.
+            </p>
             <div className="flex gap-3">
               <button type="submit" disabled={creating} className="btn-primary flex-1 flex justify-center">
-                {creating ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Add column'}
+                {creating ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Add column'
+                )}
               </button>
-              <button type="button" onClick={() => setShowNewColumn(false)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={() => setShowNewColumn(false)} className="btn-secondary">
+                Cancel
+              </button>
             </div>
           </form>
         </Modal>
@@ -881,7 +669,10 @@ export default function KanbanBoard() {
       {pendingDeleteCol && (
         <Modal title="Delete column" onClose={() => setPendingDeleteCol(null)} width="max-w-sm">
           <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <div
+              className="flex items-center gap-3 p-3 rounded-lg"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
+            >
               <span className="text-lg">⚠️</span>
               <p className="text-sm" style={{ color: 'var(--text)' }}>
                 Delete <strong>"{pendingDeleteCol.label}"</strong>?
@@ -890,7 +681,9 @@ export default function KanbanBoard() {
                   : ' The column is empty.'}
               </p>
             </div>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>This action cannot be undone.</p>
+            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+              This action cannot be undone.
+            </p>
             <div className="flex gap-3">
               <button
                 onClick={handleDeleteColumn}
@@ -898,9 +691,15 @@ export default function KanbanBoard() {
                 className="flex-1 py-2 rounded-lg text-sm font-medium flex justify-center transition-colors"
                 style={{ background: '#ef4444', color: 'white' }}
               >
-                {deleting ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Delete column'}
+                {deleting ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Delete column'
+                )}
               </button>
-              <button type="button" onClick={() => setPendingDeleteCol(null)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={() => setPendingDeleteCol(null)} className="btn-secondary">
+                Cancel
+              </button>
             </div>
           </div>
         </Modal>

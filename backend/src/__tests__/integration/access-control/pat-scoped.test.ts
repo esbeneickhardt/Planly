@@ -14,7 +14,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from '../../helpers/app';
-import { prisma, createTestUser, createTestTeam, createTestProduct, createTestApiToken, randomSuffix } from '../../helpers/db';
+import {
+  prisma,
+  createTestUser,
+  createTestTeam,
+  createTestProduct,
+  createTestApiToken,
+  randomSuffix,
+} from '../../helpers/db';
 import { loginAs, bearerHeaders, cookieJar } from '../../helpers/auth';
 
 const HAS_DB = !!process.env.TEST_DATABASE_URL;
@@ -27,14 +34,18 @@ describe.skipIf(!HAS_DB)('PAT scoping', () => {
   let userId: string;
   let productAId: string;
   let productBId: string;
-  let scopedToken: string;      // scoped to product A
-  let unscopedToken: string;    // no product scope
-  let expiredToken: string;     // expired PAT
+  let scopedToken: string; // scoped to product A
+  let unscopedToken: string; // no product scope
+  let expiredToken: string; // expired PAT
 
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const user = await createTestUser({ email: `pat_user_${suffix}@t.com`, username: `pat_user_${suffix}`, password: pw });
+    const user = await createTestUser({
+      email: `pat_user_${suffix}@t.com`,
+      username: `pat_user_${suffix}`,
+      password: pw,
+    });
     userId = user.id;
 
     const team = await createTestTeam(user.id);
@@ -43,13 +54,13 @@ describe.skipIf(!HAS_DB)('PAT scoping', () => {
     productAId = productA.id;
     productBId = productB.id;
 
-    const scoped   = await createTestApiToken(userId, { productId: productAId, name: 'scoped-to-A' });
+    const scoped = await createTestApiToken(userId, { productId: productAId, name: 'scoped-to-A' });
     const unscoped = await createTestApiToken(userId, { name: 'unscoped' });
-    const expired  = await createTestApiToken(userId, { name: 'expired', expiresAt: new Date(Date.now() - 1000) });
+    const expired = await createTestApiToken(userId, { name: 'expired', expiresAt: new Date(Date.now() - 1000) });
 
-    scopedToken   = scoped.raw;
+    scopedToken = scoped.raw;
     unscopedToken = unscoped.raw;
-    expiredToken  = expired.raw;
+    expiredToken = expired.raw;
   });
 
   afterAll(async () => {

@@ -65,7 +65,9 @@ function makeReq(xff: string | undefined, remoteAddress = '10.0.0.1') {
 describe('getClientIp', () => {
   const origDepth = process.env.TRUSTED_PROXY_DEPTH;
 
-  beforeEach(() => { delete process.env.TRUSTED_PROXY_DEPTH; });
+  beforeEach(() => {
+    delete process.env.TRUSTED_PROXY_DEPTH;
+  });
   afterEach(() => {
     if (origDepth === undefined) delete process.env.TRUSTED_PROXY_DEPTH;
     else process.env.TRUSTED_PROXY_DEPTH = origDepth;

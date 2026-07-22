@@ -58,7 +58,22 @@ export async function authRoutes(app: FastifyInstance) {
     const normalized = trimmed.toLowerCase();
     const user = await prisma.user.findFirst({
       where: { OR: [{ email: normalized }, { username: { equals: trimmed, mode: 'insensitive' } }] },
-      select: { id: true, username: true, email: true, passwordHash: true, emailVerified: true, totpEnabled: true, failedLoginAttempts: true, loginLockedUntil: true, loginLockCount: true, realName: true, avatarEmoji: true, mustChangePassword: true, isAdmin: true, isFoundingAdmin: true },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        passwordHash: true,
+        emailVerified: true,
+        totpEnabled: true,
+        failedLoginAttempts: true,
+        loginLockedUntil: true,
+        loginLockCount: true,
+        realName: true,
+        avatarEmoji: true,
+        mustChangePassword: true,
+        isAdmin: true,
+        isFoundingAdmin: true,
+      },
     });
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
     if (!user.passwordHash) return reply.status(401).send({ error: 'Invalid credentials' });
@@ -83,26 +98,57 @@ export async function authRoutes(app: FastifyInstance) {
         where: { id: user.id },
         data: {
           failedLoginAttempts: attempts,
-          ...(shouldLock ? { loginLockedUntil: new Date(Date.now() + lockMinutes * 60 * 1000), loginLockCount: newLockCount } : {}),
+          ...(shouldLock
+            ? { loginLockedUntil: new Date(Date.now() + lockMinutes * 60 * 1000), loginLockCount: newLockCount }
+            : {}),
         },
       });
-      await prisma.adminLog.create({ data: { action: 'LOGIN_FAILED', targetName: user.username, metadata: { attempts } } }).catch((err) => { console.warn('[auth] Failed to write LOGIN_FAILED audit log:', (err as Error).message); });
+      await prisma.adminLog
+        .create({ data: { action: 'LOGIN_FAILED', targetName: user.username, metadata: { attempts } } })
+        .catch((err) => {
+          console.warn('[auth] Failed to write LOGIN_FAILED audit log:', (err as Error).message);
+        });
       if (shouldLock) {
-        await prisma.adminLog.create({ data: { action: 'LOGIN_LOCKED', targetName: user.username, metadata: { lockCount: newLockCount, lockMinutes } } }).catch((err) => { console.warn('[auth] Failed to write LOGIN_LOCKED audit log:', (err as Error).message); });
-        sendSecurityAlert({ event: 'LOGIN_LOCKED', account: user.username, ip: req.ip, lockout_count: newLockCount, lockout_duration_minutes: lockMinutes, failed_attempts: LOGIN_MAX_ATTEMPTS, timestamp: new Date().toISOString() });
+        await prisma.adminLog
+          .create({
+            data: {
+              action: 'LOGIN_LOCKED',
+              targetName: user.username,
+              metadata: { lockCount: newLockCount, lockMinutes },
+            },
+          })
+          .catch((err) => {
+            console.warn('[auth] Failed to write LOGIN_LOCKED audit log:', (err as Error).message);
+          });
+        sendSecurityAlert({
+          event: 'LOGIN_LOCKED',
+          account: user.username,
+          ip: req.ip,
+          lockout_count: newLockCount,
+          lockout_duration_minutes: lockMinutes,
+          failed_attempts: LOGIN_MAX_ATTEMPTS,
+          timestamp: new Date().toISOString(),
+        });
         const hours = Math.floor(lockMinutes / 60);
         const mins = lockMinutes % 60;
-        const timeStr = hours > 0 ? `${hours} hour${hours === 1 ? '' : 's'}${mins > 0 ? ` ${mins} min` : ''}` : `${lockMinutes} minutes`;
+        const timeStr =
+          hours > 0
+            ? `${hours} hour${hours === 1 ? '' : 's'}${mins > 0 ? ` ${mins} min` : ''}`
+            : `${lockMinutes} minutes`;
         return reply.status(429).send({ error: `Too many failed attempts. Account locked for ${timeStr}.` });
       }
       const remaining = LOGIN_MAX_ATTEMPTS - attempts;
-      return reply.status(401).send({ error: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.` });
+      return reply.status(401).send({
+        error: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.`,
+      });
     }
 
     // Email verification gate — only enforced when the server requires it
     const serverConfig = await getServerConfig();
     if (!user.emailVerified && serverConfig.requireEmailVerification) {
-      return reply.status(403).send({ error: 'Please verify your email address before signing in. Check your inbox for a verification link.' });
+      return reply.status(403).send({
+        error: 'Please verify your email address before signing in. Check your inbox for a verification link.',
+      });
     }
 
     // If TOTP is enabled, issue a short-lived challenge token instead of a session cookie.
@@ -112,11 +158,7 @@ export async function authRoutes(app: FastifyInstance) {
         where: { id: user.id },
         data: { failedLoginAttempts: 0, loginLockedUntil: null, loginLockCount: 0 },
       });
-      const mfaToken = jwt.sign(
-        { userId: user.id, type: 'mfa_challenge' },
-        config.jwtSecret,
-        { expiresIn: '5m' },
-      );
+      const mfaToken = jwt.sign({ userId: user.id, type: 'mfa_challenge' }, config.jwtSecret, { expiresIn: '5m' });
       return reply.send({ requiresTOTP: true, mfaToken });
     }
 
@@ -136,14 +178,30 @@ export async function authRoutes(app: FastifyInstance) {
     const token = jwt.sign(
       { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
       config.jwtSecret,
-      { expiresIn: '1h' }
+      { expiresIn: '1h' },
     );
 
-    await prisma.adminLog.create({ data: { action: 'LOGIN', actorName: user.username, targetName: user.username } }).catch((err) => { console.warn('[auth] Failed to write LOGIN audit log:', (err as Error).message); });
+    await prisma.adminLog
+      .create({ data: { action: 'LOGIN', actorName: user.username, targetName: user.username } })
+      .catch((err) => {
+        console.warn('[auth] Failed to write LOGIN audit log:', (err as Error).message);
+      });
 
     const rt = await issueRefreshToken(user.id);
     issueAuthCookie(reply, token, rt);
-    reply.send(decryptUserPii({ id: user.id, username: user.username, email: user.email, realName: user.realName, avatarEmoji: user.avatarEmoji, mustChangePassword: user.mustChangePassword, isAdmin: user.isAdmin, isFoundingAdmin: user.isFoundingAdmin, emailVerified: user.emailVerified }));
+    reply.send(
+      decryptUserPii({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        realName: user.realName,
+        avatarEmoji: user.avatarEmoji,
+        mustChangePassword: user.mustChangePassword,
+        isAdmin: user.isAdmin,
+        isFoundingAdmin: user.isFoundingAdmin,
+        emailVerified: user.emailVerified,
+      }),
+    );
   });
 
   // Logout: revoke the refresh token family so all related sessions are invalidated,
@@ -151,12 +209,17 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/logout', { preHandler: requireAuth }, async (req, reply) => {
     const rawRt = req.cookies?.refresh_token;
     if (rawRt) await revokeRefreshFamily(rawRt).catch(() => {});
-    await prisma.user.update({
-      where: { id: req.user.userId },
-      data: { tokenVersion: { increment: 1 } },
-    }).catch((err) => { console.warn('[auth] Failed to increment tokenVersion on logout:', (err as Error).message); });
-    await prisma.adminLog.create({ data: { action: 'LOGOUT', actorName: req.user.username } })
-      .catch((err) => { console.warn('[auth] Failed to write LOGOUT audit log:', (err as Error).message); });
+    await prisma.user
+      .update({
+        where: { id: req.user.userId },
+        data: { tokenVersion: { increment: 1 } },
+      })
+      .catch((err) => {
+        console.warn('[auth] Failed to increment tokenVersion on logout:', (err as Error).message);
+      });
+    await prisma.adminLog.create({ data: { action: 'LOGOUT', actorName: req.user.username } }).catch((err) => {
+      console.warn('[auth] Failed to write LOGOUT audit log:', (err as Error).message);
+    });
     clearAuthCookies(reply);
     reply.send({ ok: true });
   });
@@ -203,7 +266,22 @@ export async function authRoutes(app: FastifyInstance) {
     const [user, cfg] = await Promise.all([
       prisma.user.findUnique({
         where: { id: req.user.userId },
-        select: { id: true, username: true, email: true, realName: true, avatarEmoji: true, avatarUrl: true, phone: true, emailVerified: true, isAdmin: true, isFoundingAdmin: true, mustChangePassword: true, totpEnabled: true, notificationPreferences: true, acceptsInvites: true },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          realName: true,
+          avatarEmoji: true,
+          avatarUrl: true,
+          phone: true,
+          emailVerified: true,
+          isAdmin: true,
+          isFoundingAdmin: true,
+          mustChangePassword: true,
+          totpEnabled: true,
+          notificationPreferences: true,
+          acceptsInvites: true,
+        },
       }),
       getServerConfig(),
     ]);
@@ -212,5 +290,4 @@ export async function authRoutes(app: FastifyInstance) {
     // Decrypt PII fields (realName, phone stored AES-256-GCM) and append server-config flags the UI needs
     reply.send({ ...decryptUserPii(user), announcementsEnabled: cfg.announcementsEnabled, mustSetupMfa });
   });
-
 }

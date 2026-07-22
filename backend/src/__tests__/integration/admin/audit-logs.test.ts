@@ -28,17 +28,27 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const admin = await createTestUser({ email: `log_admin_${suffix}@t.com`, username: `log_admin_${suffix}`, password: pw, isAdmin: true });
-    const user  = await createTestUser({ email: `log_user_${suffix}@t.com`,  username: `log_user_${suffix}`,  password: pw });
+    const admin = await createTestUser({
+      email: `log_admin_${suffix}@t.com`,
+      username: `log_admin_${suffix}`,
+      password: pw,
+      isAdmin: true,
+    });
+    const user = await createTestUser({
+      email: `log_user_${suffix}@t.com`,
+      username: `log_user_${suffix}`,
+      password: pw,
+    });
     adminId = admin.id;
-    userId  = user.id;
+    userId = user.id;
 
     adminCookie = await loginAs(app, `log_admin_${suffix}@t.com`, pw);
-    userCookie  = await loginAs(app, `log_user_${suffix}@t.com`,  pw);
+    userCookie = await loginAs(app, `log_user_${suffix}@t.com`, pw);
 
     // Trigger a known log entry by updating server config
     await app.inject({
-      method: 'PUT', url: '/api/admin/server-config',
+      method: 'PUT',
+      url: '/api/admin/server-config',
       cookies: cookieJar(adminCookie),
       payload: { allowProjectCreation: false },
     });
@@ -79,7 +89,8 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
     if (!nextCursor) return; // not enough log entries to page - skip gracefully
 
     const page2 = await app.inject({
-      method: 'GET', url: `/api/admin/logs?limit=1&cursor=${nextCursor}`,
+      method: 'GET',
+      url: `/api/admin/logs?limit=1&cursor=${nextCursor}`,
       cookies: cookieJar(adminCookie),
     });
     expect(page2.statusCode).toBe(200);
@@ -92,7 +103,8 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
 
   it('can filter logs by action=SERVER_CONFIG_UPDATED', async () => {
     const res = await app.inject({
-      method: 'GET', url: '/api/admin/logs?action=SERVER_CONFIG_UPDATED',
+      method: 'GET',
+      url: '/api/admin/logs?action=SERVER_CONFIG_UPDATED',
       cookies: cookieJar(adminCookie),
     });
     expect(res.statusCode).toBe(200);
@@ -103,7 +115,8 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
 
   it('returns empty array for an action that never happened', async () => {
     const res = await app.inject({
-      method: 'GET', url: '/api/admin/logs?action=NONEXISTENT_ACTION_XYZ',
+      method: 'GET',
+      url: '/api/admin/logs?action=NONEXISTENT_ACTION_XYZ',
       cookies: cookieJar(adminCookie),
     });
     expect(res.statusCode).toBe(200);
@@ -114,7 +127,8 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
 
   it('GET /api/admin/logs/export returns CSV with header row', async () => {
     const res = await app.inject({
-      method: 'GET', url: '/api/admin/logs/export?format=csv',
+      method: 'GET',
+      url: '/api/admin/logs/export?format=csv',
       cookies: cookieJar(adminCookie),
     });
     expect(res.statusCode).toBe(200);
@@ -124,7 +138,8 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
 
   it('GET /api/admin/logs/export returns JSONL format', async () => {
     const res = await app.inject({
-      method: 'GET', url: '/api/admin/logs/export?format=jsonl',
+      method: 'GET',
+      url: '/api/admin/logs/export?format=jsonl',
       cookies: cookieJar(adminCookie),
     });
     expect(res.statusCode).toBe(200);
@@ -133,7 +148,8 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
 
   it('export returns 403 for regular user', async () => {
     const res = await app.inject({
-      method: 'GET', url: '/api/admin/logs/export',
+      method: 'GET',
+      url: '/api/admin/logs/export',
       cookies: cookieJar(userCookie),
     });
     expect(res.statusCode).toBe(403);

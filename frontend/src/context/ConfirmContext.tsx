@@ -45,19 +45,25 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             className="relative w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
           >
-            <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>{pending.message}</p>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
+              {pending.message}
+            </p>
             <div className="flex justify-end gap-2">
               <button
                 autoFocus
                 onClick={() => answer(false)}
                 className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
-              >Cancel</button>
+              >
+                Cancel
+              </button>
               <button
                 onClick={() => answer(true)}
                 className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{ background: '#dc2626', color: 'white' }}
-              >Confirm</button>
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

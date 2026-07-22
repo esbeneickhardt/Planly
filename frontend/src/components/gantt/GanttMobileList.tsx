@@ -24,7 +24,15 @@ interface Props {
   setHideDone: (v: boolean | ((prev: boolean) => boolean)) => void;
 }
 
-export default function GanttMobileList({ visibleMilestones, milestones, hideDone, doneCount, tasks, setSelectedTask, setHideDone }: Props) {
+export default function GanttMobileList({
+  visibleMilestones,
+  milestones,
+  hideDone,
+  doneCount,
+  tasks,
+  setSelectedTask,
+  setHideDone,
+}: Props) {
   return (
     <div className="md:hidden h-full overflow-y-auto px-4 py-3 space-y-2">
       <p className="text-xs font-semibold uppercase tracking-widest mb-3 text-token-3">
@@ -38,7 +46,10 @@ export default function GanttMobileList({ visibleMilestones, milestones, hideDon
           <button
             key={m.id}
             className="w-full text-left rounded-xl px-4 py-3 transition-colors bg-surface-2 border border-border"
-            onClick={() => { const t = tasks.find((t) => t.id === m.id); if (t) setSelectedTask(t); }}
+            onClick={() => {
+              const t = tasks.find((t) => t.id === m.id);
+              if (t) setSelectedTask(t);
+            }}
           >
             <div className="flex items-start justify-between gap-2">
               <p
@@ -48,7 +59,8 @@ export default function GanttMobileList({ visibleMilestones, milestones, hideDon
                   textDecoration: isDone ? 'line-through' : 'none',
                 }}
               >
-                {isDone && <span className="mr-1">✓</span>}{m.name}
+                {isDone && <span className="mr-1">✓</span>}
+                {m.name}
               </p>
               <span
                 className="text-xs font-semibold flex-shrink-0 px-2 py-0.5 rounded-full"
@@ -63,19 +75,21 @@ export default function GanttMobileList({ visibleMilestones, milestones, hideDon
             {!isDone && (
               <div className="mt-2">
                 <div className="h-1.5 rounded-full overflow-hidden bg-border">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${m.progress * 100}%`, background: color }} />
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${m.progress * 100}%`, background: color }}
+                  />
                 </div>
-                <p className="text-[11px] mt-1 text-token-3">{m.doneDependencies}/{m.totalDependencies} tasks done</p>
+                <p className="text-[11px] mt-1 text-token-3">
+                  {m.doneDependencies}/{m.totalDependencies} tasks done
+                </p>
               </div>
             )}
           </button>
         );
       })}
       {doneCount > 0 && hideDone && (
-        <button
-          onClick={() => setHideDone(false)}
-          className="w-full text-center text-xs py-2 text-token-3"
-        >
+        <button onClick={() => setHideDone(false)} className="w-full text-center text-xs py-2 text-token-3">
           Show {doneCount} completed milestone{doneCount !== 1 ? 's' : ''}
         </button>
       )}

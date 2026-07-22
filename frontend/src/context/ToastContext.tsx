@@ -7,7 +7,11 @@ import { createContext, useContext, useState, useCallback, ReactNode } from 'rea
 
 type ToastType = 'error' | 'success' | 'info';
 
-interface Toast { id: number; message: string; type: ToastType; }
+interface Toast {
+  id: number;
+  message: string;
+  type: ToastType;
+}
 
 interface ToastContextValue {
   showToast: (message: string, type?: ToastType) => void;
@@ -28,9 +32,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const COLORS: Record<ToastType, { bg: string; border: string; text: string }> = {
-    error:   { bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.25)',  text: '#ef4444' },
+    error: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)', text: '#ef4444' },
     success: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)', text: '#10b981' },
-    info:    { bg: 'var(--surface-2)',       border: 'var(--border)',          text: 'var(--text-2)' },
+    info: { bg: 'var(--surface-2)', border: 'var(--border)', text: 'var(--text-2)' },
   };
 
   return (

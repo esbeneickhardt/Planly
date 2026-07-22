@@ -14,11 +14,21 @@ import { decryptMessageAuthor } from '../../utils/crypto';
 import { broadcast } from '../../realtime/manager';
 
 // Author fields included in admin-proxied project chat messages
-const ADMIN_MSG_AUTHOR_SELECT = { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true, isFoundingAdmin: true };
+const ADMIN_MSG_AUTHOR_SELECT = {
+  id: true,
+  username: true,
+  realName: true,
+  avatarEmoji: true,
+  isAdmin: true,
+  isFoundingAdmin: true,
+};
 // Role badge values an admin can claim when posting into a project chat via the admin panel
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
 // Message payload for the admin-proxy post-to-project-chat endpoint
-const adminMsgSendSchema = z.object({ content: z.string().min(1).max(10000), postedAsRole: z.enum(VALID_ROLES).nullable().optional() });
+const adminMsgSendSchema = z.object({
+  content: z.string().min(1).max(10000),
+  postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
+});
 
 export async function adminStatsRoutes(app: FastifyInstance) {
   // List all active projects with owner details, member count, and task count for the admin dashboard
@@ -26,20 +36,35 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     const products = await prisma.product.findMany({
       where: { deletedAt: null },
       select: {
-        id: true, name: true, emoji: true, deadline: true, createdAt: true, ownerId: true, teamId: true,
+        id: true,
+        name: true,
+        emoji: true,
+        deadline: true,
+        createdAt: true,
+        ownerId: true,
+        teamId: true,
         ownerUser: { select: { username: true, avatarEmoji: true } },
         _count: { select: { tasks: { where: { deletedAt: null } } } },
         team: { select: { _count: { select: { members: true } }, members: { select: { userId: true, role: true } } } },
       },
       orderBy: { createdAt: 'desc' },
     });
-    reply.send(products.map((p) => ({
-      id: p.id, name: p.name, emoji: p.emoji, deadline: p.deadline, createdAt: p.createdAt,
-      ownerId: p.ownerId ?? null, teamId: p.teamId,
-      ownerUsername: p.ownerUser?.username ?? null, ownerEmoji: p.ownerUser?.avatarEmoji ?? null,
-      memberCount: p.team._count.members, taskCount: p._count.tasks,
-      teamMembers: p.team.members,
-    })));
+    reply.send(
+      products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        emoji: p.emoji,
+        deadline: p.deadline,
+        createdAt: p.createdAt,
+        ownerId: p.ownerId ?? null,
+        teamId: p.teamId,
+        ownerUsername: p.ownerUser?.username ?? null,
+        ownerEmoji: p.ownerUser?.avatarEmoji ?? null,
+        memberCount: p.team._count.members,
+        taskCount: p._count.tasks,
+        teamMembers: p.team.members,
+      })),
+    );
   });
 
   // List soft-deleted projects so admins can review before hard-deleting or restoring
@@ -47,18 +72,30 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     const products = await prisma.product.findMany({
       where: { deletedAt: { not: null } },
       select: {
-        id: true, name: true, emoji: true, deletedAt: true, createdAt: true,
+        id: true,
+        name: true,
+        emoji: true,
+        deletedAt: true,
+        createdAt: true,
         ownerUser: { select: { username: true, avatarEmoji: true } },
         _count: { select: { tasks: { where: { deletedAt: null } } } },
         team: { select: { _count: { select: { members: true } } } },
       },
       orderBy: { deletedAt: 'desc' },
     });
-    reply.send(products.map((p) => ({
-      id: p.id, name: p.name, emoji: p.emoji, deletedAt: p.deletedAt, createdAt: p.createdAt,
-      ownerUsername: p.ownerUser?.username ?? null, ownerEmoji: p.ownerUser?.avatarEmoji ?? null,
-      memberCount: p.team._count.members, taskCount: p._count.tasks,
-    })));
+    reply.send(
+      products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        emoji: p.emoji,
+        deletedAt: p.deletedAt,
+        createdAt: p.createdAt,
+        ownerUsername: p.ownerUser?.username ?? null,
+        ownerEmoji: p.ownerUser?.avatarEmoji ?? null,
+        memberCount: p.team._count.members,
+        taskCount: p._count.tasks,
+      })),
+    );
   });
 
   // Restore a soft-deleted project by clearing its deletedAt timestamp
@@ -68,7 +105,11 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     if (!product) return reply.status(404).send({ error: 'Project not found' });
     if (!product.deletedAt) return reply.status(409).send({ error: 'Project is not deleted' });
     await prisma.product.update({ where: { id }, data: { deletedAt: null } });
-    logAdminEvent('PRODUCT_RESTORED', { actorName: (req as any).user?.username, targetName: product.name, metadata: { productId: id } });
+    logAdminEvent('PRODUCT_RESTORED', {
+      actorName: (req as any).user?.username,
+      targetName: product.name,
+      metadata: { productId: id },
+    });
     reply.send({ ok: true });
   });
 
@@ -77,9 +118,14 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) return reply.status(404).send({ error: 'Project not found' });
-    if (!product.deletedAt) return reply.status(409).send({ error: 'Project must be soft-deleted before it can be permanently removed' });
+    if (!product.deletedAt)
+      return reply.status(409).send({ error: 'Project must be soft-deleted before it can be permanently removed' });
     await prisma.product.delete({ where: { id } });
-    logAdminEvent('PRODUCT_HARD_DELETED', { actorName: (req as any).user?.username, targetName: product.name, metadata: { productId: id } });
+    logAdminEvent('PRODUCT_HARD_DELETED', {
+      actorName: (req as any).user?.username,
+      targetName: product.name,
+      metadata: { productId: id },
+    });
     reply.send({ ok: true });
   });
 
@@ -99,16 +145,32 @@ export async function adminStatsRoutes(app: FastifyInstance) {
   // Admin can post into any project chat
   app.post('/api/admin/products/:id/messages', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const body = (() => { try { return adminMsgSendSchema.parse(req.body); } catch { return null; } })();
+    const body = (() => {
+      try {
+        return adminMsgSendSchema.parse(req.body);
+      } catch {
+        return null;
+      }
+    })();
     if (!body) return reply.status(400).send({ error: 'Invalid body' });
     const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    const sender = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } });
+    const sender = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { isAdmin: true, isFoundingAdmin: true },
+    });
     let postedAsRole: string | null = body.postedAsRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
     const msg = await prisma.message.create({
-      data: { productId: id, taskId: null, authorId: req.user.userId, content: body.content.trim(), attachments: [], postedAsRole },
+      data: {
+        productId: id,
+        taskId: null,
+        authorId: req.user.userId,
+        content: body.content.trim(),
+        attachments: [],
+        postedAsRole,
+      },
       include: { author: { select: ADMIN_MSG_AUTHOR_SELECT }, reactions: true },
     });
     const decryptedMsg = decryptMessageAuthor(msg);

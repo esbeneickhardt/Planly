@@ -45,7 +45,10 @@ export function useCanvasSprints({
   const [showSprintPicker, setShowSprintPicker] = useState(false);
   const [showNewSprint, setShowNewSprint] = useState(false);
   const [sprintForm, setSprintForm] = useState<SprintForm>({
-    name: '', startDate: '', endDate: '', color: SPRINT_PALETTE[0],
+    name: '',
+    startDate: '',
+    endDate: '',
+    color: SPRINT_PALETTE[0],
   });
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [editSprintForm, setEditSprintForm] = useState<EditSprintForm>({ name: '', color: SPRINT_PALETTE[0] });
@@ -80,36 +83,43 @@ export function useCanvasSprints({
   }
 
   /** Optimistically toggles task membership in the currently selected sprint. */
-  const toggleSprintMembership = useCallback(async (taskId: string) => {
-    if (!activeProductId || !selectedSprintFilter || !canWriteCanvas) return;
-    const isIn = localSprintMemberIds.has(taskId);
-    setLocalSprintMemberIds((prev) => {
-      const next = new Set(prev);
-      if (isIn) next.delete(taskId); else next.add(taskId);
-      return next;
-    });
-    try {
-      if (isIn) {
-        await api.sprints.removeTask(activeProductId, selectedSprintFilter, taskId);
-        setSprints((prev) => prev.map((s) =>
-          s.id === selectedSprintFilter ? { ...s, taskIds: s.taskIds.filter((id) => id !== taskId) } : s,
-        ));
-      } else {
-        await api.sprints.addTasks(activeProductId, selectedSprintFilter, [taskId]);
-        setSprints((prev) => prev.map((s) =>
-          s.id === selectedSprintFilter ? { ...s, taskIds: [...s.taskIds, taskId] } : s,
-        ));
-      }
-    } catch (err) {
-      // Revert optimistic update on failure
+  const toggleSprintMembership = useCallback(
+    async (taskId: string) => {
+      if (!activeProductId || !selectedSprintFilter || !canWriteCanvas) return;
+      const isIn = localSprintMemberIds.has(taskId);
       setLocalSprintMemberIds((prev) => {
         const next = new Set(prev);
-        if (isIn) next.add(taskId); else next.delete(taskId);
+        if (isIn) next.delete(taskId);
+        else next.add(taskId);
         return next;
       });
-      showToast((err as Error).message, 'error');
-    }
-  }, [activeProductId, selectedSprintFilter, localSprintMemberIds, canWriteCanvas, showToast]);
+      try {
+        if (isIn) {
+          await api.sprints.removeTask(activeProductId, selectedSprintFilter, taskId);
+          setSprints((prev) =>
+            prev.map((s) =>
+              s.id === selectedSprintFilter ? { ...s, taskIds: s.taskIds.filter((id) => id !== taskId) } : s,
+            ),
+          );
+        } else {
+          await api.sprints.addTasks(activeProductId, selectedSprintFilter, [taskId]);
+          setSprints((prev) =>
+            prev.map((s) => (s.id === selectedSprintFilter ? { ...s, taskIds: [...s.taskIds, taskId] } : s)),
+          );
+        }
+      } catch (err) {
+        // Revert optimistic update on failure
+        setLocalSprintMemberIds((prev) => {
+          const next = new Set(prev);
+          if (isIn) next.add(taskId);
+          else next.delete(taskId);
+          return next;
+        });
+        showToast((err as Error).message, 'error');
+      }
+    },
+    [activeProductId, selectedSprintFilter, localSprintMemberIds, canWriteCanvas, showToast],
+  );
 
   /** Creates a new sprint and advances the form colour to the next palette slot. */
   async function handleCreateSprint(e: React.FormEvent) {
@@ -117,17 +127,26 @@ export function useCanvasSprints({
     if (!activeProductId) return;
     try {
       const s = await api.sprints.create(activeProductId, {
-        name: sprintForm.name, startDate: sprintForm.startDate,
-        endDate: sprintForm.endDate, color: sprintForm.color,
+        name: sprintForm.name,
+        startDate: sprintForm.startDate,
+        endDate: sprintForm.endDate,
+        color: sprintForm.color,
       });
       setSprints((prev) => {
         const next = [...prev, s].sort((a, b) => a.startDate.localeCompare(b.startDate));
-        setSprintForm({ name: '', startDate: '', endDate: '', color: SPRINT_PALETTE[next.length % SPRINT_PALETTE.length] ?? SPRINT_PALETTE[0] });
+        setSprintForm({
+          name: '',
+          startDate: '',
+          endDate: '',
+          color: SPRINT_PALETTE[next.length % SPRINT_PALETTE.length] ?? SPRINT_PALETTE[0],
+        });
         return next;
       });
       setShowNewSprint(false);
       showToast(`Sub-plan "${s.name}" created`, 'success');
-    } catch (err) { showToast((err as Error).message, 'error'); }
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    }
   }
 
   /** Updates name/colour of the sprint currently being edited. */
@@ -136,12 +155,15 @@ export function useCanvasSprints({
     if (!activeProductId || !editingSprint) return;
     try {
       const updated = await api.sprints.update(activeProductId, editingSprint.id, {
-        name: editSprintForm.name, color: editSprintForm.color,
+        name: editSprintForm.name,
+        color: editSprintForm.color,
       });
-      setSprints((prev) => prev.map((s) => s.id === updated.id ? { ...updated, taskIds: s.taskIds } : s));
+      setSprints((prev) => prev.map((s) => (s.id === updated.id ? { ...updated, taskIds: s.taskIds } : s)));
       setEditingSprint(null);
       showToast('Sub-plan updated', 'success');
-    } catch (err) { showToast((err as Error).message, 'error'); }
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    }
   }
 
   /** Deletes a sprint and clears the sprint filter if it was the active one. */
@@ -157,13 +179,19 @@ export function useCanvasSprints({
   }
 
   return {
-    sprints, setSprints,
+    sprints,
+    setSprints,
     localSprintMemberIds,
-    showSprintPicker, setShowSprintPicker,
-    showNewSprint, setShowNewSprint,
-    sprintForm, setSprintForm,
-    editingSprint, setEditingSprint,
-    editSprintForm, setEditSprintForm,
+    showSprintPicker,
+    setShowSprintPicker,
+    showNewSprint,
+    setShowNewSprint,
+    sprintForm,
+    setSprintForm,
+    editingSprint,
+    setEditingSprint,
+    editSprintForm,
+    setEditSprintForm,
     loadSprints,
     toggleSprintMembership,
     handleCreateSprint,

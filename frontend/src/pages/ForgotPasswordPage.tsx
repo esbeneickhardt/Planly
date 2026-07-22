@@ -16,7 +16,10 @@ export default function ForgotPasswordPage() {
 
   // Check if SMTP is live before showing the form; fall back to false on fetch error
   useEffect(() => {
-    api.auth.emailEnabled().then((r) => setSmtpEnabled(r.enabled)).catch(() => setSmtpEnabled(false));
+    api.auth
+      .emailEnabled()
+      .then((r) => setSmtpEnabled(r.enabled))
+      .catch(() => setSmtpEnabled(false));
   }, []);
 
   async function handleSubmit(e: FormEvent) {
@@ -38,9 +41,16 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl overflow-hidden mx-auto mb-4">
-            <img src="/icons/icon.jpg" alt="Planly" className="w-full h-full object-cover" style={{ transform: 'scale(1.25)', transformOrigin: 'center' }} />
+            <img
+              src="/icons/icon.jpg"
+              alt="Planly"
+              className="w-full h-full object-cover"
+              style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+            />
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Reset your password</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+            Reset your password
+          </h1>
           <p className="mt-1 text-sm" style={{ color: 'var(--text-3)' }}>
             {smtpEnabled === false
               ? 'Contact your administrator to reset your password'
@@ -49,20 +59,31 @@ export default function ForgotPasswordPage() {
         </div>
 
         {smtpEnabled === false ? (
-          <div className="rounded-2xl p-6 text-center space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div
+            className="rounded-2xl p-6 text-center space-y-4"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
             <div className="text-3xl">🔧</div>
-            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Email not configured</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+              Email not configured
+            </p>
             <p className="text-sm" style={{ color: 'var(--text-3)' }}>
-              This Planly instance doesn't have email set up yet. Ask your administrator to configure SMTP, or have them reset your password directly.
+              This Planly instance doesn't have email set up yet. Ask your administrator to configure SMTP, or have them
+              reset your password directly.
             </p>
             <Link to="/login" className="block text-sm" style={{ color: 'var(--brand)' }}>
               Back to sign in
             </Link>
           </div>
         ) : sent ? (
-          <div className="rounded-2xl p-6 text-center space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div
+            className="rounded-2xl p-6 text-center space-y-4"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
             <div className="text-3xl">📬</div>
-            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Check your email</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+              Check your email
+            </p>
             <p className="text-sm" style={{ color: 'var(--text-3)' }}>
               If <strong>{email}</strong> has an account, you'll receive a reset link shortly.
             </p>
@@ -71,28 +92,51 @@ export default function ForgotPasswordPage() {
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-2xl p-6 space-y-4"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
             <div>
               <label className="label">Email address</label>
               <input
-                type="email" required autoFocus
-                value={email} onChange={(e) => setEmail(e.target.value)}
-                className="input" placeholder="you@example.com"
+                type="email"
+                required
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input"
+                placeholder="you@example.com"
               />
             </div>
             {error && (
-              <div className="text-sm px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <div
+                className="text-sm px-3 py-2 rounded-lg"
+                style={{
+                  background: 'rgba(239,68,68,0.08)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239,68,68,0.2)',
+                }}
+              >
                 {error}
               </div>
             )}
-            <button type="submit" disabled={loading || smtpEnabled === null} className="btn-primary w-full flex justify-center">
-              {loading
-                ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                : 'Send reset link'}
+            <button
+              type="submit"
+              disabled={loading || smtpEnabled === null}
+              className="btn-primary w-full flex justify-center"
+            >
+              {loading ? (
+                <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Send reset link'
+              )}
             </button>
             <p className="text-center text-sm" style={{ color: 'var(--text-3)' }}>
               Remember it?{' '}
-              <Link to="/login" style={{ color: 'var(--brand)' }}>Sign in</Link>
+              <Link to="/login" style={{ color: 'var(--brand)' }}>
+                Sign in
+              </Link>
             </p>
           </form>
         )}

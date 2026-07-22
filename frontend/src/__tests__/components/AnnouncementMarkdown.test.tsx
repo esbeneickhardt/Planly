@@ -22,9 +22,7 @@ const MD = {
     </a>
   ),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  img: ({ src, alt }: any) => (
-    <img src={src} alt={alt} data-testid="md-img" style={{ maxWidth: '100%' }} />
-  ),
+  img: ({ src, alt }: any) => <img src={src} alt={alt} data-testid="md-img" style={{ maxWidth: '100%' }} />,
 };
 
 function renderMd(content: string) {

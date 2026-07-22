@@ -20,16 +20,23 @@ export default function PrivacyModal({ onClose }: Props) {
       await api.users.update(user.id, { acceptsInvites });
       await refreshUser();
       setSaved(true);
-    } catch {}
-    finally { setSaving(false); }
+    } catch {
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <Modal title="Privacy" onClose={onClose} width="max-w-sm">
       <div className="space-y-1 mb-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1" style={{ color: 'var(--text-3)' }}>Invitations</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1" style={{ color: 'var(--text-3)' }}>
+          Invitations
+        </p>
         <button
-          onClick={() => { setAcceptsInvites((v) => !v); setSaved(false); }}
+          onClick={() => {
+            setAcceptsInvites((v) => !v);
+            setSaved(false);
+          }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
           style={{ background: 'transparent' }}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
@@ -45,23 +52,29 @@ export default function PrivacyModal({ onClose }: Props) {
             />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Allow project invitations</p>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>Others can invite you to join their projects</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+              Allow project invitations
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+              Others can invite you to join their projects
+            </p>
           </div>
         </button>
       </div>
 
       <div className="flex gap-3 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-        <button
-          onClick={save}
-          disabled={saving}
-          className="btn-primary flex-1 flex justify-center"
-        >
-          {saving
-            ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-            : saved ? 'Saved' : 'Save'}
+        <button onClick={save} disabled={saving} className="btn-primary flex-1 flex justify-center">
+          {saving ? (
+            <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          ) : saved ? (
+            'Saved'
+          ) : (
+            'Save'
+          )}
         </button>
-        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+        <button type="button" onClick={onClose} className="btn-secondary">
+          Cancel
+        </button>
       </div>
     </Modal>
   );
