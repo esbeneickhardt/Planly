@@ -137,7 +137,7 @@ Database migrations run automatically on backend startup via `prisma migrate dep
 
 ### Rolling back a migration
 
-Prisma does not support automatic rollbacks. The safest recovery path is to **restore from backup** and re-deploy the previous image — see the RUNBOOK.md for the exact steps.
+Prisma does not support automatic rollbacks. The safest recovery path is to **restore from backup** and re-deploy the previous image — see the Operations.md for the exact steps.
 
 If you must perform a manual forward-migration rollback (not recommended for production without a backup):
 
@@ -155,7 +155,7 @@ If you must perform a manual forward-migration rollback (not recommended for pro
 
 3. **Remove or revert the migration file** from `prisma/migrations/` to prevent it from being re-applied on the next startup.
 
-> **Note:** Manual rollbacks require careful coordination between code and schema state. The backup/restore path in RUNBOOK.md is always safer.
+> **Note:** Manual rollbacks require careful coordination between code and schema state. The backup/restore path in Operations.md is always safer.
 
 ---
 
