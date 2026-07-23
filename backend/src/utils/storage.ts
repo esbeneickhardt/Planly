@@ -3,7 +3,6 @@
  * All callers use `storeFile(buffer, filename)` and `getFileBuffer(filename)`.
  * The public URL returned is always `/api/uploads/<filename>` - the serve handler reads from S3 or disk.
  */
-import { createHash } from 'crypto';
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { config } from '../config/env';
@@ -105,10 +104,26 @@ export function fileExtFromMime(mime: string): string | null {
   return ALLOWED_MIME_TYPES[mime] ?? null;
 }
 
-// Content-hashed filename prevents collisions and doubles as an integrity fingerprint
-export function generateFilename(buffer: Buffer, ext: string): string {
-  const hash = createHash('sha256').update(buffer).digest('hex').slice(0, 24);
-  return `${hash}.${ext}`;
+// Timestamp + sanitised original name — human-readable and sortable on disk
+export function generateFilename(originalName: string, ext: string): string {
+  const now = new Date();
+  const ts =
+    now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0') +
+    '-' +
+    String(now.getHours()).padStart(2, '0') +
+    String(now.getMinutes()).padStart(2, '0') +
+    String(now.getSeconds()).padStart(2, '0') +
+    '-' +
+    String(now.getMilliseconds()).padStart(3, '0');
+  const base = originalName
+    .replace(/\.[^.]+$/, '')        // strip extension
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')   // collapse non-alphanumeric runs to hyphens
+    .replace(/^-+|-+$/g, '')        // trim leading/trailing hyphens
+    .slice(0, 60) || 'file';
+  return `${ts}_${base}.${ext}`;
 }
 
 // File storage operations (S3 or local disk)

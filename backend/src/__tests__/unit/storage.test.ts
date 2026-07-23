@@ -180,19 +180,25 @@ describe('mimeFromExt', () => {
 // ── generateFilename ───────────────────────────────────────────────────────
 
 describe('generateFilename', () => {
-  it('generates a 24-char hex prefix with the given extension', () => {
-    const name = generateFilename(Buffer.from('hello'), 'txt');
-    expect(name).toMatch(/^[a-f0-9]{24}\.txt$/);
+  it('produces a YYYYMMDD-HHmmss-mmm_name.ext pattern', () => {
+    const name = generateFilename('My Report.pdf', 'pdf');
+    expect(name).toMatch(/^\d{8}-\d{6}-\d{3}_[\w-]+\.pdf$/);
   });
 
-  // Content-hash means identical uploads share the same URL (implicit deduplication)
-  it('is deterministic - same content always produces the same filename', () => {
-    const buf = Buffer.from('consistent');
-    expect(generateFilename(buf, 'png')).toBe(generateFilename(buf, 'png'));
+  it('sanitizes spaces and special characters in the original name', () => {
+    const name = generateFilename('hello world! (2).txt', 'txt');
+    expect(name).toContain('hello-world-2');
   });
 
-  it('produces different names for different content', () => {
-    expect(generateFilename(Buffer.from('a'), 'png')).not.toBe(generateFilename(Buffer.from('b'), 'png'));
+  it('strips the original extension from the base name', () => {
+    const name = generateFilename('photo.jpeg', 'jpg');
+    expect(name).not.toContain('jpeg_');
+    expect(name).toMatch(/\.jpg$/);
+  });
+
+  it('falls back to "file" when the original name is empty or only special chars', () => {
+    expect(generateFilename('', 'png')).toContain('_file.');
+    expect(generateFilename('!!!', 'png')).toContain('_file.');
   });
 });
 

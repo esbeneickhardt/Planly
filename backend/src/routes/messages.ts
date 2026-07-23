@@ -80,7 +80,7 @@ export async function messageRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: 'File content does not match declared type' });
       }
 
-      const filename = generateFilename(buf, ext);
+      const filename = generateFilename(data.filename, ext);
       await storeFile(buf, filename, data.mimetype);
 
       // Track upload ownership for access control

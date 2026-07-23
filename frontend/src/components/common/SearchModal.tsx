@@ -1,7 +1,8 @@
 /**
- * Keyboard-navigable command palette that searches nav destinations, sprints, tasks, and messages.
+ * Keyboard-navigable command palette that searches nav destinations, sprints, tasks, messages, and projects.
  * Nav items and sprints are filtered client-side; tasks and messages are fetched from the API with 300ms debounce.
  * `allItems` is a flat list in visual order so keyboard navigation (↑/↓/Enter) and `data-idx` attributes stay in sync.
+ * Tabs narrow results: tasks-only, messages-only, settings-only, projects-only; 'all' shows everything with projects last.
  */
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,9 +16,14 @@ import type { SearchResults, Sprint } from '../../api/client';
 import TaskDetailPanel from './TaskDetailPanel';
 
 type MsgResult = SearchResults['messages'][number];
-type TabFilter = 'all' | 'tasks' | 'messages';
+type TabFilter = 'all' | 'tasks' | 'messages' | 'settings' | 'projects';
 
 type NavItem = { label: string; subtitle: string; path: string; icon: string; keywords: string[] };
+
+/** Returns true for settings/admin nav items so they can be separated into the Settings tab. */
+function isSettingsNav(item: NavItem): boolean {
+  return item.label.startsWith('Settings') || item.label === 'Admin Panel';
+}
 
 function buildNavItems(
   canRead: (tab: string) => boolean,
@@ -274,23 +280,46 @@ export default function SearchModal({ onClose }: Props) {
     | { type: 'msg'; msg: MsgResult }
     | { type: 'quicknav'; label: string; path: string };
 
-  // Unified flat list that mirrors the visual order of every row in the results pane
+  // Per-tab item counts for the tab bar
+  const tabCounts: Record<TabFilter, number> = {
+    all:
+      matchingNav.length +
+      matchingSprints.length +
+      (results?.tasks.length ?? 0) +
+      (results?.messages.length ?? 0) +
+      matchingProjects.length,
+    tasks: results?.tasks.length ?? 0,
+    messages: results?.messages.length ?? 0,
+    settings: matchingNav.filter(isSettingsNav).length,
+    projects: matchingProjects.length,
+  };
+
+  // Unified flat list that mirrors the visual order of every row in the results pane.
+  // Projects are always appended last (inside 'all') regardless of section order.
   const allItems = useMemo((): FlatItem[] => {
     const list: FlatItem[] = [];
     if (!query.trim()) {
       QUICK_NAV.forEach((n) => list.push({ type: 'quicknav', ...n }));
       return list;
     }
-    matchingNav.forEach((item) => list.push({ type: 'nav', item }));
-    matchingSprints.forEach((sprint) => list.push({ type: 'sprint', sprint }));
-    matchingProjects.forEach((product) => list.push({ type: 'project', product }));
-    const taskList = tab === 'messages' ? [] : (results?.tasks ?? []);
-    taskList.forEach((task) => list.push({ type: 'task', task }));
-    const msgList = tab === 'tasks' ? [] : (results?.messages ?? []);
-    msgList.forEach((msg) => list.push({ type: 'msg', msg }));
+    if (tab === 'all') {
+      matchingNav.forEach((item) => list.push({ type: 'nav', item }));
+      matchingSprints.forEach((sprint) => list.push({ type: 'sprint', sprint }));
+      (results?.tasks ?? []).forEach((task) => list.push({ type: 'task', task }));
+      (results?.messages ?? []).forEach((msg) => list.push({ type: 'msg', msg }));
+      matchingProjects.forEach((product) => list.push({ type: 'project', product }));
+    } else if (tab === 'tasks') {
+      (results?.tasks ?? []).forEach((task) => list.push({ type: 'task', task }));
+    } else if (tab === 'messages') {
+      (results?.messages ?? []).forEach((msg) => list.push({ type: 'msg', msg }));
+    } else if (tab === 'settings') {
+      matchingNav.filter(isSettingsNav).forEach((item) => list.push({ type: 'nav', item }));
+    } else if (tab === 'projects') {
+      matchingProjects.forEach((product) => list.push({ type: 'project', product }));
+    }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, matchingNav, matchingSprints, results, tab]);
+  }, [query, tab, matchingNav, matchingSprints, results, matchingProjects]);
 
   function goToView(path: string) {
     navigate(path);
@@ -328,7 +357,7 @@ export default function SearchModal({ onClose }: Props) {
     });
   }, [highlightIdx]);
 
-  const TAB_ORDER: TabFilter[] = ['all', 'tasks', 'messages'];
+  const TAB_ORDER: TabFilter[] = ['all', 'tasks', 'messages', 'settings', 'projects'];
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Escape') {
@@ -339,8 +368,7 @@ export default function SearchModal({ onClose }: Props) {
     // Left/right cycle through result-type tabs when they're visible
     if (
       (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
-      results &&
-      (results.tasks.length > 0 || results.messages.length > 0)
+      showTabs
     ) {
       e.preventDefault();
       const cur = TAB_ORDER.indexOf(tab);
@@ -392,19 +420,42 @@ export default function SearchModal({ onClose }: Props) {
     );
   }
 
-  const tasks = tab === 'messages' ? [] : (results?.tasks ?? []);
-  const msgs = tab === 'tasks' ? [] : (results?.messages ?? []);
-  const milestones = tasks.filter((t) => !!t.deadline);
-  const regular = tasks.filter((t) => !t.deadline);
+  // Derive what to render per tab
+  const showNav = tab === 'all' ? matchingNav : tab === 'settings' ? matchingNav.filter(isSettingsNav) : [];
+  const showSprints = tab === 'all' ? matchingSprints : [];
+  const showTasks = tab === 'all' || tab === 'tasks' ? (results?.tasks ?? []) : [];
+  const showMsgs = tab === 'all' || tab === 'messages' ? (results?.messages ?? []) : [];
+  const showProjects = tab === 'all' || tab === 'projects' ? matchingProjects : [];
+
+  const milestones = showTasks.filter((t) => !!t.deadline);
+  const regular = showTasks.filter((t) => !t.deadline);
+
   const hasResults =
-    tasks.length > 0 ||
-    msgs.length > 0 ||
-    matchingNav.length > 0 ||
-    matchingSprints.length > 0 ||
-    matchingProjects.length > 0;
+    showNav.length > 0 ||
+    showSprints.length > 0 ||
+    showTasks.length > 0 ||
+    showMsgs.length > 0 ||
+    showProjects.length > 0;
+
+  // Show tabs as soon as there are any client-side or API results
+  const showTabs =
+    query.trim().length >= 2 &&
+    (matchingNav.length > 0 ||
+      matchingSprints.length > 0 ||
+      matchingProjects.length > 0 ||
+      (results?.tasks.length ?? 0) > 0 ||
+      (results?.messages.length ?? 0) > 0);
 
   // Running index that mirrors allItems order - used to assign data-idx to every row
   let rowIdx = -1;
+
+  const TAB_LABELS: Record<TabFilter, string> = {
+    all: 'All',
+    tasks: 'Tasks',
+    messages: 'Messages',
+    settings: 'Settings',
+    projects: 'Projects',
+  };
 
   return (
     <>
@@ -457,16 +508,11 @@ export default function SearchModal({ onClose }: Props) {
           </kbd>
         </div>
 
-        {/* Type filter tabs - only shown when there are results */}
-        {results && (results.tasks.length > 0 || results.messages.length > 0) && (
+        {/* Type filter tabs — shown as soon as any results exist */}
+        {showTabs && (
           <div className="flex items-center gap-1 px-4 pt-2 pb-0" style={{ borderBottom: '1px solid var(--border)' }}>
-            {(['all', 'tasks', 'messages'] as const).map((t) => {
-              const count =
-                t === 'all'
-                  ? results.tasks.length + results.messages.length
-                  : t === 'tasks'
-                    ? results.tasks.length
-                    : results.messages.length;
+            {TAB_ORDER.map((t) => {
+              const count = tabCounts[t];
               return (
                 <button
                   key={t}
@@ -476,14 +522,15 @@ export default function SearchModal({ onClose }: Props) {
                   }}
                   className="px-3 py-1.5 text-xs font-medium rounded-t-md transition-all relative"
                   style={{
-                    color: tab === t ? 'var(--brand)' : 'var(--text-3)',
+                    color: tab === t ? 'var(--brand)' : count === 0 ? 'var(--text-3)' : 'var(--text-2)',
                     background: tab === t ? 'var(--brand-subtle)' : 'transparent',
                     borderBottom: tab === t ? '2px solid var(--brand)' : '2px solid transparent',
                     marginBottom: -1,
+                    opacity: count === 0 && t !== 'all' ? 0.45 : 1,
                   }}
                 >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}{' '}
-                  {count > 0 && <span style={{ opacity: 0.7 }}>({count})</span>}
+                  {TAB_LABELS[t]}
+                  {count > 0 && <span style={{ opacity: 0.7 }}> ({count})</span>}
                 </button>
               );
             })}
@@ -492,26 +539,22 @@ export default function SearchModal({ onClose }: Props) {
 
         {/* Results */}
         <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: 400 }}>
-          {query.trim().length >= 2 &&
-            !searching &&
-            !hasResults &&
-            matchingNav.length === 0 &&
-            matchingSprints.length === 0 && (
-              <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>
-                No results for "{query}"{activeProduct ? ` in ${activeProduct.name}` : ''}
-              </div>
-            )}
+          {query.trim().length >= 2 && !searching && !hasResults && (
+            <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>
+              No results for "{query}"{activeProduct ? ` in ${activeProduct.name}` : ''}
+            </div>
+          )}
 
-          {/* Nav destinations */}
-          {(matchingNav.length > 0 || matchingSprints.length > 0) && (
+          {/* Nav destinations + sprints (shown in 'all' and 'settings' tabs) */}
+          {(showNav.length > 0 || showSprints.length > 0) && (
             <div className="py-1">
               <div
                 className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
                 style={{ color: 'var(--text-3)' }}
               >
-                Go to
+                {tab === 'settings' ? 'Settings' : 'Go to'}
               </div>
-              {matchingNav.map((item) => {
+              {showNav.map((item) => {
                 rowIdx++;
                 const i = rowIdx;
                 const isHighlighted = highlightIdx === i;
@@ -542,7 +585,7 @@ export default function SearchModal({ onClose }: Props) {
                   </button>
                 );
               })}
-              {matchingSprints.map((cycle) => {
+              {showSprints.map((cycle) => {
                 rowIdx++;
                 const i = rowIdx;
                 const isHighlighted = highlightIdx === i;
@@ -579,7 +622,136 @@ export default function SearchModal({ onClose }: Props) {
             </div>
           )}
 
-          {matchingProjects.length > 0 && (
+          {/* Milestones */}
+          {milestones.length > 0 && (
+            <div className="py-1">
+              <div
+                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-3)' }}
+              >
+                Milestones
+              </div>
+              {milestones.map((task) => {
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
+                return (
+                  <button
+                    key={task.id}
+                    data-idx={i}
+                    onClick={() => handleTaskClick(task)}
+                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
+                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
+                    }
+                  >
+                    <span className="text-xs flex-shrink-0">🏁</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="text-sm font-medium truncate block" style={{ color: 'var(--text)' }}>
+                        {task.name}
+                      </span>
+                      <span className="text-xs truncate block" style={{ color: 'var(--text-3)' }}>
+                        {STATUS_LABEL[task.status] ?? task.status}
+                        {task.deadline &&
+                          ` · due ${new Date(task.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}`}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Regular tasks */}
+          {regular.length > 0 && (
+            <div className="py-1">
+              <div
+                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-3)' }}
+              >
+                Tasks
+              </div>
+              {regular.map((task) => {
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
+                return (
+                  <button
+                    key={task.id}
+                    data-idx={i}
+                    onClick={() => handleTaskClick(task)}
+                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
+                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
+                    }
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: STATUS_COLOR[task.status] ?? '#64748b' }}
+                    />
+                    <span className="flex-1 min-w-0">
+                      <span className="text-sm font-medium truncate block" style={{ color: 'var(--text)' }}>
+                        {task.name}
+                      </span>
+                      <span className="text-xs truncate block" style={{ color: 'var(--text-3)' }}>
+                        {STATUS_LABEL[task.status] ?? task.status}
+                        {task.owner && ` · ${displayName(task.owner)}`}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Messages */}
+          {showMsgs.length > 0 && (
+            <div className="py-1">
+              <div
+                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-3)' }}
+              >
+                Messages
+              </div>
+              {showMsgs.map((msg) => {
+                rowIdx++;
+                const i = rowIdx;
+                const isHighlighted = highlightIdx === i;
+                return (
+                  <button
+                    key={msg.id}
+                    data-idx={i}
+                    onClick={() => handleMessageClick(msg)}
+                    disabled={loadingMsg}
+                    className="w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors"
+                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
+                    }
+                  >
+                    <span className="text-base flex-shrink-0 mt-0.5">{msg.author.avatarEmoji ?? '👤'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
+                        {displayName(msg.author)}
+                        {msg.task && <span style={{ color: 'var(--text-3)' }}> · {msg.task.name}</span>}
+                      </p>
+                      <p className="text-sm truncate mt-0.5" style={{ color: 'var(--text)' }}>
+                        {msg.content}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Projects — always last in 'all', only content in 'projects' tab */}
+          {showProjects.length > 0 && (
             <div className="py-1">
               <div
                 className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
@@ -587,7 +759,7 @@ export default function SearchModal({ onClose }: Props) {
               >
                 Projects
               </div>
-              {matchingProjects.map((product) => {
+              {showProjects.map((product) => {
                 rowIdx++;
                 const i = rowIdx;
                 const isHighlighted = highlightIdx === i;
@@ -652,131 +824,7 @@ export default function SearchModal({ onClose }: Props) {
             </div>
           )}
 
-          {milestones.length > 0 && (
-            <div className="py-1">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                Milestones
-              </div>
-              {milestones.map((task) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={task.id}
-                    data-idx={i}
-                    onClick={() => handleTaskClick(task)}
-                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span className="text-xs flex-shrink-0">🏁</span>
-                    <span className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate block" style={{ color: 'var(--text)' }}>
-                        {task.name}
-                      </span>
-                      <span className="text-xs truncate block" style={{ color: 'var(--text-3)' }}>
-                        {STATUS_LABEL[task.status] ?? task.status}
-                        {task.deadline &&
-                          ` · due ${new Date(task.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}`}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {regular.length > 0 && (
-            <div className="py-1">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                Tasks
-              </div>
-              {regular.map((task) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={task.id}
-                    data-idx={i}
-                    onClick={() => handleTaskClick(task)}
-                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: STATUS_COLOR[task.status] ?? '#64748b' }}
-                    />
-                    <span className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate block" style={{ color: 'var(--text)' }}>
-                        {task.name}
-                      </span>
-                      <span className="text-xs truncate block" style={{ color: 'var(--text-3)' }}>
-                        {STATUS_LABEL[task.status] ?? task.status}
-                        {task.owner && ` · ${displayName(task.owner)}`}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {msgs.length > 0 && (
-            <div className="py-1">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                Messages
-              </div>
-              {msgs.map((msg) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={msg.id}
-                    data-idx={i}
-                    onClick={() => handleMessageClick(msg)}
-                    disabled={loadingMsg}
-                    className="w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span className="text-base flex-shrink-0 mt-0.5">{msg.author.avatarEmoji ?? '👤'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-                        {displayName(msg.author)}
-                        {msg.task && <span style={{ color: 'var(--text-3)' }}> · {msg.task.name}</span>}
-                      </p>
-                      <p className="text-sm truncate mt-0.5" style={{ color: 'var(--text)' }}>
-                        {msg.content}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
+          {/* Quick nav (empty query) */}
           {!query.trim() && (
             <div className="py-1.5">
               <div

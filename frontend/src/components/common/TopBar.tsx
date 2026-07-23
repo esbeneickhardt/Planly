@@ -47,6 +47,7 @@ import {
 import TopBarMobileMenu from './TopBarMobileMenu';
 import TopBarAccountDropdown from './TopBarAccountDropdown';
 import TopBarProjectPicker from './TopBarProjectPicker';
+import MarkdownEditor from './MarkdownEditor';
 import type { MobileNavItem, AdminTab } from './TopBarMobileMenu';
 
 // ── Admin tab definitions ──────────────────────────────────────────────────
@@ -662,11 +663,10 @@ export default function TopBar({
             )}
             <div>
               <label className="label">Description</label>
-              <input
-                type="text"
+              <MarkdownEditor
                 value={productForm.description}
-                onChange={setField('description')}
-                className="input"
+                onChange={(v) => setProductForm((prev) => ({ ...prev, description: v }))}
+                rows={4}
                 placeholder="What's the vision?"
               />
             </div>

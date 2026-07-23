@@ -3,7 +3,7 @@
  * `EMOJI_SET` is exported so ChatPanel and MessageBubble can render the same emoji picker without duplicating the set.
  * `insertAtCursor` restores the cursor position after each insertion via `requestAnimationFrame`; pasted images trigger an upload.
  */
-import { useRef, useState } from 'react';
+import { useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -74,18 +74,26 @@ interface Props {
   rows?: number;
   placeholder?: string;
   disabled?: boolean;
+  initialPreview?: boolean;
 }
 
-export default function MarkdownEditor({
+export interface MarkdownEditorHandle {
+  goToPreview: () => void;
+}
+
+const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor({
   value,
   onChange,
   rows = 6,
   placeholder = 'Write in markdown…',
   disabled = false,
-}: Props) {
+  initialPreview = false,
+}, ref) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState(false);
+  const [preview, setPreview] = useState(initialPreview);
+
+  useImperativeHandle(ref, () => ({ goToPreview: () => setPreview(true) }), []);
   const [showHelp, setShowHelp] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [emojiPage, setEmojiPage] = useState(0);
@@ -328,6 +336,7 @@ export default function MarkdownEditor({
       {preview ? (
         <div
           className="rounded-lg px-3 py-2.5 overflow-y-auto"
+          onDoubleClick={() => { if (!disabled) setPreview(false); }}
           style={{
             background: 'var(--surface-2)',
             border: '1px solid var(--border)',
@@ -335,6 +344,7 @@ export default function MarkdownEditor({
             fontSize: 13,
             color: 'var(--text)',
             lineHeight: 1.7,
+            cursor: disabled ? 'default' : 'text',
           }}
         >
           <ReactMarkdown
@@ -416,7 +426,7 @@ export default function MarkdownEditor({
               hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />,
             }}
           >
-            {value || '*Nothing to preview*'}
+            {value || (initialPreview && !disabled ? '_Double-click to add a description…_' : '*Nothing to preview*')}
           </ReactMarkdown>
         </div>
       ) : (
@@ -443,4 +453,6 @@ export default function MarkdownEditor({
       />
     </div>
   );
-}
+});
+
+export default MarkdownEditor;
