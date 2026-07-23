@@ -15,9 +15,15 @@ const REQUIRED = ['JWT_SECRET', 'DATABASE_URL', 'ENCRYPTION_KEY'] as const;
 for (const key of REQUIRED) {
   if (!process.env[key]) {
     console.error(`FATAL: Missing required environment variable: ${key}`);
-    console.error(`       Generate ENCRYPTION_KEY with: openssl rand -hex 32`);
+    console.error(`       Generate ENCRYPTION_KEY and JWT_SECRET with: openssl rand -hex 32`);
     process.exit(1);
   }
+}
+
+// ADMIN_EMAIL is not strictly required to boot but without it no user ever becomes admin
+if (!process.env.ADMIN_EMAIL) {
+  console.warn('WARNING: ADMIN_EMAIL is not set. No user will be granted admin rights on startup.');
+  console.warn('         Set ADMIN_EMAIL in .env and restart to bootstrap the founding admin.');
 }
 
 // Checking JWT secret format
@@ -49,7 +55,14 @@ export const config = {
   databaseUrl: dbUrl,
   encryptionKey: encryptionKey,
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
-  uploadsDir: process.env.UPLOADS_DIR ?? '/tmp/planly-uploads',
+  uploadsDir: (() => {
+    const dir = process.env.UPLOADS_DIR ?? '/tmp/planly-uploads';
+    if (!process.env.UPLOADS_DIR && !process.env.S3_BUCKET) {
+      console.warn('WARNING: UPLOADS_DIR is not set and S3_BUCKET is not configured.');
+      console.warn(`         Uploads will be stored in ${dir} which is lost on container restart.`);
+    }
+    return dir;
+  })(),
   port: parseInt(process.env.PORT ?? '3000'),
   appUrl: process.env.APP_URL ?? process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
   trustedProxyDepth: parseInt(process.env.TRUSTED_PROXY_DEPTH ?? '1', 10),

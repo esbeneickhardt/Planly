@@ -57,6 +57,9 @@ services:
       LOG_LEVEL: info
       TRUSTED_PROXY_DEPTH: "1"
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      # If unset, a random password is generated and printed to the backend logs on first start:
+      # docker compose -f docker-compose.prod.yml logs backend | grep "Password:"
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Redis for WebSocket pub/sub across replicas
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       # Prometheus metrics endpoint auth
