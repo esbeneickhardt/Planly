@@ -120,8 +120,13 @@ export async function waitForKanbanReady(page: Page, timeout = 25_000) {
     return false;
   };
   await page.waitForFunction(boardReadyFn, { timeout }).catch(() => {});
-  // If the SPA redirected to /login during auth initialization, navigate back once.
-  if (page.url().includes('/login')) {
+  // React Router updates the URL asynchronously, so page.url() can still show
+  // /kanban while the login page is already rendering. Check page CONTENT as well
+  // to avoid this race condition.
+  const onLogin = page.url().includes('/login') || await page.evaluate(() =>
+    document.querySelector('h1')?.textContent?.trim() === 'Welcome back'
+  ).catch(() => false);
+  if (onLogin) {
     await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 20_000 }).catch(() => {});
     await page.waitForFunction(boardReadyFn, { timeout: 20_000 }).catch(() => {});
   }
