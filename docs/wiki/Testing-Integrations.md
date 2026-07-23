@@ -369,7 +369,7 @@ curl -s -X POST $BASE/api/github/webhook \
 ```
 
 - [X] Returns `{ ok: true }`
-- [X] A new task appears in Alpha's backlog with the issue title
+- [X] A new task appears in Alpha's task list with the issue title
 
 ```bash
 # Reject a request with a bad signature

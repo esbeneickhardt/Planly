@@ -40,17 +40,17 @@ If a team is set to "approval required", visitors see an **Request Access** butt
 
 ## Views
 
-### Kanban
+### Execute
 
-The default board view. Tasks appear as cards in columns.
+Board view where tasks appear as cards in columns.
 
 - Drag cards between columns to change status
 - Click a card to open the task detail panel
-- Use **Sprint filter** to show only tasks in the active sprint
+- Use the **Sub-plan filter** to show only tasks in the active sub-plan
 - Right-click a column header to rename or delete it
 - Use **Compact mode** to show more cards on screen
 
-### Backlog
+### Tasks
 
 A flat list of all tasks in the project, sorted and filterable.
 
@@ -66,7 +66,7 @@ Timeline view showing tasks with start and end dates.
 - Drag the entire bar to shift the range
 - Task dependencies appear as arrows - create them by dragging from the dot on a task bar to another task
 - Milestones appear as diamonds
-- Sprint swimlanes group tasks by sprint (toggle in the top toolbar)
+- Sub-plan swimlanes group tasks by sub-plan (toggle in the top toolbar)
 
 ### Canvas
 
@@ -76,14 +76,6 @@ Freeform node graph for planning and mapping. Tasks appear as cards you can free
 - Double-click the canvas background to create a new task
 - Pan by clicking and dragging the background; zoom with scroll wheel
 - Canvas layouts are saved per-project and restored on reload
-
-### Sprint Board
-
-Sprint-focused Kanban that only shows tasks in the selected sprint.
-
-- **New Sprint** button in the sidebar creates a sprint with a start/end date
-- **End Sprint** moves incomplete tasks to the backlog; completed tasks are archived
-- Velocity and throughput metrics appear in the sprint summary panel
 
 ---
 
@@ -103,9 +95,9 @@ Click **+ New Task** in any view, or press `N` on the keyboard. Fill in the titl
 | **Assignee** | Team member responsible |
 | **Due date** | Target completion date (appears in Gantt and iCal export) |
 | **Start date** | Optional start date for Gantt scheduling |
-| **Sprint** | Which sprint this task belongs to |
+| **Sub-plan** | Which sub-plan this task belongs to |
 | **Labels** | Free-text tags for filtering |
-| **Estimate** | Story points or time (used in analytics) |
+| **Estimate** | Numeric estimate used in analytics |
 | **Description** | Rich text / markdown body |
 
 ### Subtasks
