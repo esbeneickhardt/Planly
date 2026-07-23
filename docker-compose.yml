@@ -48,7 +48,7 @@ services:
       RECROWN_EMAIL: ${RECROWN_EMAIL:-}
 
       # ── Server ────────────────────────────────────────────────────────────
-      FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-80}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:80}
       UPLOADS_DIR: /data/uploads
       # Number of reverse-proxy hops in front of the backend (1 = Nginx layer)
       TRUSTED_PROXY_DEPTH: "${TRUSTED_PROXY_DEPTH:-1}"
