@@ -1,5 +1,16 @@
 # Development
 
+## Contents
+
+- [Local Setup (without Docker)](#local-setup-without-docker)
+- [Architecture Overview](#architecture-overview)
+- [Migrations](#migrations)
+- [Adding a New Route](#adding-a-new-route)
+- [Adding a New Frontend Page](#adding-a-new-frontend-page)
+- [Real-time Events](#real-time-events)
+- [TypeScript](#typescript)
+- [Contributing](#contributing)
+
 ---
 
 ## Local Setup (without Docker)

@@ -4,6 +4,22 @@ Day-to-day ops reference for running a Planly instance in production. Covers inc
 
 ---
 
+## Contents
+
+- [First steps for any incident](#first-steps-for-any-incident)
+- [Alert playbooks](#alert-playbooks)
+- [Deploying an update](#deploying-an-update)
+- [Horizontal scaling](#horizontal-scaling)
+- [Backup and restore](#backup-and-restore)
+- [Rolling back a migration](#rolling-back-a-migration)
+- [Checking audit logs](#checking-audit-logs)
+- [Monitoring (Prometheus)](#monitoring-prometheus)
+- [Emergency admin password reset](#emergency-admin-password-reset)
+- [Data persistence](#data-persistence)
+- [Key rotation](#key-rotation)
+
+---
+
 ## First steps for any incident
 
 ```bash
@@ -107,7 +123,7 @@ upstream planly_backend {
 }
 ```
 
-**Known limitation:** File uploads are stored in the `uploads_data` Docker volume. All replicas must share the same volume. With Swarm or Kubernetes, use a network-attached volume or set `AWS_S3_BUCKET` for S3-compatible storage.
+**Known limitation:** File uploads are stored in the `uploads_data` Docker volume. All replicas must share the same volume. With Swarm or Kubernetes, use a network-attached volume or set `S3_BUCKET` for S3-compatible storage.
 
 ### Connection pooling (PgBouncer)
 
@@ -213,3 +229,33 @@ If the founding admin account is locked out and cannot log in:
 3. Remove `RECROWN_EMAIL` from `.env` and recreate again to clear the log warning.
 
 This is recorded in the audit log as `CROWN_TRANSFERRED` with actor `SYSTEM (RECROWN_EMAIL)`.
+
+---
+
+## Data persistence
+
+| Data | Storage location | Docker volume |
+|---|---|---|
+| Database | PostgreSQL container | `db_data` |
+| File attachments | Backend container | `uploads_data` |
+| TLS certificates | Traefik container | `letsencrypt_data` |
+
+These volumes persist across `up`/`down` cycles. To **fully reset** (destroys all data):
+
+```bash
+docker compose down -v   # WARNING: deletes all volumes
+```
+
+---
+
+## Key rotation
+
+Rotate `ENCRYPTION_KEY` annually or when a key-holder leaves. Run the rotation script from the repo root — it generates a new key, re-encrypts all DB secrets, updates `.env`, and restarts the backend automatically:
+
+```bash
+bash scripts/rotate-encryption-key.sh
+```
+
+The script aborts without touching `.env` if re-encryption fails, so there is no window where DB values and the active key are out of sync.
+
+After it completes, verify SMTP still works (Admin → Email → Send test email) to confirm the re-encrypted password decrypts correctly.

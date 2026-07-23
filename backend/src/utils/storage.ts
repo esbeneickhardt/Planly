@@ -1,5 +1,5 @@
 /**
- * Storage abstraction: uses S3 when AWS_S3_BUCKET is configured, falls back to local disk.
+ * Storage abstraction: uses S3-compatible object storage when S3_BUCKET is configured, falls back to local disk.
  * All callers use `storeFile(buffer, filename)` and `getFileBuffer(filename)`.
  * The public URL returned is always `/api/uploads/<filename>` - the serve handler reads from S3 or disk.
  */
@@ -9,8 +9,8 @@ import { config } from '../config/env';
 
 // S3 client is lazily initialised and cached on first use
 let s3Client: import('@aws-sdk/client-s3').S3Client | null = null;
-const S3_BUCKET = process.env.AWS_S3_BUCKET ?? '';
-const S3_PREFIX = process.env.AWS_S3_PREFIX ?? 'planly-uploads';
+const S3_BUCKET = process.env.S3_BUCKET ?? '';
+const S3_PREFIX = process.env.S3_PREFIX ?? 'planly-uploads';
 
 // Returns a cached S3 client, or null when S3 is not configured (local fallback mode)
 async function getS3() {
@@ -18,14 +18,14 @@ async function getS3() {
   if (s3Client) return s3Client;
   const { S3Client } = await import('@aws-sdk/client-s3');
   s3Client = new S3Client({
-    region: process.env.AWS_REGION ?? 'us-east-1',
-    // AWS_ENDPOINT_URL enables LocalStack and S3-compatible stores (e.g. MinIO)
-    ...(process.env.AWS_ENDPOINT_URL ? { endpoint: process.env.AWS_ENDPOINT_URL, forcePathStyle: true } : {}),
-    ...(process.env.AWS_ACCESS_KEY_ID
+    region: process.env.S3_REGION ?? 'us-east-1',
+    // S3_ENDPOINT enables S3-compatible stores (e.g. MinIO, Scaleway, Cloudflare R2)
+    ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT, forcePathStyle: true } : {}),
+    ...(process.env.S3_ACCESS_KEY_ID
       ? {
           credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+            accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
           },
         }
       : {}),

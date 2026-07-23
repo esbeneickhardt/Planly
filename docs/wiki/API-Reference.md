@@ -4,6 +4,26 @@ All API routes are prefixed with `/api`. The backend serves on port `3000` inter
 
 ---
 
+## Contents
+
+- [Authentication](#authentication)
+- [Auth Endpoints](#auth-endpoints)
+- [Users](#users)
+- [Teams](#teams)
+- [Projects](#projects-products)
+- [Tasks](#tasks)
+- [Columns](#columns-kanban-status-columns)
+- [Sub-plans](#sub-plans)
+- [Invites](#invites)
+- [Webhooks](#webhooks)
+- [Personal Access Tokens](#personal-access-tokens)
+- [Search](#search)
+- [Notifications](#notifications)
+- [Admin Endpoints](#admin-endpoints)
+- [Health Check](#health-check)
+
+---
+
 ## Authentication
 
 ### Session-based (web app)

@@ -1,4 +1,4 @@
-Planly Community License v1.0
+Planly Community License v1.1
 
 Copyright (c) 2026 Esben Eickhardt. All rights reserved.
 
@@ -15,6 +15,13 @@ files in this repository.
 
 "Use" means running, copying, studying, or modifying the Software for any
 purpose other than what is expressly prohibited below.
+
+"Modified Version" means any work derived from or based on the Software in
+which one or more files have been altered, added, or removed.
+
+"Distribute" means to make the Software or a Modified Version available to
+any third party, whether as source code, compiled binaries, or any other form,
+including providing access over a network.
 
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -38,6 +45,23 @@ to:
 
 ────────────────────────────────────────────────────────────────────────────────
 
+PATENT LICENSE
+
+Each contributor to this Software hereby grants You a perpetual, worldwide,
+royalty-free, non-exclusive, irrevocable patent license to make, use, sell,
+offer for sale, import, and otherwise run, modify, and propagate the Software,
+where such license applies only to those patent claims licensable by that
+contributor that are necessarily infringed by their contribution(s) alone or
+by combination of their contribution(s) with the Software.
+
+If You institute patent litigation against any entity (including a cross-claim
+or counterclaim) alleging that the Software or a contribution incorporated
+within it constitutes direct or contributory patent infringement, then any
+patent licenses granted to You under this license for that Software shall
+terminate as of the date such litigation is filed.
+
+────────────────────────────────────────────────────────────────────────────────
+
 RESTRICTIONS
 
 The following are expressly prohibited:
@@ -50,8 +74,8 @@ The following are expressly prohibited:
 
   2. COMPETING PRODUCTS
      You may not fork, modify, or use this Software as the primary basis for
-     a separate product, service, or project that competes with Planly - whether
-     offered commercially or not.
+     a separate product, service, or project that competes with Planly -
+     whether offered commercially or not.
 
   3. AI AND MACHINE LEARNING TRAINING
      You may not use the Software's source code, documentation, or any part
@@ -60,9 +84,39 @@ The following are expressly prohibited:
      models of any kind.
 
   4. MISREPRESENTATION
-     You may not represent modified versions of this Software as the original
+     You may not represent Modified Versions of this Software as the original
      Planly project or imply endorsement by the Licensor without written
      permission.
+
+  5. NO ADDITIONAL RESTRICTIONS
+     You may not impose any further legal terms or technological measures on
+     recipients of the Software that restrict rights granted by this license.
+
+────────────────────────────────────────────────────────────────────────────────
+
+PRESERVATION OF NOTICES
+
+When copying or Distributing the Software or any Modified Version You must:
+
+  a. Retain all existing copyright, patent, trademark, and attribution notices
+     present in the Software's source files.
+
+  b. Include this license file in full.
+
+  c. Include a prominent notice in any Modified Version stating that You have
+     changed the files and the date of any changes.
+
+────────────────────────────────────────────────────────────────────────────────
+
+NETWORK USE
+
+If You deploy a Modified Version to provide a service to third parties over a
+network (including as a hosted or SaaS offering), You must make the complete
+corresponding source code of that Modified Version available to those users
+under the terms of this license, at no charge, via a publicly accessible URL
+stated prominently in the interface or documentation of that service.
+
+This requirement does not apply to unmodified deployments of the Software.
 
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -102,6 +156,9 @@ TERMINATION
 Your rights under this license terminate automatically if you violate any of
 its terms. Upon termination you must cease all use and distribution of the
 Software and destroy all copies in your possession.
+
+The Licensor may reinstate your rights at their sole discretion upon written
+notice.
 
 ────────────────────────────────────────────────────────────────────────────────
 
