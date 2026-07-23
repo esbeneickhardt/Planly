@@ -145,6 +145,7 @@ export default function SettingsGeneral({
               }}
               rows={6}
               placeholder="Describe the project… (markdown supported, images can be pasted or attached)"
+              initialPreview
             />
             <button
               disabled={savingProj || !projDirty || !projName.trim()}
