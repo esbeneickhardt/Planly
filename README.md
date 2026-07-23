@@ -31,9 +31,9 @@
 git clone https://github.com/EsbenEickhardt/planly.git
 cd planly
 cp .env.example .env
-# Edit .env - set DB_PASSWORD, JWT_SECRET, ENCRYPTION_KEY, ADMIN_EMAIL
+# Edit .env - set DB_PASSWORD, JWT_SECRET, ENCRYPTION_KEY, ADMIN_EMAIL, UPLOADS_DIR
 # Generate secrets with: openssl rand -hex 32
-docker compose up --build
+docker compose up --build -d
 ```
 
 Open [http://localhost](http://localhost) and register with your `ADMIN_EMAIL` to become the founding admin.
@@ -52,9 +52,9 @@ Planly is built around a few strong opinions:
 
 - **Plan visually**: Tasks and their dependencies are created and mapped in the canvas. This provides an overview of which tasks need to be completed to reach milestones, and which tasks can be worked on in parallel. All tasks and milestones are directed towards a final goal.
 - **No time tracking**: Time spent is not a proxy for value delivered. Planly tracks what matters: what needs doing, who owns it, and when it's due.
-- **Everything has an owner**: If a task is everyone's responsibility, it is noones responsibility. Therefore every task is assigned to an owber. Ownership removes ambiguity and makes accountability visible without surveillance.
+- **Everything has an owner**: If a task is everyone's responsibility, it is no one's responsibility. Therefore every task is assigned to an owner. Ownership removes ambiguity and makes accountability visible without surveillance.
 - **Your data, your server**: No cloud middleman, no vendor lock-in, no surprise pricing. One `docker compose up` and you're running it yourself.
-- **Automation should be easy**: With webhooks, app registrations, personal access tokens at your hand, you can you can integrate to other systems and automate time-wasting tasks.
+- **Automation should be easy**: With webhooks, app registrations, personal access tokens at your hand, you can integrate to other systems and automate time-wasting tasks.
 
 ## Features
 
