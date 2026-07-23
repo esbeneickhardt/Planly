@@ -190,12 +190,15 @@ test.describe('Admin-only API operations', () => {
 
   test('GET /api/admin/stats returns 401/403 for non-admin', async ({ browser }) => {
     const u = uniqueUser('admin_perm');
-    const page = await browser.newPage();
-    await page.context().clearCookies();
+    // Use a fresh context so the admin session from the previous test cannot leak
+    // in via shared cookies — browser.newPage() reuses the default context which
+    // retains HttpOnly cookies even after clearCookies() in some PW builds.
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
     await registerViaUI(page, u.email, u.username, u.password);
 
     const res = await page.request.get('/api/admin/stats');
     expect([401, 403]).toContain(res.status());
-    await page.close();
+    await ctx.close();
   });
 });
