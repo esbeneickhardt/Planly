@@ -198,10 +198,9 @@ export default function TopBar({
             aria-label="Planly — go to Kanban"
           >
             <img
-              src="/icons/icon.jpg"
+              src="/icons/p.png"
               alt=""
-              className="w-full h-full object-cover"
-              style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+              className="w-full h-full object-contain"
             />
           </button>
           <button

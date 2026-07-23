@@ -230,7 +230,7 @@ curl -s -X DELETE $BASE/api/products/$PRODUCT_ID/webhooks/$WEBHOOK_ID \
 
 ## Webhook event coverage
 
-The webhook configuration UI lets you subscribe to 9 event types. Only 5 are currently dispatched in code; the other 4 are registered in the allowed-events list but have no dispatch call yet.
+The webhook configuration UI lets you subscribe to 9 event types. All 9 are dispatched in code.
 
 | Event | Dispatched? |
 |---|---|
