@@ -9,6 +9,7 @@ import TopBar from './TopBar';
 import SearchModal from './SearchModal';
 import ChatPanel from './ChatPanel';
 import PlanlyVisionModal, { shouldShowWelcome } from './PlanlyVisionModal';
+import NoProjectsWelcome from './NoProjectsWelcome';
 import { usePermission } from '../../context/PermissionContext';
 import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
@@ -53,7 +54,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     setChatInitialTask(taskId ? { id: taskId, name: taskName! } : undefined);
     setShowProductChat(true);
   }, []);
-  const { products } = useProduct();
+  const { products, productsLoaded } = useProduct();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -131,7 +132,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         />
         <PermissionGuard>
           <main id="main-content" className="flex-1 overflow-auto min-w-0">
-            {children}
+            {productsLoaded && products.length === 0 && !activeAdminMode ? <NoProjectsWelcome /> : children}
           </main>
         </PermissionGuard>
         {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
