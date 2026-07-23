@@ -52,10 +52,10 @@ export default function ResetPasswordPage() {
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl overflow-hidden mx-auto mb-4">
             <img
-              src="/icons/icon.jpg"
+              src="/icons/p.png"
               alt="Planly"
-              className="w-full h-full object-cover"
-              style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+              className="w-full h-full object-contain"
+             
             />
           </div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>

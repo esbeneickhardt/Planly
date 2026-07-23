@@ -129,10 +129,10 @@ export default function PlanlyVisionModal({ onClose }: Props) {
           <div className="flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
               <img
-                src="/icons/icon.jpg"
+                src="/icons/p.png"
                 alt="Planly"
-                className="w-full h-full object-cover"
-                style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+                className="w-full h-full object-contain"
+               
               />
             </div>
             <div>

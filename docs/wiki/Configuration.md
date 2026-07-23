@@ -13,9 +13,16 @@ These must be set before the app will start. The backend exits at startup with a
 | `DB_PASSWORD` | PostgreSQL container password | Any strong random string |
 | `JWT_SECRET` | JWT signing key (min 32 chars) | `openssl rand -hex 32` |
 | `ENCRYPTION_KEY` | AES-256-GCM key for at-rest secrets | `openssl rand -hex 32` |
-| `ADMIN_EMAIL` | Email of the founding server admin | Your email address |
 
 > `ENCRYPTION_KEY` is used to encrypt webhook secrets and SMTP passwords stored in the database. Losing this key makes those values unreadable. Back it up securely alongside your database.
+
+---
+
+## Strongly Recommended
+
+| Variable | Description |
+|---|---|
+| `ADMIN_EMAIL` | Email of the founding server admin. Whoever registers with this email is automatically granted admin access on startup. Without it, no user becomes admin automatically — you'd need to set it and restart to bootstrap the first admin. |
 
 ---
 

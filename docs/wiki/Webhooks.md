@@ -31,13 +31,14 @@ The response includes a `secret` field. **Copy it now** - it's only shown at cre
 | Event | When it fires |
 |---|---|
 | `task.created` | A new task is created in the project |
-| `task.updated` | A task's fields are changed (name, status, assignee, priority, etc.) |
+| `task.updated` | A task's fields are changed (name, description, priority, etc.) — anything other than status or assignee |
+| `task.status_changed` | A task's status (column) is changed via a PATCH |
+| `task.assigned` | A task's assignee is changed via a PATCH |
 | `task.deleted` | A task is soft-deleted |
-| `task.comment_added` | A comment is posted on a task |
-| `sprint.started` | A sprint is marked as active |
-| `sprint.ended` | A sprint is ended |
-| `member.added` | A user joins the team |
-| `member.removed` | A user leaves or is removed from the team |
+| `subplan.created` | A sprint is created |
+| `subplan.updated` | A sprint is updated or ended |
+| `subplan.deleted` | A sprint is deleted |
+| `message.created` | A message is posted in the project chat |
 
 > Event names follow the `resource.action` pattern. Subscribe only to the events you need - unnecessary subscriptions increase latency and noise.
 

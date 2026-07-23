@@ -123,19 +123,22 @@ export default function TopBarProjectPicker({
         <span className="text-base leading-none">🔭</span>
         Find projects
       </button>
-      {products.length === 0 && isAdmin && (
-        <button
-          onClick={() => {
-            onShowSeedData();
-            onClose();
-          }}
-          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors"
-          style={{ color: 'var(--text-2)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-        >
-          <span>✦</span> Load examples
-        </button>
+      {isAdmin && (
+        <>
+          <div className="mx-4 my-1.5" style={{ height: 1, background: 'var(--border)' }} />
+          <button
+            onClick={() => {
+              onShowSeedData();
+              onClose();
+            }}
+            className="w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors"
+            style={{ color: 'var(--text-2)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <span>✦</span> Load examples
+          </button>
+        </>
       )}
     </div>
   );

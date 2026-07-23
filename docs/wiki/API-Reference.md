@@ -176,7 +176,7 @@ List team members with roles.
 Change a member's role.
 
 ```json
-{ "role": "co_owner" }   // or "member" or "viewer"
+{ "role": "co_owner" }   // or "member"
 ```
 
 ### DELETE /api/teams/:teamId/members/:userId
@@ -393,11 +393,11 @@ See [Webhooks](Webhooks.md) for the event catalog and payload format.
 
 ## Personal Access Tokens
 
-### GET /api/tokens
+### GET /api/auth/tokens
 
 List your PATs (secrets are not returned).
 
-### POST /api/tokens
+### POST /api/auth/tokens
 
 ```json
 // Request
@@ -411,7 +411,7 @@ List your PATs (secrets are not returned).
 { "id": "uuid", "name": "CI deploy script", "token": "planly_<hex>", "expiresAt": "..." }
 ```
 
-### DELETE /api/tokens/:tokenId
+### DELETE /api/auth/tokens/:tokenId
 
 Revoke a PAT.
 
