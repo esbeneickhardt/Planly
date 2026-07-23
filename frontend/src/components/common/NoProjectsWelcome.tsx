@@ -10,6 +10,7 @@ import Modal from './Modal';
 import EmojiPicker from './EmojiPicker';
 import SeedDataModal from './SeedDataModal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
+import MarkdownEditor from './MarkdownEditor';
 
 const PHASES = [
   {
@@ -199,11 +200,10 @@ export default function NoProjectsWelcome() {
             )}
             <div>
               <label className="label">Description</label>
-              <input
-                type="text"
+              <MarkdownEditor
                 value={form.description}
-                onChange={setField('description')}
-                className="input"
+                onChange={(v) => setForm((prev) => ({ ...prev, description: v }))}
+                rows={4}
                 placeholder="What's the vision?"
               />
             </div>

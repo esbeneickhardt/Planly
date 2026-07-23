@@ -1,10 +1,10 @@
 /**
  * Slide-in detail panel for viewing and editing a single task; supports three layout modes: fullscreen, sidebar-docked, and floating.
  * Dragging the header un-docks the panel from the sidebar into a freely-positionable floating window; eight resize handles allow resizing in any direction.
- * `isDirty` tracks unsaved field changes and sprint membership deltas; closing with unsaved changes shows a confirm dialog.
+ * `isDirty` tracks unsaved field changes and sprint membership deltas; closing with unsaved changes auto-saves. Ctrl+Enter also saves.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import MarkdownEditor from './MarkdownEditor';
+import MarkdownEditor, { type MarkdownEditorHandle } from './MarkdownEditor';
 import type { Task, KanbanColumn, Subtask } from '../../types';
 import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
@@ -138,12 +138,29 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
   const currentStatus = statusOptions.find((s) => s.statusKey === status);
 
+  // Ref so the Ctrl+Enter keydown handler always calls the latest save() without stale closure
+  const saveRef = useRef<() => Promise<void>>(async () => {});
+  const descEditorRef = useRef<MarkdownEditorHandle>(null);
+
   async function handleClose() {
-    if (isDirty && !(await confirm('You have unsaved changes. Close anyway?'))) return;
+    if (saving) return;
+    if (isDirty) { await save(); return; }
     onClose();
   }
 
-  async function save() {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !readOnly) {
+        e.preventDefault();
+        saveRef.current();
+        descEditorRef.current?.goToPreview();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [readOnly]);
+
+  async function save(close = true) {
     if (!activeProduct) return;
     setSaving(true);
     setError('');
@@ -171,7 +188,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       }
 
       onUpdated(updated);
-      onClose();
+      if (close) onClose();
     } catch (err) {
       setError((err as Error).message);
       showToast((err as Error).message, 'error');
@@ -179,6 +196,9 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       setSaving(false);
     }
   }
+
+  // Keep ref current so Ctrl+Enter handler always calls the latest save(false) without stale closure
+  useEffect(() => { saveRef.current = () => save(false); });
 
   async function toggleSubtask(s: Subtask) {
     if (!activeProduct) return;
@@ -361,11 +381,13 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     <div>
       <label className="label mb-1">Description</label>
       <MarkdownEditor
+        ref={descEditorRef}
         value={description}
         onChange={setDescription}
         rows={rows}
         placeholder="Supports Markdown. Paste or drag images to upload."
         disabled={readOnly}
+        initialPreview
       />
     </div>
   );
@@ -693,7 +715,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           🔒 View only
         </div>
       ) : (
-        <button onClick={save} disabled={saving} className="btn-primary flex-1 flex justify-center">
+        <button onClick={() => save()} disabled={saving} className="btn-primary flex-1 flex justify-center">
           {saving ? (
             <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
           ) : (
