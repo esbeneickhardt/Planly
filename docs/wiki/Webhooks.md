@@ -35,9 +35,9 @@ The response includes a `secret` field. **Copy it now** - it's only shown at cre
 | `task.status_changed` | A task's status (column) is changed via a PATCH |
 | `task.assigned` | A task's assignee is changed via a PATCH |
 | `task.deleted` | A task is soft-deleted |
-| `subplan.created` | A sprint is created |
-| `subplan.updated` | A sprint is updated or ended |
-| `subplan.deleted` | A sprint is deleted |
+| `subplan.created` | A sub-plan is created |
+| `subplan.updated` | A sub-plan is updated or ended |
+| `subplan.deleted` | A sub-plan is deleted |
 | `message.created` | A message is posted in the project chat |
 
 > Event names follow the `resource.action` pattern. Subscribe only to the events you need - unnecessary subscriptions increase latency and noise.
