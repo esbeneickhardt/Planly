@@ -85,7 +85,7 @@ Planly is built around a few strong opinions:
 | | |
 |---|---|
 | [Access Tokens](docs/wiki/Access-Tokens.md) | Personal Access Tokens and App Registrations |
-| [API Reference](docs/wiki/API-Reference.md) | All REST endpoints with request/response examples |
+| [API Reference](docs/wiki/API-Reference.md) | Interactive API docs served at `/api/docs` in every Planly instance |
 | [Webhooks](docs/wiki/Webhooks.md) | Event catalog, payload format, HMAC signature verification |
 
 ## Tech Stack
