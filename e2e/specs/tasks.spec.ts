@@ -5,7 +5,7 @@
  * so tests are fully isolated.
  */
 import { test, expect } from '@playwright/test';
-import { uniqueUser, registerViaUI, createProjectViaTopBar, waitForKanbanReady } from '../fixtures/auth.fixture';
+import { uniqueUser, registerViaUI, loginViaUI, createProjectViaTopBar, waitForKanbanReady } from '../fixtures/auth.fixture';
 
 async function setupUserAndProduct(browser: import('@playwright/test').Browser) {
   const u = uniqueUser('task');
@@ -21,6 +21,13 @@ async function setupUserAndProduct(browser: import('@playwright/test').Browser) 
   await createProjectViaTopBar(page, 'Task Project');
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitForKanbanReady(page);
+  // If the reload inside createProjectViaTopBar triggered an auth redirect the
+  // session may be transiently invalid; recover by re-logging in directly.
+  if (page.url().includes('/login')) {
+    await loginViaUI(page, u.email, u.password);
+    await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForKanbanReady(page);
+  }
   // Wait for the default columns the backend seeds on first board access.
   // If they don't appear in 10s, reload once — gives loadColumns() a second chance.
   const hasColumns = await page.locator('.kanban-col').first()
