@@ -26,7 +26,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - uploads_data:/data/uploads
+      - ${UPLOADS_DIR}:/data/uploads
     logging:
       driver: json-file
       options:
@@ -144,7 +144,7 @@ services:
   #     "
   #   volumes:
   #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #     - uploads_data:/uploads:ro
+  #     - ${UPLOADS_DIR}:/uploads:ro
   #     - ${BACKUP_DIR:-./backups}:/backups
   #   logging:
   #     driver: json-file
@@ -242,7 +242,6 @@ services:
 
 volumes:
   db_data:
-  uploads_data:
   # redis_data:      # uncomment when enabling Redis above
   # minio_data:      # uncomment when enabling MinIO above
   # prometheus_data: # uncomment when enabling Prometheus above
