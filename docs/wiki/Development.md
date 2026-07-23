@@ -100,8 +100,8 @@ docker compose up -d      # stack must be running
 
 **Manual testing** — for flows that can't be automated (drag-and-drop, real-time, TOTP with a real device):
 
-- [Smoke test](Testing-Smoke.md) (~30 min) — golden path with two browser windows
-- [Integrations test](Testing-Integrations.md) (~15 min) — PATs, App Registrations, Webhooks, GitHub, iCal, TOTP via `curl`
+- Smoke test (~30 min) — golden path with two browser windows
+- Integrations test (~15 min) — PATs, App Registrations, Webhooks, GitHub, iCal, TOTP via `curl`
 
 ---
 

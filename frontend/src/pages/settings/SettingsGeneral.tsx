@@ -3,11 +3,11 @@
  * and giving the owner additional controls: toggling the Analytics tab visibility, exporting the
  * project as JSON, and transferring ownership to another team member.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../api/client';
 import type { Product, TeamMember, User } from '../../types';
 import EmojiPicker from '../../components/common/EmojiPicker';
-import MarkdownEditor from '../../components/common/MarkdownEditor';
+import MarkdownEditor, { type MarkdownEditorHandle } from '../../components/common/MarkdownEditor';
 
 interface Props {
   activeProduct: Product;
@@ -35,6 +35,8 @@ export default function SettingsGeneral({
   const [projDesc, setProjDesc] = useState(activeProduct.description ?? '');
   const [projDirty, setProjDirty] = useState(false);
   const [savingProj, setSavingProj] = useState(false);
+  const saveRef = useRef<() => Promise<void>>(async () => {});
+  const descEditorRef = useRef<MarkdownEditorHandle>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [togglingAnalytics, setTogglingAnalytics] = useState(false);
   const [transferTo, setTransferTo] = useState('');
@@ -59,6 +61,38 @@ export default function SettingsGeneral({
       setTogglingAnalytics(false);
     }
   }
+
+  async function saveProjectDetails() {
+    if (savingProj || !projDirty || !projName.trim()) return;
+    setSavingProj(true);
+    try {
+      await api.products.update(activeProduct.id, {
+        name: projName.trim(),
+        emoji: projEmoji || undefined,
+        description: projDesc || undefined,
+      });
+      await refreshProducts();
+      setProjDirty(false);
+      showToast('Project updated', 'success');
+    } finally {
+      setSavingProj(false);
+    }
+  }
+
+  // Keep ref current so the keydown handler always calls the latest save
+  useEffect(() => { saveRef.current = saveProjectDetails; });
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canManage) {
+        e.preventDefault();
+        saveRef.current();
+        descEditorRef.current?.goToPreview();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [canManage]);
 
   async function transferOwnership() {
     if (!transferTo) return;
@@ -138,6 +172,7 @@ export default function SettingsGeneral({
               </div>
             )}
             <MarkdownEditor
+              ref={descEditorRef}
               value={projDesc}
               onChange={(v) => {
                 setProjDesc(v);
@@ -149,22 +184,7 @@ export default function SettingsGeneral({
             />
             <button
               disabled={savingProj || !projDirty || !projName.trim()}
-              onClick={async () => {
-                if (!projName.trim()) return;
-                setSavingProj(true);
-                try {
-                  await api.products.update(activeProduct.id, {
-                    name: projName.trim(),
-                    emoji: projEmoji || undefined,
-                    description: projDesc || undefined,
-                  });
-                  await refreshProducts();
-                  setProjDirty(false);
-                  showToast('Project updated', 'success');
-                } finally {
-                  setSavingProj(false);
-                }
-              }}
+              onClick={saveProjectDetails}
               className="btn-primary text-sm px-4"
             >
               {savingProj ? 'Saving…' : 'Save'}
