@@ -3,7 +3,8 @@
  * and access request handling.
  *
  * Teams are the top-level organizational unit. Each team owns one or more
- * projects. Roles: co_owner (full control), member (standard access), viewer (read-only).
+ * projects. Roles: co_owner (full control), member (standard access).
+ * Read-only access is configured per-project via tab-level permissions, not a separate team role.
  * Only co-owners can change team settings or manage members.
  */
 import { FastifyInstance } from 'fastify';

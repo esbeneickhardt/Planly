@@ -264,10 +264,11 @@ The CI should never merge code that doesn't pass both checks.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/my-feature`
-3. Make your changes, including tests where appropriate
-4. Run `npx tsc --noEmit` in both `backend/` and `frontend/` - zero errors required
-5. Open a pull request against `main` with a clear description of what changed and why
+This project is source-available and maintained by a single author. Pull requests are not accepted.
 
-For anything non-trivial, open an issue first to discuss the approach.
+You are welcome to fork the repository for your own use under the terms of the [Planly Community License](../../LICENSE). Run the TypeScript checks before building on the codebase:
+
+```bash
+cd backend && npx tsc --noEmit
+cd frontend && npx tsc --noEmit
+```
