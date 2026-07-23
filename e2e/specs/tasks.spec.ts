@@ -22,8 +22,14 @@ async function setupUserAndProduct(browser: import('@playwright/test').Browser) 
   await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitForKanbanReady(page);
   // If the reload inside createProjectViaTopBar triggered an auth redirect the
-  // session may be transiently invalid; recover by re-logging in directly.
-  if (page.url().includes('/login')) {
+  // session may be transiently invalid. waitForKanbanReady already retries once,
+  // but the URL/content check inside it may still miss the login page due to
+  // React Router's async redirect. Do a final content-based check here and, if
+  // still on login, recover by re-logging in with the registered credentials.
+  const stillOnLogin = page.url().includes('/login') || await page.evaluate(() =>
+    document.querySelector('h1')?.textContent?.trim() === 'Welcome back'
+  ).catch(() => false);
+  if (stillOnLogin) {
     await loginViaUI(page, u.email, u.password);
     await page.goto('/kanban', { waitUntil: 'domcontentloaded', timeout: 20_000 });
     await waitForKanbanReady(page);
