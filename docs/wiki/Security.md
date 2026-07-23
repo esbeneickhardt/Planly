@@ -4,6 +4,25 @@ This document covers the security model and all security features in Planly.
 
 ---
 
+## Contents
+
+- [Authentication Model](#authentication-model)
+- [CSRF Protection](#csrf-protection)
+- [Two-Factor Authentication (TOTP)](#two-factor-authentication-totp)
+- [SSO / OpenID Connect](#sso--openid-connect)
+- [Progressive Account Lockout](#progressive-account-lockout)
+- [Encryption at Rest](#encryption-at-rest)
+- [IP Restrictions](#ip-restrictions)
+- [WebSocket Security](#websocket-security)
+- [Content Security Policy (CSP)](#content-security-policy-csp)
+- [Security Headers](#security-headers)
+- [Rate Limiting](#rate-limiting)
+- [Webhook SSRF Protection](#webhook-ssrf-protection)
+- [Request ID Tracking](#request-id-tracking)
+- [Responsible Disclosure](#responsible-disclosure)
+
+---
+
 ## Authentication Model
 
 ### Session-based (web app)

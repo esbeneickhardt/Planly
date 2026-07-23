@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick Start</a> · <a href="docs/wiki/Getting-Started.md">Setup Guide</a> · <a href="docs/wiki/Home.md">Wiki</a> · <a href="docs/wiki/API-Reference.md">API Reference</a>
+  <a href="#quick-start">Quick Start</a> · <a href="docs/wiki/Getting-Started.md">Setup Guide</a> · <a href="docs/wiki/API-Reference.md">API Reference</a>
 </p>
 
 <div align="center">
@@ -44,7 +44,7 @@ If you didn't set `ADMIN_PASSWORD`, a random password is printed to the backend 
 docker compose logs backend | grep "Password:"
 ```
 
-For HTTPS + automatic TLS: [Deployment guide](docs/wiki/Deployment.md).
+For HTTPS + automatic TLS: see [Getting Started](docs/wiki/Getting-Started.md).
 
 ## Philosophy
 
@@ -66,18 +66,27 @@ Planly is built around a few strong opinions:
 
 ## Documentation
 
+**Setting up your server**
+
 | | |
 |---|---|
-| [Getting Started](docs/wiki/Getting-Started.md) | Install, first login, invite your team |
-| [Configuration](docs/wiki/Configuration.md) | Env vars, SMTP, SSO/OIDC |
-| [Deployment](docs/wiki/Deployment.md) | Dev vs production, upgrades, backups |
-| [User Guide](docs/wiki/User-Guide.md) | Views, tasks, search, calendar export |
-| [API Reference](docs/wiki/API-Reference.md) | REST endpoints with examples |
-| [Webhooks](docs/wiki/Webhooks.md) | Event catalog, payloads, signature verification |
-| [Access Tokens](docs/wiki/Access-Tokens.md) | PATs and App Registrations |
-| [Security](docs/wiki/Security.md) | Auth model, MFA, CSRF, IP restrictions |
-| [Administration](docs/wiki/Administration.md) | Admin panel, audit logs, user management |
-| [Development](docs/wiki/Development.md) | Local dev setup, architecture |
+| [Getting Started](docs/wiki/Getting-Started.md) | Install Planly, configure your environment, first login |
+
+**Managing the server**
+
+| | |
+|---|---|
+| [Administration](docs/wiki/Administration.md) | Users, audit log, announcements |
+| [Security](docs/wiki/Security.md) | Auth model, MFA, CSRF, SSO, IP restrictions |
+| [Operations](docs/wiki/Operations.md) | Monitoring, scaling, incident response, backup/restore, key rotation |
+
+**API & Integrations**
+
+| | |
+|---|---|
+| [Access Tokens](docs/wiki/Access-Tokens.md) | Personal Access Tokens and App Registrations |
+| [API Reference](docs/wiki/API-Reference.md) | All REST endpoints with request/response examples |
+| [Webhooks](docs/wiki/Webhooks.md) | Event catalog, payload format, HMAC signature verification |
 
 ## Tech Stack
 
@@ -85,4 +94,12 @@ Fastify 5 + TypeScript · Prisma 5 · PostgreSQL 16 · React 18 + TailwindCSS ·
 
 ## License
 
-Source-available under the [Planly Community License v1.0](LICENSE). Use it, run it, study it, contribute to it - freely. You may not sell it, fork it into a competing product, or use the code to train AI models.
+Source-available under the [Planly Community License v1.1](LICENSE).
+
+**You are free to:** use it, run it, study it, modify it for internal use, and contribute back.
+
+**You may not:** sell it or offer paid hosted access to it · fork it into a competing product · use the code to train AI or ML models · impose further restrictions on recipients.
+
+**If you deploy a modified version as a hosted service** you must make your changes publicly available under the same license.
+
+Contributors grant a royalty-free patent license covering their contributions. For commercial licensing or other permissions, contact esbeneickhardt@gmail.com.
