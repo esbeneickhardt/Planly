@@ -293,21 +293,21 @@ Soft-delete the task (moves to recycle bin, hard-deleted after 365 days).
 
 ---
 
-## Sprints
+## Sub-plans
 
 ### GET /api/products/:productId/sprints
 
 ### POST /api/products/:productId/sprints
 
 ```json
-{ "name": "Sprint 12", "startDate": "2026-08-01", "endDate": "2026-08-14" }
+{ "name": "Sub-plan 1", "startDate": "2026-08-01", "endDate": "2026-08-14" }
 ```
 
 ### PATCH /api/products/:productId/sprints/:sprintId
 
 ### POST /api/products/:productId/sprints/:sprintId/end
 
-End the sprint. Returns a summary of completed vs carried-over tasks.
+End the sub-plan. Returns a summary of completed vs carried-over tasks.
 
 ---
 

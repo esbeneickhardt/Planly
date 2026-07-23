@@ -17,6 +17,12 @@ interface Props {
 export default function Modal({ title, onClose, children, width = 'max-w-lg' }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
+  // Keep a stable ref so the keydown handler always calls the latest onClose without
+  // it being a useEffect dependency. If onClose were in the dep array, every inline
+  // arrow passed by a parent re-render would re-run the effect, firing the cleanup's
+  // previouslyFocused?.focus() and stealing focus from inputs on every keystroke.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
 
   useEffect(() => {
     // Save the element that had focus before the modal opened so we can restore it on close
@@ -28,7 +34,7 @@ export default function Modal({ title, onClose, children, width = 'max-w-lg' }: 
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // Trap Tab / Shift+Tab inside the dialog
@@ -58,7 +64,7 @@ export default function Modal({ title, onClose, children, width = 'max-w-lg' }: 
       window.removeEventListener('keydown', onKeyDown);
       previouslyFocused?.focus();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

@@ -38,6 +38,8 @@ interface ProductContextValue {
 
 const ProductContext = createContext<ProductContextValue | null>(null);
 
+const STORAGE_KEY = 'planly_active_product_id';
+
 export function ProductProvider({ children }: { children: ReactNode }) {
   // State
   const { user } = useAuth();
@@ -59,7 +61,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       setProducts(ps);
       setActiveProductState((prev) => {
         if (prev) return ps.find((p) => p.id === prev.id) ?? ps[0] ?? null;
-        return ps[0] ?? null;
+        const savedId = localStorage.getItem(STORAGE_KEY);
+        const saved = savedId ? ps.find((p) => p.id === savedId) : null;
+        return saved ?? ps[0] ?? null;
       });
       setProductsLoaded(true);
     } catch {
@@ -132,6 +136,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   // Actions
   function setActiveProduct(p: Product) {
     if (activeProduct?.id === p.id) return;
+    localStorage.setItem(STORAGE_KEY, p.id);
     setActiveProductState(p);
     setTasks([]);
     setTasksLoaded(false);
@@ -141,6 +146,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     const team = await api.teams.create({ name: `${data.name} Team`, memberIds: user ? [user.id] : [] });
     const product = await api.products.create({ ...data, teamId: team.id });
     await refreshProducts();
+    localStorage.setItem(STORAGE_KEY, product.id);
     setActiveProductState(product);
     return product;
   }
