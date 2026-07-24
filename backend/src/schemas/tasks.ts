@@ -40,5 +40,14 @@ export const updateTaskSchema = createTaskSchema.partial().extend({
   name: z.string().min(1).max(500).optional(),
 });
 
+// Applies the same partial update to every task in taskIds in one transaction
+export const bulkUpdateTaskSchema = updateTaskSchema.extend({
+  taskIds: z.array(z.string().uuid()).min(1).max(500),
+});
+
+export const bulkDeleteTaskSchema = z.object({
+  taskIds: z.array(z.string().uuid()).min(1).max(500),
+});
+
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;

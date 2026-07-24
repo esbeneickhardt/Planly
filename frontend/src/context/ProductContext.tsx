@@ -74,12 +74,16 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
   const refreshTasks = useCallback(async () => {
     if (!activeProduct) return;
-    console.log('[RT] refreshTasks called');
-    const ts = await api.tasks.list(activeProduct.id);
-    if (!Array.isArray(ts)) return;
-    console.log('[RT] setTasks with', ts.length, 'tasks');
-    setTasks(ts);
-    setTasksLoaded(true);
+    try {
+      const ts = await api.tasks.list(activeProduct.id);
+      if (!Array.isArray(ts)) return;
+      setTasks(ts);
+      setTasksLoaded(true);
+    } catch (err) {
+      // Swallow so a transient failure (rate limit, network blip) never crashes an awaiting
+      // caller or an unattended WS-triggered refresh; the last good task list stays on screen.
+      console.error('Failed to refresh tasks', err);
+    }
   }, [activeProduct]);
 
   // Update canvas positions in the local task cache without a round-trip.
@@ -140,7 +144,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
           e.event === 'task.updated' ||
           e.event === 'task.deleted' ||
           e.event === 'task.status_changed' ||
-          e.event === 'task.assigned'
+          e.event === 'task.assigned' ||
+          e.event === 'task.bulk_updated' ||
+          e.event === 'task.bulk_deleted'
         ) {
           if (e.fromApi) {
             refreshTasksDebounced();

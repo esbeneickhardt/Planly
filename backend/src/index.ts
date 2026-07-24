@@ -86,7 +86,7 @@ import { seedRoutes } from './routes/seed';
 // Node.js built-ins and database
 import prisma from './db/client';
 import bcrypt from 'bcryptjs';
-import { randomBytes, randomUUID } from 'crypto';
+import { randomBytes, randomUUID, createHash } from 'crypto';
 import jwt from 'jsonwebtoken';
 
 // Ensures a server admin account exists for ADMIN_EMAIL; creates one on first start, restores
@@ -385,11 +385,27 @@ async function main() {
     }
   });
 
-  // Rate limiting - global defaults
+  // Rate limiting - global defaults.
+  // Keyed by authenticated principal (bearer token or session cookie) rather than raw IP, so a
+  // PAT/App-Registration script hammering the API can only ever exhaust its own allowance - it
+  // can never eat into the quota of an interactive browser session sharing the same IP (e.g. the
+  // same dev machine, or many users behind one NAT/office IP). Unauthenticated requests (login,
+  // registration) still fall back to IP, which is what those routes' tighter overrides expect.
   await app.register(rateLimit, {
     global: true,
     max: 200,
     timeWindow: '1 minute',
+    keyGenerator: (req) => {
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith('Bearer ')) {
+        return `bearer:${createHash('sha256').update(authHeader.slice(7)).digest('hex')}`;
+      }
+      const cookieToken = req.cookies?.token;
+      if (cookieToken) {
+        return `session:${createHash('sha256').update(cookieToken).digest('hex')}`;
+      }
+      return `ip:${req.ip}`;
+    },
     errorResponseBuilder: (_req, context) => ({
       error: 'Too many requests',
       retryAfter: context.after,
