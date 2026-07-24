@@ -6,6 +6,8 @@ import type { RefObject } from 'react';
 import type { Sprint } from '../../api/client';
 import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import { displayName } from '../../api/client';
+import KanbanMilestoneFilter from './KanbanMilestoneFilter';
+import type { MilestoneOption } from './KanbanMilestoneFilter';
 
 type User = { id: string; username: string; avatarEmoji?: string | null; realName?: string | null };
 
@@ -33,10 +35,20 @@ interface Props {
   sprintFilter: string | null;
   onSprintChange: (val: string | null) => void;
 
+  milestones: MilestoneOption[];
+  milestoneFilter: string | null;
+  onMilestoneChange: (id: string | null) => void;
+
+  groupByMilestone: boolean;
+  onToggleGroupByMilestone: () => void;
+
   toast: string;
 
   compact: boolean;
   onToggleCompact: () => void;
+
+  simpleMode: boolean;
+  onToggleSimpleMode: () => void;
 
   bgImage: string | null;
   showBgPicker: boolean;
@@ -85,9 +97,16 @@ export default function KanbanFiltersBar({
   sprints,
   sprintFilter,
   onSprintChange,
+  milestones,
+  milestoneFilter,
+  onMilestoneChange,
+  groupByMilestone,
+  onToggleGroupByMilestone,
   toast,
   compact,
   onToggleCompact,
+  simpleMode,
+  onToggleSimpleMode,
   bgImage,
   showBgPicker,
   bgPickerRef,
@@ -246,6 +265,28 @@ export default function KanbanFiltersBar({
           </div>
         )}
 
+        {/* Group by milestone toggle (board view only; not shown in compact mode) */}
+        {!compact && milestones.length > 0 && (
+          <button
+            onClick={onToggleGroupByMilestone}
+            className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+            style={{
+              color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
+              background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
+              border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'var(--border)'}`,
+            }}
+            title="Group cards into collapsible milestone sections within each column"
+          >
+            ☰ {groupByMilestone ? 'Grouped' : 'Group by milestone'}
+          </button>
+        )}
+
+        {/* Milestone filter (board view only; not shown in compact mode). Still useful even while
+            grouped, e.g. to jump straight to one milestone's section. */}
+        {!compact && (
+          <KanbanMilestoneFilter milestones={milestones} selectedId={milestoneFilter} onChange={onMilestoneChange} />
+        )}
+
         {toast && (
           <div
             className="text-xs px-2 py-1 rounded-lg"
@@ -315,6 +356,22 @@ export default function KanbanFiltersBar({
               </div>
             )}
           </div>
+        )}
+
+        {/* Simple mode toggle - dense cards showing just the title (board view only) */}
+        {!compact && (
+          <button
+            onClick={onToggleSimpleMode}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
+            title={simpleMode ? 'Show owner, reviewer, and milestone details on cards' : 'Show titles only, for a denser board'}
+            style={{
+              background: simpleMode ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              color: simpleMode ? 'var(--brand)' : 'var(--text-3)',
+              border: `1px solid ${simpleMode ? 'var(--brand)' : 'var(--border)'}`,
+            }}
+          >
+            ▤ Simple
+          </button>
         )}
 
         {/* Compact toggle */}

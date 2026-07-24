@@ -66,19 +66,18 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.send(teams.map(decryptTeam));
   });
 
-  // Create a new team; creator is automatically enrolled as a member
+  // Create a new team - the creator is always the sole initial member. Other users can never
+  // be added at creation time (by design: joining a team must be their own choice, via the
+  // invite-and-accept flow below, never a side effect of someone else creating a project).
   app.post('/api/teams', { preHandler: requireAuth }, async (req, reply) => {
     const body = validate(createTeamSchema, req.body, reply);
     if (!body) return;
-    const { name, memberIds } = body;
-
-    // Always enroll the creator; deduplicate in case they included themselves
-    const allMemberIds = Array.from(new Set([req.user.userId, ...(memberIds ?? [])]));
+    const { name } = body;
 
     const team = await prisma.team.create({
       data: {
         name,
-        members: { create: allMemberIds.map((userId) => ({ userId })) },
+        members: { create: [{ userId: req.user.userId }] },
       },
       include: MEMBER_INCLUDE,
     });
