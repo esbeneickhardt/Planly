@@ -16,7 +16,7 @@ import { logger } from '../../utils/logger';
 import { broadcast } from '../../realtime/manager';
 import { z } from 'zod';
 import { validate } from '../../utils/validate';
-import { createTaskSchema, updateTaskSchema } from '../../schemas/tasks';
+import { createTaskSchema, updateTaskSchema, bulkUpdateTaskSchema, bulkDeleteTaskSchema } from '../../schemas/tasks';
 import { safeDecryptValue } from '../../utils/crypto';
 
 // Validation schema for bulk kanban reorder (up to 1000 tasks per call)
@@ -86,6 +86,146 @@ export async function taskCrudRoutes(app: FastifyInstance) {
       ),
     );
     reply.send({ ok: true });
+  });
+
+  // Bulk-apply the same field changes (owner/reviewer/status/etc) to many tasks in one transaction.
+  // One realtime broadcast for the whole batch instead of one per task - this is what lets a
+  // multi-select bulk action in the UI (or a scripted API caller) avoid firing N separate PATCH
+  // requests, which otherwise floods every connected client with N broadcasts.
+  // Must be registered before /:taskId to avoid route conflict.
+  app.patch('/api/products/:productId/tasks/bulk-update', { preHandler: requireAuth }, async (req, reply) => {
+    const { productId } = req.params as { productId: string };
+    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
+    const body = validate(bulkUpdateTaskSchema, req.body, reply);
+    if (!body) return;
+    const { taskIds, ...data } = body;
+
+    if (data.ownerId) {
+      const member = await prisma.teamMember.findFirst({
+        where: { userId: data.ownerId, team: { products: { some: { id: productId } } } },
+      });
+      if (!member) return reply.status(400).send({ error: 'ownerId must be a project member' });
+    }
+    if (data.reviewerId) {
+      const member = await prisma.teamMember.findFirst({
+        where: { userId: data.reviewerId, team: { products: { some: { id: productId } } } },
+      });
+      if (!member) return reply.status(400).send({ error: 'reviewerId must be a project member' });
+    }
+    if (data.deadline && isNaN(new Date(data.deadline).getTime())) {
+      return reply.status(400).send({ error: 'Invalid deadline date' });
+    }
+
+    const existing = await prisma.task.findMany({
+      where: { id: { in: taskIds }, productId, ...TASK_WHERE_ACTIVE },
+      select: { id: true, name: true, status: true, ownerId: true, reviewerId: true },
+    });
+    if (existing.length === 0) return reply.status(404).send({ error: 'No matching tasks found' });
+
+    const updated = await prisma.$transaction(
+      existing.map((t) => {
+        const completedFields =
+          data.status === 'done' && t.status !== 'done'
+            ? { completedBy: req.user.userId, completedAt: new Date() }
+            : data.status && data.status !== 'done' && t.status === 'done'
+              ? { completedBy: null, completedAt: null }
+              : {};
+        return prisma.task.update({
+          where: { id: t.id },
+          data: {
+            name: data.name?.trim(),
+            description: data.description,
+            ownerId: data.ownerId,
+            reviewerId: data.reviewerId === null ? null : data.reviewerId,
+            color: data.color,
+            status: data.status,
+            deadline: data.deadline === null ? null : data.deadline ? new Date(data.deadline) : undefined,
+            ...completedFields,
+          },
+          include: TASK_INCLUDE,
+        });
+      }),
+    );
+
+    // Fire webhooks, activity log, and assignment notifications per task (fire-and-forget, non-blocking)
+    const statusChanged = data.status !== undefined;
+    const ownerChanged = data.ownerId !== undefined;
+    const eventName = statusChanged ? 'task.status_changed' : ownerChanged ? 'task.assigned' : 'task.updated';
+    const decryptedUpdated = updated.map(decryptTaskPii);
+    const prevById = new Map(existing.map((t) => [t.id, t]));
+    decryptedUpdated.forEach((task) => {
+      const prev = prevById.get(task.id)!;
+      dispatchWebhooks(productId, eventName, task).catch((err) => {
+        logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
+      });
+      logActivity({
+        productId,
+        actorId: req.user.userId,
+        action: eventName,
+        entityType: 'task',
+        entityId: task.id,
+        entityName: task.name,
+      });
+      if (data.ownerId && data.ownerId !== prev.ownerId && data.ownerId !== req.user.userId) {
+        createNotification({
+          userId: data.ownerId,
+          type: 'task_assigned',
+          title: `You were assigned to "${task.name}"`,
+          productId,
+          taskId: task.id,
+        });
+      }
+      if (data.reviewerId && data.reviewerId !== prev.reviewerId && data.reviewerId !== req.user.userId) {
+        createNotification({
+          userId: data.reviewerId,
+          type: 'task_assigned',
+          title: `You were set as reviewer for "${task.name}"`,
+          productId,
+          taskId: task.id,
+        });
+      }
+    });
+
+    broadcast(productId, 'task.bulk_updated', { taskIds: decryptedUpdated.map((t) => t.id) }, req.user.tokenVersion === undefined);
+    reply.send(decryptedUpdated);
+  });
+
+  // Bulk soft-delete - one transaction, one broadcast. Must be registered before /:taskId.
+  app.post('/api/products/:productId/tasks/bulk-delete', { preHandler: requireAuth }, async (req, reply) => {
+    const { productId } = req.params as { productId: string };
+    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
+    const body = validate(bulkDeleteTaskSchema, req.body, reply);
+    if (!body) return;
+
+    const existing = await prisma.task.findMany({
+      where: { id: { in: body.taskIds }, productId, ...TASK_WHERE_ACTIVE },
+      select: { id: true, name: true },
+    });
+    if (existing.length === 0) return reply.status(204).send();
+
+    await prisma.task.updateMany({
+      where: { id: { in: existing.map((t) => t.id) } },
+      data: { deletedAt: new Date() },
+    });
+
+    existing.forEach((task) => {
+      dispatchWebhooks(productId, 'task.deleted', { id: task.id, name: task.name }).catch((err) => {
+        logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
+      });
+      logActivity({
+        productId,
+        actorId: req.user.userId,
+        action: 'task.deleted',
+        entityType: 'task',
+        entityId: task.id,
+        entityName: task.name,
+      });
+    });
+
+    broadcast(productId, 'task.bulk_deleted', { ids: existing.map((t) => t.id) }, req.user.tokenVersion === undefined);
+    reply.status(204).send();
   });
 
   // Create a task, then fire webhooks, broadcast, activity log, and assignment notifications

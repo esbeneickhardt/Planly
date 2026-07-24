@@ -80,59 +80,75 @@ export default function BacklogPage() {
     setSelected(selected.size === filteredTasks.length ? new Set() : new Set(filteredTasks.map((t) => t.id)));
   }
 
-  // Confirm-then-delete all selected tasks in parallel
+  // Confirm-then-delete all selected tasks in one bulk request
   async function bulkDelete() {
     if (!activeProduct || !(await confirm(`Delete ${selected.size} task(s)?`))) return;
-    await Promise.all(Array.from(selected).map((id) => api.tasks.delete(activeProduct.id, id)));
-    await refreshTasks();
-    setSelected(new Set());
-    showToast('Tasks deleted', 'info');
+    try {
+      await api.tasks.bulkDelete(activeProduct.id, Array.from(selected));
+      await refreshTasks();
+      setSelected(new Set());
+      showToast('Tasks deleted', 'info');
+    } catch {
+      showToast('Failed to delete tasks - please try again', 'error');
+    }
   }
 
-  // Assign a single owner to all selected tasks
+  // Assign a single owner to all selected tasks in one bulk request
   async function bulkAssignOwner(userId: string) {
     if (!activeProduct) return;
     setAssigningOwner(true);
     setShowOwnerPicker(false);
+    const count = selected.size;
     try {
-      await Promise.all(
-        Array.from(selected).map((id) => api.tasks.update(activeProduct.id, id, { ownerId: userId })),
-      );
+      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), { ownerId: userId });
       await refreshTasks();
       setSelected(new Set());
-      showToast(`Assigned owner to ${selected.size} task${selected.size !== 1 ? 's' : ''}`, 'success');
+      showToast(`Assigned owner to ${count} task${count !== 1 ? 's' : ''}`, 'success');
+    } catch {
+      showToast('Failed to assign owner - please try again', 'error');
     } finally {
       setAssigningOwner(false);
     }
   }
 
-  // Assign a single reviewer to all selected tasks
+  // Assign a single reviewer to all selected tasks in one bulk request
   async function bulkAssignReviewer(userId: string) {
     if (!activeProduct) return;
     setShowReviewerPicker(false);
     const count = selected.size;
-    await Promise.all(Array.from(selected).map((id) => api.tasks.update(activeProduct.id, id, { reviewerId: userId })));
-    await refreshTasks();
-    setSelected(new Set());
-    showToast(`Assigned reviewer to ${count} task${count !== 1 ? 's' : ''}`, 'success');
+    try {
+      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), { reviewerId: userId });
+      await refreshTasks();
+      setSelected(new Set());
+      showToast(`Assigned reviewer to ${count} task${count !== 1 ? 's' : ''}`, 'success');
+    } catch {
+      showToast('Failed to assign reviewer - please try again', 'error');
+    }
   }
 
   // Fetch members when the owner or reviewer picker opens; reset cache on product change
   useEffect(() => { setMembers([]); }, [activeProduct?.id]);
   useEffect(() => {
     if ((!showOwnerPicker && !showReviewerPicker) || !activeProduct || members.length > 0) return;
-    api.products.getAbout(activeProduct.id).then((data) => setMembers(data.members));
-  }, [showOwnerPicker, showReviewerPicker, activeProduct, members.length]);
+    api.products
+      .getAbout(activeProduct.id)
+      .then((data) => setMembers(data.members))
+      .catch(() => showToast('Failed to load members - please try again', 'error'));
+  }, [showOwnerPicker, showReviewerPicker, activeProduct, members.length, showToast]);
 
-  // Set status on all selected tasks
+  // Set status on all selected tasks in one bulk request
   async function bulkSetStatus(status: string) {
     if (!activeProduct) return;
     setShowStatusPicker(false);
     const count = selected.size;
-    await Promise.all(Array.from(selected).map((id) => api.tasks.update(activeProduct.id, id, { status: status as Task['status'] })));
-    await refreshTasks();
-    setSelected(new Set());
-    showToast(`Updated status for ${count} task${count !== 1 ? 's' : ''}`, 'success');
+    try {
+      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), { status: status as Task['status'] });
+      await refreshTasks();
+      setSelected(new Set());
+      showToast(`Updated status for ${count} task${count !== 1 ? 's' : ''}`, 'success');
+    } catch {
+      showToast('Failed to update status - please try again', 'error');
+    }
   }
 
   // Close pickers on outside click
