@@ -13,6 +13,7 @@ import { MermaidBlock } from './MermaidBlock';
 import { api, displayName } from '../../api/client';
 import type { Message, DirectMessage } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
+import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useChat } from '../../context/ChatContext';
@@ -65,6 +66,10 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const { user } = useAuth();
   const { confirm } = useConfirm();
   const { adminMode } = useChat();
+  const { canWrite } = usePermission();
+  // Matches the backend's requireTabWrite OR-semantics for task mutations (kanban or backlog write access).
+  // Only relevant when a task is actually opened here, which only happens outside admin chat.
+  const taskReadOnly = !(canWrite('backlog') || canWrite('kanban'));
 
   // ── Extracted hooks ──
   const { allMessages, setAllMessages } = useChatMessages({ isAdminChat, productId: activeProduct?.id });
@@ -2174,7 +2179,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
           {openedTask && (
             <TaskDetailPanel
               task={openedTask}
-              readOnly={false}
+              readOnly={taskReadOnly}
               onClose={() => setOpenedTask(null)}
               onUpdated={(updated) => setOpenedTask(updated)}
               onDeleted={() => setOpenedTask(null)}

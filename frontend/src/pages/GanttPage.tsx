@@ -4,7 +4,19 @@
  * useGanttDragZoom and persisted to localStorage; drag-resize handles write deadline/date changes back to the API on pointer-up.
  */
 import { useState, useEffect } from 'react';
+import {
+  DndContext,
+  DragEndEvent,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { api, displayName } from '../api/client';
+import type { MilestoneResult } from '../api/client';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
@@ -72,6 +84,26 @@ function getTimeMarkers(start: Date, end: Date): { date: Date; label: string }[]
     cur.setDate(cur.getDate() + intervalDays);
   }
   return out;
+}
+
+// Default sort when no manual order has been set: active milestones soonest-first, done pushed to the bottom
+function fallbackMilestoneSort(a: MilestoneResult, b: MilestoneResult): number {
+  const aDone = a.status === 'done';
+  const bDone = b.status === 'done';
+  if (aDone !== bDone) return aDone ? 1 : -1;
+  return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+}
+
+// Applies the user's manually-dragged order (if any). Milestones not yet in the stored order
+// (created since the user last reordered) are appended at the end via the fallback sort. Once a
+// manual order exists it fully overrides the done-last grouping - dragging is the user's explicit
+// intent and should win.
+function orderMilestones(list: MilestoneResult[], order: string[]): MilestoneResult[] {
+  if (order.length === 0) return [...list].sort(fallbackMilestoneSort);
+  const indexOf = new Map(order.map((id, i) => [id, i]));
+  const known = list.filter((m) => indexOf.has(m.id)).sort((a, b) => indexOf.get(a.id)! - indexOf.get(b.id)!);
+  const unknown = list.filter((m) => !indexOf.has(m.id)).sort(fallbackMilestoneSort);
+  return [...known, ...unknown];
 }
 
 export default function GanttPage() {
@@ -152,6 +184,32 @@ export default function GanttPage() {
     } catch {}
   }, [activeProduct?.id]);
 
+  // Manually-dragged milestone order, persisted per-product in localStorage (browser-local, not
+  // synced server-side - milestones have no dedicated backend model to attach a shared order to).
+  const [milestoneOrder, setMilestoneOrder] = useState<string[]>([]);
+  useEffect(() => {
+    if (!activeProduct) return;
+    try {
+      const stored = localStorage.getItem(`planly-gantt-milestoneOrder-${activeProduct.id}`);
+      setMilestoneOrder(stored ? (JSON.parse(stored) as string[]) : []);
+    } catch {
+      setMilestoneOrder([]);
+    }
+  }, [activeProduct?.id]);
+
+  function saveMilestoneOrder(ids: string[]) {
+    setMilestoneOrder(ids);
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly-gantt-milestoneOrder-${activeProduct.id}`, JSON.stringify(ids));
+    } catch {}
+  }
+
+  const milestoneDragSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
+
   if (!activeProduct) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
@@ -220,14 +278,21 @@ export default function GanttPage() {
   const fullEnd = new Date(product?.deadline ?? activeProduct.deadline);
   const today = new Date();
 
-  // Sort active milestones soonest-first, done milestones pushed to the bottom
-  const sortedMilestones = [...milestones].sort((a, b) => {
-    const aDone = a.status === 'done';
-    const bDone = b.status === 'done';
-    if (aDone !== bDone) return aDone ? 1 : -1;
-    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-  });
+  // Sorted per the user's manually-dragged order if one exists, else soonest-first with done pushed down
+  const sortedMilestones = orderMilestones(milestones, milestoneOrder);
   const visibleMilestones = hideDone ? sortedMilestones.filter((m) => m.status !== 'done') : sortedMilestones;
+
+  function handleMilestoneDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = visibleMilestones.map((m) => m.id);
+    const oldIdx = ids.indexOf(active.id as string);
+    const newIdx = ids.indexOf(over.id as string);
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reorderedVisible = arrayMove(ids, oldIdx, newIdx);
+    const hiddenIds = hideDone ? sortedMilestones.filter((m) => m.status === 'done').map((m) => m.id) : [];
+    saveMilestoneOrder([...reorderedVisible, ...hiddenIds]);
+  }
   const doneCount = milestones.filter((m) => m.status === 'done').length;
 
   const todayPct = pct(today, vs, ve);
@@ -449,73 +514,30 @@ export default function GanttPage() {
                 </p>
               </div>
             )}
-            {ganttView === 'milestones' &&
-              visibleMilestones.map((m) => {
-                const color = progressColor(m);
-                const isDone = m.status === 'done';
-                return (
-                  <div
-                    key={m.id}
-                    className="px-3 flex flex-col justify-center cursor-pointer transition-colors"
-                    style={{
-                      height: ROW_H,
-                      borderBottom: '1px solid var(--border)',
-                      background: hoveredMilestone === m.id ? 'var(--surface-2)' : 'transparent',
-                    }}
-                    onMouseEnter={() => setHoveredMilestone(m.id)}
-                    onMouseLeave={() => setHoveredMilestone(null)}
-                    onClick={() => {
-                      const t = tasks.find((t) => t.id === m.id);
-                      if (t) setSelectedTask(t);
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      {isDone && (
-                        <span
-                          className="flex-shrink-0 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold"
-                          style={{ background: '#10b981', color: 'white' }}
-                        >
-                          ✓
-                        </span>
-                      )}
-                      <p
-                        className="text-xs font-medium leading-tight min-w-0"
-                        title={m.name}
-                        style={{
-                          color: isDone ? 'var(--text-3)' : 'var(--text)',
-                          textDecoration: isDone ? 'line-through' : 'none',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {m.name}
-                      </p>
-                    </div>
-                    {!isDone && (
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-                        <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-                          {m.doneDependencies}/{m.totalDependencies || 0} done
-                        </span>
-                        {m.owner && (
-                          <span className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
-                            · {m.owner.avatarEmoji ?? '👤'} {displayName(m.owner)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {isDone && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[11px]" style={{ color: '#10b981' }}>
-                          {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {ganttView === 'milestones' && (
+              <DndContext
+                sensors={milestoneDragSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleMilestoneDragEnd}
+              >
+                <SortableContext items={visibleMilestones.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+                  {visibleMilestones.map((m) => (
+                    <SortableMilestoneRow
+                      key={m.id}
+                      milestone={m}
+                      height={ROW_H}
+                      isHovered={hoveredMilestone === m.id}
+                      onMouseEnter={() => setHoveredMilestone(m.id)}
+                      onMouseLeave={() => setHoveredMilestone(null)}
+                      onClick={() => {
+                        const t = tasks.find((t) => t.id === m.id);
+                        if (t) setSelectedTask(t);
+                      }}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
 
             {/* Product / Final Delivery row - milestones view only */}
             {ganttView === 'milestones' && (
@@ -1053,12 +1075,7 @@ export default function GanttPage() {
                         {doneCount}/{milestones.length} milestones complete
                       </p>
                       <div className="space-y-1 max-h-48 overflow-auto">
-                        {[...milestones]
-                          .sort((a, b) => {
-                            if (a.status === 'done' && b.status !== 'done') return 1;
-                            if (a.status !== 'done' && b.status === 'done') return -1;
-                            return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-                          })
+                        {orderMilestones(milestones, milestoneOrder)
                           .map((m, i, arr) => {
                             const isDone = m.status === 'done';
                             const isFirstDone = isDone && (i === 0 || arr[i - 1]?.status !== 'done');
@@ -1143,7 +1160,102 @@ export default function GanttPage() {
               setMilestones(r.milestones);
             }
           }}
+          onDeleted={async () => {
+            setSelectedTask(null);
+            if (activeProduct) {
+              const r = await api.milestones.list(activeProduct.id);
+              setMilestones(r.milestones);
+            }
+          }}
         />
+      )}
+    </div>
+  );
+}
+
+// One row in the draggable sidebar milestone list. A plain click still opens the task (dnd-kit's
+// distance-based activation constraint on the sensors means a click that doesn't move the pointer
+// never starts a drag), same click/drag split used by Kanban's cards and columns.
+function SortableMilestoneRow({
+  milestone: m,
+  height,
+  isHovered,
+  onMouseEnter,
+  onMouseLeave,
+  onClick,
+}: {
+  milestone: MilestoneResult;
+  height: number;
+  isHovered: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onClick: () => void;
+}) {
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: m.id });
+  const color = progressColor(m);
+  const isDone = m.status === 'done';
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className="px-3 flex flex-col justify-center cursor-pointer transition-colors"
+      style={{
+        height,
+        borderBottom: '1px solid var(--border)',
+        background: isHovered ? 'var(--surface-2)' : 'transparent',
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-1.5">
+        {isDone && (
+          <span
+            className="flex-shrink-0 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold"
+            style={{ background: '#10b981', color: 'white' }}
+          >
+            ✓
+          </span>
+        )}
+        <p
+          className="text-xs font-medium leading-tight min-w-0"
+          title={m.name}
+          style={{
+            color: isDone ? 'var(--text-3)' : 'var(--text)',
+            textDecoration: isDone ? 'line-through' : 'none',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {m.name}
+        </p>
+      </div>
+      {!isDone && (
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+          <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+            {m.doneDependencies}/{m.totalDependencies || 0} done
+          </span>
+          {m.owner && (
+            <span className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
+              · {m.owner.avatarEmoji ?? '👤'} {displayName(m.owner)}
+            </span>
+          )}
+        </div>
+      )}
+      {isDone && (
+        <div className="flex items-center gap-1 mt-0.5">
+          <span className="text-[11px]" style={{ color: '#10b981' }}>
+            {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+          </span>
+        </div>
       )}
     </div>
   );

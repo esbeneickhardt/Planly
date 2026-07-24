@@ -93,26 +93,6 @@ def main():
     username = me.get("username", me.get("id", "unknown"))
     print(f"Authenticated as: {username}")
 
-    # ── Pick a team ───────────────────────────────────────────────────────────
-    teams = call("GET", "/api/teams")
-    if not teams:
-        print("No teams found. Create a team in Planly first.")
-        sys.exit(1)
-
-    if len(teams) == 1:
-        team = teams[0]
-        print(f"Using team: {team['name']}")
-    else:
-        print("\nTeams:")
-        for i, t in enumerate(teams):
-            print(f"  [{i + 1}] {t['name']}")
-        choice = input(f"Choose team [1-{len(teams)}]: ").strip()
-        try:
-            team = teams[int(choice) - 1]
-        except (ValueError, IndexError):
-            print("Invalid choice.")
-            sys.exit(1)
-
     # ── Filter open lists and cards ───────────────────────────────────────────
     lists = [lst for lst in board.get("lists", []) if not lst.get("closed")]
     cards = [c for c in board.get("cards", []) if not c.get("closed") and not c.get("archived")]
@@ -142,6 +122,14 @@ def main():
     if confirm != "y":
         print("Aborted.")
         sys.exit(0)
+
+    # ── Create a dedicated team for this import ───────────────────────────────
+    # Every import gets its own new team (mirroring how "New Project" works in the app) rather
+    # than reusing an existing one. Reusing a team would silently grant that team's existing
+    # members access to this new project - access must always be an explicit, per-project
+    # invite that the other person accepts, never a side effect of who happened to be on a
+    # team from a previous import.
+    team = call("POST", "/api/teams", {"name": f"{board_name} Team"})
 
     # ── Create the Planly project ─────────────────────────────────────────────
     print(f'\nCreating project "{board_name}" …')

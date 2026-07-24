@@ -3,7 +3,7 @@
  * Filtering and sorting are delegated to the useBacklogFilters hook; this page handles create,
  * bulk-move-to-todo, and bulk-delete mutations via the API, refreshing the shared ProductContext after each.
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import { useAuth } from '../context/AuthContext';
@@ -15,8 +15,24 @@ import TaskDetailPanel from '../components/common/TaskDetailPanel';
 import Modal from '../components/common/Modal';
 import { useBacklogFilters } from '../hooks/useBacklogFilters';
 import type { StatusTab } from '../hooks/useBacklogFilters';
-import type { SortKey } from '../hooks/useBacklogFilters';
 import { isBeforeToday } from '../utils/dates';
+import { useColorLegend } from '../hooks/useColorLegend';
+import { computePrimaryMilestones, assignMilestoneColors } from '../utils/milestones';
+import { sortTasks, compareTasks } from '../utils/backlogSort';
+import type { SortColumn, SortDir } from '../utils/backlogSort';
+
+const SORT_COLUMNS: SortColumn[] = ['name', 'status', 'owner', 'milestone', 'deadline', 'created'];
+// Column headers, in table order. `column` is omitted for headers that aren't sortable.
+const COLUMN_HEADERS: { label: string; column?: SortColumn }[] = [
+  { label: 'Task', column: 'name' },
+  { label: 'Status', column: 'status' },
+  { label: 'Owner', column: 'owner' },
+  { label: 'Milestone', column: 'milestone' },
+  { label: 'Subtasks' },
+  { label: 'Deadline', column: 'deadline' },
+  { label: 'Created', column: 'created' },
+  { label: '' },
+];
 
 const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: 'var(--text-3)' },
@@ -42,26 +58,104 @@ export default function BacklogPage() {
   const [showOwnerPicker, setShowOwnerPicker] = useState(false);
   const [showReviewerPicker, setShowReviewerPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const [members, setMembers] = useState<{ userId: string; user: { id: string; username: string; realName: string | null; avatarEmoji: string | null } }[]>([]);
   const [assigningOwner, setAssigningOwner] = useState(false);
   const ownerPickerRef = useRef<HTMLDivElement>(null);
   const reviewerPickerRef = useRef<HTMLDivElement>(null);
   const statusPickerRef = useRef<HTMLDivElement>(null);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+  const { legend, enabledColors } = useColorLegend(activeProduct?.id ?? '');
 
   const {
-    sortKey,
-    setSortKey,
     statusTab,
     setStatusTab,
     mineOnly,
     setMineOnly,
     search,
     setSearch,
+    groupByMilestone,
+    setGroupByMilestone,
     filteredTasks,
     tabCounts,
     unassignedCount,
     overdueCount,
   } = useBacklogFilters(tasks, user?.id);
+
+  // Column sort - click a header to sort by it; click again to flip direction. Persisted so the
+  // choice survives a reload, matching the same pattern as groupByMilestone above.
+  const [sortColumn, setSortColumnState] = useState<SortColumn>(() => {
+    const s = localStorage.getItem('planly_backlog_sort_column');
+    return s && (SORT_COLUMNS as string[]).includes(s) ? (s as SortColumn) : 'created';
+  });
+  const [sortDir, setSortDirState] = useState<SortDir>(() =>
+    localStorage.getItem('planly_backlog_sort_dir') === 'desc' ? 'desc' : 'asc',
+  );
+  function handleSort(column: SortColumn) {
+    const nextDir: SortDir = sortColumn === column && sortDir === 'asc' ? 'desc' : 'asc';
+    setSortColumnState(column);
+    setSortDirState(nextDir);
+    try {
+      localStorage.setItem('planly_backlog_sort_column', column);
+      localStorage.setItem('planly_backlog_sort_dir', nextDir);
+    } catch {}
+  }
+
+  // For each non-milestone task, which milestone it feeds into (nearest deadline if more than one)
+  const primaryMilestones = useMemo(() => computePrimaryMilestones(tasks), [tasks]);
+  // A distinct, stable color per milestone so tasks belonging to different milestones are
+  // visually distinguishable at a glance, not just by name.
+  const milestoneColors = useMemo(() => assignMilestoneColors(tasks), [tasks]);
+  const sortedFilteredTasks = useMemo(
+    () => sortTasks(filteredTasks, sortColumn, sortDir, primaryMilestones),
+    [filteredTasks, sortColumn, sortDir, primaryMilestones],
+  );
+  const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(new Set());
+  function toggleMilestoneCollapsed(id: string) {
+    setCollapsedMilestones((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Group the currently-filtered tasks by the milestone they feed into (for the "Group by
+  // milestone" view). Sections are ordered by milestone deadline; a milestone whose own row got
+  // filtered out of view (e.g. by status tab) can still show as a section header via `tasks`, so
+  // its children aren't orphaned. Tasks with no milestone link land in a trailing "Ungrouped" section.
+  const milestoneGroups = useMemo(() => {
+    if (!groupByMilestone) return null;
+    const childrenByMilestoneId = new Map<string, Task[]>();
+    const ungrouped: Task[] = [];
+    // Partitioning an already-sorted array preserves that order within each group, so children
+    // don't need a separate sort pass - they inherit whatever column sort is currently active.
+    sortedFilteredTasks.forEach((t) => {
+      if (t.deadline) {
+        if (!childrenByMilestoneId.has(t.id)) childrenByMilestoneId.set(t.id, []);
+        return;
+      }
+      const milestone = primaryMilestones.get(t.id);
+      if (!milestone) {
+        ungrouped.push(t);
+        return;
+      }
+      if (!childrenByMilestoneId.has(milestone.id)) childrenByMilestoneId.set(milestone.id, []);
+      childrenByMilestoneId.get(milestone.id)!.push(t);
+    });
+    // Section order follows the same active column/direction the user picked. "Milestone" doesn't
+    // mean anything when comparing milestone tasks to each other (they never feed into another
+    // milestone), so it's redirected to comparing their own names instead.
+    const sectionSortColumn = sortColumn === 'milestone' ? 'name' : sortColumn;
+    const sections = Array.from(childrenByMilestoneId.entries())
+      .map(([milestoneId, children]) => ({
+        milestone: tasks.find((t) => t.id === milestoneId) ?? null,
+        children,
+      }))
+      .filter((s) => s.milestone)
+      .sort((a, b) => compareTasks(a.milestone!, b.milestone!, sectionSortColumn, sortDir, primaryMilestones));
+    return { sections, ungrouped };
+  }, [groupByMilestone, sortedFilteredTasks, tasks, primaryMilestones, sortColumn, sortDir]);
 
   // Toggle a single row in/out of the multi-select set
   function toggleSelect(id: string) {
@@ -78,6 +172,40 @@ export default function BacklogPage() {
 
   function toggleAll() {
     setSelected(selected.size === filteredTasks.length ? new Set() : new Set(filteredTasks.map((t) => t.id)));
+  }
+
+  // Shared row renderer for both the flat table and the grouped-by-milestone view
+  function renderRows(taskList: Task[]) {
+    return taskList.map((task) => {
+      const milestone = task.deadline ? task : (primaryMilestones.get(task.id) ?? null);
+      return (
+      <BacklogRow
+        key={task.id}
+        task={task}
+        selected={selected.has(task.id)}
+        isOverdue={!!task.deadline && task.status !== 'done' && isBeforeToday(task.deadline)}
+        readOnly={readOnly}
+        milestoneName={task.deadline ? null : (primaryMilestones.get(task.id)?.name ?? null)}
+        milestoneColor={milestone ? (milestoneColors.get(milestone.id) ?? null) : null}
+        onToggle={() => toggleSelect(task.id)}
+        onOpen={() => setSelectedTask(task)}
+        onMoveTodo={async () => {
+          if (!activeProduct) return;
+          if (!task.ownerId) {
+            setSelectedTask(task);
+            return;
+          }
+          await api.tasks.update(activeProduct.id, task.id, { status: 'todo' });
+          await refreshTasks();
+        }}
+        onDelete={async () => {
+          if (!activeProduct || !(await confirm('Delete this task?'))) return;
+          await api.tasks.delete(activeProduct.id, task.id);
+          await refreshTasks();
+        }}
+      />
+      );
+    });
   }
 
   // Confirm-then-delete all selected tasks in one bulk request
@@ -151,6 +279,21 @@ export default function BacklogPage() {
     }
   }
 
+  // Set (or clear, with color: null) the color tag on all selected tasks in one bulk request
+  async function bulkSetColor(color: string | null) {
+    if (!activeProduct) return;
+    setShowColorPicker(false);
+    const count = selected.size;
+    try {
+      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), { color });
+      await refreshTasks();
+      setSelected(new Set());
+      showToast(`Updated color for ${count} task${count !== 1 ? 's' : ''}`, 'success');
+    } catch {
+      showToast('Failed to update color - please try again', 'error');
+    }
+  }
+
   // Close pickers on outside click
   useEffect(() => {
     if (!showOwnerPicker) return;
@@ -182,6 +325,16 @@ export default function BacklogPage() {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [showStatusPicker]);
+  useEffect(() => {
+    if (!showColorPicker) return;
+    function onClickOutside(e: MouseEvent) {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setShowColorPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [showColorPicker]);
 
   // Create a minimal task (name only); additional fields can be set via TaskDetailPanel afterwards
   async function handleCreateTask(e: React.FormEvent) {
@@ -284,6 +437,20 @@ export default function BacklogPage() {
             {user?.avatarEmoji ?? '👤'} Mine
           </button>
 
+          {/* Group by milestone toggle */}
+          <button
+            onClick={() => setGroupByMilestone(!groupByMilestone)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
+            style={{
+              background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
+              color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
+              border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'transparent'}`,
+            }}
+            title="Group tasks by the milestone they feed into"
+          >
+            🏁 Group by milestone
+          </button>
+
           <div className="flex-1" />
 
           <input
@@ -294,18 +461,6 @@ export default function BacklogPage() {
             className="input text-xs"
             style={{ width: 160 }}
           />
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="input text-xs"
-            style={{ width: 'auto' }}
-          >
-            <option value="oldest">Oldest first</option>
-            <option value="newest">Newest first</option>
-            <option value="alpha">A–Z</option>
-            <option value="deadline">By deadline</option>
-            <option value="unassigned">Unassigned first</option>
-          </select>
 
           {selected.size > 0 && !readOnly && (
             <div className="flex items-center gap-3 text-xs ml-2">
@@ -452,6 +607,54 @@ export default function BacklogPage() {
                   </div>
                 )}
               </div>
+              {/* Color picker */}
+              <div ref={colorPickerRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowColorPicker((v) => !v)}
+                  className="font-medium"
+                  style={{ color: 'var(--brand)' }}
+                >
+                  Set color ▾
+                </button>
+                {showColorPicker && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      marginTop: 6,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                      minWidth: 180,
+                      zIndex: 50,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap p-2.5">
+                      {enabledColors.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => bulkSetColor(c)}
+                          title={legend[c] || c}
+                          className="w-6 h-6 rounded-full transition-transform"
+                          style={{ background: c }}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => bulkSetColor(null)}
+                      className="w-full text-left px-3 py-2 text-xs"
+                      style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      Clear color
+                    </button>
+                  </div>
+                )}
+              </div>
               <button onClick={bulkDelete} className="font-medium" style={{ color: '#ef4444' }}>
                 Delete
               </button>
@@ -486,43 +689,76 @@ export default function BacklogPage() {
                     />
                   </th>
                 )}
-                {['Task', 'Status', 'Owner', 'Subtasks', 'Deadline', 'Created', ''].map((h) => (
+                {COLUMN_HEADERS.map(({ label, column }) => (
                   <th
-                    key={h}
+                    key={label || 'actions'}
                     className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide"
                     style={{ color: 'var(--text-3)' }}
                   >
-                    {h}
+                    {column ? (
+                      <button
+                        onClick={() => handleSort(column)}
+                        className="flex items-center gap-1 uppercase tracking-wide font-semibold"
+                        style={{ color: sortColumn === column ? 'var(--text)' : 'var(--text-3)' }}
+                      >
+                        {label}
+                        <span style={{ opacity: sortColumn === column ? 1 : 0.3, fontSize: 9 }}>
+                          {sortColumn === column && sortDir === 'desc' ? '▼' : '▲'}
+                        </span>
+                      </button>
+                    ) : (
+                      label
+                    )}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {filteredTasks.map((task) => (
-                <BacklogRow
-                  key={task.id}
-                  task={task}
-                  selected={selected.has(task.id)}
-                  isOverdue={!!task.deadline && task.status !== 'done' && isBeforeToday(task.deadline)}
-                  readOnly={readOnly}
-                  onToggle={() => toggleSelect(task.id)}
-                  onOpen={() => setSelectedTask(task)}
-                  onMoveTodo={async () => {
-                    if (!task.ownerId) {
-                      setSelectedTask(task);
-                      return;
-                    }
-                    await api.tasks.update(activeProduct.id, task.id, { status: 'todo' });
-                    await refreshTasks();
-                  }}
-                  onDelete={async () => {
-                    if (!confirm('Delete this task?')) return;
-                    await api.tasks.delete(activeProduct.id, task.id);
-                    await refreshTasks();
-                  }}
-                />
-              ))}
-            </tbody>
+            {milestoneGroups ? (
+              <>
+                {milestoneGroups.sections.map(({ milestone, children }) => {
+                  const collapsed = collapsedMilestones.has(milestone!.id);
+                  const doneCount = children.filter((t) => t.status === 'done').length;
+                  const color = milestoneColors.get(milestone!.id) ?? 'var(--text-3)';
+                  return (
+                    <tbody key={milestone!.id}>
+                      <tr
+                        onClick={() => toggleMilestoneCollapsed(milestone!.id)}
+                        style={{
+                          background: 'var(--surface-2)',
+                          borderBottom: '1px solid var(--border)',
+                          borderLeft: `3px solid ${color}`,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <td colSpan={readOnly ? 8 : 9} className="px-4 py-2">
+                          <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+                            <span style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}>▾</span>
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                            <span>{milestone!.name}</span>
+                            <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>
+                              {doneCount}/{children.length} done
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {!collapsed && renderRows(children)}
+                    </tbody>
+                  );
+                })}
+                {milestoneGroups.ungrouped.length > 0 && (
+                  <tbody>
+                    <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+                      <td colSpan={readOnly ? 8 : 9} className="px-4 py-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+                        Ungrouped
+                      </td>
+                    </tr>
+                    {renderRows(milestoneGroups.ungrouped)}
+                  </tbody>
+                )}
+              </>
+            ) : (
+              <tbody>{renderRows(sortedFilteredTasks)}</tbody>
+            )}
           </table>
         )}
       </div>
@@ -596,6 +832,8 @@ function BacklogRow({
   task,
   selected,
   isOverdue,
+  milestoneName,
+  milestoneColor,
   onToggle,
   onOpen,
   onMoveTodo,
@@ -605,12 +843,17 @@ function BacklogRow({
   task: Task;
   selected: boolean;
   isOverdue: boolean;
+  /** Name of the milestone this task feeds into; null for milestone tasks themselves or unlinked tasks */
+  milestoneName: string | null;
+  /** This task's own color if it's a milestone, or the color of the milestone it feeds into */
+  milestoneColor: string | null;
   readOnly?: boolean;
   onToggle: () => void;
   onOpen: () => void;
   onMoveTodo: () => void;
   onDelete: () => void;
 }) {
+  const isMilestone = !!task.deadline;
   const done = task.subtasks.filter((s) => s.completed).length;
   const statusColor = STATUS_COLOR[task.status] ?? '#64748b';
 
@@ -635,7 +878,14 @@ function BacklogRow({
       )}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          {task.color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />}
+          {isMilestone ? (
+            <span className="flex items-center gap-1" title="Milestone">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? '#f59e0b' }} />
+              ⭐
+            </span>
+          ) : (
+            task.color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
+          )}
           <button onClick={onOpen} className="font-medium text-left hover:underline" style={{ color: 'var(--text)' }}>
             {task.name}
           </button>
@@ -660,6 +910,16 @@ function BacklogRow({
           >
             Unassigned
           </span>
+        )}
+      </td>
+      <td className="px-4 py-3 text-xs truncate" style={{ color: 'var(--text-3)' }} title={milestoneName ?? undefined}>
+        {milestoneName ? (
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? 'var(--text-3)' }} />
+            {milestoneName}
+          </span>
+        ) : (
+          '—'
         )}
       </td>
       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-3)' }}>

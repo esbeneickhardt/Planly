@@ -193,7 +193,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
   }
 
   function handleNotificationClick(n: Notification) {
-    if (n.type === 'invite_received') return; // handled by Accept/Decline buttons
+    if (n.type === 'invite_received' || n.type === 'access_requested') return; // handled by Accept/Reject buttons
     if (!n.read) markRead(n.id);
     setOpen(false);
     if (n.taskId && n.productId === activeProduct?.id) {
@@ -229,6 +229,26 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
     try {
       await api.invites.decline(token);
       await dismiss(n.id);
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setInviteActing(null);
+    }
+  }
+
+  async function handleDecideAccessRequest(n: Notification, action: 'approve' | 'reject') {
+    const requestId = (n.metadata as { requestId?: string } | null)?.requestId;
+    if (!requestId || !n.productId) return;
+    setInviteActing(n.id);
+    try {
+      await api.accessRequests.decide(n.productId, requestId, action);
+      if (action === 'approve') {
+        await markRead(n.id);
+        showToast('Request approved', 'success');
+      } else {
+        await dismiss(n.id);
+        showToast('Request rejected', 'success');
+      }
     } catch (err) {
       showToast((err as Error).message, 'error');
     } finally {
@@ -420,10 +440,13 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                   notifications.map((n) => {
                     const isInvite = n.type === 'invite_received';
                     const hasToken = !!(n.metadata as { inviteToken?: string } | null)?.inviteToken;
+                    const isAccessRequest = n.type === 'access_requested';
+                    const hasRequestId = !!(n.metadata as { requestId?: string } | null)?.requestId;
+                    const isActionable = isInvite || isAccessRequest;
                     return (
                       <div
                         key={n.id}
-                        className={`group relative flex gap-3 px-4 py-3 transition-colors ${isInvite ? '' : 'cursor-pointer'}`}
+                        className={`group relative flex gap-3 px-4 py-3 transition-colors ${isActionable ? '' : 'cursor-pointer'}`}
                         style={{
                           background: n.read ? 'transparent' : 'var(--brand-subtle)',
                           borderBottom: '1px solid var(--border)',
@@ -475,8 +498,31 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                               </button>
                             </div>
                           )}
+                          {isAccessRequest && hasRequestId && (
+                            <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => handleDecideAccessRequest(n, 'approve')}
+                                disabled={inviteActing === n.id}
+                                className="btn-primary text-xs px-3 py-1"
+                              >
+                                {inviteActing === n.id ? '…' : 'Accept'}
+                              </button>
+                              <button
+                                onClick={() => handleDecideAccessRequest(n, 'reject')}
+                                disabled={inviteActing === n.id}
+                                className="text-xs px-3 py-1 rounded-lg transition-colors"
+                                style={{
+                                  color: 'var(--text-3)',
+                                  border: '1px solid var(--border)',
+                                  background: 'transparent',
+                                }}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        {!isInvite && (
+                        {!isActionable && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

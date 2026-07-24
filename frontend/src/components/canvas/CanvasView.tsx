@@ -27,6 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useToast } from '../../context/ToastContext';
 import { api, displayName } from '../../api/client';
+import { useColorLegend } from '../../hooks/useColorLegend';
 import type { Task } from '../../types';
 import TaskNode from './nodes/TaskNode';
 import ProductNode from './nodes/ProductNode';
@@ -102,7 +103,9 @@ function CanvasInner() {
   const [showBulkOwner, setShowBulkOwner] = useState(false);
   const [showBulkReviewer, setShowBulkReviewer] = useState(false);
   const [showBulkStatus, setShowBulkStatus] = useState(false);
+  const [showBulkColor, setShowBulkColor] = useState(false);
   const [bulkAssigning, setBulkAssigning] = useState(false);
+  const { legend: bulkColorLegend, enabledColors: bulkEnabledColors } = useColorLegend(activeProduct?.id ?? '');
 
   const initializedRef = useRef<string | null>(null);
   const productConnectionsRef = useRef<Set<string>>(new Set());
@@ -122,6 +125,7 @@ function CanvasInner() {
   const bulkOwnerRef = useRef<HTMLDivElement>(null);
   const bulkReviewerRef = useRef<HTMLDivElement>(null);
   const bulkStatusRef = useRef<HTMLDivElement>(null);
+  const bulkColorRef = useRef<HTMLDivElement>(null);
 
   const save = (p: Partial<CanvasState>) => {
     const prod = activeProductRef.current;
@@ -688,6 +692,12 @@ function CanvasInner() {
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [showBulkReviewer]);
+  useEffect(() => {
+    if (!showBulkColor) return;
+    const h = (e: MouseEvent) => { if (bulkColorRef.current && !bulkColorRef.current.contains(e.target as HTMLElement)) setShowBulkColor(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [showBulkColor]);
 
   // Assign a single owner to all selected canvas tasks in one bulk request
   async function bulkCanvasAssignOwner(userId: string) {
@@ -735,6 +745,23 @@ function CanvasInner() {
       showToast(`Updated status for ${count} tasks`, 'success');
     } catch {
       showToast('Failed to update status - please try again', 'error');
+    } finally {
+      setBulkAssigning(false);
+    }
+  }
+
+  // Set (or clear, with color: null) the color tag on all selected canvas tasks in one bulk request
+  async function bulkCanvasSetColor(color: string | null) {
+    if (!activeProduct) return;
+    setBulkAssigning(true);
+    setShowBulkColor(false);
+    const count = selectedNodeIds.length;
+    try {
+      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, { color });
+      await refreshTasks();
+      showToast(`Updated color for ${count} tasks`, 'success');
+    } catch {
+      showToast('Failed to update color - please try again', 'error');
     } finally {
       setBulkAssigning(false);
     }
@@ -1610,6 +1637,54 @@ function CanvasInner() {
                           <span>{s.label}</span>
                         </button>
                       ))}
+                    </div>
+                  )}
+                </div>
+                <div ref={bulkColorRef} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowBulkColor((v) => !v)}
+                    disabled={bulkAssigning}
+                    className="font-medium transition-opacity"
+                    style={{ color: 'var(--brand)', opacity: bulkAssigning ? 0.5 : 1 }}
+                  >
+                    Set color ▾
+                  </button>
+                  {showBulkColor && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: 0,
+                        marginBottom: 6,
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                        minWidth: 180,
+                        zIndex: 50,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div className="flex items-center gap-2 flex-wrap p-2.5">
+                        {bulkEnabledColors.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => bulkCanvasSetColor(c)}
+                            title={bulkColorLegend[c] || c}
+                            className="w-6 h-6 rounded-full transition-transform"
+                            style={{ background: c }}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => bulkCanvasSetColor(null)}
+                        className="w-full text-left px-3 py-2 text-xs"
+                        style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        Clear color
+                      </button>
                     </div>
                   )}
                 </div>

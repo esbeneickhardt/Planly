@@ -24,12 +24,15 @@ import { useAuth } from '../../context/AuthContext';
 import { useColorLegend, PRESET_COLORS } from '../../hooks/useColorLegend';
 import { useProductMembers } from '../../hooks/useProductMembers';
 import { useSprints } from '../../hooks/useSprints';
+import { computePrimaryMilestones, assignMilestoneColors } from '../../utils/milestones';
 import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
-import KanbanColumn from './KanbanColumn';
+import KanbanColumn, { UNASSIGNED_CLUSTER } from './KanbanColumn';
 import KanbanCard from './KanbanCard';
 import KanbanMobileList from './KanbanMobileList';
 import KanbanFiltersBar from './KanbanFiltersBar';
 import KanbanCompactList from './KanbanCompactList';
+import KanbanMilestoneBanner from './KanbanMilestoneBanner';
+import type { MilestoneOption } from './KanbanMilestoneFilter';
 import TaskDetailPanel from '../common/TaskDetailPanel';
 import Modal from '../common/Modal';
 
@@ -46,6 +49,7 @@ export default function KanbanBoard() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumn, setActiveColumn] = useState<KanbanColumnType | null>(null);
+  const [activeMilestoneHeader, setActiveMilestoneHeader] = useState<MilestoneOption | null>(null);
   const [toast, setToast] = useState('');
   const [showNewTask, setShowNewTask] = useState(false);
   const [showNewColumn, setShowNewColumn] = useState(false);
@@ -59,12 +63,24 @@ export default function KanbanBoard() {
   const [ownerFilters, setOwnerFilters] = useState<Set<string>>(new Set());
   const [colorFilters, setColorFilters] = useState<Set<string>>(new Set());
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
+  const [milestoneFilter, setMilestoneFilter] = useState<string | null>(null);
+  // Group cards into collapsible per-milestone sections within each column, instead of filtering
+  // down to one milestone at a time - persisted per product like the other board display toggles.
+  const [groupByMilestone, setGroupByMilestone] = useState(
+    () => localStorage.getItem('planly_kanban_group_by_milestone') === '1',
+  );
+  const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(new Set());
+  // Manually-dragged milestone order (drives cluster order), persisted per-product - mirrors Gantt's
+  // milestone order, but kept separate since the two views' section granularity differs.
+  const [milestoneOrder, setMilestoneOrder] = useState<string[]>([]);
   const [mineOnly, setMineOnly] = useState(false);
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const lastInitializedProductId = useRef<string | null>(null);
   const users = useProductMembers(activeProduct?.teamId);
   const { sprints, refresh: refreshSprints } = useSprints(activeProduct?.id);
   const [compact, setCompact] = useState(() => localStorage.getItem('planly_kanban_compact') === '1');
+  // Dense card display: title only, no owner/reviewer/milestone/subtasks (board view only)
+  const [simpleMode, setSimpleMode] = useState(() => localStorage.getItem('planly_kanban_simple') === '1');
   const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>(() => {
     try {
       const s = localStorage.getItem('planly_kanban_sort');
@@ -103,6 +119,57 @@ export default function KanbanBoard() {
       if (val !== null) localStorage.setItem(`planly_sprint_${activeProduct.id}`, val);
       else localStorage.removeItem(`planly_sprint_${activeProduct.id}`);
     }
+  }
+
+  function setMilestoneFilterAndSave(val: string | null) {
+    setMilestoneFilter(val);
+    if (activeProduct) {
+      if (val !== null) localStorage.setItem(`planly_kanban_milestone_${activeProduct.id}`, val);
+      else localStorage.removeItem(`planly_kanban_milestone_${activeProduct.id}`);
+    }
+  }
+
+  // Restore the milestone filter per product (no auto-select - unlike sprint, there's no "current" milestone)
+  useEffect(() => {
+    if (!activeProduct) return;
+    setMilestoneFilter(localStorage.getItem(`planly_kanban_milestone_${activeProduct.id}`));
+  }, [activeProduct?.id]);
+
+  function toggleGroupByMilestone() {
+    const next = !groupByMilestone;
+    setGroupByMilestone(next);
+    localStorage.setItem('planly_kanban_group_by_milestone', next ? '1' : '0');
+    // Grouping already shows every milestone at once - clear the single-milestone filter so it
+    // doesn't linger, hidden, and cause confusion if the user switches back to filter mode.
+    if (next) setMilestoneFilterAndSave(null);
+  }
+
+  function toggleMilestoneCollapsed(id: string) {
+    setCollapsedMilestones((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Restore the manually-dragged milestone order per product
+  useEffect(() => {
+    if (!activeProduct) return;
+    try {
+      const saved = localStorage.getItem(`planly-kanban-milestoneOrder-${activeProduct.id}`);
+      setMilestoneOrder(saved ? (JSON.parse(saved) as string[]) : []);
+    } catch {
+      setMilestoneOrder([]);
+    }
+  }, [activeProduct?.id]);
+
+  function saveMilestoneOrder(ids: string[]) {
+    setMilestoneOrder(ids);
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly-kanban-milestoneOrder-${activeProduct.id}`, JSON.stringify(ids));
+    } catch {}
   }
 
   // Board pan: pointer drag on empty board area scrolls horizontally
@@ -157,8 +224,70 @@ export default function KanbanBoard() {
   }, [tasks]);
 
   const visibleStatusKeys = useMemo(() => new Set(columns.map((c) => c.statusKey)), [columns]);
+  const doneStatusKeys = useMemo(() => new Set(columns.filter((c) => c.isDone).map((c) => c.statusKey)), [columns]);
 
-  const hasFilters = ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null || mineOnly;
+  // For each non-milestone task, which milestone it feeds into, and a stable distinct color per
+  // milestone - both used for the milestone filter dropdown and the per-card milestone indicator.
+  const primaryMilestones = useMemo(() => computePrimaryMilestones(tasks), [tasks]);
+  const milestoneColors = useMemo(() => assignMilestoneColors(tasks), [tasks]);
+  // Completed milestones are sorted after active ones, so Prev/Next and the dropdown both surface
+  // active milestones first - "done" ones are still reachable, just de-prioritized.
+  const milestoneOptions: MilestoneOption[] = useMemo(() => {
+    const countByMilestoneId = new Map<string, number>();
+    for (const t of tasks) {
+      if (t.deadline) continue;
+      const m = primaryMilestones.get(t.id);
+      if (m) countByMilestoneId.set(m.id, (countByMilestoneId.get(m.id) ?? 0) + 1);
+    }
+    return tasks
+      .filter((t) => !!t.deadline)
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        color: milestoneColors.get(m.id) ?? '#64748b',
+        count: countByMilestoneId.get(m.id) ?? 0,
+        done: doneStatusKeys.has(m.status),
+      }))
+      .sort((a, b) => (a.done !== b.done ? (a.done ? 1 : -1) : a.name.localeCompare(b.name)));
+  }, [tasks, primaryMilestones, milestoneColors, doneStatusKeys]);
+
+  const milestoneMeta = useMemo(() => new Map(milestoneOptions.map((m) => [m.id, m])), [milestoneOptions]);
+
+  // Applies the user's manually-dragged order (if any); milestones not yet in the stored order
+  // (created since the user last reordered) are appended at the end in the default active-first order.
+  const orderedMilestoneIds = useMemo(() => {
+    const ids = milestoneOptions.map((m) => m.id);
+    if (milestoneOrder.length === 0) return ids;
+    const known = new Set(ids);
+    const ordered = milestoneOrder.filter((id) => known.has(id));
+    const missing = ids.filter((id) => !milestoneOrder.includes(id));
+    return [...ordered, ...missing];
+  }, [milestoneOptions, milestoneOrder]);
+
+  // Every milestone (plus the "no milestone" bucket) starts collapsed whenever grouping is turned
+  // on or the product changes - browsing a fresh grouped board fully expanded is just noise.
+  useEffect(() => {
+    if (!groupByMilestone) return;
+    setCollapsedMilestones(new Set([...milestoneOptions.map((m) => m.id), UNASSIGNED_CLUSTER]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupByMilestone, activeProduct?.id]);
+
+  const selectedMilestoneIndex = milestoneFilter ? milestoneOptions.findIndex((m) => m.id === milestoneFilter) : -1;
+  const selectedMilestoneOption = selectedMilestoneIndex !== -1 ? milestoneOptions[selectedMilestoneIndex]! : null;
+
+  function stepMilestone(delta: number) {
+    if (milestoneOptions.length === 0) return;
+    const nextIdx =
+      selectedMilestoneIndex === -1
+        ? delta > 0
+          ? 0
+          : milestoneOptions.length - 1
+        : (selectedMilestoneIndex + delta + milestoneOptions.length) % milestoneOptions.length;
+    setMilestoneFilterAndSave(milestoneOptions[nextIdx]!.id);
+  }
+
+  const hasFilters =
+    ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null || milestoneFilter !== null || mineOnly;
 
   const filteredTasks = useMemo(() => {
     const sprintTaskIds = sprintFilter ? new Set(sprints.find((s) => s.id === sprintFilter)?.taskIds ?? []) : null;
@@ -168,9 +297,22 @@ export default function KanbanBoard() {
       if (ownerFilters.size > 0 && (!t.ownerId || !ownerFilters.has(t.ownerId))) return false;
       if (colorFilters.size > 0 && (!t.color || !colorFilters.has(t.color))) return false;
       if (sprintFilter && !sprintTaskIds?.has(t.id)) return false;
+      if (milestoneFilter && t.id !== milestoneFilter && primaryMilestones.get(t.id)?.id !== milestoneFilter)
+        return false;
       return true;
     });
-  }, [tasks, visibleStatusKeys, mineOnly, ownerFilters, colorFilters, sprintFilter, sprints, user?.id]);
+  }, [
+    tasks,
+    visibleStatusKeys,
+    mineOnly,
+    ownerFilters,
+    colorFilters,
+    sprintFilter,
+    sprints,
+    user?.id,
+    milestoneFilter,
+    primaryMilestones,
+  ]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -231,6 +373,9 @@ export default function KanbanBoard() {
     const type = event.active.data.current?.type;
     if (type === 'column') {
       setActiveColumn(columns.find((c) => c.id === event.active.id) ?? null);
+    } else if (type === 'milestone-header') {
+      const milestoneId = event.active.data.current?.milestoneId as string;
+      setActiveMilestoneHeader(milestoneMeta.get(milestoneId) ?? null);
     } else {
       setActiveTask(tasks.find((t) => t.id === event.active.id) ?? null);
     }
@@ -240,9 +385,25 @@ export default function KanbanBoard() {
     const { active, over } = event;
     setActiveTask(null);
     setActiveColumn(null);
-    if (!over || !activeProduct || readOnly) return;
+    setActiveMilestoneHeader(null);
+    if (!over || !activeProduct) return;
 
     const activeType = active.data.current?.type;
+
+    // ── Milestone header reorder (shared across all columns; a display preference, so it isn't
+    // gated behind write permission the way task/column mutations below are) ──
+    if (activeType === 'milestone-header') {
+      const activeMilestoneId = active.data.current?.milestoneId as string;
+      const overMilestoneId = over.data.current?.milestoneId as string | undefined;
+      if (!overMilestoneId || activeMilestoneId === overMilestoneId) return;
+      const oldIdx = orderedMilestoneIds.indexOf(activeMilestoneId);
+      const newIdx = orderedMilestoneIds.indexOf(overMilestoneId);
+      if (oldIdx === -1 || newIdx === -1) return;
+      saveMilestoneOrder(arrayMove(orderedMilestoneIds, oldIdx, newIdx));
+      return;
+    }
+
+    if (readOnly) return;
 
     // ── Column reorder ──
     if (activeType === 'column') {
@@ -451,12 +612,23 @@ export default function KanbanBoard() {
         sprints={sprints}
         sprintFilter={sprintFilter}
         onSprintChange={setSprintFilterAndSave}
+        milestones={milestoneOptions}
+        milestoneFilter={milestoneFilter}
+        onMilestoneChange={setMilestoneFilterAndSave}
+        groupByMilestone={groupByMilestone}
+        onToggleGroupByMilestone={toggleGroupByMilestone}
         toast={toast}
         compact={compact}
         onToggleCompact={() => {
           const next = !compact;
           setCompact(next);
           localStorage.setItem('planly_kanban_compact', next ? '1' : '0');
+        }}
+        simpleMode={simpleMode}
+        onToggleSimpleMode={() => {
+          const next = !simpleMode;
+          setSimpleMode(next);
+          localStorage.setItem('planly_kanban_simple', next ? '1' : '0');
         }}
         bgImage={bgImage}
         showBgPicker={showBgPicker}
@@ -467,9 +639,22 @@ export default function KanbanBoard() {
           setOwnerFilters(new Set());
           setColorFilters(new Set());
           setSprintFilterAndSave(null);
+          setMilestoneFilterAndSave(null);
           setMineOnly(false);
         }}
       />
+
+      {/* Milestone "fold-out board" banner - colored strip + prev/next flip, shown while filtered */}
+      {selectedMilestoneOption && (
+        <KanbanMilestoneBanner
+          milestone={selectedMilestoneOption}
+          index={selectedMilestoneIndex}
+          total={milestoneOptions.length}
+          onPrev={() => stepMilestone(-1)}
+          onNext={() => stepMilestone(1)}
+          onClear={() => setMilestoneFilterAndSave(null)}
+        />
+      )}
 
       {/* Mobile scrollable task list - hidden on md+ where the full board renders */}
       <KanbanMobileList
@@ -537,6 +722,14 @@ export default function KanbanBoard() {
                         onRename={handleRenameColumn}
                         onDeleteRequest={setPendingDeleteCol}
                         onAddTask={readOnly ? undefined : (name) => handleQuickAddTask(col.statusKey, name)}
+                        primaryMilestones={primaryMilestones}
+                        milestoneColors={milestoneColors}
+                        simpleMode={simpleMode}
+                        groupByMilestone={groupByMilestone}
+                        milestoneOrderIds={orderedMilestoneIds}
+                        milestoneMeta={milestoneMeta}
+                        collapsedMilestones={collapsedMilestones}
+                        onToggleMilestoneCollapse={toggleMilestoneCollapsed}
                       />
                     </div>
                   ))}
@@ -559,7 +752,19 @@ export default function KanbanBoard() {
             <DragOverlay dropAnimation={null}>
               {activeTask ? (
                 <div style={{ transform: 'rotate(2deg)', width: 288 }}>
-                  <KanbanCard task={activeTask} onOpenDetail={() => {}} isOverlay />
+                  <KanbanCard
+                    task={activeTask}
+                    onOpenDetail={() => {}}
+                    isOverlay
+                    primaryMilestone={primaryMilestones.get(activeTask.id)}
+                    milestoneColor={
+                      activeTask.deadline
+                        ? milestoneColors.get(activeTask.id)
+                        : primaryMilestones.get(activeTask.id)
+                          ? milestoneColors.get(primaryMilestones.get(activeTask.id)!.id)
+                          : undefined
+                    }
+                  />
                 </div>
               ) : activeColumn ? (
                 <div style={{ opacity: 0.9, width: 288 }}>
@@ -571,6 +776,19 @@ export default function KanbanBoard() {
                     onDeleteRequest={() => {}}
                     isOverlay
                   />
+                </div>
+              ) : activeMilestoneHeader ? (
+                <div
+                  className="text-[11px] font-semibold px-2 py-1 rounded flex items-center gap-1.5"
+                  style={{
+                    width: 260,
+                    background: `${activeMilestoneHeader.color}22`,
+                    color: activeMilestoneHeader.color,
+                    border: `1px solid ${activeMilestoneHeader.color}`,
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: activeMilestoneHeader.color }} />
+                  {activeMilestoneHeader.name}
                 </div>
               ) : null}
             </DragOverlay>
