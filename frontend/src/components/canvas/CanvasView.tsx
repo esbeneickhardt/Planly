@@ -604,18 +604,16 @@ function CanvasInner() {
         .filter(Boolean) as DeletedSnapshot;
       setUndoStack((s) => [...s.slice(-9), snapshot]);
 
-      for (const node of taskNodes) {
-        try {
-          await api.tasks.delete(activeProduct.id, node.id);
-        } catch (err) {
-          showToast((err as Error).message, 'error');
-        }
+      try {
+        await api.tasks.bulkDelete(activeProduct.id, taskNodes.map((n) => n.id));
+        await refreshTasks();
+        showToast(
+          `${taskNodes.length} task${taskNodes.length > 1 ? 's' : ''} deleted — press Ctrl+Z to undo`,
+          'info',
+        );
+      } catch (err) {
+        showToast((err as Error).message, 'error');
       }
-      await refreshTasks();
-      showToast(
-        `${taskNodes.length} task${taskNodes.length > 1 ? 's' : ''} deleted — press Ctrl+Z to undo`,
-        'info',
-      );
     },
     [activeProduct, refreshTasks, showToast, canWriteCanvas],
   );
@@ -665,8 +663,11 @@ function CanvasInner() {
   useEffect(() => { setCanvasMembers([]); }, [activeProduct?.id]);
   useEffect(() => {
     if (selectedNodeIds.length < 2 || !activeProduct || canvasMembers.length > 0) return;
-    api.products.getAbout(activeProduct.id).then((d) => setCanvasMembers(d.members));
-  }, [selectedNodeIds.length, activeProduct, canvasMembers.length]);
+    api.products
+      .getAbout(activeProduct.id)
+      .then((d) => setCanvasMembers(d.members))
+      .catch(() => showToast('Failed to load members - please try again', 'error'));
+  }, [selectedNodeIds.length, activeProduct, canvasMembers.length, showToast]);
 
   // Close bulk dropdowns on outside click (cast via HTMLElement to avoid collision with ReactFlow's Node import)
   useEffect(() => {
@@ -688,43 +689,52 @@ function CanvasInner() {
     return () => document.removeEventListener('mousedown', h);
   }, [showBulkReviewer]);
 
-  // Assign a single owner to all selected canvas tasks
+  // Assign a single owner to all selected canvas tasks in one bulk request
   async function bulkCanvasAssignOwner(userId: string) {
     if (!activeProduct) return;
     setBulkAssigning(true);
     setShowBulkOwner(false);
+    const count = selectedNodeIds.length;
     try {
-      await Promise.all(selectedNodeIds.map((id) => api.tasks.update(activeProduct.id, id, { ownerId: userId })));
+      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, { ownerId: userId });
       await refreshTasks();
-      showToast(`Assigned owner to ${selectedNodeIds.length} tasks`, 'success');
+      showToast(`Assigned owner to ${count} tasks`, 'success');
+    } catch {
+      showToast('Failed to assign owner - please try again', 'error');
     } finally {
       setBulkAssigning(false);
     }
   }
 
-  // Assign a single reviewer to all selected canvas tasks
+  // Assign a single reviewer to all selected canvas tasks in one bulk request
   async function bulkCanvasAssignReviewer(userId: string) {
     if (!activeProduct) return;
     setBulkAssigning(true);
     setShowBulkReviewer(false);
+    const count = selectedNodeIds.length;
     try {
-      await Promise.all(selectedNodeIds.map((id) => api.tasks.update(activeProduct.id, id, { reviewerId: userId })));
+      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, { reviewerId: userId });
       await refreshTasks();
-      showToast(`Assigned reviewer to ${selectedNodeIds.length} tasks`, 'success');
+      showToast(`Assigned reviewer to ${count} tasks`, 'success');
+    } catch {
+      showToast('Failed to assign reviewer - please try again', 'error');
     } finally {
       setBulkAssigning(false);
     }
   }
 
-  // Set status on all selected canvas tasks
+  // Set status on all selected canvas tasks in one bulk request
   async function bulkCanvasSetStatus(status: string) {
     if (!activeProduct) return;
     setBulkAssigning(true);
     setShowBulkStatus(false);
+    const count = selectedNodeIds.length;
     try {
-      await Promise.all(selectedNodeIds.map((id) => api.tasks.update(activeProduct.id, id, { status: status as Task['status'] })));
+      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, { status: status as Task['status'] });
       await refreshTasks();
-      showToast(`Updated status for ${selectedNodeIds.length} tasks`, 'success');
+      showToast(`Updated status for ${count} tasks`, 'success');
+    } catch {
+      showToast('Failed to update status - please try again', 'error');
     } finally {
       setBulkAssigning(false);
     }
