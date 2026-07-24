@@ -106,9 +106,11 @@ export function wsConnectionCount(): number {
   return total;
 }
 
-// Public broadcast entry point - routes via Redis when available, local otherwise
-export function broadcast(productId: string, event: string, data?: unknown) {
-  const message = JSON.stringify({ event, data, ts: Date.now() });
+// Public broadcast entry point - routes via Redis when available, local otherwise.
+// Pass fromApi=true when the triggering request was authenticated via a PAT or App Registration
+// (tokenVersion===undefined) so the frontend can debounce bulk API-driven updates.
+export function broadcast(productId: string, event: string, data?: unknown, fromApi = false) {
+  const message = JSON.stringify({ event, data, ts: Date.now(), fromApi });
   if (publisher) {
     publisher.publish(`${CHANNEL_PREFIX}${productId}`, message).catch(() => {});
   } else {

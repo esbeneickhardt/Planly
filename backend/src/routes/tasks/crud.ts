@@ -136,7 +136,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     dispatchWebhooks(productId, 'task.created', decryptedTask).catch((err) => {
       logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
     });
-    broadcast(productId, 'task.created', decryptedTask);
+    broadcast(productId, 'task.created', decryptedTask, req.user.tokenVersion === undefined);
     logActivity({
       productId,
       actorId: req.user.userId,
@@ -240,7 +240,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     dispatchWebhooks(productId, eventName, decryptedUpdated).catch((err) => {
       logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
     });
-    broadcast(productId, eventName, decryptedUpdated);
+    broadcast(productId, eventName, decryptedUpdated, req.user.tokenVersion === undefined);
     logActivity({
       productId,
       actorId: req.user.userId,
@@ -282,7 +282,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
       dispatchWebhooks(productId, 'task.deleted', { id: taskId, name: task.name }).catch((err) => {
         logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
       });
-      broadcast(productId, 'task.deleted', { id: taskId });
+      broadcast(productId, 'task.deleted', { id: taskId }, req.user.tokenVersion === undefined);
       logActivity({
         productId,
         actorId: req.user.userId,
