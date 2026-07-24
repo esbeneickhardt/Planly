@@ -13,6 +13,7 @@ export interface RealtimeEvent {
   event: string;
   data?: unknown;
   ts?: number;
+  fromApi?: boolean;
 }
 
 interface ProductContextValue {
@@ -102,24 +103,42 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Realtime: refresh task list on task events and on reconnect (to catch up on missed broadcasts)
+  // Debounced refreshTasks: rapid-fire WS events (e.g. bulk imports) collapse into one fetch.
+  // ws.reconnected skips the debounce so we catch up on missed events immediately.
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshTasksDebounced = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      refreshTasks();
+      debounceTimerRef.current = null;
+    }, 300);
+  }, [refreshTasks]);
+
+  // Realtime: refresh task list on task events and on reconnect (to catch up on missed broadcasts).
+  // API-sourced events (fromApi=true: PAT / App Registration) are debounced so bulk imports don't
+  // flood the browser with concurrent GET requests. Interactive browser events refresh immediately.
   useRealtimeUpdates(
     activeProduct?.id,
     useCallback(
       (e) => {
-        if (
+        if (e.event === 'ws.reconnected') {
+          refreshTasks();
+        } else if (
           e.event === 'task.created' ||
           e.event === 'task.updated' ||
           e.event === 'task.deleted' ||
           e.event === 'task.status_changed' ||
-          e.event === 'task.assigned' ||
-          e.event === 'ws.reconnected'
+          e.event === 'task.assigned'
         ) {
-          refreshTasks();
+          if (e.fromApi) {
+            refreshTasksDebounced();
+          } else {
+            refreshTasks();
+          }
         }
         listenersRef.current.forEach((fn) => fn(e));
       },
-      [refreshTasks],
+      [refreshTasks, refreshTasksDebounced],
     ),
   );
 

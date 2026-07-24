@@ -92,6 +92,18 @@ function CanvasInner() {
 
   const [layoutReady, setLayoutReady] = useState(false);
   const [connectionsVersion, setConnectionsVersion] = useState(0);
+  // Undo stack for accidental canvas deletions (last 10 ops)
+  type DeletedSnapshot = { name: string; description: string | null; status: string; ownerId: string | null; color: string | null; deadline: string | null; position: { x: number; y: number } }[];
+  const [undoStack, setUndoStack] = useState<DeletedSnapshot[]>([]);
+  // IDs of task nodes currently selected via Shift-click multi-select
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  // Members cached for the bulk-assign dropdowns
+  const [canvasMembers, setCanvasMembers] = useState<{ userId: string; user: { id: string; username: string; realName: string | null; avatarEmoji: string | null } }[]>([]);
+  const [showBulkOwner, setShowBulkOwner] = useState(false);
+  const [showBulkReviewer, setShowBulkReviewer] = useState(false);
+  const [showBulkStatus, setShowBulkStatus] = useState(false);
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+
   const initializedRef = useRef<string | null>(null);
   const productConnectionsRef = useRef<Set<string>>(new Set());
   const activeProductRef = useRef(activeProduct);
@@ -102,6 +114,14 @@ function CanvasInner() {
     filter: null,
     toggle: async () => {},
   });
+  // Always-current tasks ref so onNodesDelete captures latest task data without stale closure
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  // Stable ref so the Ctrl+Z keydown handler always calls the latest undoDelete without re-registering
+  const undoRef = useRef<() => void>(() => {});
+  const bulkOwnerRef = useRef<HTMLDivElement>(null);
+  const bulkReviewerRef = useRef<HTMLDivElement>(null);
+  const bulkStatusRef = useRef<HTMLDivElement>(null);
 
   const save = (p: Partial<CanvasState>) => {
     const prod = activeProductRef.current;
@@ -540,9 +560,13 @@ function CanvasInner() {
     if (!activeProduct || !canWriteCanvas) return;
     setCtxMenu(null);
     try {
-      await api.tasks.update(activeProduct.id, taskId, { status });
+      // When right-clicking a task that's part of a multi-selection, apply to all selected tasks
+      const targets = selectedNodeIds.length >= 2 && selectedNodeIds.includes(taskId)
+        ? selectedNodeIds
+        : [taskId];
+      await Promise.all(targets.map((id) => api.tasks.update(activeProduct.id, id, { status })));
       await refreshTasks();
-      showToast('Status updated', 'success');
+      showToast(targets.length > 1 ? `Updated ${targets.length} tasks` : 'Status updated', 'success');
     } catch (err) {
       showToast((err as Error).message, 'error');
     }
@@ -568,6 +592,18 @@ function CanvasInner() {
     async (deleted: Node[]) => {
       if (!activeProduct || !canWriteCanvas) return;
       const taskNodes = deleted.filter((n) => !n.id.startsWith('product-'));
+      if (taskNodes.length === 0) return;
+
+      // Snapshot full task data for undo before the API calls
+      const snapshot: DeletedSnapshot = taskNodes
+        .map((n) => {
+          const t = tasksRef.current.find((t) => t.id === n.id);
+          if (!t) return null;
+          return { name: t.name, description: t.description, status: t.status, ownerId: t.ownerId, color: t.color, deadline: t.deadline, position: n.position };
+        })
+        .filter(Boolean) as DeletedSnapshot;
+      setUndoStack((s) => [...s.slice(-9), snapshot]);
+
       for (const node of taskNodes) {
         try {
           await api.tasks.delete(activeProduct.id, node.id);
@@ -575,10 +611,124 @@ function CanvasInner() {
           showToast((err as Error).message, 'error');
         }
       }
-      if (taskNodes.length > 0) await refreshTasks();
+      await refreshTasks();
+      showToast(
+        `${taskNodes.length} task${taskNodes.length > 1 ? 's' : ''} deleted — press Ctrl+Z to undo`,
+        'info',
+      );
     },
     [activeProduct, refreshTasks, showToast, canWriteCanvas],
   );
+
+  // Recreate the last batch of deleted tasks (Ctrl+Z)
+  const undoDelete = useCallback(async () => {
+    const snapshot = undoStack[undoStack.length - 1];
+    if (!snapshot || !activeProduct) return;
+    setUndoStack((s) => s.slice(0, -1));
+    for (const t of snapshot) {
+      await api.tasks.create(activeProduct.id, {
+        name: t.name,
+        description: t.description ?? undefined,
+        status: t.status,
+        ownerId: t.ownerId ?? undefined,
+        color: t.color ?? undefined,
+        deadline: t.deadline ?? undefined,
+        canvasX: t.position.x,
+        canvasY: t.position.y,
+      });
+    }
+    await refreshTasks();
+    showToast(`Restored ${snapshot.length} task${snapshot.length > 1 ? 's' : ''}`, 'success');
+  }, [undoStack, activeProduct, refreshTasks, showToast]);
+
+  undoRef.current = undoDelete;
+
+  // Ctrl+Z — only fires when focus is outside an input/textarea
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey)) return;
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+      undoRef.current();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  // Track multi-selected task nodes for the bulk action bar
+  const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
+    setSelectedNodeIds(sel.filter((n) => !n.id.startsWith('product-')).map((n) => n.id));
+  }, []);
+
+  // Fetch members once when the bulk bar first appears; reset when project changes
+  useEffect(() => { setCanvasMembers([]); }, [activeProduct?.id]);
+  useEffect(() => {
+    if (selectedNodeIds.length < 2 || !activeProduct || canvasMembers.length > 0) return;
+    api.products.getAbout(activeProduct.id).then((d) => setCanvasMembers(d.members));
+  }, [selectedNodeIds.length, activeProduct, canvasMembers.length]);
+
+  // Close bulk dropdowns on outside click (cast via HTMLElement to avoid collision with ReactFlow's Node import)
+  useEffect(() => {
+    if (!showBulkOwner) return;
+    const h = (e: MouseEvent) => { if (bulkOwnerRef.current && !bulkOwnerRef.current.contains(e.target as HTMLElement)) setShowBulkOwner(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [showBulkOwner]);
+  useEffect(() => {
+    if (!showBulkStatus) return;
+    const h = (e: MouseEvent) => { if (bulkStatusRef.current && !bulkStatusRef.current.contains(e.target as HTMLElement)) setShowBulkStatus(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [showBulkStatus]);
+  useEffect(() => {
+    if (!showBulkReviewer) return;
+    const h = (e: MouseEvent) => { if (bulkReviewerRef.current && !bulkReviewerRef.current.contains(e.target as HTMLElement)) setShowBulkReviewer(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [showBulkReviewer]);
+
+  // Assign a single owner to all selected canvas tasks
+  async function bulkCanvasAssignOwner(userId: string) {
+    if (!activeProduct) return;
+    setBulkAssigning(true);
+    setShowBulkOwner(false);
+    try {
+      await Promise.all(selectedNodeIds.map((id) => api.tasks.update(activeProduct.id, id, { ownerId: userId })));
+      await refreshTasks();
+      showToast(`Assigned owner to ${selectedNodeIds.length} tasks`, 'success');
+    } finally {
+      setBulkAssigning(false);
+    }
+  }
+
+  // Assign a single reviewer to all selected canvas tasks
+  async function bulkCanvasAssignReviewer(userId: string) {
+    if (!activeProduct) return;
+    setBulkAssigning(true);
+    setShowBulkReviewer(false);
+    try {
+      await Promise.all(selectedNodeIds.map((id) => api.tasks.update(activeProduct.id, id, { reviewerId: userId })));
+      await refreshTasks();
+      showToast(`Assigned reviewer to ${selectedNodeIds.length} tasks`, 'success');
+    } finally {
+      setBulkAssigning(false);
+    }
+  }
+
+  // Set status on all selected canvas tasks
+  async function bulkCanvasSetStatus(status: string) {
+    if (!activeProduct) return;
+    setBulkAssigning(true);
+    setShowBulkStatus(false);
+    try {
+      await Promise.all(selectedNodeIds.map((id) => api.tasks.update(activeProduct.id, id, { status: status as Task['status'] })));
+      await refreshTasks();
+      showToast(`Updated status for ${selectedNodeIds.length} tasks`, 'success');
+    } finally {
+      setBulkAssigning(false);
+    }
+  }
 
   const onNodeDragStop = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -676,6 +826,7 @@ function CanvasInner() {
           deleteKeyCode={canWriteCanvas ? ['Delete', 'Backspace'] : []}
           onEdgesDelete={onEdgesDelete}
           onNodesDelete={onNodesDelete}
+          onSelectionChange={onSelectionChange}
           multiSelectionKeyCode="Shift"
         >
           <Background variant={BackgroundVariant.Dots} color="var(--border)" gap={24} size={1.5} />
@@ -1295,6 +1446,166 @@ function CanvasInner() {
               )}
             </div>
           </Panel>
+
+          {/* ── Bulk action bar — appears when 2+ task nodes are selected ──── */}
+          {selectedNodeIds.length >= 2 && canWriteCanvas && (
+            <Panel position="bottom-center">
+              <div
+                className="flex items-center gap-4 px-4 py-2.5 rounded-xl text-xs"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+                  marginBottom: 12,
+                }}
+              >
+                <span style={{ color: 'var(--text-3)' }}>{selectedNodeIds.length} selected</span>
+
+                {/* Assign owner */}
+                <div ref={bulkOwnerRef} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowBulkOwner((v) => !v)}
+                    disabled={bulkAssigning}
+                    className="font-medium transition-opacity"
+                    style={{ color: 'var(--brand)', opacity: bulkAssigning ? 0.5 : 1 }}
+                  >
+                    {bulkAssigning ? 'Updating…' : 'Assign owner ▾'}
+                  </button>
+                  {showBulkOwner && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: 0,
+                        marginBottom: 6,
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                        minWidth: 180,
+                        zIndex: 50,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {canvasMembers.length === 0 ? (
+                        <div className="px-3 py-2" style={{ color: 'var(--text-3)' }}>Loading…</div>
+                      ) : (
+                        canvasMembers.map((m) => (
+                          <button
+                            key={m.userId}
+                            onClick={() => bulkCanvasAssignOwner(m.userId)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left"
+                            style={{ color: 'var(--text)' }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <span>{m.user.avatarEmoji ?? '👤'}</span>
+                            <span>{m.user.realName ?? m.user.username}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Assign reviewer */}
+                <div ref={bulkReviewerRef} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowBulkReviewer((v) => !v)}
+                    disabled={bulkAssigning}
+                    className="font-medium transition-opacity"
+                    style={{ color: 'var(--brand)', opacity: bulkAssigning ? 0.5 : 1 }}
+                  >
+                    {bulkAssigning ? 'Updating…' : 'Assign reviewer ▾'}
+                  </button>
+                  {showBulkReviewer && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: 0,
+                        marginBottom: 6,
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                        minWidth: 180,
+                        zIndex: 50,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {canvasMembers.length === 0 ? (
+                        <div className="px-3 py-2" style={{ color: 'var(--text-3)' }}>Loading…</div>
+                      ) : (
+                        canvasMembers.map((m) => (
+                          <button
+                            key={m.userId}
+                            onClick={() => bulkCanvasAssignReviewer(m.userId)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left"
+                            style={{ color: 'var(--text)' }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <span>{m.user.avatarEmoji ?? '👤'}</span>
+                            <span>{m.user.realName ?? m.user.username}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Set status */}
+                <div ref={bulkStatusRef} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowBulkStatus((v) => !v)}
+                    disabled={bulkAssigning}
+                    className="font-medium transition-opacity"
+                    style={{ color: 'var(--brand)', opacity: bulkAssigning ? 0.5 : 1 }}
+                  >
+                    Set status ▾
+                  </button>
+                  {showBulkStatus && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: 0,
+                        marginBottom: 6,
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                        minWidth: 160,
+                        zIndex: 50,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {[
+                        { key: 'backlog', label: 'Not started', color: '#64748b' },
+                        { key: 'todo', label: 'To Do', color: '#3b82f6' },
+                        { key: 'in_progress', label: 'In Progress', color: '#f59e0b' },
+                        { key: 'blocked', label: 'Blocked', color: '#ef4444' },
+                        { key: 'done', label: 'Done', color: '#10b981' },
+                      ].map((s) => (
+                        <button
+                          key={s.key}
+                          onClick={() => bulkCanvasSetStatus(s.key)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left"
+                          style={{ color: 'var(--text)' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                          <span>{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Panel>
+          )}
         </ReactFlow>
 
         {/* Empty-state onboarding */}
