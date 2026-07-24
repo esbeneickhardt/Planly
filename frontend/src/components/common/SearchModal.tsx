@@ -178,6 +178,14 @@ const STATUS_LABEL: Record<string, string> = {
   done: 'Done',
   blocked: 'Blocked',
 };
+// Reduces clutter in a large result set: active/queued work surfaces above done tasks
+const STATUS_PRIORITY: Record<string, number> = {
+  todo: 0,
+  in_progress: 1,
+  blocked: 2,
+  backlog: 3,
+  done: 4,
+};
 
 interface Props {
   onClose: () => void;
@@ -186,7 +194,7 @@ interface Props {
 export default function SearchModal({ onClose }: Props) {
   const { activeProduct, products, setActiveProduct, refreshTasks } = useProduct();
   const { openChat } = useChat();
-  const { canRead, canManage } = usePermission();
+  const { canRead, canManage, canWrite } = usePermission();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -405,9 +413,12 @@ export default function SearchModal({ onClose }: Props) {
   }
 
   if (selectedTask) {
+    // Matches the backend's requireTabWrite OR-semantics for task mutations (kanban or backlog write access).
+    const readOnly = !(canWrite('backlog') || canWrite('kanban'));
     return (
       <TaskDetailPanel
         task={selectedTask}
+        readOnly={readOnly}
         onClose={() => {
           setSelectedTask(null);
           onClose();
@@ -415,6 +426,10 @@ export default function SearchModal({ onClose }: Props) {
         onUpdated={async (updated) => {
           setSelectedTask(updated);
           await refreshTasks();
+        }}
+        onDeleted={() => {
+          setSelectedTask(null);
+          onClose();
         }}
       />
     );
@@ -427,8 +442,12 @@ export default function SearchModal({ onClose }: Props) {
   const showMsgs = tab === 'all' || tab === 'messages' ? (results?.messages ?? []) : [];
   const showProjects = tab === 'all' || tab === 'projects' ? matchingProjects : [];
 
-  const milestones = showTasks.filter((t) => !!t.deadline);
-  const regular = showTasks.filter((t) => !t.deadline);
+  // Stable sort: same-status ties keep the backend's relative order (most-recently-updated first)
+  const statusSortedTasks = [...showTasks].sort(
+    (a, b) => (STATUS_PRIORITY[a.status] ?? 99) - (STATUS_PRIORITY[b.status] ?? 99),
+  );
+  const milestones = statusSortedTasks.filter((t) => !!t.deadline);
+  const regular = statusSortedTasks.filter((t) => !t.deadline);
 
   const hasResults =
     showNav.length > 0 ||

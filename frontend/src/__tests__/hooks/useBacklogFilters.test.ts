@@ -2,8 +2,9 @@
  * Unit tests for the useBacklogFilters hook.
  *
  * The hook drives the backlog list view: it filters tasks by status tab,
- * owner (mineOnly), free-text search, and sort order. It also computes
- * per-tab counts, unassignedCount, and overdueCount for the summary badges.
+ * owner (mineOnly), and free-text search. It also computes per-tab counts,
+ * unassignedCount, and overdueCount for the summary badges. Sorting lives in
+ * BacklogPage.tsx/utils/backlogSort.ts instead (see backlogSort.test.ts).
  */
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
@@ -113,59 +114,6 @@ describe('useBacklogFilters', () => {
       result.current.setSearch('zzznomatch');
     });
     expect(result.current.filteredTasks).toHaveLength(0);
-  });
-
-  // Alpha sort uses localeCompare so accented characters sort correctly
-  it('sortKey=alpha sorts tasks alphabetically', () => {
-    const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => {
-      result.current.setStatusTab('all');
-      result.current.setSortKey('alpha');
-    });
-    const names = result.current.filteredTasks.map((t) => t.name);
-    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
-  });
-
-  // Newest-first descending by createdAt; most recently created appears at top of list
-  it('sortKey=newest sorts newest first', () => {
-    const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => {
-      result.current.setStatusTab('all');
-      result.current.setSortKey('newest');
-    });
-    const dates = result.current.filteredTasks.map((t) => new Date(t.createdAt).getTime());
-    expect(dates).toEqual([...dates].sort((a, b) => b - a));
-  });
-
-  // Unassigned sort helps triage: tasks with no owner bubble to the top
-  it('sortKey=unassigned puts tasks without ownerId first', () => {
-    const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => {
-      result.current.setStatusTab('all');
-      result.current.setSortKey('unassigned');
-    });
-    const tasks = result.current.filteredTasks;
-    const firstAssigned = tasks.findIndex((t) => t.ownerId);
-    const lastUnassigned = tasks.map((t) => !t.ownerId).lastIndexOf(true);
-    expect(lastUnassigned).toBeLessThan(firstAssigned === -1 ? tasks.length : firstAssigned);
-  });
-
-  // Tasks without a deadline go to the bottom so upcoming deadlines stay visible
-  it('sortKey=deadline sorts tasks with nearest deadline first, no-deadline last', () => {
-    const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => {
-      result.current.setStatusTab('all');
-      result.current.setSortKey('deadline');
-    });
-    const tasks = result.current.filteredTasks;
-    const withDeadline = tasks.filter((t) => t.deadline);
-    const withoutDeadline = tasks.filter((t) => !t.deadline);
-    // tasks with deadline should come before tasks without
-    if (withDeadline.length > 0 && withoutDeadline.length > 0) {
-      const lastWithIdx = tasks.indexOf(withDeadline[withDeadline.length - 1]!);
-      const firstWithoutIdx = tasks.indexOf(withoutDeadline[0]!);
-      expect(lastWithIdx).toBeLessThan(firstWithoutIdx);
-    }
   });
 
   // unassignedCount drives the badge on the backlog tab; only counts backlog status rows

@@ -90,6 +90,8 @@ export async function accessRequestRoutes(app: FastifyInstance) {
             product.team.members.map((m) => m.userId),
             req.user.userId,
             req.user.username ?? 'Someone',
+            updated.id,
+            note ?? null,
           );
         return reply.send(updated);
       }
@@ -106,11 +108,15 @@ export async function accessRequestRoutes(app: FastifyInstance) {
         product.team.members.map((m) => m.userId),
         req.user.userId,
         req.user.username ?? 'Someone',
+        req2.id,
+        note ?? null,
       );
     reply.status(201).send(req2);
   });
 
-  // Notify all co-owners of a new access request (fire-and-forget via await at call site)
+  // Notify all co-owners of a new access request (fire-and-forget via await at call site).
+  // metadata.requestId lets the notification bell act on this request inline (approve/reject)
+  // without navigating to Settings; note is surfaced in the body so the approver has context.
   async function notifyAdmins(
     productId: string,
     productName: string,
@@ -118,6 +124,8 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     coOwnerIds: string[],
     requesterId: string,
     requesterName: string,
+    requestId: string,
+    note: string | null,
   ) {
     const adminIds = new Set([ownerId, ...coOwnerIds]);
     adminIds.delete(requesterId);
@@ -127,7 +135,9 @@ export async function accessRequestRoutes(app: FastifyInstance) {
           userId,
           type: 'access_requested',
           title: `${requesterName} requested access to "${productName}"`,
+          body: note ?? undefined,
           productId,
+          metadata: { requestId },
         }),
       ),
     );

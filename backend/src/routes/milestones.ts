@@ -24,6 +24,9 @@ export async function milestoneRoutes(app: FastifyInstance) {
       prisma.task.findMany({
         where: { productId, deadline: { not: null }, deletedAt: null },
         include: { owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } } },
+        // Stable tiebreak - without an orderBy, Postgres gives no ordering guarantee, so milestones
+        // sharing a deadline would appear to reorder unpredictably across requests.
+        orderBy: [{ deadline: 'asc' }, { createdAt: 'asc' }],
       }),
     ]);
     if (!product) return reply.status(404).send({ error: 'Not found' });

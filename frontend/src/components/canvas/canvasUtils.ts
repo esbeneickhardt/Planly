@@ -174,21 +174,6 @@ export function runAutoLayout(nodes: Node[], edges: Edge[]): Node[] {
 }
 
 // ─── Graph traversal ──────────────────────────────────────────────────────────
-
-/** BFS over dependsOn links returning all transitive prerequisite IDs of the given task IDs. */
-export function getAncestorIds(taskIds: string[], allTasks: Task[]): Set<string> {
-  const result = new Set<string>();
-  const queue = [...taskIds];
-  while (queue.length) {
-    const id = queue.shift()!;
-    const task = allTasks.find((t) => t.id === id);
-    if (!task) continue;
-    for (const dep of task.dependsOn) {
-      if (!result.has(dep.prerequisiteId)) {
-        result.add(dep.prerequisiteId);
-        queue.push(dep.prerequisiteId);
-      }
-    }
-  }
-  return result;
-}
+// Moved to ../../utils/milestones.ts so non-canvas pages (e.g. Backlog) can reuse it too;
+// re-exported here so existing imports from canvasUtils keep working unchanged.
+export { getAncestorIds } from '../../utils/milestones';

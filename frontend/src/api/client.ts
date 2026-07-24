@@ -344,8 +344,7 @@ export const api = {
 
   teams: {
     list: () => request<Team[]>('/api/teams'),
-    create: (data: { name: string; memberIds?: string[] }) =>
-      request<Team>('/api/teams', { method: 'POST', body: json(data) }),
+    create: (data: { name: string }) => request<Team>('/api/teams', { method: 'POST', body: json(data) }),
     get: (id: string) => request<Team>(`/api/teams/${id}`),
     update: (id: string, data: { name?: string }) =>
       request<Team>(`/api/teams/${id}`, { method: 'PATCH', body: json(data) }),
@@ -420,9 +419,10 @@ export const api = {
       productId: string,
       taskIds: string[],
       data: Partial<
-        Pick<Task, 'name' | 'description' | 'ownerId' | 'color' | 'deadline'> & {
+        Pick<Task, 'name' | 'description' | 'ownerId' | 'deadline'> & {
           status: Status;
           reviewerId: string | null;
+          color: string | null;
         }
       >,
     ) =>
