@@ -103,8 +103,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Debounced refreshTasks: rapid-fire WS events (e.g. bulk imports) collapse into one fetch.
-  // ws.reconnected skips the debounce so we catch up on missed events immediately.
+  // Debounced refreshTasks for API-sourced events (300ms): bulk imports collapse into one fetch.
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTasksDebounced = useCallback(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -114,9 +113,22 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }, 300);
   }, [refreshTasks]);
 
+  // Debounced refreshTasks for browser-sourced events (80ms): fast enough to feel instant for a
+  // single action, but collapses parallel bulk-update WS events into one fetch so the UI doesn't
+  // freeze when the user bulk-assigns status/owner across many tasks at once.
+  const debounceQuickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshTasksQuick = useCallback(() => {
+    if (debounceQuickTimerRef.current) clearTimeout(debounceQuickTimerRef.current);
+    debounceQuickTimerRef.current = setTimeout(() => {
+      refreshTasks();
+      debounceQuickTimerRef.current = null;
+    }, 80);
+  }, [refreshTasks]);
+
   // Realtime: refresh task list on task events and on reconnect (to catch up on missed broadcasts).
-  // API-sourced events (fromApi=true: PAT / App Registration) are debounced so bulk imports don't
-  // flood the browser with concurrent GET requests. Interactive browser events refresh immediately.
+  // Both paths are debounced — API events at 300ms (import floods), browser events at 80ms
+  // (single actions still feel instant; bulk parallel updates collapse into one fetch).
+  // ws.reconnected always refreshes immediately to catch up on missed broadcasts.
   useRealtimeUpdates(
     activeProduct?.id,
     useCallback(
@@ -133,12 +145,12 @@ export function ProductProvider({ children }: { children: ReactNode }) {
           if (e.fromApi) {
             refreshTasksDebounced();
           } else {
-            refreshTasks();
+            refreshTasksQuick();
           }
         }
         listenersRef.current.forEach((fn) => fn(e));
       },
-      [refreshTasks, refreshTasksDebounced],
+      [refreshTasks, refreshTasksDebounced, refreshTasksQuick],
     ),
   );
 
