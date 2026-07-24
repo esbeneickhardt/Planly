@@ -14,11 +14,20 @@ interface Props {
   task: Task;
   onOpenDetail: (task: Task) => void;
   isOverlay?: boolean;
+  /** The milestone this task feeds into, if any (never set for a task that's itself a milestone) */
+  primaryMilestone?: Task;
+  /** This task's own color if it's a milestone, or the color of the milestone it feeds into */
+  milestoneColor?: string;
+  /** Dense display: title only, everything else (owner, reviewer, milestone, subtasks) hidden */
+  simpleMode?: boolean;
 }
 
 function CardContent({
   task,
   onOpenDetail,
+  primaryMilestone,
+  milestoneColor,
+  simpleMode,
   expanded,
   setExpanded,
   addingSubtask,
@@ -30,6 +39,9 @@ function CardContent({
 }: {
   task: Task;
   onOpenDetail: (task: Task) => void;
+  primaryMilestone?: Task;
+  milestoneColor?: string;
+  simpleMode?: boolean;
   expanded: boolean;
   setExpanded: (v: boolean) => void;
   addingSubtask: boolean;
@@ -46,44 +58,64 @@ function CardContent({
     <div className="p-3">
       <button
         onClick={() => onOpenDetail(task)}
-        className="text-sm font-medium text-left w-full leading-snug hover:underline mb-1.5"
+        className={`text-sm font-medium text-left w-full leading-snug hover:underline ${simpleMode ? '' : 'mb-1.5'}`}
         style={{ color: 'var(--text)', wordBreak: 'break-word', whiteSpace: 'normal' }}
       >
         {task.name}
       </button>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {task.owner && (
-          <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
-            <span>{task.owner.avatarEmoji ?? '👤'}</span>
-            <span className="max-w-[90px] truncate">{displayName(task.owner)}</span>
-          </span>
-        )}
+      {!simpleMode && (
+        <>
+          <div className="flex items-center gap-2 flex-wrap">
+            {task.owner && (
+              <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
+                <span>{task.owner.avatarEmoji ?? '👤'}</span>
+                <span className="max-w-[90px] truncate">{displayName(task.owner)}</span>
+              </span>
+            )}
 
-        {isMilestone && (
-          <span
-            className="text-xs px-1.5 py-0.5 rounded font-medium"
-            style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}
-          >
-            Milestone
-          </span>
-        )}
+            {task.reviewer && (
+              <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-3)' }} title="Reviewer">
+                <span className="opacity-70">→</span>
+                <span>{task.reviewer.avatarEmoji ?? '👤'}</span>
+                <span className="max-w-[90px] truncate opacity-90">{displayName(task.reviewer)}</span>
+              </span>
+            )}
 
-        {task.subtasks.length > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-            className="text-xs flex items-center gap-1 transition-opacity"
-            style={{ color: 'var(--text-3)' }}
-          >
-            {expanded ? '▾' : '▸'} {doneSubtasks}/{task.subtasks.length}
-          </button>
-        )}
-      </div>
+            {isMilestone && (
+              <span
+                className="text-xs px-1.5 py-0.5 rounded font-medium flex items-center gap-1"
+                style={{ background: `${milestoneColor ?? '#f59e0b'}26`, color: milestoneColor ?? '#f59e0b' }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? '#f59e0b' }} />
+                Milestone
+              </span>
+            )}
 
-      {expanded && (
+            {task.subtasks.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(!expanded);
+                }}
+                className="text-xs flex items-center gap-1 transition-opacity"
+                style={{ color: 'var(--text-3)' }}
+              >
+                {expanded ? '▾' : '▸'} {doneSubtasks}/{task.subtasks.length}
+              </button>
+            )}
+          </div>
+
+          {!isMilestone && primaryMilestone && (
+            <p className="text-xs truncate mt-1 flex items-center gap-1.5" style={{ color: 'var(--text-3)' }} title={primaryMilestone.name}>
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? 'var(--text-3)' }} />
+              {primaryMilestone.name}
+            </p>
+          )}
+        </>
+      )}
+
+      {!simpleMode && expanded && (
         <div className="mt-2.5 pt-2.5 space-y-1.5" style={{ borderTop: '1px solid var(--border)' }}>
           {task.subtasks.map((s) => (
             <label key={s.id} className="flex items-center gap-2 cursor-pointer">
@@ -144,7 +176,14 @@ function CardContent({
   );
 }
 
-export default function KanbanCard({ task, onOpenDetail, isOverlay = false }: Props) {
+export default function KanbanCard({
+  task,
+  onOpenDetail,
+  isOverlay = false,
+  primaryMilestone,
+  milestoneColor,
+  simpleMode,
+}: Props) {
   const { activeProduct, refreshTasks } = useProduct();
   // Subtask expand + inline-add state lives here, not in the detail panel
   const [expanded, setExpanded] = useState(false);
@@ -180,6 +219,9 @@ export default function KanbanCard({ task, onOpenDetail, isOverlay = false }: Pr
         <CardContent
           task={task}
           onOpenDetail={() => {}}
+          primaryMilestone={primaryMilestone}
+          milestoneColor={milestoneColor}
+          simpleMode={simpleMode}
           expanded={false}
           setExpanded={() => {}}
           addingSubtask={false}
@@ -211,6 +253,9 @@ export default function KanbanCard({ task, onOpenDetail, isOverlay = false }: Pr
       <CardContent
         task={task}
         onOpenDetail={onOpenDetail}
+        primaryMilestone={primaryMilestone}
+        milestoneColor={milestoneColor}
+        simpleMode={simpleMode}
         expanded={expanded}
         setExpanded={setExpanded}
         addingSubtask={addingSubtask}

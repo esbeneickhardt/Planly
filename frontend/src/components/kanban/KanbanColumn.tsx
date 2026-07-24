@@ -11,8 +11,12 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
 import KanbanCard from './KanbanCard';
 import { usePermission } from '../../context/PermissionContext';
+import type { MilestoneOption } from './KanbanMilestoneFilter';
 
 type SortMode = 'default' | 'alpha-asc' | 'alpha-desc' | 'deadline' | 'oldest' | 'newest';
+
+/** Synthetic cluster id for tasks that don't feed into any milestone, in "Group by milestone" mode */
+export const UNASSIGNED_CLUSTER = '__unassigned__';
 
 interface Props {
   column: KanbanColumnType;
@@ -22,6 +26,81 @@ interface Props {
   onDeleteRequest: (column: KanbanColumnType) => void;
   onAddTask?: (name: string) => Promise<void>;
   isOverlay?: boolean;
+  primaryMilestones?: Map<string, Task>;
+  milestoneColors?: Map<string, string>;
+  simpleMode?: boolean;
+  /** Collapsible per-milestone sections within the column, ordered per milestoneOrderIds */
+  groupByMilestone?: boolean;
+  milestoneOrderIds?: string[];
+  milestoneMeta?: Map<string, MilestoneOption>;
+  collapsedMilestones?: Set<string>;
+  onToggleMilestoneCollapse?: (id: string) => void;
+}
+
+/**
+ * Draggable milestone section header. Its sortable id is namespaced per-column
+ * (`hdr:${columnId}:${milestoneId}`) so the same milestone can appear as a distinct draggable in
+ * every column without id collisions in the shared board DndContext; KanbanBoard's handleDragEnd
+ * reads the real milestone id back out of `data.current.milestoneId` and reorders the single
+ * shared order, so a drag in any one column's header list repositions it everywhere.
+ */
+function SortableMilestoneHeader({
+  id,
+  milestoneId,
+  label,
+  color,
+  isUnassigned,
+  collapsed,
+  count,
+  onToggleCollapse,
+}: {
+  id: string;
+  milestoneId: string;
+  label: string;
+  color: string;
+  isUnassigned: boolean;
+  collapsed: boolean;
+  count: number;
+  onToggleCollapse: () => void;
+}) {
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+    id,
+    data: { type: 'milestone-header', milestoneId },
+    disabled: isUnassigned,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...(isUnassigned ? {} : { ...attributes, ...listeners })}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        color: 'var(--text-2)',
+        background: `${color}14`,
+        borderLeft: `3px solid ${color}`,
+        cursor: isUnassigned ? 'default' : 'grab',
+        touchAction: isUnassigned ? undefined : 'none',
+      }}
+      className="w-full flex items-center gap-1.5 px-1.5 py-1 mb-1 rounded text-[11px] font-semibold transition-colors select-none"
+    >
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={onToggleCollapse}
+        className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
+      >
+        <span
+          className="inline-block flex-shrink-0"
+          style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+        >
+          ▾
+        </span>
+        {!isUnassigned && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />}
+        <span className="truncate flex-1">{label}</span>
+      </button>
+      <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{count}</span>
+    </div>
+  );
 }
 
 const SORT_LABELS: Record<SortMode, string> = {
@@ -58,6 +137,14 @@ export default function KanbanColumn({
   onDeleteRequest,
   onAddTask,
   isOverlay = false,
+  primaryMilestones,
+  milestoneColors,
+  simpleMode,
+  groupByMilestone,
+  milestoneOrderIds,
+  milestoneMeta,
+  collapsedMilestones,
+  onToggleMilestoneCollapse,
 }: Props) {
   // Sortable (for column reordering)
   const {
@@ -113,6 +200,57 @@ export default function KanbanColumn({
   }
 
   const sortedTasks = sortTasks(tasks, sortMode);
+
+  // Partition this column's (already-sorted) tasks into collapsible per-milestone sections. A
+  // milestone task heads its own section and also appears as a card within it (unlike the Backlog
+  // table's grouped view, where the header alone represents it - Kanban cards carry inline actions
+  // like subtask toggling that the header can't provide, so hiding the card entirely would lose them).
+  const clusters = (() => {
+    if (!groupByMilestone) return null;
+    const childrenByMilestoneId = new Map<string, Task[]>();
+    const unassigned: Task[] = [];
+    for (const t of sortedTasks) {
+      if (t.deadline) {
+        if (!childrenByMilestoneId.has(t.id)) childrenByMilestoneId.set(t.id, []);
+        childrenByMilestoneId.get(t.id)!.unshift(t);
+        continue;
+      }
+      const m = primaryMilestones?.get(t.id);
+      if (!m) {
+        unassigned.push(t);
+        continue;
+      }
+      if (!childrenByMilestoneId.has(m.id)) childrenByMilestoneId.set(m.id, []);
+      childrenByMilestoneId.get(m.id)!.push(t);
+    }
+    const orderIds = milestoneOrderIds ?? [];
+    const orderedIds = [
+      ...orderIds.filter((id) => childrenByMilestoneId.has(id)),
+      ...Array.from(childrenByMilestoneId.keys()).filter((id) => !orderIds.includes(id)),
+    ];
+    const sections = orderedIds.map((id) => ({ id, children: childrenByMilestoneId.get(id)! }));
+    if (unassigned.length > 0) sections.push({ id: UNASSIGNED_CLUSTER, children: unassigned });
+    return sections;
+  })();
+
+  function renderCard(task: Task) {
+    const primaryMilestone = primaryMilestones?.get(task.id);
+    const milestoneColor = task.deadline
+      ? milestoneColors?.get(task.id)
+      : primaryMilestone
+        ? milestoneColors?.get(primaryMilestone.id)
+        : undefined;
+    return (
+      <KanbanCard
+        key={task.id}
+        task={task}
+        onOpenDetail={onOpenDetail}
+        primaryMilestone={primaryMilestone}
+        milestoneColor={milestoneColor}
+        simpleMode={simpleMode}
+      />
+    );
+  }
 
   function commitRename() {
     setEditing(false);
@@ -357,11 +495,43 @@ export default function KanbanColumn({
               </button>
             ))}
 
-          <SortableContext items={sortedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-            {sortedTasks.map((task) => (
-              <KanbanCard key={task.id} task={task} onOpenDetail={onOpenDetail} />
-            ))}
-          </SortableContext>
+          {clusters ? (
+            <SortableContext
+              items={clusters.filter((s) => s.id !== UNASSIGNED_CLUSTER).map((s) => `hdr:${column.id}:${s.id}`)}
+              strategy={verticalListSortingStrategy}
+            >
+              {clusters.map(({ id, children }) => {
+                const isUnassigned = id === UNASSIGNED_CLUSTER;
+                const meta = isUnassigned ? null : milestoneMeta?.get(id);
+                const label = isUnassigned ? 'No milestone' : (meta?.name ?? 'Milestone');
+                const color = isUnassigned ? 'var(--text-3)' : (meta?.color ?? 'var(--text-3)');
+                const collapsed = collapsedMilestones?.has(id) ?? false;
+                return (
+                  <div key={id}>
+                    <SortableMilestoneHeader
+                      id={`hdr:${column.id}:${id}`}
+                      milestoneId={id}
+                      label={label}
+                      color={color}
+                      isUnassigned={isUnassigned}
+                      collapsed={collapsed}
+                      count={children.length}
+                      onToggleCollapse={() => onToggleMilestoneCollapse?.(id)}
+                    />
+                    {!collapsed && (
+                      <SortableContext items={children.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-2 mb-2">{children.map(renderCard)}</div>
+                      </SortableContext>
+                    )}
+                  </div>
+                );
+              })}
+            </SortableContext>
+          ) : (
+            <SortableContext items={sortedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              {sortedTasks.map(renderCard)}
+            </SortableContext>
+          )}
           {tasks.length === 0 && !addingTask && (
             <div
               className="flex items-center justify-center h-16 rounded-lg border-2 border-dashed"

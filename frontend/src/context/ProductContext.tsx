@@ -180,7 +180,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }
 
   async function createProduct(data: { name: string; emoji?: string; description?: string; deadline: string }) {
-    const team = await api.teams.create({ name: `${data.name} Team`, memberIds: user ? [user.id] : [] });
+    const team = await api.teams.create({ name: `${data.name} Team` });
     const product = await api.products.create({ ...data, teamId: team.id });
     await refreshProducts();
     localStorage.setItem(STORAGE_KEY, product.id);

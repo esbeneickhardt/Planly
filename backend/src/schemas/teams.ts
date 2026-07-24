@@ -1,13 +1,13 @@
 /**
  * Zod schemas for team create and update request bodies.
- * memberIds on create is optional - a team can be created with no initial members
- * and members added later via the team membership endpoints.
+ * Team creation never accepts other users' IDs - the creator is always the sole initial
+ * member. Anyone else must be added via the consent-based invite flow (POST /teams/:id/members),
+ * which requires the target to have invites enabled and to accept before membership is granted.
  */
 import { z } from 'zod';
 
 export const createTeamSchema = z.object({
   name: z.string().min(1, 'Team name required').max(100),
-  memberIds: z.array(z.string().uuid()).optional(),
 });
 
 export const updateTeamSchema = z.object({
