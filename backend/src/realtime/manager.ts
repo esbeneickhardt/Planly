@@ -106,16 +106,70 @@ export function wsConnectionCount(): number {
   return total;
 }
 
-// Public broadcast entry point - routes via Redis when available, local otherwise.
-// Pass fromApi=true when the triggering request was authenticated via a PAT or App Registration
-// (tokenVersion===undefined) so the frontend can debounce bulk API-driven updates.
-export function broadcast(productId: string, event: string, data?: unknown, fromApi = false) {
+// Sends one message immediately - the actual wire send, bypassing coalescing below.
+function sendNow(productId: string, event: string, data: unknown, fromApi: boolean) {
   const message = JSON.stringify({ event, data, ts: Date.now(), fromApi });
   if (publisher) {
     publisher.publish(`${CHANNEL_PREFIX}${productId}`, message).catch(() => {});
   } else {
     broadcastLocal(productId, message);
   }
+}
+
+// Task-change events are coalesced per product room (see broadcast() below) so a burst of writes
+// (a bulk import, or many individual API calls in quick succession) can never fan out faster than
+// one message per COALESCE_MS to every connected client - regardless of how many requests caused
+// it. The frontend only ever reacts to "something about tasks changed, refetch the list" for these
+// event names, never the individual payload, so collapsing a burst down to its most recent event
+// loses no information the client actually uses.
+const TASK_EVENTS = new Set([
+  'task.created',
+  'task.updated',
+  'task.deleted',
+  'task.status_changed',
+  'task.assigned',
+  'task.bulk_updated',
+  'task.bulk_deleted',
+]);
+const COALESCE_MS = 200;
+const _pendingTaskBroadcast = new Map<string, { event: string; data: unknown; fromApi: boolean }>();
+const _coalesceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function flushCoalesced(productId: string) {
+  const pending = _pendingTaskBroadcast.get(productId);
+  _pendingTaskBroadcast.delete(productId);
+  if (!pending) {
+    _coalesceTimers.delete(productId);
+    return;
+  }
+  sendNow(productId, pending.event, pending.data, pending.fromApi);
+  // Restart the cooldown window so a continuous burst still never exceeds one send per COALESCE_MS
+  _coalesceTimers.set(
+    productId,
+    setTimeout(() => flushCoalesced(productId), COALESCE_MS),
+  );
+}
+
+// Public broadcast entry point - routes via Redis when available, local otherwise.
+// Pass fromApi=true when the triggering request was authenticated via a PAT or App Registration
+// (tokenVersion===undefined) so the frontend can debounce bulk API-driven updates.
+export function broadcast(productId: string, event: string, data?: unknown, fromApi = false) {
+  if (!TASK_EVENTS.has(event)) {
+    sendNow(productId, event, data, fromApi);
+    return;
+  }
+  if (_coalesceTimers.has(productId)) {
+    // Already inside a cooldown window for this product - remember the latest event to flush later
+    _pendingTaskBroadcast.set(productId, { event, data, fromApi });
+    return;
+  }
+  // Leading edge: send immediately so a single action still feels instant, then open a cooldown
+  // window during which further task events for this product get collapsed into one trailing send.
+  sendNow(productId, event, data, fromApi);
+  _coalesceTimers.set(
+    productId,
+    setTimeout(() => flushCoalesced(productId), COALESCE_MS),
+  );
 }
 
 // Broadcast to every connected socket across all rooms (server-wide events like announcement comments)

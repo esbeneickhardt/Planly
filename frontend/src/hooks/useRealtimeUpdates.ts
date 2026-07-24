@@ -48,7 +48,6 @@ export function useRealtimeUpdates(productId: string | null | undefined, onEvent
         try {
           const parsed = JSON.parse(ev.data) as RealtimeEvent;
           if (parsed.event !== 'connected') {
-            console.log('[WS] event received:', parsed.event);
             onEventRef.current(parsed);
           }
         } catch {}

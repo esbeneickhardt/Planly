@@ -416,6 +416,22 @@ export const api = {
         method: 'PATCH',
         body: json({ updates }),
       }),
+    bulkUpdate: (
+      productId: string,
+      taskIds: string[],
+      data: Partial<
+        Pick<Task, 'name' | 'description' | 'ownerId' | 'color' | 'deadline'> & {
+          status: Status;
+          reviewerId: string | null;
+        }
+      >,
+    ) =>
+      request<Task[]>(`/api/products/${productId}/tasks/bulk-update`, {
+        method: 'PATCH',
+        body: json({ taskIds, ...data }),
+      }),
+    bulkDelete: (productId: string, taskIds: string[]) =>
+      request<void>(`/api/products/${productId}/tasks/bulk-delete`, { method: 'POST', body: json({ taskIds }) }),
   },
 
   subtasks: {
