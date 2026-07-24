@@ -18,6 +18,7 @@ interface RealtimeEvent {
   event: string;
   data?: unknown;
   ts?: number;
+  fromApi?: boolean;
 }
 
 export function useRealtimeUpdates(productId: string | null | undefined, onEvent: (e: RealtimeEvent) => void) {

@@ -3,7 +3,7 @@
  * Filtering and sorting are delegated to the useBacklogFilters hook; this page handles create,
  * bulk-move-to-todo, and bulk-delete mutations via the API, refreshing the shared ProductContext after each.
  */
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import { useAuth } from '../context/AuthContext';
@@ -39,6 +39,14 @@ export default function BacklogPage() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [showOwnerPicker, setShowOwnerPicker] = useState(false);
+  const [showReviewerPicker, setShowReviewerPicker] = useState(false);
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [members, setMembers] = useState<{ userId: string; user: { id: string; username: string; realName: string | null; avatarEmoji: string | null } }[]>([]);
+  const [assigningOwner, setAssigningOwner] = useState(false);
+  const ownerPickerRef = useRef<HTMLDivElement>(null);
+  const reviewerPickerRef = useRef<HTMLDivElement>(null);
+  const statusPickerRef = useRef<HTMLDivElement>(null);
 
   const {
     sortKey,
@@ -72,18 +80,6 @@ export default function BacklogPage() {
     setSelected(selected.size === filteredTasks.length ? new Set() : new Set(filteredTasks.map((t) => t.id)));
   }
 
-  // Bulk-promote selected tasks to "todo"; skips tasks with no owner and shows a count of skipped
-  async function bulkMoveTodo() {
-    if (!activeProduct) return;
-    const eligible = filteredTasks.filter((t) => selected.has(t.id) && t.ownerId);
-    const skipped = selected.size - eligible.length;
-    await Promise.all(eligible.map((t) => api.tasks.update(activeProduct.id, t.id, { status: 'todo' })));
-    await refreshTasks();
-    setSelected(new Set());
-    if (skipped > 0) showToast(`${skipped} skipped - no owner assigned.`, 'info');
-    else showToast(`Moved ${eligible.length} task${eligible.length !== 1 ? 's' : ''} to To Do`, 'success');
-  }
-
   // Confirm-then-delete all selected tasks in parallel
   async function bulkDelete() {
     if (!activeProduct || !(await confirm(`Delete ${selected.size} task(s)?`))) return;
@@ -92,6 +88,84 @@ export default function BacklogPage() {
     setSelected(new Set());
     showToast('Tasks deleted', 'info');
   }
+
+  // Assign a single owner to all selected tasks
+  async function bulkAssignOwner(userId: string) {
+    if (!activeProduct) return;
+    setAssigningOwner(true);
+    setShowOwnerPicker(false);
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) => api.tasks.update(activeProduct.id, id, { ownerId: userId })),
+      );
+      await refreshTasks();
+      setSelected(new Set());
+      showToast(`Assigned owner to ${selected.size} task${selected.size !== 1 ? 's' : ''}`, 'success');
+    } finally {
+      setAssigningOwner(false);
+    }
+  }
+
+  // Assign a single reviewer to all selected tasks
+  async function bulkAssignReviewer(userId: string) {
+    if (!activeProduct) return;
+    setShowReviewerPicker(false);
+    const count = selected.size;
+    await Promise.all(Array.from(selected).map((id) => api.tasks.update(activeProduct.id, id, { reviewerId: userId })));
+    await refreshTasks();
+    setSelected(new Set());
+    showToast(`Assigned reviewer to ${count} task${count !== 1 ? 's' : ''}`, 'success');
+  }
+
+  // Fetch members when the owner or reviewer picker opens; reset cache on product change
+  useEffect(() => { setMembers([]); }, [activeProduct?.id]);
+  useEffect(() => {
+    if ((!showOwnerPicker && !showReviewerPicker) || !activeProduct || members.length > 0) return;
+    api.products.getAbout(activeProduct.id).then((data) => setMembers(data.members));
+  }, [showOwnerPicker, showReviewerPicker, activeProduct, members.length]);
+
+  // Set status on all selected tasks
+  async function bulkSetStatus(status: string) {
+    if (!activeProduct) return;
+    setShowStatusPicker(false);
+    const count = selected.size;
+    await Promise.all(Array.from(selected).map((id) => api.tasks.update(activeProduct.id, id, { status: status as Task['status'] })));
+    await refreshTasks();
+    setSelected(new Set());
+    showToast(`Updated status for ${count} task${count !== 1 ? 's' : ''}`, 'success');
+  }
+
+  // Close pickers on outside click
+  useEffect(() => {
+    if (!showOwnerPicker) return;
+    function onClickOutside(e: MouseEvent) {
+      if (ownerPickerRef.current && !ownerPickerRef.current.contains(e.target as Node)) {
+        setShowOwnerPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [showOwnerPicker]);
+  useEffect(() => {
+    if (!showReviewerPicker) return;
+    function onClickOutside(e: MouseEvent) {
+      if (reviewerPickerRef.current && !reviewerPickerRef.current.contains(e.target as Node)) {
+        setShowReviewerPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [showReviewerPicker]);
+  useEffect(() => {
+    if (!showStatusPicker) return;
+    function onClickOutside(e: MouseEvent) {
+      if (statusPickerRef.current && !statusPickerRef.current.contains(e.target as Node)) {
+        setShowStatusPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [showStatusPicker]);
 
   // Create a minimal task (name only); additional fields can be set via TaskDetailPanel afterwards
   async function handleCreateTask(e: React.FormEvent) {
@@ -220,11 +294,148 @@ export default function BacklogPage() {
           {selected.size > 0 && !readOnly && (
             <div className="flex items-center gap-3 text-xs ml-2">
               <span style={{ color: 'var(--text-3)' }}>{selected.size} selected</span>
-              {statusTab !== 'done' && (
-                <button onClick={bulkMoveTodo} className="font-medium" style={{ color: 'var(--brand)' }}>
-                  Move to To Do
+              {/* Owner picker */}
+              <div ref={ownerPickerRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowOwnerPicker((v) => !v)}
+                  disabled={assigningOwner}
+                  className="font-medium"
+                  style={{ color: 'var(--brand)' }}
+                >
+                  {assigningOwner ? 'Assigning…' : 'Assign owner ▾'}
                 </button>
-              )}
+                {showOwnerPicker && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      marginTop: 6,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                      minWidth: 180,
+                      zIndex: 50,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {members.length === 0 ? (
+                      <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-3)' }}>
+                        Loading…
+                      </div>
+                    ) : (
+                      members.map((m) => (
+                        <button
+                          key={m.userId}
+                          onClick={() => bulkAssignOwner(m.userId)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors"
+                          style={{ color: 'var(--text)' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span>{m.user.avatarEmoji ?? '👤'}</span>
+                          <span>{m.user.realName ?? m.user.username}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Reviewer picker */}
+              <div ref={reviewerPickerRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowReviewerPicker((v) => !v)}
+                  className="font-medium"
+                  style={{ color: 'var(--brand)' }}
+                >
+                  Assign reviewer ▾
+                </button>
+                {showReviewerPicker && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      marginTop: 6,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                      minWidth: 180,
+                      zIndex: 50,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {members.length === 0 ? (
+                      <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-3)' }}>
+                        Loading…
+                      </div>
+                    ) : (
+                      members.map((m) => (
+                        <button
+                          key={m.userId}
+                          onClick={() => bulkAssignReviewer(m.userId)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors"
+                          style={{ color: 'var(--text)' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span>{m.user.avatarEmoji ?? '👤'}</span>
+                          <span>{m.user.realName ?? m.user.username}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Status picker */}
+              <div ref={statusPickerRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowStatusPicker((v) => !v)}
+                  className="font-medium"
+                  style={{ color: 'var(--brand)' }}
+                >
+                  Set status ▾
+                </button>
+                {showStatusPicker && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      marginTop: 6,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                      minWidth: 160,
+                      zIndex: 50,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {[
+                      { key: 'backlog', label: 'Not started', color: '#64748b' },
+                      { key: 'todo', label: 'To Do', color: '#3b82f6' },
+                      { key: 'in_progress', label: 'In Progress', color: '#f59e0b' },
+                      { key: 'blocked', label: 'Blocked', color: '#ef4444' },
+                      { key: 'done', label: 'Done', color: '#10b981' },
+                    ].map((s) => (
+                      <button
+                        key={s.key}
+                        onClick={() => bulkSetStatus(s.key)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left"
+                        style={{ color: 'var(--text)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                        <span>{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={bulkDelete} className="font-medium" style={{ color: '#ef4444' }}>
                 Delete
               </button>
