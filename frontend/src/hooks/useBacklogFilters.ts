@@ -10,6 +10,7 @@ import type { Task } from '../types';
 import { isBeforeToday } from '../utils/dates';
 
 export type StatusTab = 'all' | 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'done';
+const STATUS_TABS: StatusTab[] = ['all', 'backlog', 'todo', 'in_progress', 'blocked', 'done'];
 
 export interface BacklogFilters {
   statusTab: StatusTab;
@@ -27,7 +28,16 @@ export interface BacklogFilters {
 }
 
 export function useBacklogFilters(tasks: Task[], userId: string | undefined): BacklogFilters {
-  const [statusTab, setStatusTab] = useState<StatusTab>('backlog');
+  const [statusTab, setStatusTabRaw] = useState<StatusTab>(() => {
+    const saved = localStorage.getItem('planly_backlog_status_tab');
+    return (STATUS_TABS as string[]).includes(saved ?? '') ? (saved as StatusTab) : 'backlog';
+  });
+  const setStatusTab = (t: StatusTab) => {
+    setStatusTabRaw(t);
+    try {
+      localStorage.setItem('planly_backlog_status_tab', t);
+    } catch {}
+  };
   const [mineOnly, setMineOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [groupByMilestone, setGroupByMilestoneRaw] = useState(

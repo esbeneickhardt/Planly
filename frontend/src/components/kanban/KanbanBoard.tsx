@@ -31,7 +31,6 @@ import KanbanCard from './KanbanCard';
 import KanbanMobileList from './KanbanMobileList';
 import KanbanFiltersBar from './KanbanFiltersBar';
 import KanbanCompactList from './KanbanCompactList';
-import KanbanMilestoneBanner from './KanbanMilestoneBanner';
 import type { MilestoneOption } from './KanbanMilestoneFilter';
 import TaskDetailPanel from '../common/TaskDetailPanel';
 import Modal from '../common/Modal';
@@ -271,20 +270,6 @@ export default function KanbanBoard() {
     setCollapsedMilestones(new Set([...milestoneOptions.map((m) => m.id), UNASSIGNED_CLUSTER]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupByMilestone, activeProduct?.id]);
-
-  const selectedMilestoneIndex = milestoneFilter ? milestoneOptions.findIndex((m) => m.id === milestoneFilter) : -1;
-  const selectedMilestoneOption = selectedMilestoneIndex !== -1 ? milestoneOptions[selectedMilestoneIndex]! : null;
-
-  function stepMilestone(delta: number) {
-    if (milestoneOptions.length === 0) return;
-    const nextIdx =
-      selectedMilestoneIndex === -1
-        ? delta > 0
-          ? 0
-          : milestoneOptions.length - 1
-        : (selectedMilestoneIndex + delta + milestoneOptions.length) % milestoneOptions.length;
-    setMilestoneFilterAndSave(milestoneOptions[nextIdx]!.id);
-  }
 
   const hasFilters =
     ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null || milestoneFilter !== null || mineOnly;
@@ -643,18 +628,6 @@ export default function KanbanBoard() {
           setMineOnly(false);
         }}
       />
-
-      {/* Milestone "fold-out board" banner - colored strip + prev/next flip, shown while filtered */}
-      {selectedMilestoneOption && (
-        <KanbanMilestoneBanner
-          milestone={selectedMilestoneOption}
-          index={selectedMilestoneIndex}
-          total={milestoneOptions.length}
-          onPrev={() => stepMilestone(-1)}
-          onNext={() => stepMilestone(1)}
-          onClear={() => setMilestoneFilterAndSave(null)}
-        />
-      )}
 
       {/* Mobile scrollable task list - hidden on md+ where the full board renders */}
       <KanbanMobileList

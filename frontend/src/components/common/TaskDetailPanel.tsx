@@ -8,6 +8,7 @@ import MarkdownEditor, { type MarkdownEditorHandle } from './MarkdownEditor';
 import type { Task, KanbanColumn, Subtask } from '../../types';
 import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
+import { usePermission } from '../../context/PermissionContext';
 import { useColorLegend } from '../../hooks/useColorLegend';
 import { useToast } from '../../context/ToastContext';
 import { useChat } from '../../context/ChatContext';
@@ -33,7 +34,11 @@ const DEFAULT_STATUSES = [
 ];
 
 export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onDeleted, readOnly = false }: Props) {
-  const { activeProduct } = useProduct();
+  const { activeProduct, tasks } = useProduct();
+  const { canWrite } = usePermission();
+  // Setting which milestone a task feeds into edits a TaskDependency edge, which the backend gates
+  // on Canvas-tab write access specifically - independent of whichever tab's permission set `readOnly`.
+  const canEditMilestone = canWrite('canvas');
   const { legend, enabledColors } = useColorLegend(activeProduct?.id ?? '');
   const { showToast } = useToast();
   const { openChat, chatOpen, chatTaskId } = useChat();
@@ -49,6 +54,15 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const [status, setStatus] = useState(task.status);
   const [color, setColor] = useState(task.color ?? '');
   const [deadline, setDeadline] = useState(task.deadline ? task.deadline.split('T')[0] : '');
+  // Which milestone task this task directly feeds into, if any - derived from `requiredBy` (the
+  // set of tasks that depend on this one) filtered down to whichever of those is itself a
+  // milestone (has a deadline). Doesn't follow multi-hop chains through intermediate tasks; see
+  // `computePrimaryMilestones` for that transitive view used elsewhere in the app.
+  const [milestoneId, setMilestoneId] = useState(() => {
+    const milestoneIds = new Set(tasks.filter((t) => !!t.deadline).map((t) => t.id));
+    return task.requiredBy.find((r) => milestoneIds.has(r.dependentId))?.dependentId ?? '';
+  });
+  const initialMilestoneIdRef = useRef(milestoneId);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const showChat = chatOpen && chatTaskId === task.id;
@@ -116,6 +130,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     status !== task.status ||
     color !== (task.color ?? '') ||
     deadline !== (task.deadline ? task.deadline.split('T')[0] : '') ||
+    milestoneId !== initialMilestoneIdRef.current ||
     sprintsDirty;
 
   useEffect(() => {
@@ -185,6 +200,18 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           ...toRemove.map((sprintId) => api.sprints.removeTask(activeProduct.id, sprintId, task.id)),
         ]);
         initialSprintIdsRef.current = new Set(sprintIds);
+      }
+
+      // Apply the milestone membership change: remove the old direct edge (if any) and/or add the
+      // new one (if any) - a plain replace, not a merge, since this field represents "the one
+      // milestone this task feeds into directly", not an accumulating list.
+      if (milestoneId !== initialMilestoneIdRef.current) {
+        const prevId = initialMilestoneIdRef.current;
+        await Promise.all([
+          prevId ? api.tasks.removeDependency(activeProduct.id, prevId, task.id) : null,
+          milestoneId ? api.tasks.addDependency(activeProduct.id, milestoneId, task.id) : null,
+        ]);
+        initialMilestoneIdRef.current = milestoneId;
       }
 
       onUpdated(updated);
@@ -488,6 +515,33 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           className="input"
           disabled={readOnly}
         />
+      </div>
+
+      <div>
+        <label className="label">
+          Feeds into milestone{' '}
+          {!readOnly && !canEditMilestone && (
+            <span className="normal-case font-normal" style={{ color: 'var(--text-3)' }}>
+              (requires Canvas access to change)
+            </span>
+          )}
+        </label>
+        <select
+          value={milestoneId}
+          onChange={(e) => setMilestoneId(e.target.value)}
+          className="input"
+          disabled={readOnly || !canEditMilestone}
+        >
+          <option value="">None</option>
+          {tasks
+            .filter((t) => !!t.deadline && t.id !== task.id)
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+        </select>
       </div>
 
       <div>

@@ -151,18 +151,21 @@ export function buildGraph(
 
 // ─── Dagre auto-layout ────────────────────────────────────────────────────────
 // Sugiyama layered layout (left-to-right, ranked by dependency depth).
-// dagre returns centre coordinates; ReactFlow nodes are top-left anchored —
-// subtract half the node dimensions (100, 40) to convert.
+// dagre returns centre coordinates; ReactFlow nodes are top-left anchored — subtract half the
+// node's width/height to convert. `nodeHeights` lets callers pass a real per-task height estimate
+// instead of the flat default, so dagre doesn't reserve identical vertical space for every node
+// regardless of how much content it actually renders (e.g. simple-mode nodes are much shorter).
 // The product-deadline node is placed right of all task nodes, centred vertically.
-export function runAutoLayout(nodes: Node[], edges: Edge[]): Node[] {
+export function runAutoLayout(nodes: Node[], edges: Edge[], nodeHeights?: Map<string, number>): Node[] {
   const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', ranksep: 120, nodesep: 70 });
-  nodes.forEach((n) => g.setNode(n.id, { width: 200, height: 80 }));
+  g.setGraph({ rankdir: 'LR', ranksep: 100, nodesep: 50 });
+  nodes.forEach((n) => g.setNode(n.id, { width: 200, height: nodeHeights?.get(n.id) ?? 80 }));
   edges.forEach((e) => g.setEdge(e.source, e.target));
   dagre.layout(g);
   const laid = nodes.map((n) => {
     const pos = g.node(n.id);
-    return { ...n, position: { x: pos.x - 100, y: pos.y - 40 } };
+    const height = nodeHeights?.get(n.id) ?? 80;
+    return { ...n, position: { x: pos.x - 100, y: pos.y - height / 2 } };
   });
   const nonProduct = laid.filter((n) => !n.id.startsWith('product-'));
   if (nonProduct.length > 0) {

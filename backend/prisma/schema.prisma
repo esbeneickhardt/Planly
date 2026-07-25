@@ -332,6 +332,7 @@ model CanvasSnapshot {
   positions Json
   viewport  Json
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
