@@ -67,7 +67,18 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const [saving, setSaving] = useState(false);
   const showChat = chatOpen && chatTaskId === task.id;
 
-  const [fullscreen, setFullscreen] = useState(false);
+  // Starts fullscreen on mobile (matches ChatPanel.tsx's identical inline check) so the panel
+  // never opens as a desktop-sized sidebar on a phone; still user-togglable afterward.
+  const [fullscreen, setFullscreen] = useState(() => window.innerWidth < 768);
+
+  // Re-check on resize (e.g. orientation change) while the panel is open
+  useEffect(() => {
+    function syncMobile() {
+      if (window.innerWidth < 768) setFullscreen(true);
+    }
+    window.addEventListener('resize', syncMobile);
+    return () => window.removeEventListener('resize', syncMobile);
+  }, []);
 
   // Panel layout state: size + position persisted to localStorage; refs shadow state for pointer closures
   const [isSidebar, setIsSidebar] = useState(() => {
@@ -870,9 +881,14 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
               {closeBtn}
             </div>
           </div>
-          <div className="flex-1 flex overflow-hidden">
+          {/* Below md, this whole area is ONE scroll region (name+description then metadata
+              stacked in normal document flow) rather than two independently-scrolling columns -
+              nesting two separate overflow-y-auto panes inside a non-scrolling flex-col parent
+              left no way to reach content past the first pane's own height on a phone. At md+ it
+              goes back to two side-by-side columns that each scroll independently. */}
+          <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
             {/* Left: name + description */}
-            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+            <div className="flex-1 md:overflow-y-auto px-8 py-6 space-y-5">
               <div>
                 <label className="label">Name</label>
                 <input
@@ -884,11 +900,10 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
               </div>
               {descField(18)}
             </div>
-            {/* Right: metadata */}
-            <div
-              className="w-80 flex-shrink-0 overflow-y-auto px-6 py-6"
-              style={{ borderLeft: '1px solid var(--border)' }}
-            >
+            {/* Right: metadata - stacks below the name/description on narrow screens instead of
+                sitting in a fixed 320px column next to it, which left almost no room for the
+                left side on a phone even once fullscreen mode kicked in. */}
+            <div className="md:w-80 flex-shrink-0 md:overflow-y-auto px-6 py-6 border-t md:border-t-0 md:border-l border-[var(--border)]">
               {metaFields}
             </div>
           </div>

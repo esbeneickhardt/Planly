@@ -5,6 +5,7 @@
  */
 import { useState } from 'react';
 import { api } from '../../api/client';
+import AdminUserDetailModal from './AdminUserDetailModal';
 import type { AdminUser } from './types';
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 
 export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, onUsersChanged, showToast }: Props) {
   const [transferTarget, setTransferTarget] = useState('');
+  const [detailUser, setDetailUser] = useState<AdminUser | null>(null);
   // Only other admins are valid transfer targets; non-admins must be promoted first
   const otherAdmins = users.filter((u) => u.isAdmin && u.id !== currentUserId);
 
@@ -59,23 +61,25 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
         {users
           .filter((u) => u.isAdmin)
           .map((u) => (
-            <div key={u.id} className="flex items-center gap-2 py-1">
-              <span>{u.isFoundingAdmin ? '👑' : '🛡️'}</span>
-              <span className="text-sm" style={{ color: 'var(--text)' }}>
+            <button
+              key={u.id}
+              onClick={() => setDetailUser(u)}
+              className="flex items-center gap-2 py-1.5 w-full text-left rounded-lg transition-colors hover:bg-[var(--surface)]"
+            >
+              <span className="flex-shrink-0">{u.isFoundingAdmin ? '👑' : '🛡️'}</span>
+              <span className="text-sm flex-1 min-w-0 truncate font-medium" style={{ color: 'var(--text)' }}>
                 {u.username}
               </span>
-              <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-                {u.email}
+              <span
+                className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-medium"
+                style={{
+                  background: u.isFoundingAdmin ? '#f59e0b22' : '#6366f122',
+                  color: u.isFoundingAdmin ? '#f59e0b' : '#6366f1',
+                }}
+              >
+                {u.isFoundingAdmin ? 'Owner' : 'Admin'}
               </span>
-              {u.isFoundingAdmin && (
-                <span
-                  className="ml-auto text-xs px-1.5 py-0.5 rounded font-medium"
-                  style={{ background: '#f59e0b22', color: '#f59e0b' }}
-                >
-                  Owner
-                </span>
-              )}
-            </div>
+            </button>
           ))}
         {users.filter((u) => u.isAdmin).length === 0 && (
           <p className="text-sm" style={{ color: 'var(--text-3)' }}>
@@ -135,6 +139,8 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
           )}
         </div>
       )}
+
+      {detailUser && <AdminUserDetailModal user={detailUser} onClose={() => setDetailUser(null)} />}
     </div>
   );
 }

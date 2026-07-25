@@ -637,6 +637,12 @@ export default function KanbanBoard() {
         onOpenDetail={setSelectedTask}
         onAddTask={() => setShowNewTask(true)}
         readOnly={readOnly}
+        groupByMilestone={groupByMilestone}
+        primaryMilestones={primaryMilestones}
+        milestoneColors={milestoneColors}
+        milestoneOrderIds={orderedMilestoneIds}
+        collapsedMilestones={collapsedMilestones}
+        onToggleMilestoneCollapse={toggleMilestoneCollapsed}
       />
 
       {/* Desktop board area - hidden on small screens to give way to KanbanMobileList */}

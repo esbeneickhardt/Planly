@@ -100,9 +100,9 @@ describe('KanbanMobileList', () => {
     expect(screen.getByText('No tasks')).toBeInTheDocument();
   });
 
-  it('shows fallback text when the whole task list is empty', () => {
-    render(<KanbanMobileList columns={[makeColumn()]} tasks={[]} users={[]} onOpenDetail={onOpenDetail} />);
-    expect(screen.getByText(/No tasks match the current filters/i)).toBeInTheDocument();
+  it('shows fallback text when there are no columns at all', () => {
+    render(<KanbanMobileList columns={[]} tasks={[]} users={[]} onOpenDetail={onOpenDetail} />);
+    expect(screen.getByText(/No columns yet/i)).toBeInTheDocument();
   });
 
   it('renders the assignee name for assigned tasks', () => {
@@ -134,7 +134,7 @@ describe('KanbanMobileList', () => {
 
   it('renders the aria-label container', () => {
     render(<KanbanMobileList columns={[makeColumn()]} tasks={[]} users={[]} onOpenDetail={onOpenDetail} />);
-    expect(document.querySelector('[aria-label="Task list"]')).toBeInTheDocument();
+    expect(document.querySelector('[aria-label="Kanban columns"]')).toBeInTheDocument();
   });
 
   it('renders column heading with aria-labelledby on the section', () => {
