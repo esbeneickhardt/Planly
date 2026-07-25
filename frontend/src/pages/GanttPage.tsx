@@ -347,13 +347,17 @@ export default function GanttPage() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Mobile view - simple list */}
       <GanttMobileList
+        ganttView={ganttView}
+        setGanttView={setGanttView}
         visibleMilestones={visibleMilestones}
         milestones={milestones}
         hideDone={hideDone}
         doneCount={doneCount}
+        sprints={sprints}
         tasks={tasks}
         setSelectedTask={setSelectedTask}
         setHideDone={setHideDone}
+        onMilestoneDragEnd={handleMilestoneDragEnd}
       />
 
       {/* Desktop view */}

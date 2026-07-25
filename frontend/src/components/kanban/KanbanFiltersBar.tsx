@@ -138,6 +138,51 @@ export default function KanbanFiltersBar({
         {user?.avatarEmoji ?? '👤'} Mine
       </button>
 
+      {/* Sub-plan and milestone filters, shown on mobile too - both narrow the same `filteredTasks`
+          array that KanbanMobileList already renders from, so they work there exactly as on desktop. */}
+      {sprints.length > 0 && (
+        <div className="md:hidden flex items-center gap-1 flex-shrink-0">
+          <SprintDot sprints={sprints} sprintFilter={sprintFilter} />
+          <select
+            value={sprintFilter ?? ''}
+            onChange={(e) => onSprintChange(e.target.value === '' ? null : e.target.value)}
+            className="text-xs px-2 py-1 rounded transition-all"
+            style={{
+              background: sprintFilter !== null ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              color: sprintFilter !== null ? 'var(--brand)' : 'var(--text-2)',
+              border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
+            }}
+          >
+            <option value="">All sub-plans</option>
+            {sprints.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className="md:hidden flex-shrink-0">
+        <KanbanMilestoneFilter milestones={milestones} selectedId={milestoneFilter} onChange={onMilestoneChange} />
+      </div>
+
+      {/* Group by milestone toggle, shown on mobile too - unlike Simple/Compact below, the mobile
+          board (KanbanMobileList) does honor this one, clustering each column's cards by milestone. */}
+      {milestones.length > 0 && (
+        <button
+          onClick={onToggleGroupByMilestone}
+          className="md:hidden text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+          style={{
+            color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
+            background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
+            border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'var(--border)'}`,
+          }}
+          title="Group cards into collapsible milestone sections within each column"
+        >
+          🏁 {groupByMilestone ? 'Grouped' : 'Group by milestone'}
+        </button>
+      )}
+
       {/* Desktop-only filters */}
       <div className="hidden md:contents">
         <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
@@ -364,11 +409,13 @@ export default function KanbanFiltersBar({
           </div>
         )}
 
-        {/* Simple mode toggle - dense cards showing just the title (board view only) */}
+        {/* Simple mode toggle - dense cards showing just the title. Board-view only and desktop
+            only: the mobile view (KanbanMobileList) always uses its own fixed card density and
+            doesn't read this flag, so the toggle would do nothing on a phone. */}
         {!compact && (
           <button
             onClick={onToggleSimpleMode}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
+            className="hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
             title={simpleMode ? 'Show owner, reviewer, and milestone details on cards' : 'Show titles only, for a denser board'}
             style={{
               background: simpleMode ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -380,10 +427,11 @@ export default function KanbanFiltersBar({
           </button>
         )}
 
-        {/* Compact toggle */}
+        {/* Compact toggle - also desktop only, for the same reason: the mobile view always
+            renders its own swipeable board regardless of this flag. */}
         <button
           onClick={onToggleCompact}
-          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
+          className="hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
           title={compact ? 'Switch to board view' : 'Switch to compact list view'}
           style={{
             background: compact ? 'var(--brand-subtle)' : 'var(--surface-2)',

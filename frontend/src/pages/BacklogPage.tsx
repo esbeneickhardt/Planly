@@ -389,8 +389,47 @@ export default function BacklogPage() {
           </div>
         )}
 
-        {/* Status tabs + search + sort on one row */}
-        <div className="flex items-center gap-1 flex-wrap">
+        {/* Mobile toolbar: status select, group-by-milestone toggle, search */}
+        <div className="md:hidden flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <select
+              value={statusTab}
+              onChange={(e) => {
+                setStatusTab(e.target.value as StatusTab);
+                setSelected(new Set());
+              }}
+              className="input text-sm flex-1"
+            >
+              {STATUS_TABS.map((tab) => (
+                <option key={tab.key} value={tab.key}>
+                  {tab.label} ({tabCounts[tab.key] ?? 0})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setGroupByMilestone(!groupByMilestone)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
+              style={{
+                background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
+                color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
+                border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'var(--border)'}`,
+              }}
+              title="Group tasks by the milestone they feed into"
+            >
+              🏁
+            </button>
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            className="input text-sm w-full"
+          />
+        </div>
+
+        {/* Status tabs + search + sort on one row (desktop) */}
+        <div className="hidden md:flex items-center gap-1 flex-wrap">
           {STATUS_TABS.map((tab) => {
             const count = tabCounts[tab.key] ?? 0;
             const active = statusTab === tab.key;

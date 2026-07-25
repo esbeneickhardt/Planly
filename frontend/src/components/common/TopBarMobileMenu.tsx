@@ -3,7 +3,7 @@
  * TopBar passes pre-filtered nav items so canRead/analyticsEnabled logic stays in one place.
  */
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
-import { ShieldIcon, CategoriesIcon, ChatIcon } from './TopBarIcons';
+import { CategoriesIcon } from './TopBarIcons';
 import type { Product } from '../../types';
 
 export type MobileNavItem = { to: string; label: string; Icon: (p: { size?: number }) => JSX.Element };
@@ -18,17 +18,17 @@ interface Props {
     avatarUrl?: string | null;
     isAdmin?: boolean;
   } | null;
-  products: Product[];
   activeProduct: Product | null;
-  setActiveProduct: (p: Product) => void;
   filteredNav: MobileNavItem[];
   adminTabs: AdminTab[];
   isAdminPage: boolean;
+  /** Broader "in admin mode" flag (survives on neutral pages like About/Settings, unlike
+   * `isAdminPage` which only reflects the literal current route) - the authoritative signal for
+   * whether Navigate should show admin tabs instead of the project nav. */
+  chatIsAdmin?: boolean;
   currentAdminTab: string;
   canManage: boolean;
   onClose: () => void;
-  onOpenChat: () => void;
-  onShowNewProduct: () => void;
   onShowProfile: () => void;
   onShowThemePicker: () => void;
   onShowNotifPrefs: () => void;
@@ -40,17 +40,14 @@ interface Props {
 
 export default function TopBarMobileMenu({
   user,
-  products,
   activeProduct,
-  setActiveProduct,
   filteredNav,
   adminTabs,
   isAdminPage,
+  chatIsAdmin,
   currentAdminTab,
   canManage,
   onClose,
-  onOpenChat,
-  onShowNewProduct,
   onShowProfile,
   onShowThemePicker,
   onShowNotifPrefs,
@@ -61,6 +58,7 @@ export default function TopBarMobileMenu({
 }: Props) {
   const [, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const showAdminNav = isAdminPage || !!chatIsAdmin;
 
   return (
     <div className="lg:hidden fixed inset-0 z-50 flex flex-col" style={{ top: 56 }} onClick={onClose}>
@@ -69,66 +67,21 @@ export default function TopBarMobileMenu({
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', maxHeight: '80vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Project picker */}
-        <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
-            Project
-          </p>
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl">{activeProduct?.emoji ?? '🎯'}</span>
-            <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-              {activeProduct?.name ?? 'No project'}
-            </span>
-          </div>
-          <div className="mt-2 space-y-0.5">
-            {products.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => {
-                  setActiveProduct(p);
-                  onClose();
-                  navigate('/kanban');
-                }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-left"
-                style={{
-                  background: activeProduct?.id === p.id ? 'var(--brand-subtle)' : 'transparent',
-                  color: activeProduct?.id === p.id ? 'var(--brand)' : 'var(--text-2)',
-                }}
-              >
-                <span>{p.emoji ?? '🎯'}</span>
-                <span className="truncate">{p.name}</span>
-                {activeProduct?.id === p.id && (
-                  <span className="ml-auto text-xs font-bold" style={{ color: 'var(--brand)' }}>
-                    ✓
-                  </span>
-                )}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                onShowNewProduct();
-                onClose();
-              }}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-left"
-              style={{ color: 'var(--text-3)' }}
-            >
-              <span>+</span> New project
-            </button>
-          </div>
-        </div>
-
         {/* Navigation */}
         <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
           <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
             Navigate
           </p>
           <div className="space-y-0.5">
-            {isAdminPage ? (
+            {showAdminNav ? (
               adminTabs.map(({ key, label, Icon }) => (
                 <button
                   key={key}
                   onClick={() => {
-                    setSearchParams({ tab: key });
+                    // Already on the admin page - just switch its tab; otherwise (in admin mode
+                    // but on a "neutral" page like About/Settings) actually navigate there first.
+                    if (isAdminPage) setSearchParams({ tab: key });
+                    else navigate(`/admin?tab=${key}`);
                     onClose();
                   }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
@@ -176,19 +129,6 @@ export default function TopBarMobileMenu({
                     <CategoriesIcon size={18} />
                     Settings
                   </NavLink>
-                )}
-                {user?.isAdmin && (
-                  <button
-                    onClick={() => {
-                      onClose();
-                      navigate('/admin');
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
-                    style={{ color: 'var(--text-2)' }}
-                  >
-                    <ShieldIcon size={18} />
-                    Admin
-                  </button>
                 )}
               </>
             )}
@@ -280,16 +220,6 @@ export default function TopBarMobileMenu({
                 <span>{icon}</span> {label}
               </button>
             ))}
-            <button
-              onClick={() => {
-                onClose();
-                onOpenChat();
-              }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left"
-              style={{ color: 'var(--text-2)' }}
-            >
-              <ChatIcon size={18} /> Chat
-            </button>
             <button
               onClick={() => {
                 onClose();

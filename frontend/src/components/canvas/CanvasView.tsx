@@ -1154,7 +1154,7 @@ function CanvasInner() {
               </div>
 
               {/* Row 2 - grouped control dropdowns */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap" style={{ maxWidth: 'calc(100vw - 2rem)' }}>
                 {/* Filters dropdown */}
                 <div className="relative">
                   <button
@@ -2267,24 +2267,10 @@ function CanvasInner() {
 
 export default function CanvasView() {
   return (
-    <>
-      {/* Mobile: canvas requires desktop */}
-      <div className="md:hidden h-full flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <div className="text-5xl opacity-40">◈</div>
-        <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>
-          Canvas view is optimised for desktop
-        </p>
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>
-          The canvas planning view works best with a mouse and a larger screen. Try the Kanban or Tasks view for a great
-          mobile experience.
-        </p>
-      </div>
-      {/* Desktop */}
-      <div className="hidden md:block h-full">
-        <ReactFlowProvider>
-          <CanvasInner />
-        </ReactFlowProvider>
-      </div>
-    </>
+    <div className="h-full">
+      <ReactFlowProvider>
+        <CanvasInner />
+      </ReactFlowProvider>
+    </div>
   );
 }
