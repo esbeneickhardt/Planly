@@ -19,12 +19,27 @@ const finiteNumber = z.number().finite();
 const positionSchema = z
   .record(z.string(), z.object({ x: finiteNumber, y: finiteNumber }))
   .refine((p) => Object.keys(p).length <= 5000, 'Too many positions (max 5000)');
-// Full snapshot payload: positions map plus the viewport state (pan + zoom level)
+// Viewport (pan + zoom) plus the display/filter state active when the snapshot was taken, so
+// loading it restores the same view - not just node positions. Kept as an explicit, closed shape
+// (not .passthrough()) so unrecognized keys are still rejected rather than silently accumulating.
+const viewportSchema = z.object({
+  x: finiteNumber,
+  y: finiteNumber,
+  zoom: finiteNumber,
+  viewMode: z.enum(['all', 'active', 'milestones', 'sprint']).optional(),
+  simpleMode: z.boolean().optional(),
+  statusFilter: z.string().nullable().optional(),
+  selectedSprintFilter: z.string().nullable().optional(),
+  selectedMilestoneIds: z.array(z.string()).max(5000).optional(),
+});
+// Full snapshot payload: positions map plus the viewport/filter state
 const createSnapshotSchema = z.object({
   name: z.string().min(1).max(100),
   positions: positionSchema,
-  viewport: z.object({ x: finiteNumber, y: finiteNumber, zoom: finiteNumber }),
+  viewport: viewportSchema,
 });
+// Update payload: same shape, but name is optional since an update may only refresh positions/viewport
+const updateSnapshotSchema = createSnapshotSchema.partial({ name: true });
 
 export async function canvasSnapshotRoutes(app: FastifyInstance) {
   // List all canvas snapshots for a project
@@ -34,7 +49,7 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     const snapshots = await prisma.canvasSnapshot.findMany({
       where: { productId },
       include: { user: { select: { id: true, username: true, avatarEmoji: true } } },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     });
     reply.send(snapshots);
   });
@@ -52,6 +67,28 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     });
     reply.status(201).send(snapshot);
   });
+
+  // Update own snapshot in place (author only) - lets a creator refresh their saved layout with
+  // the current positions/viewport/filters instead of always having to save a new one.
+  app.patch(
+    '/api/products/:productId/canvas-snapshots/:snapshotId',
+    { preHandler: requireAuth },
+    async (req, reply) => {
+      const { productId, snapshotId } = req.params as { productId: string; snapshotId: string };
+      if (!(await requireProductMember(productId, req.user, reply))) return;
+      const snap = await prisma.canvasSnapshot.findFirst({ where: { id: snapshotId, productId } });
+      if (!snap) return reply.status(404).send({ error: 'Not found' });
+      if (snap.userId !== req.user.userId) return reply.status(403).send({ error: 'Not your snapshot' });
+      const body = validate(updateSnapshotSchema, req.body, reply);
+      if (!body) return;
+      const updated = await prisma.canvasSnapshot.update({
+        where: { id: snapshotId },
+        data: body,
+        include: { user: { select: { id: true, username: true, avatarEmoji: true } } },
+      });
+      reply.send(updated);
+    },
+  );
 
   // Delete own snapshot (author only)
   app.delete(
