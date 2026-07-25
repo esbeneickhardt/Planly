@@ -29,7 +29,8 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
   }
 
   return (
-    <table className="w-full text-sm border-collapse">
+    <div className="overflow-x-auto">
+    <table className="w-full text-sm border-collapse" style={{ minWidth: 640 }}>
       <thead>
         <tr style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
           <th className="text-left py-2 font-medium">User</th>
@@ -90,7 +91,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                   return (
                     <div className="flex items-center gap-1.5">
                       <span
-                        className="text-xs px-1.5 py-0.5 rounded"
+                        className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap"
                         style={{ background: '#ef444422', color: '#ef4444' }}
                       >
                         Locked {mins}m
@@ -113,7 +114,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                 if (u.failedLoginAttempts > 0) {
                   return (
                     <span
-                      className="text-xs px-1.5 py-0.5 rounded"
+                      className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap"
                       style={{ background: '#f59e0b22', color: '#f59e0b' }}
                     >
                       {u.failedLoginAttempts} fail{u.failedLoginAttempts === 1 ? '' : 's'}
@@ -130,7 +131,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                   const label = mins2 < 60 ? `${mins2}m ago` : hours < 24 ? `${hours}h ago` : `${days}d ago`;
                   return (
                     <span
-                      className="text-xs px-1.5 py-0.5 rounded"
+                      className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap"
                       title={new Date(u.lastLoginAt).toLocaleString()}
                       style={{
                         background: active ? '#10b98122' : 'var(--surface-2)',
@@ -218,7 +219,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                           setTempPassDisplay({ userId: u.id, password: res.tempPassword });
                         })
                       }
-                      className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100"
+                      className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100 whitespace-nowrap"
                       style={{ background: '#10b98115', color: '#10b981' }}
                       title="Generate a temporary password and copy it to clipboard"
                     >
@@ -262,5 +263,6 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

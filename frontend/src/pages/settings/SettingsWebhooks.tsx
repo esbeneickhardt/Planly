@@ -161,18 +161,23 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
           <div className="space-y-3">
             {webhooks.map((wh) => (
               <div key={wh.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                <div className="px-4 py-3 flex items-center gap-3" style={{ background: 'var(--surface-2)' }}>
-                  <span className="text-base flex-shrink-0">{wh.active ? '✅' : '⏸️'}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
-                      {wh.url}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                      {wh.events.length} event{wh.events.length !== 1 ? 's' : ''} · Created{' '}
-                      {new Date(wh.createdAt).toLocaleDateString()}
-                    </p>
+                <div
+                  className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3"
+                  style={{ background: 'var(--surface-2)' }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-base flex-shrink-0">{wh.active ? '✅' : '⏸️'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
+                        {wh.url}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                        {wh.events.length} event{wh.events.length !== 1 ? 's' : ''} · Created{' '}
+                        {new Date(wh.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0 sm:ml-auto">
                     <button
                       className="text-xs px-2.5 py-1 rounded-lg"
                       style={{

@@ -46,9 +46,21 @@ const editMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000;
 
 export async function adminChatRoutes(app: FastifyInstance) {
-  // Paginated fetch of admin chat history (ascending by default, cursor moves forward in time)
+  // Paginated fetch of admin chat history (ascending by default, cursor moves forward in time).
+  // An optional `q` switches to a search mode instead: most-recent-first, content match, capped
+  // at 20 - a different shape of query than the chronological scroll-through-history fetch above.
   app.get('/api/admin/chat', { preHandler: requireAdmin }, async (req, reply) => {
-    const { cursor, limit = '200' } = req.query as { cursor?: string; limit?: string };
+    const { cursor, limit = '200', q } = req.query as { cursor?: string; limit?: string; q?: string };
+    const query = q?.trim();
+    if (query && query.length >= 2) {
+      const messages = await prisma.message.findMany({
+        where: { isAdminChat: true, content: { contains: query, mode: 'insensitive' } },
+        include: MESSAGE_INCLUDE,
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+      return reply.send(messages.map(decryptMessageAuthor));
+    }
     const take = Math.min(parseInt(limit), 500);
     const messages = await prisma.message.findMany({
       where: { isAdminChat: true, ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}) },

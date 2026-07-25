@@ -340,7 +340,10 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
           style={{
             background: 'var(--surface-2)',
             border: '1px solid var(--border)',
-            minHeight: `${rows * 1.6}em`,
+            // An empty description doesn't need to reserve the same tall block as an editing
+            // textarea would - just enough room for the one-line placeholder. Once there's real
+            // content, grow to the full rows-based height so longer text has room to breathe.
+            minHeight: value ? `${rows * 1.6}em` : '3.5em',
             fontSize: 13,
             color: 'var(--text)',
             lineHeight: 1.7,
