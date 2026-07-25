@@ -243,7 +243,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
     try {
       await api.accessRequests.decide(n.productId, requestId, action);
       if (action === 'approve') {
-        await markRead(n.id);
+        await dismiss(n.id);
         showToast('Request approved', 'success');
       } else {
         await dismiss(n.id);
