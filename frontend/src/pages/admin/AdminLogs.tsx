@@ -156,31 +156,33 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
               <div
                 key={log.id}
                 data-testid="log-entry"
-                className="flex items-center gap-4 px-4 py-2.5 rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 py-2.5 rounded-lg"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
               >
-                <span
-                  className="text-xs px-2 py-0.5 rounded font-medium flex-shrink-0"
-                  style={{
-                    background:
-                      log.action.includes('FAIL') || log.action.includes('DELETE') || log.action.includes('PRUNE')
-                        ? '#ef444422'
-                        : '#6366f122',
-                    color:
-                      log.action.includes('FAIL') || log.action.includes('DELETE') || log.action.includes('PRUNE')
-                        ? '#ef4444'
-                        : '#6366f1',
-                  }}
-                >
-                  {ACTION_LABELS[log.action] ?? log.action}
-                </span>
+                <div className="flex items-center justify-between gap-2 sm:contents">
+                  <span
+                    className="text-xs px-2 py-0.5 rounded font-medium flex-shrink-0"
+                    style={{
+                      background:
+                        log.action.includes('FAIL') || log.action.includes('DELETE') || log.action.includes('PRUNE')
+                          ? '#ef444422'
+                          : '#6366f122',
+                      color:
+                        log.action.includes('FAIL') || log.action.includes('DELETE') || log.action.includes('PRUNE')
+                          ? '#ef4444'
+                          : '#6366f1',
+                    }}
+                  >
+                    {ACTION_LABELS[log.action] ?? log.action}
+                  </span>
+                  <span className="text-xs flex-shrink-0 sm:order-3" style={{ color: 'var(--text-3)' }}>
+                    {new Date(log.createdAt).toLocaleString()}
+                  </span>
+                </div>
                 <span className="text-sm flex-1 min-w-0 truncate" style={{ color: 'var(--text)' }}>
                   {log.actorName && <span className="font-medium">{log.actorName}</span>}
                   {log.actorName && log.targetName && <span style={{ color: 'var(--text-3)' }}> → </span>}
                   {log.targetName && <span style={{ color: 'var(--text-3)' }}>{log.targetName}</span>}
-                </span>
-                <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
-                  {new Date(log.createdAt).toLocaleString()}
                 </span>
               </div>
             ))}

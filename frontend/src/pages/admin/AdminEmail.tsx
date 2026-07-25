@@ -76,19 +76,19 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
     <div className="space-y-6 max-w-xl">
       {/* Status banner */}
       <div
-        className="p-4 rounded-xl flex items-center gap-3"
+        className="p-4 rounded-xl flex items-center gap-3 flex-wrap"
         style={{
           background: emailStatus?.enabled ? 'rgba(16,185,129,0.08)' : 'var(--surface-2)',
           border: `1px solid ${emailStatus?.enabled ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
         }}
       >
         <span className="text-xl">{emailStatus?.enabled ? '✅' : '⚠️'}</span>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
             {emailStatus === null ? 'Checking…' : emailStatus.enabled ? 'Email is active' : 'Email not configured'}
           </p>
           {emailStatus?.from && (
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+            <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-3)' }}>
               Sending from: <code>{emailStatus.from}</code>
             </p>
           )}
@@ -104,7 +104,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 .catch((e) => showToast((e as Error).message, 'error'))
                 .finally(() => setTestingEmail(false));
             }}
-            className="btn-secondary text-sm px-3"
+            className="btn-secondary text-sm px-3 flex-shrink-0"
           >
             {testingEmail ? '…' : 'Send test'}
           </button>

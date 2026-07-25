@@ -12,11 +12,12 @@ import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
 import KanbanCard from './KanbanCard';
 import { usePermission } from '../../context/PermissionContext';
 import type { MilestoneOption } from './KanbanMilestoneFilter';
+import { buildMilestoneClusters, UNASSIGNED_CLUSTER } from '../../utils/milestones';
+
+// Re-exported so existing imports from this file (e.g. KanbanBoard.tsx) keep working unchanged
+export { UNASSIGNED_CLUSTER };
 
 type SortMode = 'default' | 'alpha-asc' | 'alpha-desc' | 'deadline' | 'oldest' | 'newest';
-
-/** Synthetic cluster id for tasks that don't feed into any milestone, in "Group by milestone" mode */
-export const UNASSIGNED_CLUSTER = '__unassigned__';
 
 interface Props {
   column: KanbanColumnType;
@@ -201,37 +202,11 @@ export default function KanbanColumn({
 
   const sortedTasks = sortTasks(tasks, sortMode);
 
-  // Partition this column's (already-sorted) tasks into collapsible per-milestone sections. A
-  // milestone task heads its own section and also appears as a card within it (unlike the Backlog
-  // table's grouped view, where the header alone represents it - Kanban cards carry inline actions
-  // like subtask toggling that the header can't provide, so hiding the card entirely would lose them).
-  const clusters = (() => {
-    if (!groupByMilestone) return null;
-    const childrenByMilestoneId = new Map<string, Task[]>();
-    const unassigned: Task[] = [];
-    for (const t of sortedTasks) {
-      if (t.deadline) {
-        if (!childrenByMilestoneId.has(t.id)) childrenByMilestoneId.set(t.id, []);
-        childrenByMilestoneId.get(t.id)!.unshift(t);
-        continue;
-      }
-      const m = primaryMilestones?.get(t.id);
-      if (!m) {
-        unassigned.push(t);
-        continue;
-      }
-      if (!childrenByMilestoneId.has(m.id)) childrenByMilestoneId.set(m.id, []);
-      childrenByMilestoneId.get(m.id)!.push(t);
-    }
-    const orderIds = milestoneOrderIds ?? [];
-    const orderedIds = [
-      ...orderIds.filter((id) => childrenByMilestoneId.has(id)),
-      ...Array.from(childrenByMilestoneId.keys()).filter((id) => !orderIds.includes(id)),
-    ];
-    const sections = orderedIds.map((id) => ({ id, children: childrenByMilestoneId.get(id)! }));
-    if (unassigned.length > 0) sections.push({ id: UNASSIGNED_CLUSTER, children: unassigned });
-    return sections;
-  })();
+  // Partition this column's (already-sorted) tasks into collapsible per-milestone sections - see
+  // buildMilestoneClusters' own doc comment for why a milestone task still appears as a card.
+  const clusters = groupByMilestone
+    ? buildMilestoneClusters(sortedTasks, primaryMilestones ?? new Map(), milestoneOrderIds ?? [])
+    : null;
 
   function renderCard(task: Task) {
     const primaryMilestone = primaryMilestones?.get(task.id);

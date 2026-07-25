@@ -7,6 +7,7 @@ import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from './TopBar';
 import SearchModal from './SearchModal';
+import AdminSearchModal from './AdminSearchModal';
 import ChatPanel from './ChatPanel';
 import PlanlyVisionModal, { shouldShowWelcome } from './PlanlyVisionModal';
 import NoProjectsWelcome from './NoProjectsWelcome';
@@ -135,7 +136,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             {productsLoaded && products.length === 0 && !activeAdminMode ? <NoProjectsWelcome /> : children}
           </main>
         </PermissionGuard>
-        {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
+        {showSearch &&
+          (activeAdminMode ? (
+            <AdminSearchModal onClose={() => setShowSearch(false)} />
+          ) : (
+            <SearchModal onClose={() => setShowSearch(false)} />
+          ))}
         {showProductChat && (
           <ChatPanel
             initialTask={chatInitialTask}

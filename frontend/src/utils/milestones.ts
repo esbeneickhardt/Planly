@@ -90,3 +90,50 @@ export function assignMilestoneColors(tasks: Task[]): Map<string, string> {
   }
   return colors;
 }
+
+/** Synthetic cluster id for tasks that don't feed into any milestone, in "Group by milestone" mode */
+export const UNASSIGNED_CLUSTER = '__unassigned__';
+
+export interface MilestoneCluster {
+  id: string;
+  children: Task[];
+}
+
+/**
+ * Partitions an already status/column-filtered task list into per-milestone clusters for "Group by
+ * milestone" displays (Kanban board columns, Kanban mobile list). A milestone task heads its own
+ * cluster and appears within it as the first child - Kanban cards carry inline actions like
+ * subtask toggling that a header-only summary can't provide, so hiding the card entirely would
+ * lose them. Tasks that don't feed into any milestone land in a trailing synthetic
+ * `UNASSIGNED_CLUSTER` bucket. Cluster order follows `milestoneOrderIds` (the user's
+ * manually-dragged order), with any milestone not yet in that list appended at the end.
+ */
+export function buildMilestoneClusters(
+  tasks: Task[],
+  primaryMilestones: Map<string, Task>,
+  milestoneOrderIds: string[] = [],
+): MilestoneCluster[] {
+  const childrenByMilestoneId = new Map<string, Task[]>();
+  const unassigned: Task[] = [];
+  for (const t of tasks) {
+    if (t.deadline) {
+      if (!childrenByMilestoneId.has(t.id)) childrenByMilestoneId.set(t.id, []);
+      childrenByMilestoneId.get(t.id)!.unshift(t);
+      continue;
+    }
+    const m = primaryMilestones.get(t.id);
+    if (!m) {
+      unassigned.push(t);
+      continue;
+    }
+    if (!childrenByMilestoneId.has(m.id)) childrenByMilestoneId.set(m.id, []);
+    childrenByMilestoneId.get(m.id)!.push(t);
+  }
+  const orderedIds = [
+    ...milestoneOrderIds.filter((id) => childrenByMilestoneId.has(id)),
+    ...Array.from(childrenByMilestoneId.keys()).filter((id) => !milestoneOrderIds.includes(id)),
+  ];
+  const clusters = orderedIds.map((id) => ({ id, children: childrenByMilestoneId.get(id)! }));
+  if (unassigned.length > 0) clusters.push({ id: UNASSIGNED_CLUSTER, children: unassigned });
+  return clusters;
+}

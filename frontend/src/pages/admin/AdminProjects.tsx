@@ -85,56 +85,58 @@ export default function AdminProjects({ showToast }: Props) {
   return (
     <div className="space-y-8">
       {/* Active projects */}
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
-            <th className="text-left py-2 font-medium">Project</th>
-            <th className="text-left py-2 font-medium">Owner</th>
-            <th className="text-left py-2 font-medium">Members</th>
-            <th className="text-left py-2 font-medium">Tasks</th>
-            <th className="text-left py-2 font-medium">Deadline</th>
-            <th className="text-left py-2 font-medium">Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map((p) => (
-            <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-              <td className="py-2.5 pr-4">
-                <span className="font-medium" style={{ color: 'var(--text)' }}>
-                  {p.emoji && <span className="mr-1.5">{p.emoji}</span>}
-                  {p.name}
-                </span>
-              </td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-                {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}
-                {p.ownerUsername ?? '-'}
-              </td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-                {p.memberCount}
-              </td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-                {p.taskCount}
-              </td>
-              <td
-                className="py-2.5 pr-4 text-xs"
-                style={{ color: p.deadline && isBeforeToday(p.deadline) ? '#ef4444' : 'var(--text-3)' }}
-              >
-                {p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}
-              </td>
-              <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
-                {new Date(p.createdAt).toLocaleDateString()}
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse" style={{ minWidth: 640 }}>
+          <thead>
+            <tr style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
+              <th className="text-left py-2 font-medium">Project</th>
+              <th className="text-left py-2 font-medium">Owner</th>
+              <th className="text-left py-2 font-medium">Members</th>
+              <th className="text-left py-2 font-medium">Tasks</th>
+              <th className="text-left py-2 font-medium">Deadline</th>
+              <th className="text-left py-2 font-medium">Created</th>
             </tr>
-          ))}
-          {projects.length === 0 && (
-            <tr>
-              <td colSpan={6} className="py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>
-                No projects yet.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {projects.map((p) => (
+              <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <td className="py-2.5 pr-4">
+                  <span className="font-medium" style={{ color: 'var(--text)' }}>
+                    {p.emoji && <span className="mr-1.5">{p.emoji}</span>}
+                    {p.name}
+                  </span>
+                </td>
+                <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                  {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}
+                  {p.ownerUsername ?? '-'}
+                </td>
+                <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                  {p.memberCount}
+                </td>
+                <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                  {p.taskCount}
+                </td>
+                <td
+                  className="py-2.5 pr-4 text-xs"
+                  style={{ color: p.deadline && isBeforeToday(p.deadline) ? '#ef4444' : 'var(--text-3)' }}
+                >
+                  {p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}
+                </td>
+                <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                  {new Date(p.createdAt).toLocaleDateString()}
+                </td>
+              </tr>
+            ))}
+            {projects.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>
+                  No projects yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {/* Deleted projects */}
       {deleted.length > 0 && (
@@ -155,7 +157,8 @@ export default function AdminProjects({ showToast }: Props) {
           </button>
 
           {showDeleted && (
-            <table className="w-full text-sm border-collapse">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse" style={{ minWidth: 640 }}>
               <thead>
                 <tr style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}>
                   <th className="text-left py-2 font-medium">Project</th>
@@ -281,6 +284,7 @@ export default function AdminProjects({ showToast }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}

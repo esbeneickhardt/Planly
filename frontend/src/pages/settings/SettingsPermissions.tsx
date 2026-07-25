@@ -185,6 +185,8 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
       </div>
 
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+        <div className="overflow-x-auto">
+        <div style={{ minWidth: 720 }}>
         <div
           className="flex items-center px-4 py-2.5"
           style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}
@@ -313,6 +315,8 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
             </div>
           );
         })}
+        </div>
+        </div>
       </div>
       <div className="mt-4">
         <button

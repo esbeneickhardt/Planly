@@ -561,8 +561,13 @@ export const api = {
   },
 
   adminChat: {
-    list: (cursor?: string) =>
-      request<Message[]>(`/api/admin/chat${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+    list: (cursor?: string, query?: string) => {
+      const params = new URLSearchParams();
+      if (cursor) params.set('cursor', cursor);
+      if (query) params.set('q', query);
+      const qs = params.toString();
+      return request<Message[]>(`/api/admin/chat${qs ? `?${qs}` : ''}`);
+    },
     create: (data: {
       content: string;
       replyToId?: string | null;
@@ -972,6 +977,7 @@ export const api = {
           id: string;
           name: string;
           emoji: string | null;
+          description: string | null;
           deadline: string;
           createdAt: string;
           ownerId: string | null;

@@ -52,7 +52,7 @@ import type { MobileNavItem, AdminTab } from './TopBarMobileMenu';
 
 // ── Admin tab definitions ──────────────────────────────────────────────────
 
-const ADMIN_TABS: AdminTab[] = [
+export const ADMIN_TABS: AdminTab[] = [
   { key: 'ownership', label: 'Ownership', Icon: CrownIcon },
   { key: 'users', label: 'Users', Icon: UsersIcon },
   { key: 'projects', label: 'Projects', Icon: FolderGridIcon },
@@ -136,13 +136,21 @@ export default function TopBar({
   const [productError, setProductError] = useState('');
 
   const projectRef = useRef<HTMLDivElement>(null);
+  // Separate ref for the mobile round picker button - only one of the two wrappers is ever
+  // actually visible at a given viewport width, but both exist in the DOM, so the outside-click
+  // check below needs to treat "inside either one" as "inside the picker".
+  const projectRefMobile = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (projectRef.current && !projectRef.current.contains(e.target as Node)) setShowProjectDd(false);
-      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setShowAccountDd(false);
+      const target = e.target as Node;
+      const insideProjectPicker =
+        (projectRef.current && projectRef.current.contains(target)) ||
+        (projectRefMobile.current && projectRefMobile.current.contains(target));
+      if (!insideProjectPicker) setShowProjectDd(false);
+      if (accountRef.current && !accountRef.current.contains(target)) setShowAccountDd(false);
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -151,9 +159,14 @@ export default function TopBar({
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && isBeforeToday(t.deadline)).length;
   const unassignedCount = tasks.filter((t) => t.status !== 'done' && !t.ownerId).length;
 
-  // Pre-filter nav items so TopBarMobileMenu doesn't need to repeat the canRead/analyticsEnabled logic
+  // Pre-filter nav items so TopBarMobileMenu doesn't need to repeat the canRead/analyticsEnabled
+  // logic. Canvas is dropped here (mobile only - desktop's own nav filter below is untouched):
+  // dragging nodes and connecting dependency edges by touch on a small screen isn't a good enough
+  // experience to advertise as a primary mobile destination, even though the route itself still
+  // renders and works if reached directly.
   const filteredNav: MobileNavItem[] = NAV.filter(({ tab }) => {
     if (!activeProduct) return false;
+    if (tab === 'canvas') return false;
     if (tab === 'analytics' && !(activeProduct as any).analyticsEnabled) return false;
     return canRead(tab);
   });
@@ -396,18 +409,19 @@ export default function TopBar({
           {/* Notification bell */}
           <NotificationBell adminMode={!!chatIsAdmin} productId={chatIsAdmin ? undefined : activeProduct?.id} />
 
-          {/* Admin panel toggle (desktop only) */}
+          {/* Admin panel toggle - shown at all sizes, unlike the desktop-only icons above; used
+              frequently enough on mobile to earn a spot in the top bar rather than the hamburger. */}
           {user?.isAdmin && (
             <Tooltip
               content={chatIsAdmin ? 'Exit admin mode' : 'Admin panel'}
               side="bottom"
-              className="hidden lg:inline-flex relative"
+              className="inline-flex relative"
             >
               <button
                 data-testid="admin-btn"
                 aria-label={chatIsAdmin ? 'Exit admin mode' : 'Admin panel'}
                 onClick={onToggleAdmin ?? (() => (chatIsAdmin ? navigate('/kanban') : navigate('/admin')))}
-                className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+                className="flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
                 style={{
                   color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
                   background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -427,17 +441,18 @@ export default function TopBar({
             </Tooltip>
           )}
 
-          {/* Chat (desktop only) */}
+          {/* Chat - shown at all sizes; used frequently enough on mobile to earn a spot in the
+              top bar rather than the hamburger. */}
           <Tooltip
             content={chatIsAdmin ? 'Admin chat' : 'Project chat'}
             side="bottom"
-            className="hidden lg:inline-flex relative"
+            className="inline-flex relative"
           >
             <button
               onClick={onOpenChat}
               title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
               aria-label={chatIsAdmin ? 'Admin chat' : 'Project chat'}
-              className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+              className="flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
               style={{
                 color: chatIsAdmin || chatOpen ? 'var(--brand)' : 'var(--text-3)',
                 background: chatIsAdmin || chatOpen ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -500,11 +515,53 @@ export default function TopBar({
             />
           </div>
 
+          {/* Project picker (mobile) - round, emoji-only button instead of the desktop pill so it
+              matches the other icon buttons in this row; opens the same picker dropdown. */}
+          <div ref={projectRefMobile} className="lg:hidden relative">
+            <button
+              onClick={() => {
+                setShowProjectDd((v) => !v);
+                setShowAccountDd(false);
+              }}
+              className="flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0 text-lg font-semibold"
+              style={{
+                color: chatIsAdmin ? 'var(--brand)' : 'var(--text)',
+                background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                border: `1px solid ${chatIsAdmin ? 'var(--brand)' : 'transparent'}`,
+              }}
+              title={chatIsAdmin ? 'Admin' : (activeProduct?.name ?? 'Project')}
+              aria-label={chatIsAdmin ? 'Admin mode' : `Switch project (current: ${activeProduct?.name ?? 'none selected'})`}
+            >
+              {chatIsAdmin ? (
+                <span aria-hidden="true" style={{ fontSize: 14 }}>A</span>
+              ) : (
+                <span aria-hidden="true">{activeProduct?.emoji ?? '🎯'}</span>
+              )}
+            </button>
+            <TopBarProjectPicker
+              products={products}
+              activeProduct={activeProduct}
+              setActiveProduct={setActiveProduct}
+              chatIsAdmin={!!chatIsAdmin}
+              isAdmin={!!user?.isAdmin}
+              isOpen={showProjectDd}
+              onExitAdmin={() => onExitAdmin?.()}
+              onShowNewProduct={() => setShowNewProduct(true)}
+              onShowDiscover={() => setShowDiscover(true)}
+              onShowSeedData={() => setShowSeedData(true)}
+              onClose={() => setShowProjectDd(false)}
+            />
+          </div>
+
           {/* Mobile: search icon */}
           <button
             onClick={onOpenSearch}
-            className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0"
-            style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+            className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+            style={{
+              color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
+              background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              border: `1px solid ${chatIsAdmin ? 'var(--brand)' : 'transparent'}`,
+            }}
             title="Search"
             aria-label="Search"
           >
@@ -576,17 +633,14 @@ export default function TopBar({
       {showMobileMenu && (
         <TopBarMobileMenu
           user={user}
-          products={products}
           activeProduct={activeProduct}
-          setActiveProduct={setActiveProduct}
           filteredNav={filteredNav}
           adminTabs={ADMIN_TABS}
           isAdminPage={isAdminPage}
+          chatIsAdmin={chatIsAdmin}
           currentAdminTab={adminTab}
           canManage={canManage}
           onClose={() => setShowMobileMenu(false)}
-          onOpenChat={onOpenChat}
-          onShowNewProduct={() => setShowNewProduct(true)}
           onShowProfile={() => setShowProfile(true)}
           onShowThemePicker={() => setShowThemePicker(true)}
           onShowNotifPrefs={() => setShowNotifPrefs(true)}

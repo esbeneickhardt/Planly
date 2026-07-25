@@ -67,10 +67,9 @@ function RuleList({
           {description}
         </p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
-          className="input text-sm"
-          style={{ width: 180 }}
+          className="input text-sm w-full sm:w-[180px] sm:flex-shrink-0"
           placeholder="1.2.3.4 or 10.0.0.0/8"
           value={cidr}
           onChange={(e) => setCidr(e.target.value)}
@@ -84,7 +83,11 @@ function RuleList({
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
         />
-        <button disabled={!cidr.trim() || adding} className="btn-primary text-sm px-4 flex-shrink-0" onClick={add}>
+        <button
+          disabled={!cidr.trim() || adding}
+          className="btn-primary text-sm px-4 sm:flex-shrink-0"
+          onClick={add}
+        >
           {adding ? '…' : 'Add'}
         </button>
       </div>
