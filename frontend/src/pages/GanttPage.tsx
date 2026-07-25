@@ -3,7 +3,7 @@
  * against a zoomable, pannable timeline.  View state (zoom, pan, hide-done) is managed by
  * useGanttDragZoom and persisted to localStorage; drag-resize handles write deadline/date changes back to the API on pointer-up.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -210,6 +210,46 @@ export default function GanttPage() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
+  // Width of the left name column, draggable via a handle between it and the timeline; persisted
+  // per-product in localStorage. Kept in a ref too so the mouseup handler (registered once per
+  // drag, at mousedown time) always persists the latest value rather than a stale closed-over one.
+  const [sidebarWidth, setSidebarWidth] = useState(224);
+  const sidebarWidthRef = useRef(sidebarWidth);
+  sidebarWidthRef.current = sidebarWidth;
+  const sidebarResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    if (!activeProduct) return;
+    try {
+      const stored = localStorage.getItem(`planly-gantt-sidebarWidth-${activeProduct.id}`);
+      const parsed = stored ? parseInt(stored, 10) : NaN;
+      setSidebarWidth(Number.isFinite(parsed) ? Math.min(420, Math.max(140, parsed)) : 224);
+    } catch {
+      setSidebarWidth(224);
+    }
+  }, [activeProduct?.id]);
+
+  function handleSidebarResizeMove(e: MouseEvent) {
+    if (!sidebarResizeRef.current) return;
+    const delta = e.clientX - sidebarResizeRef.current.startX;
+    setSidebarWidth(Math.min(420, Math.max(140, sidebarResizeRef.current.startWidth + delta)));
+  }
+  function handleSidebarResizeEnd() {
+    sidebarResizeRef.current = null;
+    document.removeEventListener('mousemove', handleSidebarResizeMove);
+    document.removeEventListener('mouseup', handleSidebarResizeEnd);
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly-gantt-sidebarWidth-${activeProduct.id}`, String(sidebarWidthRef.current));
+    } catch {}
+  }
+  function handleSidebarResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    sidebarResizeRef.current = { startX: e.clientX, startWidth: sidebarWidth };
+    document.addEventListener('mousemove', handleSidebarResizeMove);
+    document.addEventListener('mouseup', handleSidebarResizeEnd);
+  }
+
   if (!activeProduct) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
@@ -317,15 +357,16 @@ export default function GanttPage() {
       />
 
       {/* Desktop view */}
+      <div className="hidden md:flex md:flex-col flex-1 overflow-hidden relative">
       {/* Sticky column header - stays visible when the milestone list scrolls */}
       <div
-        className="hidden md:flex flex-shrink-0"
+        className="flex flex-shrink-0"
         style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
       >
         {/* Left: view toggle + hide-done */}
         <div
-          className="flex-shrink-0 w-56 px-3 flex flex-col justify-center gap-1"
-          style={{ borderRight: '1px solid var(--border)', minHeight: 44 }}
+          className="flex-shrink-0 px-3 flex flex-col justify-center gap-1"
+          style={{ width: sidebarWidth, borderRight: '1px solid var(--border)', minHeight: 44 }}
         >
           <div className="flex items-center gap-1.5">
             <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--surface-2)' }}>
@@ -382,7 +423,7 @@ export default function GanttPage() {
           </div>
         </div>
         {/* Right: Time axis + zoom controls */}
-        <div className="flex-1 relative overflow-hidden" style={{ paddingLeft: 8, paddingRight: 24 }}>
+        <div className="flex-1 relative overflow-hidden" style={{ paddingLeft: 8, paddingRight: 110 }}>
           <div className="absolute top-0 right-0 h-full flex items-center gap-0.5 pr-2" style={{ zIndex: 3 }}>
             <Tooltip content="Zoom in" side="bottom">
               <button
@@ -419,7 +460,7 @@ export default function GanttPage() {
           </div>
           {markers.map((marker) => {
             const pos = pct(marker.date, vs, ve) * 100;
-            if (pos < 0 || pos > 97) return null;
+            if (pos < 0 || pos > 90) return null;
             return (
               <div
                 key={marker.date.toISOString()}
@@ -449,12 +490,12 @@ export default function GanttPage() {
       </div>
 
       {/* Scrollable body (desktop only) */}
-      <div className="hidden md:block flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="flex min-h-full">
           {/* Left: names (sticky left edge) */}
           <div
-            className="flex-shrink-0 w-56 sticky left-0 z-10"
-            style={{ borderRight: '1px solid var(--border)', background: 'var(--surface)' }}
+            className="flex-shrink-0 sticky left-0 z-10"
+            style={{ width: sidebarWidth, borderRight: '1px solid var(--border)', background: 'var(--surface)' }}
           >
             {ganttView === 'sprints' &&
               sprints.map((s) => {
@@ -573,7 +614,7 @@ export default function GanttPage() {
             className="flex-1 overflow-hidden select-none"
             style={{
               paddingLeft: 8,
-              paddingRight: 24,
+              paddingRight: 110,
               cursor: readOnly ? 'default' : isResizing ? 'ew-resize' : isDragging ? 'grabbing' : 'grab',
             }}
             ref={attachWheel}
@@ -1146,6 +1187,15 @@ export default function GanttPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Drag handle to resize the name column - spans the full header+body height */}
+      <div
+        onMouseDown={handleSidebarResizeStart}
+        className="absolute top-0 bottom-0 cursor-col-resize z-20"
+        style={{ left: sidebarWidth - 2, width: 5 }}
+        title="Drag to resize"
+      />
       </div>
 
       {selectedTask && (

@@ -143,6 +143,10 @@ export function useCanvasSprints({
         return next;
       });
       setShowNewSprint(false);
+      // Land straight in "add to sub-plan" mode so the user can start clicking tasks in
+      // immediately, instead of having to reopen the picker and select the sprint they just made.
+      onSetSprintFilter(s.id);
+      onSetViewMode('sprint');
       showToast(`Sub-plan "${s.name}" created`, 'success');
     } catch (err) {
       showToast((err as Error).message, 'error');

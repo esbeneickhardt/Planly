@@ -879,10 +879,7 @@ function BacklogRow({
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           {isMilestone ? (
-            <span className="flex items-center gap-1" title="Milestone">
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? '#f59e0b' }} />
-              ⭐
-            </span>
+            <span title="Milestone">⭐</span>
           ) : (
             task.color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
           )}

@@ -87,6 +87,8 @@ function CanvasInner() {
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
   const [showDisplayDropdown, setShowDisplayDropdown] = useState(false);
   const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
+  // Client-side search text for the "Milestone focus" checklist (not persisted)
+  const [milestoneSearch, setMilestoneSearch] = useState('');
 
   // Columns (for label resolution of custom statusKeys)
   const [columnLabelMap, setColumnLabelMap] = useState<Map<string, string>>(new Map());
@@ -120,6 +122,12 @@ function CanvasInner() {
   // Always-current tasks ref so onNodesDelete captures latest task data without stale closure
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+  // Always-current node/edge refs so the debounced auto-relayout effect (below) never relays out
+  // a render-stale snapshot of the graph once its timer actually fires
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
   // Stable ref so the Ctrl+Z keydown handler always calls the latest undoDelete without re-registering
   const undoRef = useRef<() => void>(() => {});
   const bulkOwnerRef = useRef<HTMLDivElement>(null);
@@ -185,18 +193,29 @@ function CanvasInner() {
     onSetViewMode: setViewModeSave,
   });
 
+  // Bundles the three filter setters so a saved layout can restore all of them in one call
+  function setFiltersSave(f: { statusFilter: string | null; selectedSprintFilter: string | null; selectedMilestoneIds: string[] }) {
+    setStatusFilterSave(f.statusFilter);
+    setSprintFilterSave(f.selectedSprintFilter);
+    setMilestoneIdsSave(f.selectedMilestoneIds);
+  }
+
   const {
     showShareModal,
     setShowShareModal,
     showLoadModal,
     setShowLoadModal,
     snapshots,
+    totalSnapshotCount,
     snapshotName,
     setSnapshotName,
+    snapshotSearch,
+    setSnapshotSearch,
     savingSnapshot,
     openShareModal,
     openLoadModal,
     saveSnapshot,
+    updateSnapshot,
     applySnapshot,
     deleteSnapshot,
   } = useCanvasSnapshots({
@@ -209,6 +228,9 @@ function CanvasInner() {
     simpleMode,
     setViewMode,
     setSimpleMode,
+    filters: { statusFilter, selectedSprintFilter, selectedMilestoneIds },
+    setFilters: setFiltersSave,
+    currentUserId: currentUser?.id,
     save,
     showToast,
   });
@@ -266,6 +288,10 @@ function CanvasInner() {
   }, [sortedSprints]);
 
   const milestoneTasks = useMemo(() => tasks.filter((t) => !!t.deadline), [tasks]);
+  const filteredMilestoneTasks = useMemo(() => {
+    const q = milestoneSearch.trim().toLowerCase();
+    return q ? milestoneTasks.filter((t) => t.name.toLowerCase().includes(q)) : milestoneTasks;
+  }, [milestoneTasks, milestoneSearch]);
 
   const filteredTasks = useMemo(() => {
     let base = tasks;
@@ -284,6 +310,27 @@ function CanvasInner() {
     }
     return base;
   }, [tasks, viewMode, statusFilter, selectedSprintFilter, selectedMilestoneIds, sprints]);
+
+  // Estimated real render height per task, mirroring TaskNode's own conditional rows (status,
+  // milestone deadline, and owner/reviewer are all hidden in simple mode; the subtask bar isn't) -
+  // dagre otherwise reserves a flat 80px for every node regardless of how much it actually renders,
+  // wasting vertical space especially in simple mode.
+  const nodeHeights = useMemo(() => {
+    const heights = new Map<string, number>();
+    for (const t of filteredTasks) {
+      let h = 20 + 18; // padding + task name (always rendered)
+      if (!simpleMode) {
+        h += 17; // status row
+        if (t.deadline) h += 18; // milestone deadline row
+        if (t.owner || t.reviewer) h += 24; // owner/reviewer row
+      }
+      if (t.subtasks && t.subtasks.length > 0) h += 15; // subtask progress bar, not simple-mode-gated
+      heights.set(t.id, h);
+    }
+    return heights;
+  }, [filteredTasks, simpleMode]);
+  const nodeHeightsRef = useRef(nodeHeights);
+  nodeHeightsRef.current = nodeHeights;
 
   // Build + layout nodes
   useEffect(() => {
@@ -326,7 +373,7 @@ function CanvasInner() {
       };
 
       if (allUnpositioned) {
-        const laid = runAutoLayout(n, e);
+        const laid = runAutoLayout(n, e, nodeHeights);
         setNodes(laid);
         savePositions(laid);
       } else if (unpositioned.length > 0) {
@@ -347,7 +394,7 @@ function CanvasInner() {
         const hasLocalPositions = Object.keys(lp).length > 0;
         const hasVisited = !!loadState(activeProduct.id).viewport;
         if (!hasVisited && !hasLocalPositions && filteredTasks.length > 0) {
-          const laid = runAutoLayout(n, e);
+          const laid = runAutoLayout(n, e, nodeHeights);
           setNodes(laid);
           const productNode = laid.find((nd) => nd.id.startsWith('product-'));
           if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
@@ -394,28 +441,58 @@ function CanvasInner() {
   // Keep ref current so onNodeClick always reads latest sprint state without stale closures
   sprintClickRef.current = { filter: selectedSprintFilter, toggle: toggleSprintMembership };
 
+  // Shared by the manual "Re-layout graph" button and the debounced auto-relayout effect below -
+  // runs dagre against the given node/edge/height snapshot, persists the new positions, and refits
+  // the viewport. Takes explicit snapshots rather than reading state/refs itself so both callers
+  // control exactly which product/graph state it applies to.
+  const relayoutGraph = (prod: NonNullable<typeof activeProduct>, curNodes: Node[], curEdges: Edge[], heights: Map<string, number>) => {
+    const laid = runAutoLayout(curNodes, curEdges, heights);
+    setNodes(laid);
+    const productNode = laid.find((nd) => nd.id.startsWith('product-'));
+    if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
+    const newLp: Record<string, { x: number; y: number }> = { ...(loadState(prod.id).positions ?? {}) };
+    laid
+      .filter((nd) => !nd.id.startsWith('product-'))
+      .forEach((nd) => {
+        newLp[nd.id] = { x: nd.position.x, y: nd.position.y };
+      });
+    patchState(prod.id, { positions: newLp });
+    setTimeout(() => {
+      fitView({ padding: 0.15 });
+      save({ viewport: getViewport() });
+    }, 50);
+  };
+
   const setAutoLayoutSave = (v: boolean) => {
     setAutoLayoutEnabled(v);
     save({ autoLayoutEnabled: v });
     if (v && activeProduct) {
-      const prod = activeProduct;
-      const laid = runAutoLayout(nodes, edges);
-      setNodes(laid);
-      const productNode = laid.find((nd) => nd.id.startsWith('product-'));
-      if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
-      const newLp: Record<string, { x: number; y: number }> = { ...(loadState(prod.id).positions ?? {}) };
-      laid
-        .filter((nd) => !nd.id.startsWith('product-'))
-        .forEach((nd) => {
-          newLp[nd.id] = { x: nd.position.x, y: nd.position.y };
-        });
-      patchState(prod.id, { positions: newLp });
-      setTimeout(() => {
-        fitView({ padding: 0.15 });
-        save({ viewport: getViewport() });
-      }, 50);
+      relayoutGraph(activeProduct, nodes, edges, nodeHeights);
     }
   };
+
+  // Auto re-layout shortly after any filter changes, so users don't have to remember to click
+  // "Re-layout graph" every time. Deliberately scoped to ONLY the filter values below - not
+  // tasks/sprints/other realtime-driven state - so a teammate's unrelated edit elsewhere never
+  // triggers an unwanted relayout here. Debounced so toggling several milestone checkboxes in a
+  // row only relays out once, after the user stops.
+  const filterRelayoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const prod = activeProduct;
+    if (!prod || initializedRef.current !== prod.id) return; // skip initial load for this product
+    if (filterRelayoutTimerRef.current) clearTimeout(filterRelayoutTimerRef.current);
+    filterRelayoutTimerRef.current = setTimeout(() => {
+      const currentProd = activeProductRef.current;
+      // Bail if the product changed (or hasn't finished initializing) during the wait, so a
+      // relayout meant for the old product/filters never lands on whatever's showing now.
+      if (!currentProd || currentProd.id !== prod.id || initializedRef.current !== currentProd.id) return;
+      relayoutGraph(currentProd, nodesRef.current, edgesRef.current, nodeHeightsRef.current);
+    }, 500);
+    return () => {
+      if (filterRelayoutTimerRef.current) clearTimeout(filterRelayoutTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, statusFilter, selectedSprintFilter, selectedMilestoneIds]);
 
   // ReactFlow callbacks
   const onPaneClick = useCallback(() => {
@@ -424,6 +501,7 @@ function CanvasInner() {
     setShowDisplayDropdown(false);
     setShowLayoutDropdown(false);
     setShowSprintPicker(false);
+    setMilestoneSearch('');
   }, [setShowSprintPicker]);
 
   const onCanvasDoubleClick = useCallback(
@@ -1084,6 +1162,7 @@ function CanvasInner() {
                       setShowFiltersDropdown((v) => !v);
                       setShowDisplayDropdown(false);
                       setShowLayoutDropdown(false);
+                      setMilestoneSearch('');
                     }}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                     style={chip(!!statusFilter || selectedMilestoneIds.length > 0)}
@@ -1153,65 +1232,85 @@ function CanvasInner() {
                           >
                             Milestone focus
                           </div>
-                          <button
-                            onClick={() => setMilestoneIdsSave([])}
-                            className="w-full text-left px-3 py-1.5 text-xs transition-colors"
-                            style={{ color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)' }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'var(--surface-2)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'transparent';
-                            }}
-                          >
-                            Show all {selectedMilestoneIds.length === 0 && '✓'}
-                          </button>
-                          {milestoneTasks.map((t) => {
-                            const sel = selectedMilestoneIds.includes(t.id);
-                            const overdue = new Date(t.deadline!) < new Date() && t.status !== 'done';
-                            return (
-                              <button
-                                key={t.id}
-                                onClick={() =>
-                                  setMilestoneIdsSave(
-                                    sel
-                                      ? selectedMilestoneIds.filter((id) => id !== t.id)
-                                      : [...selectedMilestoneIds, t.id],
-                                  )
-                                }
-                                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
-                                style={{ color: 'var(--text-2)' }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = 'var(--surface-2)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = 'transparent';
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    width: 12,
-                                    height: 12,
-                                    borderRadius: 3,
-                                    flexShrink: 0,
-                                    background: sel ? (overdue ? '#ef4444' : '#f59e0b') : 'transparent',
-                                    border: `1.5px solid ${overdue ? 'rgba(239,68,68,0.5)' : 'rgba(245,158,11,0.5)'}`,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
+                          {milestoneTasks.length > 5 && (
+                            <div className="px-3 pb-1.5">
+                              <input
+                                type="text"
+                                value={milestoneSearch}
+                                onChange={(e) => setMilestoneSearch(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Search milestones…"
+                                className="w-full text-xs px-2 py-1 rounded outline-none"
+                                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                              />
+                            </div>
+                          )}
+                          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                            <button
+                              onClick={() => setMilestoneIdsSave([])}
+                              className="w-full text-left px-3 py-1.5 text-xs transition-colors"
+                              style={{ color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)' }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'var(--surface-2)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent';
+                              }}
+                            >
+                              Show all {selectedMilestoneIds.length === 0 && '✓'}
+                            </button>
+                            {filteredMilestoneTasks.length === 0 && (
+                              <p className="px-3 py-2 text-xs" style={{ color: 'var(--text-3)' }}>
+                                No matches
+                              </p>
+                            )}
+                            {filteredMilestoneTasks.map((t) => {
+                              const sel = selectedMilestoneIds.includes(t.id);
+                              const overdue = new Date(t.deadline!) < new Date() && t.status !== 'done';
+                              return (
+                                <button
+                                  key={t.id}
+                                  onClick={() =>
+                                    setMilestoneIdsSave(
+                                      sel
+                                        ? selectedMilestoneIds.filter((id) => id !== t.id)
+                                        : [...selectedMilestoneIds, t.id],
+                                    )
+                                  }
+                                  className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
+                                  style={{ color: 'var(--text-2)' }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'var(--surface-2)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
                                   }}
                                 >
-                                  {sel && <span style={{ color: 'white', fontSize: 8 }}>✓</span>}
-                                </span>
-                                <span className="flex-1 truncate">{t.name}</span>
-                                <span
-                                  style={{ color: overdue ? '#ef4444' : 'var(--text-3)', flexShrink: 0, fontSize: 10 }}
-                                >
-                                  {new Date(t.deadline!).toLocaleDateString()}
-                                </span>
-                              </button>
-                            );
-                          })}
+                                  <span
+                                    style={{
+                                      width: 12,
+                                      height: 12,
+                                      borderRadius: 3,
+                                      flexShrink: 0,
+                                      background: sel ? (overdue ? '#ef4444' : '#f59e0b') : 'transparent',
+                                      border: `1.5px solid ${overdue ? 'rgba(239,68,68,0.5)' : 'rgba(245,158,11,0.5)'}`,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}
+                                  >
+                                    {sel && <span style={{ color: 'white', fontSize: 8 }}>✓</span>}
+                                  </span>
+                                  <span className="flex-1 truncate">{t.name}</span>
+                                  <span
+                                    style={{ color: overdue ? '#ef4444' : 'var(--text-3)', flexShrink: 0, fontSize: 10 }}
+                                  >
+                                    {new Date(t.deadline!).toLocaleDateString()}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </>
                       )}
                       {(statusFilter || selectedMilestoneIds.length > 0) && (
@@ -1221,6 +1320,7 @@ function CanvasInner() {
                               setStatusFilterSave(null);
                               setMilestoneIdsSave([]);
                               setShowFiltersDropdown(false);
+                              setMilestoneSearch('');
                             }}
                             className="w-full text-left px-3 py-2 text-xs font-medium transition-colors"
                             style={{ color: '#ef4444' }}
@@ -1246,6 +1346,7 @@ function CanvasInner() {
                       setShowDisplayDropdown((v) => !v);
                       setShowFiltersDropdown(false);
                       setShowLayoutDropdown(false);
+                      setMilestoneSearch('');
                     }}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                     style={chip(showSprintAura || simpleMode)}
@@ -1328,6 +1429,7 @@ function CanvasInner() {
                       setShowLayoutDropdown((v) => !v);
                       setShowFiltersDropdown(false);
                       setShowDisplayDropdown(false);
+                      setMilestoneSearch('');
                     }}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                     style={chip(false)}
@@ -2073,51 +2175,84 @@ function CanvasInner() {
         {showLoadModal && (
           <Modal title="Load layout" onClose={() => setShowLoadModal(false)} width="max-w-md">
             <div className="space-y-3">
-              {snapshots.length === 0 ? (
+              {totalSnapshotCount === 0 ? (
                 <p className="text-sm py-4 text-center" style={{ color: 'var(--text-3)' }}>
                   No saved layouts yet. Use "Share layout" to create one.
                 </p>
               ) : (
-                <div className="divide-y rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                  {snapshots.map((snap) => (
+                <>
+                  {totalSnapshotCount > 5 && (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={snapshotSearch}
+                      onChange={(e) => setSnapshotSearch(e.target.value)}
+                      placeholder="Search by name or creator…"
+                      className="input text-sm"
+                    />
+                  )}
+                  {snapshots.length === 0 ? (
+                    <p className="text-sm py-4 text-center" style={{ color: 'var(--text-3)' }}>
+                      No layouts match "{snapshotSearch}"
+                    </p>
+                  ) : (
                     <div
-                      key={snap.id}
-                      className="flex items-center gap-3 px-4 py-3"
-                      style={{ background: 'var(--surface)' }}
+                      className="divide-y rounded-lg overflow-hidden"
+                      style={{ border: '1px solid var(--border)', maxHeight: 360, overflowY: 'auto' }}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
-                          {snap.name}
-                        </p>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                          {snap.user.avatarEmoji ?? '👤'} {displayName(snap.user)} ·{' '}
-                          {new Date(snap.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => applySnapshot(snap)}
-                        className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                        style={{ background: 'var(--brand)', color: 'white' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                      >
-                        Apply
-                      </button>
-                      {snap.userId === currentUser?.id && (
-                        <button
-                          onClick={() => deleteSnapshot(snap)}
-                          className="flex-shrink-0 text-xs transition-colors"
-                          style={{ color: 'var(--text-3)' }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                          title="Delete snapshot"
+                      {snapshots.map((snap) => (
+                        <div
+                          key={snap.id}
+                          className="flex items-center gap-3 px-4 py-3"
+                          style={{ background: 'var(--surface)' }}
                         >
-                          ✕
-                        </button>
-                      )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
+                              {snap.name}
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+                              {snap.user.avatarEmoji ?? '👤'} {displayName(snap.user)} ·{' '}
+                              {new Date(snap.updatedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => applySnapshot(snap)}
+                            className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                            style={{ background: 'var(--brand)', color: 'white' }}
+                            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+                            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                          >
+                            Apply
+                          </button>
+                          {snap.userId === currentUser?.id && (
+                            <>
+                              <button
+                                onClick={() => updateSnapshot(snap)}
+                                className="flex-shrink-0 text-xs transition-colors"
+                                style={{ color: 'var(--text-3)' }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+                                title="Overwrite with the current layout"
+                              >
+                                ↻
+                              </button>
+                              <button
+                                onClick={() => deleteSnapshot(snap)}
+                                className="flex-shrink-0 text-xs transition-colors"
+                                style={{ color: 'var(--text-3)' }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
+                                title="Delete snapshot"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
               <button onClick={() => setShowLoadModal(false)} className="btn-secondary w-full">
                 Close

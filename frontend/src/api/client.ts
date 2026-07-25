@@ -217,14 +217,26 @@ export interface Message {
   reactions: { emoji: string; userId: string }[];
 }
 
+export interface CanvasSnapshotViewport {
+  x: number;
+  y: number;
+  zoom: number;
+  viewMode?: string;
+  simpleMode?: boolean;
+  statusFilter?: string | null;
+  selectedSprintFilter?: string | null;
+  selectedMilestoneIds?: string[];
+}
+
 export interface CanvasSnapshot {
   id: string;
   productId: string;
   userId: string;
   name: string;
   positions: Record<string, { x: number; y: number }>;
-  viewport: { x: number; y: number; zoom: number; viewMode?: string; simpleMode?: boolean };
+  viewport: CanvasSnapshotViewport;
   createdAt: string;
+  updatedAt: string;
   user: MinUser;
 }
 
@@ -432,6 +444,17 @@ export const api = {
       }),
     bulkDelete: (productId: string, taskIds: string[]) =>
       request<void>(`/api/products/${productId}/tasks/bulk-delete`, { method: 'POST', body: json({ taskIds }) }),
+    // Adds a prerequisite edge: `taskId` depends on `prerequisiteId` (i.e. prerequisiteId is
+    // required by taskId). Used e.g. to make a task feed into a milestone task.
+    addDependency: (productId: string, taskId: string, prerequisiteId: string) =>
+      request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}/dependencies`, {
+        method: 'POST',
+        body: json({ prerequisiteId }),
+      }),
+    removeDependency: (productId: string, taskId: string, prerequisiteId: string) =>
+      request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}/dependencies/${prerequisiteId}`, {
+        method: 'DELETE',
+      }),
   },
 
   subtasks: {
@@ -616,12 +639,21 @@ export const api = {
     list: (productId: string) => request<CanvasSnapshot[]>(`/api/products/${productId}/canvas-snapshots`),
     create: (
       productId: string,
-      data: {
-        name: string;
-        positions: Record<string, { x: number; y: number }>;
-        viewport: { x: number; y: number; zoom: number; viewMode?: string; simpleMode?: boolean };
-      },
+      data: { name: string; positions: Record<string, { x: number; y: number }>; viewport: CanvasSnapshotViewport },
     ) => request<CanvasSnapshot>(`/api/products/${productId}/canvas-snapshots`, { method: 'POST', body: json(data) }),
+    update: (
+      productId: string,
+      snapshotId: string,
+      data: {
+        name?: string;
+        positions: Record<string, { x: number; y: number }>;
+        viewport: CanvasSnapshotViewport;
+      },
+    ) =>
+      request<CanvasSnapshot>(`/api/products/${productId}/canvas-snapshots/${snapshotId}`, {
+        method: 'PATCH',
+        body: json(data),
+      }),
     delete: (productId: string, snapshotId: string) =>
       request<{ ok: boolean }>(`/api/products/${productId}/canvas-snapshots/${snapshotId}`, { method: 'DELETE' }),
   },

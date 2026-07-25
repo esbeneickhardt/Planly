@@ -140,6 +140,8 @@ export default function KanbanFiltersBar({
 
       {/* Desktop-only filters */}
       <div className="hidden md:contents">
+        <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
+
         {/* Reset */}
         <button
           onClick={onReset}
@@ -263,6 +265,10 @@ export default function KanbanFiltersBar({
               ))}
             </select>
           </div>
+        )}
+
+        {!compact && milestones.length > 0 && (
+          <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
         )}
 
         {/* Group by milestone toggle (board view only; not shown in compact mode) */}
