@@ -42,6 +42,10 @@ interface Props {
   groupByMilestone: boolean;
   onToggleGroupByMilestone: () => void;
 
+  /** Trello-style alternate board layout: columns = milestones instead of status */
+  viewMode: 'status' | 'milestone';
+  onToggleViewMode: () => void;
+
   toast: string;
 
   compact: boolean;
@@ -102,6 +106,8 @@ export default function KanbanFiltersBar({
   onMilestoneChange,
   groupByMilestone,
   onToggleGroupByMilestone,
+  viewMode,
+  onToggleViewMode,
   toast,
   compact,
   onToggleCompact,
@@ -138,6 +144,27 @@ export default function KanbanFiltersBar({
         {user?.avatarEmoji ?? '👤'} Mine
       </button>
 
+      {/* Board layout toggle: status columns (default) vs Trello-style milestone columns. Shown on
+          both mobile and desktop - unlike Simple/Compact below, KanbanMobileList honors this too. */}
+      {milestones.length > 0 && !compact && (
+        <button
+          onClick={onToggleViewMode}
+          className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+          style={{
+            color: viewMode === 'milestone' ? 'var(--brand)' : 'var(--text-3)',
+            background: viewMode === 'milestone' ? 'var(--brand-subtle)' : 'transparent',
+            border: `1px solid ${viewMode === 'milestone' ? 'var(--brand)' : 'var(--border)'}`,
+          }}
+          title={
+            viewMode === 'milestone'
+              ? 'Switch back to status columns'
+              : 'Switch to milestone columns, grouped by status within each'
+          }
+        >
+          {viewMode === 'milestone' ? '📋 Status columns' : '🏁 Milestone columns'}
+        </button>
+      )}
+
       {/* Sub-plan and milestone filters, shown on mobile too - both narrow the same `filteredTasks`
           array that KanbanMobileList already renders from, so they work there exactly as on desktop. */}
       {sprints.length > 0 && (
@@ -167,8 +194,9 @@ export default function KanbanFiltersBar({
       </div>
 
       {/* Group by milestone toggle, shown on mobile too - unlike Simple/Compact below, the mobile
-          board (KanbanMobileList) does honor this one, clustering each column's cards by milestone. */}
-      {milestones.length > 0 && (
+          board (KanbanMobileList) does honor this one, clustering each column's cards by milestone.
+          Meaningless once milestones are themselves the columns, so hidden in that mode. */}
+      {milestones.length > 0 && viewMode === 'status' && (
         <button
           onClick={onToggleGroupByMilestone}
           className="md:hidden text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
@@ -312,12 +340,13 @@ export default function KanbanFiltersBar({
           </div>
         )}
 
-        {!compact && milestones.length > 0 && (
+        {!compact && milestones.length > 0 && viewMode === 'status' && (
           <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
         )}
 
-        {/* Group by milestone toggle (board view only; not shown in compact mode) */}
-        {!compact && milestones.length > 0 && (
+        {/* Group by milestone toggle (board view only; not shown in compact mode, meaningless in
+            milestone-columns mode since milestones are themselves the columns there) */}
+        {!compact && milestones.length > 0 && viewMode === 'status' && (
           <button
             onClick={onToggleGroupByMilestone}
             className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"

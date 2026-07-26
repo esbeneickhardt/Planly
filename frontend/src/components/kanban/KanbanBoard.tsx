@@ -28,6 +28,7 @@ import { useSprints } from '../../hooks/useSprints';
 import { computePrimaryMilestones, assignMilestoneColors } from '../../utils/milestones';
 import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import KanbanColumn, { UNASSIGNED_CLUSTER } from './KanbanColumn';
+import KanbanMilestoneColumn from './KanbanMilestoneColumn';
 import KanbanCard from './KanbanCard';
 import KanbanMobileList from './KanbanMobileList';
 import KanbanFiltersBar from './KanbanFiltersBar';
@@ -71,6 +72,12 @@ export default function KanbanBoard() {
     () => localStorage.getItem('planly_kanban_group_by_milestone') === '1',
   );
   const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(new Set());
+  // Trello-style alternate board layout: columns = milestones instead of status, with cards
+  // grouped into collapsible per-status sections inside each - persisted globally like groupByMilestone.
+  const [viewMode, setViewMode] = useState<'status' | 'milestone'>(() =>
+    localStorage.getItem('planly_kanban_view_mode') === 'milestone' ? 'milestone' : 'status',
+  );
+  const [collapsedStatusesInMilestoneView, setCollapsedStatusesInMilestoneView] = useState<Set<string>>(new Set());
   const [mineOnly, setMineOnly] = useState(false);
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const lastInitializedProductId = useRef<string | null>(null);
@@ -140,6 +147,29 @@ export default function KanbanBoard() {
     // Grouping already shows every milestone at once - clear the single-milestone filter so it
     // doesn't linger, hidden, and cause confusion if the user switches back to filter mode.
     if (next) setMilestoneFilterAndSave(null);
+  }
+
+  function toggleViewMode() {
+    const next = viewMode === 'status' ? 'milestone' : 'status';
+    setViewMode(next);
+    localStorage.setItem('planly_kanban_view_mode', next);
+  }
+
+  function persistCollapsedStatuses(next: Set<string>) {
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly-kanban-collapsedStatuses-${activeProduct.id}`, JSON.stringify(Array.from(next)));
+    } catch {}
+  }
+
+  function toggleStatusCollapsed(statusKey: string) {
+    setCollapsedStatusesInMilestoneView((prev) => {
+      const next = new Set(prev);
+      if (next.has(statusKey)) next.delete(statusKey);
+      else next.add(statusKey);
+      persistCollapsedStatuses(next);
+      return next;
+    });
   }
 
   function persistCollapsedMilestones(next: Set<string>) {
@@ -304,6 +334,27 @@ export default function KanbanBoard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupByMilestone, activeProduct?.id, tasksLoaded]);
 
+  // Same pattern as collapsedMilestones above, but for the milestone-columns view's per-status
+  // sections: restore the saved set, falling back to "everything collapsed" only the first time
+  // (once `columns` has actually loaded - unlike `tasks`, `columns` only changes on real column
+  // CRUD/reorders, not on every task edit, so depending on it directly doesn't risk repeatedly
+  // recomputing the default).
+  useEffect(() => {
+    if (viewMode !== 'milestone' || !activeProduct) return;
+    try {
+      const saved = localStorage.getItem(`planly-kanban-collapsedStatuses-${activeProduct.id}`);
+      if (saved) {
+        setCollapsedStatusesInMilestoneView(new Set(JSON.parse(saved) as string[]));
+        return;
+      }
+    } catch {}
+    if (columns.length === 0) return;
+    const next = new Set(columns.map((c) => c.statusKey));
+    setCollapsedStatusesInMilestoneView(next);
+    persistCollapsedStatuses(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, activeProduct?.id, columns]);
+
   const hasFilters =
     ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null || milestoneFilter !== null || mineOnly;
 
@@ -331,6 +382,26 @@ export default function KanbanBoard() {
     milestoneFilter,
     primaryMilestones,
   ]);
+
+  // Per-milestone task groupings for the "milestone columns" view: each milestone's own task first
+  // (same convention as buildMilestoneClusters), followed by everything that feeds into it; tasks
+  // reaching no milestone land in the "No milestone" bucket.
+  const milestoneColumnTasks = useMemo(() => {
+    const byMilestoneId = new Map<string, Task[]>();
+    for (const id of orderedMilestoneIds) byMilestoneId.set(id, []);
+    const unassigned: Task[] = [];
+    for (const t of filteredTasks) {
+      if (t.deadline) {
+        if (!byMilestoneId.has(t.id)) byMilestoneId.set(t.id, []);
+        byMilestoneId.get(t.id)!.unshift(t);
+        continue;
+      }
+      const m = primaryMilestones.get(t.id);
+      if (m && byMilestoneId.has(m.id)) byMilestoneId.get(m.id)!.push(t);
+      else unassigned.push(t);
+    }
+    return { byMilestoneId, unassigned };
+  }, [filteredTasks, orderedMilestoneIds, primaryMilestones]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -408,9 +479,13 @@ export default function KanbanBoard() {
 
     const activeType = active.data.current?.type;
 
-    // ── Milestone header reorder (shared across all columns; a display preference, so it isn't
-    // gated behind write permission the way task/column mutations below are) ──
+    // ── Milestone header reorder (shared across all columns/milestone-columns; a display
+    // preference, so it isn't gated behind write permission the way task/column mutations below
+    // are). Must check the OVER type too: in milestone-columns mode, status-section drop zones
+    // also carry a milestoneId in their data (so cross-milestone task drops can be detected below),
+    // so a header dropped on a status section must not be mistaken for another header/column. ──
     if (activeType === 'milestone-header') {
+      if (over.data.current?.type !== 'milestone-header') return;
       const activeMilestoneId = active.data.current?.milestoneId as string;
       const overMilestoneId = over.data.current?.milestoneId as string | undefined;
       if (!overMilestoneId || activeMilestoneId === overMilestoneId) return;
@@ -423,7 +498,7 @@ export default function KanbanBoard() {
 
     if (readOnly) return;
 
-    // ── Column reorder ──
+    // ── Column reorder (status-columns mode only) ──
     if (activeType === 'column') {
       const fromId = active.id as string;
       const toId = over.id as string;
@@ -450,10 +525,31 @@ export default function KanbanBoard() {
     if (!task) return;
 
     const overId = over.id as string;
-    const overColumn = columns.find((c) => c.statusKey === overId);
     const overTask = tasks.find((t) => t.id === overId);
-    const targetStatusKey = overColumn?.statusKey ?? overTask?.status ?? null;
+    const overData = over.data.current as { type?: string; statusKey?: string; milestoneId?: string } | undefined;
+    const overColumn = columns.find((c) => c.statusKey === overId);
+
+    const targetStatusKey = overData?.statusKey ?? overColumn?.statusKey ?? overTask?.status ?? null;
     if (!targetStatusKey) return;
+
+    // Milestone reassignment: only in milestone-columns mode, and never for a task that is itself
+    // a milestone (it defines its own column - it can only move between status sections within
+    // it, never into another milestone's column, so its scope always resolves to its own id).
+    let currentMilestoneId: string | undefined;
+    let targetMilestoneId: string | undefined;
+    if (viewMode === 'milestone') {
+      if (task.deadline) {
+        currentMilestoneId = task.id;
+        targetMilestoneId = task.id;
+      } else {
+        currentMilestoneId = primaryMilestones.get(task.id)?.id ?? UNASSIGNED_CLUSTER;
+        targetMilestoneId =
+          overData?.milestoneId ??
+          (overTask ? (primaryMilestones.get(overTask.id)?.id ?? UNASSIGNED_CLUSTER) : undefined);
+      }
+    }
+    const milestoneChanged =
+      viewMode === 'milestone' && !task.deadline && !!targetMilestoneId && targetMilestoneId !== currentMilestoneId;
 
     const statusChanged = task.status !== targetStatusKey;
     if (statusChanged && !task.ownerId && targetStatusKey === 'todo') {
@@ -461,20 +557,47 @@ export default function KanbanBoard() {
       return;
     }
 
-    // Build the new ordered list for the target column
+    if (milestoneChanged && targetMilestoneId) {
+      // Reuses TaskDetailPanel's own milestone-switch logic: find the task's current DIRECT
+      // milestone edge (single-hop, not the transitive primaryMilestones lookup) and swap it for a
+      // direct edge to the new milestone.
+      const milestoneTaskIds = new Set(tasks.filter((t) => !!t.deadline).map((t) => t.id));
+      const directPrevId = task.requiredBy.find((r) => milestoneTaskIds.has(r.dependentId))?.dependentId ?? null;
+      try {
+        await Promise.all([
+          directPrevId ? api.tasks.removeDependency(activeProduct.id, directPrevId, task.id) : null,
+          targetMilestoneId !== UNASSIGNED_CLUSTER
+            ? api.tasks.addDependency(activeProduct.id, targetMilestoneId, task.id)
+            : null,
+        ]);
+        // A drop into a collapsed status section would otherwise vanish from view
+        if (collapsedStatusesInMilestoneView.has(targetStatusKey)) toggleStatusCollapsed(targetStatusKey);
+      } catch (err) {
+        showToast((err as Error).message ?? 'Could not move task to that milestone');
+        return;
+      }
+    }
+
+    // Build the new ordered list for the target column - scoped to (status, milestone) when in
+    // milestone-columns mode, so reordering only considers this milestone-column's own cards.
+    const scopeMilestoneId = viewMode === 'milestone' ? (targetMilestoneId ?? currentMilestoneId) : undefined;
+    const taskMilestoneKey = (t: Task) => (t.deadline ? t.id : (primaryMilestones.get(t.id)?.id ?? UNASSIGNED_CLUSTER));
+    const inScope = (t: Task) => scopeMilestoneId === undefined || taskMilestoneKey(t) === scopeMilestoneId;
+
+    const listChanged = statusChanged || milestoneChanged;
     const sorted = (s: string) =>
-      tasks.filter((t) => t.status === s && t.id !== taskId).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
+      tasks.filter((t) => t.status === s && t.id !== taskId && inScope(t)).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
 
     let newColumnTasks: Task[];
     if (overTask && overTask.id !== taskId) {
       // Dropped on a specific task
       const peers = sorted(targetStatusKey);
       const insertAt = peers.findIndex((t) => t.id === overTask.id);
-      if (!statusChanged) {
+      if (!listChanged) {
         // Same-column reorder: insert AFTER the target when moving down, BEFORE when moving up.
         // Without this, dragging the top card onto a lower card inserts it before the target —
         // which produces no visible change when there are only two tasks (e.g. [A,B] → [A,B]).
-        const col = tasks.filter((t) => t.status === task.status).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
+        const col = tasks.filter((t) => t.status === task.status && inScope(t)).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
         const movingDown = col.findIndex((t) => t.id === taskId) < col.findIndex((t) => t.id === overTask.id);
         peers.splice(movingDown ? insertAt + 1 : insertAt, 0, task);
       } else {
@@ -482,13 +605,8 @@ export default function KanbanBoard() {
         peers.splice(insertAt === -1 ? peers.length : insertAt, 0, task);
       }
       newColumnTasks = peers;
-    } else if (!statusChanged) {
-      // Same-column drop on the column droppable - move to end
-      const peers = sorted(targetStatusKey);
-      peers.push(task);
-      newColumnTasks = peers;
     } else {
-      // Cross-column drop on the column droppable - append at end
+      // Dropped on the column/section droppable itself (not a specific task) - append at end
       const peers = sorted(targetStatusKey);
       peers.push(task);
       newColumnTasks = peers;
@@ -653,6 +771,8 @@ export default function KanbanBoard() {
         onMilestoneChange={setMilestoneFilterAndSave}
         groupByMilestone={groupByMilestone}
         onToggleGroupByMilestone={toggleGroupByMilestone}
+        viewMode={viewMode}
+        onToggleViewMode={toggleViewMode}
         toast={toast}
         compact={compact}
         onToggleCompact={() => {
@@ -694,6 +814,12 @@ export default function KanbanBoard() {
         milestoneOrderIds={orderedMilestoneIds}
         collapsedMilestones={collapsedMilestones}
         onToggleMilestoneCollapse={toggleMilestoneCollapsed}
+        viewMode={viewMode}
+        orderedMilestoneIds={orderedMilestoneIds}
+        milestoneColumnTasks={milestoneColumnTasks}
+        milestoneMeta={milestoneMeta}
+        collapsedStatuses={collapsedStatusesInMilestoneView}
+        onToggleStatusCollapse={toggleStatusCollapsed}
       />
 
       {/* Desktop board area - hidden on small screens to give way to KanbanMobileList */}
@@ -730,7 +856,10 @@ export default function KanbanBoard() {
             onDragStart={onDragStart}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext items={columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
+            <SortableContext
+              items={viewMode === 'milestone' ? orderedMilestoneIds : columns.map((c) => c.id)}
+              strategy={horizontalListSortingStrategy}
+            >
               <div
                 ref={boardRef}
                 className="flex-1 overflow-x-auto overflow-y-auto select-none"
@@ -741,31 +870,70 @@ export default function KanbanBoard() {
                 onMouseLeave={onBoardMouseUp}
               >
                 <div className="flex gap-4 px-6 pt-2 pb-6 min-w-max items-start">
-                  {columns.map((col) => (
-                    <div key={col.id} className="kanban-col">
-                      <KanbanColumn
-                        column={col}
-                        tasks={filteredTasks
-                          .filter((t) => t.status === col.statusKey)
-                          .sort((a, b) => a.kanbanOrder - b.kanbanOrder)}
-                        onOpenDetail={setSelectedTask}
-                        onRename={handleRenameColumn}
-                        onDeleteRequest={setPendingDeleteCol}
-                        onAddTask={readOnly ? undefined : (name) => handleQuickAddTask(col.statusKey, name)}
-                        primaryMilestones={primaryMilestones}
-                        milestoneColors={milestoneColors}
-                        simpleMode={simpleMode}
-                        groupByMilestone={groupByMilestone}
-                        milestoneOrderIds={orderedMilestoneIds}
-                        milestoneMeta={milestoneMeta}
-                        collapsedMilestones={collapsedMilestones}
-                        onToggleMilestoneCollapse={toggleMilestoneCollapsed}
-                      />
-                    </div>
-                  ))}
+                  {viewMode === 'milestone' ? (
+                    <>
+                      {orderedMilestoneIds.map((milestoneId) => (
+                        <div key={milestoneId} className="kanban-col">
+                          <KanbanMilestoneColumn
+                            milestoneId={milestoneId}
+                            milestone={tasks.find((t) => t.id === milestoneId) ?? null}
+                            tasks={milestoneColumnTasks.byMilestoneId.get(milestoneId) ?? []}
+                            columns={columns}
+                            color={milestoneMeta.get(milestoneId)?.color ?? '#64748b'}
+                            onOpenDetail={setSelectedTask}
+                            primaryMilestones={primaryMilestones}
+                            milestoneColors={milestoneColors}
+                            simpleMode={simpleMode}
+                            collapsedStatuses={collapsedStatusesInMilestoneView}
+                            onToggleStatusCollapse={toggleStatusCollapsed}
+                          />
+                        </div>
+                      ))}
+                      {milestoneColumnTasks.unassigned.length > 0 && (
+                        <div className="kanban-col">
+                          <KanbanMilestoneColumn
+                            milestoneId={UNASSIGNED_CLUSTER}
+                            milestone={null}
+                            tasks={milestoneColumnTasks.unassigned}
+                            columns={columns}
+                            color="var(--text-3)"
+                            onOpenDetail={setSelectedTask}
+                            primaryMilestones={primaryMilestones}
+                            milestoneColors={milestoneColors}
+                            simpleMode={simpleMode}
+                            collapsedStatuses={collapsedStatusesInMilestoneView}
+                            onToggleStatusCollapse={toggleStatusCollapsed}
+                          />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    columns.map((col) => (
+                      <div key={col.id} className="kanban-col">
+                        <KanbanColumn
+                          column={col}
+                          tasks={filteredTasks
+                            .filter((t) => t.status === col.statusKey)
+                            .sort((a, b) => a.kanbanOrder - b.kanbanOrder)}
+                          onOpenDetail={setSelectedTask}
+                          onRename={handleRenameColumn}
+                          onDeleteRequest={setPendingDeleteCol}
+                          onAddTask={readOnly ? undefined : (name) => handleQuickAddTask(col.statusKey, name)}
+                          primaryMilestones={primaryMilestones}
+                          milestoneColors={milestoneColors}
+                          simpleMode={simpleMode}
+                          groupByMilestone={groupByMilestone}
+                          milestoneOrderIds={orderedMilestoneIds}
+                          milestoneMeta={milestoneMeta}
+                          collapsedMilestones={collapsedMilestones}
+                          onToggleMilestoneCollapse={toggleMilestoneCollapsed}
+                        />
+                      </div>
+                    ))
+                  )}
 
-                  {/* Add column - hidden for read-only users */}
-                  {!readOnly && (
+                  {/* Add column - status-columns mode only, hidden for read-only users */}
+                  {!readOnly && viewMode === 'status' && (
                     <button
                       onClick={() => setShowNewColumn(true)}
                       className="w-72 flex-shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm border-[var(--border)] text-[var(--text-3)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
