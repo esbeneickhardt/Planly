@@ -81,7 +81,7 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
   }
 
   return (
-    <Modal title="Notification preferences" onClose={onClose} width="max-w-sm">
+    <Modal title="Notification preferences" onClose={onClose} width="max-w-sm" mobileFullscreen>
       <div className="space-y-1">
         {NOTIFICATION_TYPES.map(({ type, label, description, group }, i) => {
           const prevGroup = NOTIFICATION_TYPES[i - 1]?.group;

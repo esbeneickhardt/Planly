@@ -18,6 +18,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     name: 'Test task',
     status: 'backlog',
     kanbanOrder: 0,
+    milestoneOrder: 0,
     createdBy: 'user-1',
     createdAt: new Date('2024-01-15').toISOString(),
     subtasks: [],

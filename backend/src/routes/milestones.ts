@@ -72,6 +72,7 @@ export async function milestoneRoutes(app: FastifyInstance) {
         name: milestone.name,
         status: milestone.status,
         deadline: milestone.deadline,
+        milestoneOrder: milestone.milestoneOrder,
         owner: milestone.owner
           ? {
               ...milestone.owner,

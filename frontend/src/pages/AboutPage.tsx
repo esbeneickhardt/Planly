@@ -116,7 +116,7 @@ export default function AboutPage() {
 
   return (
     <div className="h-full overflow-auto" style={{ background: 'var(--bg)' }}>
-      <div className="max-w-2xl mx-auto px-6 py-10 space-y-8">
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-5 md:py-10 space-y-4 md:space-y-8">
         {/* Hero */}
         <div className="flex items-start gap-4">
           {activeProduct.emoji && <span className="text-5xl leading-none flex-shrink-0">{activeProduct.emoji}</span>}

@@ -5,6 +5,7 @@
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { CategoriesIcon } from './TopBarIcons';
 import type { Product } from '../../types';
+import type { MobileNavPosition } from '../../context/ThemeContext';
 
 export type MobileNavItem = { to: string; label: string; Icon: (p: { size?: number }) => JSX.Element };
 export type AdminTab = { key: string; label: string; Icon: (p: { size?: number }) => JSX.Element };
@@ -28,9 +29,12 @@ interface Props {
   chatIsAdmin?: boolean;
   currentAdminTab: string;
   canManage: boolean;
+  mobileNavPosition: MobileNavPosition;
   onClose: () => void;
   onShowProfile: () => void;
   onShowThemePicker: () => void;
+  onShowMemberships: () => void;
+  onShowIntegrations: () => void;
   onShowNotifPrefs: () => void;
   onShowPrivacy: () => void;
   onShowTotp: () => void;
@@ -47,9 +51,12 @@ export default function TopBarMobileMenu({
   chatIsAdmin,
   currentAdminTab,
   canManage,
+  mobileNavPosition,
   onClose,
   onShowProfile,
   onShowThemePicker,
+  onShowMemberships,
+  onShowIntegrations,
   onShowNotifPrefs,
   onShowPrivacy,
   onShowTotp,
@@ -59,14 +66,19 @@ export default function TopBarMobileMenu({
   const [, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const showAdminNav = isAdminPage || !!chatIsAdmin;
+  const atBottom = mobileNavPosition === 'bottom';
 
-  return (
-    <div className="lg:hidden fixed inset-0 z-50 flex flex-col" style={{ top: 56 }} onClick={onClose}>
-      <div
-        className="flex-1 overflow-y-auto py-2"
-        style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', maxHeight: '80vh' }}
-        onClick={(e) => e.stopPropagation()}
-      >
+  const menuPanel = (
+    <div
+      key="panel"
+      className="flex-1 overflow-y-auto py-2"
+      style={{
+        background: 'var(--surface)',
+        maxHeight: '80vh',
+        ...(atBottom ? { borderTop: '1px solid var(--border)' } : { borderBottom: '1px solid var(--border)' }),
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
         {/* Navigation */}
         <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
           <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
@@ -179,6 +191,22 @@ export default function TopBarMobileMenu({
                 },
               },
               {
+                label: 'Memberships',
+                icon: '🏠',
+                action: () => {
+                  onShowMemberships();
+                  onClose();
+                },
+              },
+              {
+                label: 'Integrations',
+                icon: '🔑',
+                action: () => {
+                  onShowIntegrations();
+                  onClose();
+                },
+              },
+              {
                 label: 'Notifications',
                 icon: '🔔',
                 action: () => {
@@ -232,8 +260,18 @@ export default function TopBarMobileMenu({
             </button>
           </div>
         </div>
-      </div>
-      <div className="flex-1" style={{ background: 'rgba(0,0,0,0.5)' }} />
+    </div>
+  );
+
+  const spacer = <div key="spacer" className="flex-1" style={{ background: 'rgba(0,0,0,0.5)' }} />;
+
+  return (
+    <div
+      className="lg:hidden fixed inset-0 z-50 flex flex-col"
+      style={atBottom ? { bottom: 56 } : { top: 56 }}
+      onClick={onClose}
+    >
+      {atBottom ? [spacer, menuPanel] : [menuPanel, spacer]}
     </div>
   );
 }

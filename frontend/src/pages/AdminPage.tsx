@@ -57,7 +57,7 @@ export default function AdminPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6">
         {loading ? (
           <div className="text-sm" style={{ color: 'var(--text-3)' }}>
             Loading…

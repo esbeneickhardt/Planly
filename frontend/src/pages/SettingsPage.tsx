@@ -3,7 +3,7 @@
  * Active tab is synced with the `?tab=` search param so links can deep-link to a specific panel.
  * The team is fetched here and passed to sub-panels so they share a single up-to-date copy.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, displayName } from '../api/client';
 import { useProduct } from '../context/ProductContext';
@@ -45,10 +45,48 @@ export default function SettingsPage() {
     return PAGE_TABS.some((p) => p.key === t) ? t! : 'project';
   });
 
+  // Mobile swipeable panels: scroll-snap container synced with activeTab, lazy-mounting each
+  // panel only once it's actually been visited (visited panels stay mounted after that) so
+  // swiping through the tabs doesn't fire every sub-page's data fetch all at once on open.
+  const mobileScrollerRef = useRef<HTMLDivElement>(null);
+  const [visitedTabs, setVisitedTabs] = useState<Set<SettingsTab>>(() => new Set([activeTab]));
+  const tabButtonRefs = useRef<Map<SettingsTab, HTMLButtonElement>>(new Map());
+
+  function scrollMobileToIndex(i: number) {
+    const el = mobileScrollerRef.current;
+    if (!el?.scrollTo) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  function goToTab(key: SettingsTab) {
+    setActiveTab(key);
+    setVisitedTabs((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+    const idx = PAGE_TABS.findIndex((t) => t.key === key);
+    if (idx !== -1) scrollMobileToIndex(idx);
+  }
+
+  function onMobileScroll() {
+    const el = mobileScrollerRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    const key = PAGE_TABS[idx]?.key;
+    if (key && key !== activeTab) {
+      setActiveTab(key);
+      setVisitedTabs((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+    }
+  }
+
+  // Keep the active tab button scrolled into view within its own (horizontally scrollable) strip,
+  // e.g. after swiping several panels past what's currently visible in the strip.
+  useEffect(() => {
+    tabButtonRefs.current.get(activeTab)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [activeTab]);
+
   // Keep active tab in sync when the URL changes (e.g. browser back/forward or external link)
   useEffect(() => {
     const t = searchParams.get('tab') as SettingsTab | null;
-    if (t && PAGE_TABS.some((p) => p.key === t)) setActiveTab(t);
+    if (t && PAGE_TABS.some((p) => p.key === t)) goToTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const [team, setTeam] = useState<Team | null>(null);
@@ -135,12 +173,16 @@ export default function SettingsPage() {
         )}
       </div>
       {/* Tab strip in its own scrollable row so it can overflow on narrow screens */}
-      <div className="flex-shrink-0 overflow-x-auto border-b" style={{ borderColor: 'var(--border)' }}>
+      <div className="flex-shrink-0 overflow-x-auto no-scrollbar border-b" style={{ borderColor: 'var(--border)' }}>
         <div className="flex px-6 min-w-max">
           {PAGE_TABS.map(({ key, label, danger }) => (
             <button
               key={key}
-              onClick={() => setActiveTab(key)}
+              ref={(el) => {
+                if (el) tabButtonRefs.current.set(key, el);
+                else tabButtonRefs.current.delete(key);
+              }}
+              onClick={() => goToTab(key)}
               className="px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap"
               style={{
                 color: danger
@@ -161,64 +203,98 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        {activeTab === 'project' && (
-          <SettingsGeneral
-            activeProduct={activeProduct}
-            isOwner={isOwner}
-            canManage={canManage}
-            currentUser={currentUser}
-            members={members}
-            refreshProducts={refreshProducts}
-            showToast={showToast}
-            confirm={confirm}
-          />
-        )}
+      {(() => {
+        // Shared per-tab content, reused by both the desktop single-panel view and each mobile
+        // swipeable section below, so the prop-wiring for each sub-page exists in exactly one place.
+        function renderTabContent(key: SettingsTab) {
+          switch (key) {
+            case 'project':
+              return (
+                <SettingsGeneral
+                  activeProduct={activeProduct!}
+                  isOwner={isOwner}
+                  canManage={canManage}
+                  currentUser={currentUser}
+                  members={members}
+                  refreshProducts={refreshProducts}
+                  showToast={showToast}
+                  confirm={confirm}
+                />
+              );
+            case 'team':
+              return team ? (
+                <SettingsTeam
+                  team={team}
+                  members={members}
+                  activeProduct={activeProduct!}
+                  canManage={canManage}
+                  isOwner={isOwner}
+                  currentUser={currentUser}
+                  onMembersChanged={loadTeam}
+                  showToast={showToast}
+                  confirm={confirm}
+                  refreshPerms={refreshPerms}
+                />
+              ) : null;
+            case 'permissions':
+              return (
+                <SettingsPermissions
+                  activeProduct={activeProduct!}
+                  members={members}
+                  refreshPerms={refreshPerms}
+                  showToast={showToast}
+                />
+              );
+            case 'colors':
+              return <SettingsColors productId={activeProduct!.id} />;
+            case 'apps':
+              return <SettingsApps activeProduct={activeProduct!} showToast={showToast} confirm={confirm} />;
+            case 'webhooks':
+              return <SettingsWebhooks activeProduct={activeProduct!} showToast={showToast} confirm={confirm} />;
+            case 'danger':
+              return (
+                <SettingsDanger
+                  activeProduct={activeProduct!}
+                  isOwner={isOwner}
+                  currentUser={currentUser}
+                  members={members}
+                  showToast={showToast}
+                  confirm={confirm}
+                  refreshProducts={refreshProducts}
+                />
+              );
+            default:
+              return null;
+          }
+        }
 
-        {activeTab === 'team' && team && (
-          <SettingsTeam
-            team={team}
-            members={members}
-            activeProduct={activeProduct}
-            canManage={canManage}
-            isOwner={isOwner}
-            currentUser={currentUser}
-            onMembersChanged={loadTeam}
-            showToast={showToast}
-            confirm={confirm}
-            refreshPerms={refreshPerms}
-          />
-        )}
+        return (
+          <>
+            {/* Desktop: single active panel */}
+            <div className="hidden md:block flex-1 overflow-y-auto px-6 py-6">{renderTabContent(activeTab)}</div>
 
-        {activeTab === 'permissions' && (
-          <SettingsPermissions
-            activeProduct={activeProduct}
-            members={members}
-            refreshPerms={refreshPerms}
-            showToast={showToast}
-          />
-        )}
-
-        {activeTab === 'colors' && <SettingsColors productId={activeProduct.id} />}
-
-        {activeTab === 'apps' && <SettingsApps activeProduct={activeProduct} showToast={showToast} confirm={confirm} />}
-
-        {activeTab === 'webhooks' && (
-          <SettingsWebhooks activeProduct={activeProduct} showToast={showToast} confirm={confirm} />
-        )}
-
-        {activeTab === 'danger' && (
-          <SettingsDanger
-            activeProduct={activeProduct}
-            isOwner={isOwner}
-            currentUser={currentUser}
-            members={members}
-            showToast={showToast}
-            confirm={confirm}
-            refreshProducts={refreshProducts}
-          />
-        )}
-      </div>
+            {/* Mobile: swipeable one-panel-at-a-time view (native scroll-snap), synced with the tab
+                strip above in both directions - tapping a tab scrolls here, swiping here updates the
+                tab strip. Panels lazy-mount on first visit and stay mounted after that. */}
+            <div
+              ref={mobileScrollerRef}
+              onScroll={onMobileScroll}
+              className="md:hidden flex-1 flex overflow-x-auto overflow-y-hidden"
+              style={{ scrollSnapType: 'x mandatory' }}
+            >
+              {PAGE_TABS.map(({ key }) => (
+                <section
+                  key={key}
+                  className="w-full flex-shrink-0 overflow-y-auto px-4 py-4"
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  {visitedTabs.has(key) ? renderTabContent(key) : null}
+                </section>
+              ))}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
