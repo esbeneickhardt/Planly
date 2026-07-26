@@ -1,8 +1,7 @@
 /**
  * Settings Permissions tab showing a per-member, per-tab access matrix (write / read / none).
  * Owners and co-owners always have write access and cannot be downgraded via this matrix.
- * Three preset buttons apply a bulk level to all regular members; changes are sent as a single
- * PUT to avoid partial-save states.
+ * Changes are sent as a single PUT to avoid partial-save states.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { api, displayName } from '../../api/client';
@@ -77,25 +76,6 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
     setMatrix((prev) => ({ ...prev, [userId]: { ...prev[userId], [tab]: level } }));
   }
 
-  // Apply a preset to all non-privileged members only; owners/co-owners are always left at write
-  function applyPreset(preset: 'open' | 'standard' | 'locked') {
-    const levelMap: Record<string, Record<string, string>> = {
-      open: { kanban: 'write', backlog: 'write', canvas: 'write', gantt: 'write' },
-      standard: { kanban: 'write', backlog: 'write', canvas: 'read', gantt: 'read' },
-      locked: { kanban: 'read', backlog: 'read', canvas: 'read', gantt: 'read' },
-    };
-    const levels = levelMap[preset];
-    setMatrix((prev) => {
-      const next = { ...prev };
-      members.forEach(({ userId, role }) => {
-        const isPrivileged = userId === activeProduct.ownerId || role === 'co_owner';
-        if (isPrivileged) return;
-        next[userId] = { ...next[userId], ...levels };
-      });
-      return next;
-    });
-  }
-
   async function savePermissions() {
     setSaving(true);
     const updates: { userId: string; tab: string; level: string }[] = [];
@@ -122,55 +102,6 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
         Control which tabs each member can view or edit. Settings access is determined by role (owner / co-owner) - it
         cannot be granted via this matrix.
       </p>
-
-      {/* Preset cards */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {(
-          [
-            {
-              key: 'open',
-              label: 'Full Write',
-              icon: '🌐',
-              desc: 'Write access on every tab',
-              detail: 'Kanban · Tasks · Plan · Gantt → Write',
-            },
-            {
-              key: 'standard',
-              label: 'Write + Read',
-              icon: '🛡️',
-              desc: 'Write on Kanban and Tasks, Read on Plan and Gantt',
-              detail: 'Kanban · Tasks → Write · Plan · Gantt → Read',
-            },
-            {
-              key: 'locked',
-              label: 'Read Only',
-              icon: '🔒',
-              desc: 'Read access on every tab',
-              detail: 'All tabs → Read',
-            },
-          ] as { key: 'open' | 'standard' | 'locked'; label: string; icon: string; desc: string; detail: string }[]
-        ).map(({ key, label, icon, desc, detail }) => (
-          <button
-            key={key}
-            onClick={() => applyPreset(key)}
-            className="flex flex-col items-start gap-1.5 p-3.5 rounded-xl text-left transition-all hover:border-[var(--brand)] hover:bg-[var(--brand-subtle)]"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-base">{icon}</span>
-              <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
-                {label}
-              </span>
-            </div>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-              {desc}
-            </p>
-            <p className="text-[10px] font-mono" style={{ color: 'var(--text-3)', opacity: 0.7 }}>
-              {detail}
-            </p>
-          </button>
-        ))}
-      </div>
 
       <div className="flex items-center gap-4 mb-4 flex-wrap">
         {LEVELS.map(({ value, label, color }) => (
