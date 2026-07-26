@@ -137,3 +137,34 @@ export function buildMilestoneClusters(
   if (unassigned.length > 0) clusters.push({ id: UNASSIGNED_CLUSTER, children: unassigned });
   return clusters;
 }
+
+export interface StatusCluster {
+  statusKey: string;
+  label: string;
+  color: string;
+  children: Task[];
+}
+
+/**
+ * Partitions one milestone-column's tasks (the milestone task itself plus everything that feeds
+ * into it) into per-status buckets, ordered by the real Kanban column order - the "milestone
+ * columns" board view's equivalent of buildMilestoneClusters above, but grouping by the directly
+ * stored `status` field instead of walking the dependency graph. Every real column gets a bucket
+ * even when empty, so an empty status still renders as a valid drop target.
+ */
+export function buildStatusClusters(
+  tasks: Task[],
+  columns: { statusKey: string; label: string; color: string }[],
+): StatusCluster[] {
+  const byStatus = new Map<string, Task[]>();
+  for (const t of tasks) {
+    if (!byStatus.has(t.status)) byStatus.set(t.status, []);
+    byStatus.get(t.status)!.push(t);
+  }
+  return columns.map((c) => ({
+    statusKey: c.statusKey,
+    label: c.label,
+    color: c.color,
+    children: byStatus.get(c.statusKey) ?? [],
+  }));
+}
