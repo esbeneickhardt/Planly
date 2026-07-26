@@ -248,7 +248,12 @@ export default function GanttPage() {
     );
   }
 
-  if (loading) {
+  // Only the very first load shows the full-page spinner. `tasks` changing (e.g. a task marked
+  // done) re-triggers this same fetch so milestone progress stays current, but that's a quiet
+  // background refresh - gating on `loading` alone would unmount/remount the whole page (including
+  // GanttMobileList's local "which card is unfolded" state) every time, discarding it mid-session.
+  // `product` only starts null and never resets, so it's a reliable "have we loaded at least once" flag.
+  if (loading && !product) {
     return (
       <div className="h-full flex items-center justify-center">
         <div

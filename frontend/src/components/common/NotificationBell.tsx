@@ -1,7 +1,8 @@
 /**
  * Bell icon button with dropdown that shows either user notifications (normal mode) or admin audit-log entries (admin mode).
  * Both modes poll every 30 seconds; admin mode tracks the "seen at" timestamp in `planly:admin_notif_seen_at` localStorage.
- * In normal mode, clicking a notification with a matching `taskId` and active product opens that task's chat directly.
+ * In normal mode, clicking a task notification switches to that task's project if needed, then
+ * opens the task's full detail view ("task_assigned") or its chat thread ("task_commented"/"mention").
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -72,7 +73,7 @@ const ADMIN_ACTION_ICON: Record<string, string> = {
 export default function NotificationBell({ adminMode, productId }: { adminMode?: boolean; productId?: string }) {
   const navigate = useNavigate();
   const { openChat } = useChat();
-  const { tasks, activeProduct, refreshProducts } = useProduct();
+  const { tasks, products, activeProduct, setActiveProduct, refreshProducts } = useProduct();
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [inviteActing, setInviteActing] = useState<string | null>(null);
@@ -196,12 +197,32 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
     if (n.type === 'invite_received' || n.type === 'access_requested') return; // handled by Accept/Reject buttons
     if (!n.read) markRead(n.id);
     setOpen(false);
-    if (n.taskId && n.productId === activeProduct?.id) {
-      const task = tasks.find((t) => t.id === n.taskId);
-      openChat(n.taskId, task?.name ?? '');
+
+    if (n.taskId && n.productId) {
+      // Switch into the notification's own project first if it isn't already active - a
+      // notification can easily reference a task in a project other than the one you're browsing.
+      if (n.productId !== activeProduct?.id) {
+        const product = products.find((p) => p.id === n.productId);
+        if (product) setActiveProduct(product);
+      }
+      // "task_assigned" (owner or reviewer) is about the task itself, not a message, so it opens
+      // the task's full detail view; "task_commented"/"mention" are specifically about a message,
+      // so those still open the chat thread as before.
+      if (n.type === 'task_assigned') {
+        navigate(`/kanban?openTask=${n.taskId}`);
+      } else {
+        const task = tasks.find((t) => t.id === n.taskId);
+        openChat(n.taskId, task?.name ?? '');
+      }
       return;
     }
-    if (n.productId) navigate('/kanban');
+    if (n.productId) {
+      if (n.productId !== activeProduct?.id) {
+        const product = products.find((p) => p.id === n.productId);
+        if (product) setActiveProduct(product);
+      }
+      navigate('/kanban');
+    }
   }
 
   async function handleAcceptInvite(n: Notification) {
