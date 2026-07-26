@@ -9,8 +9,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Task, KanbanColumn } from '../../types';
 import { displayName } from '../../api/client';
-import { buildMilestoneClusters, UNASSIGNED_CLUSTER } from '../../utils/milestones';
+import { buildMilestoneClusters, buildStatusClusters, UNASSIGNED_CLUSTER } from '../../utils/milestones';
 import { useTheme } from '../../context/ThemeContext';
+import type { MilestoneOption } from './KanbanMilestoneFilter';
 
 interface User {
   id: string;
@@ -33,6 +34,14 @@ interface Props {
   milestoneOrderIds?: string[];
   collapsedMilestones?: Set<string>;
   onToggleMilestoneCollapse?: (id: string) => void;
+  /** Trello-style alternate layout: pages are milestones instead of status columns, with cards
+   * grouped into collapsible per-status sections within each - the mirror image of the above. */
+  viewMode?: 'status' | 'milestone';
+  orderedMilestoneIds?: string[];
+  milestoneColumnTasks?: { byMilestoneId: Map<string, Task[]>; unassigned: Task[] };
+  milestoneMeta?: Map<string, MilestoneOption>;
+  collapsedStatuses?: Set<string>;
+  onToggleStatusCollapse?: (statusKey: string) => void;
 }
 
 export default function KanbanMobileList({
@@ -48,18 +57,32 @@ export default function KanbanMobileList({
   milestoneOrderIds,
   collapsedMilestones,
   onToggleMilestoneCollapse,
+  viewMode = 'status',
+  orderedMilestoneIds,
+  milestoneColumnTasks,
+  milestoneMeta,
+  collapsedStatuses,
+  onToggleStatusCollapse,
 }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const columnsKey = columns.map((c) => c.id).join(',');
   const { mobileNavPosition } = useTheme();
 
-  // Snap back to the first column when the column set changes (e.g. product switch).
-  // `scrollTo` isn't implemented in jsdom (or some older WebViews), so guard it defensively.
+  const showUnassignedPage = viewMode === 'milestone' && (milestoneColumnTasks?.unassigned.length ?? 0) > 0;
+  // Page identity for both the pager dots and the "reset to first page" effect below - status
+  // columns in status mode, milestones (+ "No milestone") in milestone mode.
+  const pageIds =
+    viewMode === 'milestone'
+      ? [...(orderedMilestoneIds ?? []), ...(showUnassignedPage ? [UNASSIGNED_CLUSTER] : [])]
+      : columns.map((c) => c.id);
+  const pagesKey = pageIds.join(',');
+
+  // Snap back to the first page when the page set changes (e.g. product switch, or flipping
+  // viewMode). `scrollTo` isn't implemented in jsdom (or some older WebViews), so guard defensively.
   useEffect(() => {
     setActiveIndex(0);
     scrollerRef.current?.scrollTo?.({ left: 0 });
-  }, [columnsKey]);
+  }, [pagesKey]);
 
   function scrollToIndex(i: number) {
     const el = scrollerRef.current;
@@ -114,22 +137,35 @@ export default function KanbanMobileList({
 
   return (
     <div className="md:hidden flex-1 flex flex-col overflow-hidden relative">
-      {/* Pager: one dot per column, current one highlighted, tap to jump */}
-      {columns.length > 1 && (
+      {/* Pager: one dot per page, current one highlighted, tap to jump - pages are status columns
+          or milestones depending on viewMode */}
+      {pageIds.length > 1 && (
         <div className="flex items-center justify-center gap-1.5 py-2 flex-shrink-0">
-          {columns.map((col, i) => (
-            <button
-              key={col.id}
-              onClick={() => scrollToIndex(i)}
-              aria-label={`Go to ${col.label}`}
-              className="rounded-full transition-all"
-              style={{
-                width: i === activeIndex ? 18 : 6,
-                height: 6,
-                background: i === activeIndex ? col.color : 'var(--border)',
-              }}
-            />
-          ))}
+          {pageIds.map((id, i) => {
+            const label =
+              viewMode === 'milestone'
+                ? (id === UNASSIGNED_CLUSTER ? 'No milestone' : (milestoneMeta?.get(id)?.name ?? 'Milestone'))
+                : (columns.find((c) => c.id === id)?.label ?? '');
+            const color =
+              viewMode === 'milestone'
+                ? id === UNASSIGNED_CLUSTER
+                  ? 'var(--text-3)'
+                  : (milestoneMeta?.get(id)?.color ?? '#64748b')
+                : (columns.find((c) => c.id === id)?.color ?? 'var(--text-3)');
+            return (
+              <button
+                key={id}
+                onClick={() => scrollToIndex(i)}
+                aria-label={`Go to ${label}`}
+                className="rounded-full transition-all"
+                style={{
+                  width: i === activeIndex ? 18 : 6,
+                  height: 6,
+                  background: i === activeIndex ? color : 'var(--border)',
+                }}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -138,9 +174,81 @@ export default function KanbanMobileList({
         onScroll={onScroll}
         className="flex-1 flex overflow-x-auto overflow-y-hidden"
         style={{ scrollSnapType: 'x mandatory' }}
-        aria-label="Kanban columns"
+        aria-label={viewMode === 'milestone' ? 'Milestone columns' : 'Kanban columns'}
       >
-        {columns.map((col) => {
+        {viewMode === 'milestone'
+          ? pageIds.map((milestoneId) => {
+              const isUnassigned = milestoneId === UNASSIGNED_CLUSTER;
+              const pageTasks = isUnassigned
+                ? (milestoneColumnTasks?.unassigned ?? [])
+                : (milestoneColumnTasks?.byMilestoneId.get(milestoneId) ?? []);
+              const meta = isUnassigned ? null : milestoneMeta?.get(milestoneId);
+              const milestoneTask = isUnassigned ? null : tasks.find((t) => t.id === milestoneId);
+              const label = isUnassigned ? 'No milestone' : (meta?.name ?? 'Milestone');
+              const color = isUnassigned ? 'var(--text-3)' : (meta?.color ?? '#64748b');
+              const statusClusters = buildStatusClusters(pageTasks, columns);
+              return (
+                <section
+                  key={milestoneId}
+                  aria-labelledby={`mcol-heading-${milestoneId}`}
+                  className="w-full flex-shrink-0 overflow-y-auto px-4 py-3"
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ background: color }}
+                      aria-hidden="true"
+                    />
+                    <h2 id={`mcol-heading-${milestoneId}`} className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                      {label}
+                    </h2>
+                    <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                      ({pageTasks.length})
+                    </span>
+                    {milestoneTask?.deadline && (
+                      <span className="text-xs ml-auto" style={{ color: 'var(--text-3)' }}>
+                        {new Date(milestoneTask.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+
+                  {pageTasks.length === 0 && (
+                    <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
+                      No tasks
+                    </p>
+                  )}
+
+                  {statusClusters.map(({ statusKey, label: statusLabel, color: statusColor, children }) => {
+                    const statusCol = columns.find((c) => c.statusKey === statusKey)!;
+                    const collapsed = collapsedStatuses?.has(statusKey) ?? false;
+                    return (
+                      <div key={statusKey} className="mb-2">
+                        <button
+                          onClick={() => onToggleStatusCollapse?.(statusKey)}
+                          className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
+                          style={{ color: 'var(--text-2)', background: `${statusColor}14` }}
+                        >
+                          <span
+                            className="inline-block flex-shrink-0"
+                            style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+                          >
+                            ▾
+                          </span>
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+                          <span className="truncate flex-1 text-left">{statusLabel}</span>
+                          <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{children.length}</span>
+                        </button>
+                        {!collapsed && (
+                          <ul className="space-y-2 mb-2">{children.map((t) => renderCard(t, statusCol))}</ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </section>
+              );
+            })
+          : columns.map((col) => {
           const colTasks = tasks
             .filter((t) => t.status === col.statusKey)
             .sort((a, b) => a.kanbanOrder - b.kanbanOrder);
@@ -216,9 +324,9 @@ export default function KanbanMobileList({
             </section>
           );
         })}
-        {columns.length === 0 && (
+        {pageIds.length === 0 && (
           <p className="text-sm text-center py-16 w-full" style={{ color: 'var(--text-3)' }}>
-            No columns yet
+            {viewMode === 'milestone' ? 'No milestones yet' : 'No columns yet'}
           </p>
         )}
       </div>
