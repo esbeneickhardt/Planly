@@ -4,6 +4,7 @@
  * Board background image, compact list view, and all filter states are kept local (not in global context).
  */
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   DndContext,
   DragEndEvent,
@@ -38,10 +39,11 @@ import Modal from '../common/Modal';
 const FILTER_COLORS = PRESET_COLORS;
 
 export default function KanbanBoard() {
-  const { activeProduct, tasks, refreshTasks, createTask, patchMilestoneOrder } = useProduct();
+  const { activeProduct, tasks, tasksLoaded, refreshTasks, createTask, patchMilestoneOrder } = useProduct();
   const { canWrite } = usePermission();
   const { user } = useAuth();
   const readOnly = !canWrite('kanban');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // State: columns, dnd active items, modals, task/column forms
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
@@ -207,6 +209,19 @@ export default function KanbanBoard() {
     loadColumns();
   }, [loadColumns]);
 
+  // Deep-link support for "jump to this task" from elsewhere in the app (e.g. a notification click)
+  // via /kanban?openTask=<id>. Waits for tasks to finish loading (they may belong to a project just
+  // switched into) before looking the task up, then clears the param so it doesn't re-trigger.
+  useEffect(() => {
+    const openTaskId = searchParams.get('openTask');
+    if (!openTaskId || !tasksLoaded) return;
+    const task = tasks.find((t) => t.id === openTaskId);
+    if (task) setSelectedTask(task);
+    const next = new URLSearchParams(searchParams);
+    next.delete('openTask');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, tasks, tasksLoaded, setSearchParams]);
+
   const taskOwners = useMemo(() => {
     const ids = new Set(tasks.filter((t) => t.ownerId).map((t) => t.ownerId!));
     return users.filter((u) => ids.has(u.id));
@@ -266,6 +281,13 @@ export default function KanbanBoard() {
   // changes, so it survives a reload (e.g. mobile pull-to-refresh) instead of resetting. Only when
   // nothing has been saved yet for this product (first time grouping this board) does it fall back
   // to collapsing everything - browsing a fresh grouped board fully expanded is just noise.
+  //
+  // Computing that "collapse everything" default has to wait for `tasksLoaded`: tasks (and so
+  // `milestoneOptions`, derived from them) load asynchronously, and this effect's first run after
+  // a fresh page load can land before they arrive. Computing the default too early would seed
+  // (and - worse - PERSIST) a set containing only UNASSIGNED_CLUSTER, since milestoneOptions was
+  // still empty - permanently "poisoning" localStorage into showing everything expanded on every
+  // future load, since a saved entry (even a wrong one) always wins over recomputing.
   useEffect(() => {
     if (!groupByMilestone || !activeProduct) return;
     try {
@@ -275,11 +297,12 @@ export default function KanbanBoard() {
         return;
       }
     } catch {}
+    if (!tasksLoaded) return;
     const next = new Set([...milestoneOptions.map((m) => m.id), UNASSIGNED_CLUSTER]);
     setCollapsedMilestones(next);
     persistCollapsedMilestones(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupByMilestone, activeProduct?.id]);
+  }, [groupByMilestone, activeProduct?.id, tasksLoaded]);
 
   const hasFilters =
     ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null || milestoneFilter !== null || mineOnly;

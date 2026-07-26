@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import Modal from './Modal';
 
 const NOTIFICATION_TYPES: { type: string; label: string; description: string; defaultOn: boolean; group?: string }[] = [
@@ -48,6 +49,7 @@ interface Props {
 
 export default function NotificationPreferencesModal({ onClose }: Props) {
   const { user, refreshUser } = useAuth();
+  const { showToast } = useToast();
 
   const currentPrefs = (user?.notificationPreferences ?? {}) as Record<string, boolean>;
 
@@ -59,24 +61,17 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
     return map;
   });
 
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  function toggle(type: string) {
-    setPrefs((p) => ({ ...p, [type]: !p[type] }));
-    setSaved(false);
-  }
-
-  async function save() {
+  // Saves immediately on toggle (optimistic, reverted on failure) - no separate Save step.
+  async function toggle(type: string) {
     if (!user) return;
-    setSaving(true);
+    const next = { ...prefs, [type]: !prefs[type] };
+    setPrefs(next);
     try {
-      await api.users.updateNotificationPreferences(user.id, prefs);
+      await api.users.updateNotificationPreferences(user.id, next);
       await refreshUser();
-      setSaved(true);
-    } catch {
-    } finally {
-      setSaving(false);
+    } catch (err) {
+      setPrefs((p) => ({ ...p, [type]: !next[type]! }));
+      showToast((err as Error).message ?? 'Failed to save', 'error');
     }
   }
 
@@ -123,21 +118,6 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
             </div>
           );
         })}
-      </div>
-
-      <div className="flex gap-3 pt-4 mt-2" style={{ borderTop: '1px solid var(--border)' }}>
-        <button onClick={save} disabled={saving} className="btn-primary flex-1 flex justify-center">
-          {saving ? (
-            <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-          ) : saved ? (
-            'Saved'
-          ) : (
-            'Save preferences'
-          )}
-        </button>
-        <button type="button" onClick={onClose} className="btn-secondary">
-          Cancel
-        </button>
       </div>
     </Modal>
   );
