@@ -294,7 +294,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-2xl overflow-hidden"
+          className="fixed left-2 right-2 top-16 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-80 rounded-2xl shadow-2xl overflow-hidden"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
         >
           <div

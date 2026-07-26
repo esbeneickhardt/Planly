@@ -27,7 +27,7 @@ export default function PrivacyModal({ onClose }: Props) {
   }
 
   return (
-    <Modal title="Privacy" onClose={onClose} width="max-w-sm">
+    <Modal title="Privacy" onClose={onClose} width="max-w-sm" mobileFullscreen>
       <div className="space-y-1 mb-4">
         <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1" style={{ color: 'var(--text-3)' }}>
           Invitations

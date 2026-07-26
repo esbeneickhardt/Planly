@@ -94,20 +94,15 @@ function fallbackMilestoneSort(a: MilestoneResult, b: MilestoneResult): number {
   return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
 }
 
-// Applies the user's manually-dragged order (if any). Milestones not yet in the stored order
-// (created since the user last reordered) are appended at the end via the fallback sort. Once a
-// manual order exists it fully overrides the done-last grouping - dragging is the user's explicit
-// intent and should win.
-function orderMilestones(list: MilestoneResult[], order: string[]): MilestoneResult[] {
-  if (order.length === 0) return [...list].sort(fallbackMilestoneSort);
-  const indexOf = new Map(order.map((id, i) => [id, i]));
-  const known = list.filter((m) => indexOf.has(m.id)).sort((a, b) => indexOf.get(a.id)! - indexOf.get(b.id)!);
-  const unknown = list.filter((m) => !indexOf.has(m.id)).sort(fallbackMilestoneSort);
-  return [...known, ...unknown];
+// Sorts by the shared, backend-persisted milestoneOrder (set by dragging in either Gantt or
+// Kanban). Milestones that have never been dragged all share the default 0 and fall back to
+// done-last/soonest-first ordering, so nothing looks broken before anyone has ever reordered.
+function orderMilestones(list: MilestoneResult[]): MilestoneResult[] {
+  return [...list].sort((a, b) => a.milestoneOrder - b.milestoneOrder || fallbackMilestoneSort(a, b));
 }
 
 export default function GanttPage() {
-  const { activeProduct, tasks } = useProduct();
+  const { activeProduct, tasks, patchMilestoneOrder } = useProduct();
   const { canWrite } = usePermission();
   const readOnly = !canWrite('gantt');
   const [ganttView, setGanttView] = useState<GanttView>('milestones');
@@ -184,25 +179,19 @@ export default function GanttPage() {
     } catch {}
   }, [activeProduct?.id]);
 
-  // Manually-dragged milestone order, persisted per-product in localStorage (browser-local, not
-  // synced server-side - milestones have no dedicated backend model to attach a shared order to).
-  const [milestoneOrder, setMilestoneOrder] = useState<string[]>([]);
-  useEffect(() => {
-    if (!activeProduct) return;
-    try {
-      const stored = localStorage.getItem(`planly-gantt-milestoneOrder-${activeProduct.id}`);
-      setMilestoneOrder(stored ? (JSON.parse(stored) as string[]) : []);
-    } catch {
-      setMilestoneOrder([]);
-    }
-  }, [activeProduct?.id]);
-
+  // Persists a full reordering by assigning sequential milestoneOrder values and syncing to the
+  // backend, so Gantt and Kanban (and every other milestone list) share one order regardless of
+  // which page the drag happened on.
   function saveMilestoneOrder(ids: string[]) {
-    setMilestoneOrder(ids);
+    const orderOf = new Map(ids.map((id, i) => [id, i]));
+    setMilestones((prev) => prev.map((m) => (orderOf.has(m.id) ? { ...m, milestoneOrder: orderOf.get(m.id)! } : m)));
     if (!activeProduct) return;
-    try {
-      localStorage.setItem(`planly-gantt-milestoneOrder-${activeProduct.id}`, JSON.stringify(ids));
-    } catch {}
+    const updates = ids.map((id, i) => ({ taskId: id, order: i }));
+    // Also patch the shared task cache (ProductContext) so Kanban and Backlog - which read
+    // milestoneOrder from `tasks`, not from this page's own `milestones` state - update
+    // immediately instead of staying stale until their next independent refetch.
+    patchMilestoneOrder(updates);
+    api.tasks.reorderMilestones(activeProduct.id, updates).catch(() => {});
   }
 
   const milestoneDragSensors = useSensors(
@@ -319,7 +308,7 @@ export default function GanttPage() {
   const today = new Date();
 
   // Sorted per the user's manually-dragged order if one exists, else soonest-first with done pushed down
-  const sortedMilestones = orderMilestones(milestones, milestoneOrder);
+  const sortedMilestones = orderMilestones(milestones);
   const visibleMilestones = hideDone ? sortedMilestones.filter((m) => m.status !== 'done') : sortedMilestones;
 
   function handleMilestoneDragEnd(event: DragEndEvent) {
@@ -1120,7 +1109,7 @@ export default function GanttPage() {
                         {doneCount}/{milestones.length} milestones complete
                       </p>
                       <div className="space-y-1 max-h-48 overflow-auto">
-                        {orderMilestones(milestones, milestoneOrder)
+                        {orderMilestones(milestones)
                           .map((m, i, arr) => {
                             const isDone = m.status === 'done';
                             const isFirstDone = isDone && (i === 0 || arr[i - 1]?.status !== 'done');

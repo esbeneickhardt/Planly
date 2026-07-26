@@ -99,7 +99,11 @@ export type DirectMessage = {
 export type ConversationSummary = {
   id: string;
   closed: boolean;
+  isGroup: boolean;
+  name: string | null;
   other: MinUser | null;
+  /** All other participants (excluding self) - one entry for a DM, two or more for a group */
+  participants: MinUser[];
   lastMessage: DirectMessage | null;
   unread: number;
   updatedAt: string;
@@ -186,6 +190,7 @@ export interface MilestoneResult {
   name: string;
   status: Status;
   deadline: string;
+  milestoneOrder: number;
   owner?: Pick<User, 'id' | 'username' | 'realName' | 'avatarEmoji'>;
   totalDependencies: number;
   doneDependencies: number;
@@ -424,6 +429,11 @@ export const api = {
       request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}`, { method: 'DELETE' }),
     reorder: (productId: string, updates: { taskId: string; order: number }[]) =>
       request<{ ok: boolean }>(`/api/products/${productId}/tasks/reorder`, {
+        method: 'PATCH',
+        body: json({ updates }),
+      }),
+    reorderMilestones: (productId: string, updates: { taskId: string; order: number }[]) =>
+      request<{ ok: boolean }>(`/api/products/${productId}/tasks/milestone-reorder`, {
         method: 'PATCH',
         body: json({ updates }),
       }),
@@ -1127,6 +1137,17 @@ export const api = {
       request<{ ok: boolean; closed: boolean }>(`/api/conversations/${id}/close`, { method: 'PATCH', body: json({}) }),
     unreadCount: (adminChat?: boolean) =>
       request<{ count: number }>(`/api/conversations/unread-count${adminChat ? '?admin=true' : ''}`),
+    createGroup: (participantIds: string[], name?: string, isAdminChat?: boolean) =>
+      request<{ id: string }>('/api/conversations/group', {
+        method: 'POST',
+        body: json({ participantIds, name, isAdminChat: isAdminChat ?? false }),
+      }),
+    rename: (id: string, name: string) =>
+      request<{ ok: boolean }>(`/api/conversations/${id}/rename`, { method: 'PATCH', body: json({ name }) }),
+    addParticipants: (id: string, userIds: string[]) =>
+      request<{ ok: boolean }>(`/api/conversations/${id}/participants`, { method: 'POST', body: json({ userIds }) }),
+    removeParticipant: (id: string, userId: string) =>
+      request<{ ok: boolean }>(`/api/conversations/${id}/participants/${userId}`, { method: 'DELETE' }),
   },
   github: {
     getConfig: () =>

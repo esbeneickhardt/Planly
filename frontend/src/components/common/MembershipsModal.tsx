@@ -142,7 +142,7 @@ export default function MembershipsModal({ onClose }: Props) {
   }
 
   return (
-    <Modal title="Memberships" onClose={onClose} width="max-w-md">
+    <Modal title="Memberships" onClose={onClose} width="max-w-md" mobileFullscreen>
       {/* Pending invitations */}
       {pendingInvites.length > 0 && (
         <div className="mb-5">

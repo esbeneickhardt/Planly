@@ -198,18 +198,23 @@ export async function messageRoutes(app: FastifyInstance) {
     broadcast(productId, 'message.created', decryptedMsg);
     // message.created is intentionally not logged to the activity feed — chat volume would drown out task/sprint events
 
-    // Create notifications and optional emails for @mentioned users (fire-and-forget)
+    // Create notifications and optional emails for @mentioned users (fire-and-forget).
+    // "@all" is a standard-chat-style shortcut that notifies every project team member instead of
+    // one specific username - it takes precedence over (and is a superset of) any other @mentions
+    // in the same message, so mixing "@all" with "@someone" just notifies everyone once.
     const mentionedUsernames = [...content.matchAll(/@(\w+)/g)]
       .map((m) => m[1])
       .filter((u): u is string => u !== undefined);
-    if (mentionedUsernames.length > 0) {
+    const mentionsAll = mentionedUsernames.some((u) => u.toLowerCase() === 'all');
+    const specificUsernames = mentionedUsernames.filter((u) => u.toLowerCase() !== 'all');
+    if (mentionsAll || specificUsernames.length > 0) {
       prisma.user
         .findMany({
           where: {
-            username: { in: mentionedUsernames },
             id: { not: req.user.userId },
             // Only notify users who are actually members of this project
             teams: { some: { team: { products: { some: { id: productId } } } } },
+            ...(mentionsAll ? {} : { username: { in: specificUsernames } }),
           },
           select: { id: true, email: true, notificationPreferences: true },
         })

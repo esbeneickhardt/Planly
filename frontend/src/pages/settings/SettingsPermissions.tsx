@@ -129,23 +129,23 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
           [
             {
               key: 'open',
-              label: 'Open',
+              label: 'Full Write',
               icon: '🌐',
-              desc: 'Full write access on all tabs',
+              desc: 'Write access on every tab',
               detail: 'Kanban · Tasks · Plan · Gantt → Write',
             },
             {
               key: 'standard',
-              label: 'Standard',
+              label: 'Write + Read',
               icon: '🛡️',
-              desc: 'Write for tasks, view-only for planning',
+              desc: 'Write on Kanban and Tasks, Read on Plan and Gantt',
               detail: 'Kanban · Tasks → Write · Plan · Gantt → Read',
             },
             {
               key: 'locked',
-              label: 'Locked',
+              label: 'Read Only',
               icon: '🔒',
-              desc: 'View-only access everywhere',
+              desc: 'Read access on every tab',
               detail: 'All tabs → Read',
             },
           ] as { key: 'open' | 'standard' | 'locked'; label: string; icon: string; desc: string; detail: string }[]

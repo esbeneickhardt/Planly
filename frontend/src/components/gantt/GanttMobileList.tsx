@@ -116,33 +116,33 @@ function SortableMilestoneCard({
       className="w-full text-left rounded-xl px-4 py-3 transition-colors bg-surface-2 border border-border"
     >
       <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={onToggleExpand}>
-        <div className="flex items-start gap-1.5 min-w-0">
+        <p
+          className="text-sm font-medium leading-tight min-w-0"
+          style={{
+            color: isDone ? 'var(--text-3)' : 'var(--text)',
+            textDecoration: isDone ? 'line-through' : 'none',
+          }}
+        >
+          {isDone && <span className="mr-1">✓</span>}
+          {m.name}
+        </p>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <span
-            className="flex-shrink-0 mt-0.5 text-[10px]"
+            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+            style={{
+              background: isOverdue ? 'rgba(239,68,68,0.12)' : 'rgba(100,116,139,0.12)',
+              color: isOverdue ? '#ef4444' : 'var(--text-3)',
+            }}
+          >
+            {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+          </span>
+          <span
+            className="text-[10px]"
             style={{ color: 'var(--text-3)', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
           >
             ▸
           </span>
-          <p
-            className="text-sm font-medium leading-tight"
-            style={{
-              color: isDone ? 'var(--text-3)' : 'var(--text)',
-              textDecoration: isDone ? 'line-through' : 'none',
-            }}
-          >
-            {isDone && <span className="mr-1">✓</span>}
-            {m.name}
-          </p>
         </div>
-        <span
-          className="text-xs font-semibold flex-shrink-0 px-2 py-0.5 rounded-full"
-          style={{
-            background: isOverdue ? 'rgba(239,68,68,0.12)' : 'rgba(100,116,139,0.12)',
-            color: isOverdue ? '#ef4444' : 'var(--text-3)',
-          }}
-        >
-          {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
-        </span>
       </div>
       {!isDone && (
         <div className="mt-2 cursor-pointer" onClick={onToggleExpand}>
@@ -292,22 +292,20 @@ export default function GanttMobileList({
                   <div
                     key={s.id}
                     className="w-full text-left rounded-xl px-4 py-3 transition-colors bg-surface-2 border border-border"
+                    style={{ borderLeft: `3px solid ${s.color}` }}
                   >
                     <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => toggleExpand(s.id)}>
-                      <div className="flex items-start gap-1.5 min-w-0">
-                        <span
-                          className="flex-shrink-0 mt-0.5 text-[10px]"
-                          style={{ color: 'var(--text-3)', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
-                        >
-                          ▸
-                        </span>
-                        <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ background: s.color }} />
-                        <p className="text-sm font-medium leading-tight truncate" style={{ color: 'var(--text)' }}>
-                          {s.name}
-                        </p>
-                      </div>
+                      <p className="text-sm font-medium leading-tight truncate min-w-0" style={{ color: 'var(--text)' }}>
+                        {s.name}
+                      </p>
+                      <span
+                        className="text-[10px] flex-shrink-0"
+                        style={{ color: 'var(--text-3)', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
+                      >
+                        ▸
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1 mt-1.5 pl-5">
+                    <div className="flex items-center gap-1 mt-1.5">
                       <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
                         {new Date(s.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} –{' '}
                         {new Date(s.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })}

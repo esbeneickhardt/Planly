@@ -84,6 +84,7 @@ export interface Task {
   color?: string;
   deadline?: string;
   kanbanOrder: number;
+  milestoneOrder: number;
   canvasX?: number;
   canvasY?: number;
   completedBy?: string;

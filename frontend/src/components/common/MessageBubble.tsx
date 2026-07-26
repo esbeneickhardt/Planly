@@ -268,16 +268,17 @@ export default function MessageBubble({
           </button>
         </div>
 
-        {/* Emoji picker for reactions */}
+        {/* Emoji picker for reactions - fixed near the bottom of the viewport on mobile so it can
+            never render off-screen regardless of which message it was opened from; anchored
+            precisely next to the message bubble at md: and up. */}
         {reactionPickerOpen && (
           <div
-            className="absolute z-50 p-2 rounded-xl shadow-xl"
+            className={`fixed left-2 right-2 bottom-4 md:absolute md:left-auto md:right-auto md:bottom-full md:mb-0.5 z-50 p-2 rounded-xl shadow-xl ${
+              isOwn ? 'md:right-0' : 'md:left-0'
+            }`}
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
-              bottom: '100%',
-              [isOwn ? 'right' : 'left']: 0,
-              marginBottom: 2,
             }}
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 28px)', gap: 2 }}>
