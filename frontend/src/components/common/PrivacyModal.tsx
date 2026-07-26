@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import Modal from './Modal';
 
 interface Props {
@@ -9,34 +10,31 @@ interface Props {
 
 export default function PrivacyModal({ onClose }: Props) {
   const { user, refreshUser } = useAuth();
+  const { showToast } = useToast();
   const [acceptsInvites, setAcceptsInvites] = useState(user?.acceptsInvites ?? true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
-  async function save() {
+  // Saves immediately on toggle (optimistic, reverted on failure) - no separate Save step.
+  async function toggleAcceptsInvites() {
     if (!user) return;
-    setSaving(true);
+    const next = !acceptsInvites;
+    setAcceptsInvites(next);
     try {
-      await api.users.update(user.id, { acceptsInvites });
+      await api.users.update(user.id, { acceptsInvites: next });
       await refreshUser();
-      setSaved(true);
-    } catch {
-    } finally {
-      setSaving(false);
+    } catch (err) {
+      setAcceptsInvites(!next);
+      showToast((err as Error).message ?? 'Failed to save', 'error');
     }
   }
 
   return (
     <Modal title="Privacy" onClose={onClose} width="max-w-sm" mobileFullscreen>
-      <div className="space-y-1 mb-4">
+      <div className="space-y-1">
         <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1" style={{ color: 'var(--text-3)' }}>
           Invitations
         </p>
         <button
-          onClick={() => {
-            setAcceptsInvites((v) => !v);
-            setSaved(false);
-          }}
+          onClick={toggleAcceptsInvites}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
           style={{ background: 'transparent' }}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
@@ -59,21 +57,6 @@ export default function PrivacyModal({ onClose }: Props) {
               Others can invite you to join their projects
             </p>
           </div>
-        </button>
-      </div>
-
-      <div className="flex gap-3 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-        <button onClick={save} disabled={saving} className="btn-primary flex-1 flex justify-center">
-          {saving ? (
-            <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-          ) : saved ? (
-            'Saved'
-          ) : (
-            'Save'
-          )}
-        </button>
-        <button type="button" onClick={onClose} className="btn-secondary">
-          Cancel
         </button>
       </div>
     </Modal>

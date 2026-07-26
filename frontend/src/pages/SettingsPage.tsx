@@ -172,8 +172,10 @@ export default function SettingsPage() {
           </p>
         )}
       </div>
-      {/* Tab strip in its own scrollable row so it can overflow on narrow screens */}
-      <div className="flex-shrink-0 overflow-x-auto no-scrollbar border-b" style={{ borderColor: 'var(--border)' }}>
+      {/* Tab strip in its own scrollable row so it can overflow on narrow screens. The full-width
+          divider is desktop-only - on mobile the active tab's own short colored underline is
+          enough, and a full-width line under it just doubled up and looked dated. */}
+      <div className="flex-shrink-0 overflow-x-auto no-scrollbar md:border-b" style={{ borderColor: 'var(--border)' }}>
         <div className="flex px-6 min-w-max">
           {PAGE_TABS.map(({ key, label, danger }) => (
             <button
