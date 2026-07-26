@@ -163,7 +163,7 @@ export default function AboutPage() {
 
         {/* Tab: Description */}
         {tab === 'description' && (
-          <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="rounded-2xl p-4 md:p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
             {activeProduct.description ? (
               <div style={{ color: 'var(--text)', fontSize: 14 }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MD}>
