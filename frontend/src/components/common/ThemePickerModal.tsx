@@ -1,11 +1,11 @@
 import Modal from './Modal';
-import { THEMES, useTheme } from '../../context/ThemeContext';
+import { THEMES, useTheme, type MobileNavPosition } from '../../context/ThemeContext';
 
 export default function ThemePickerModal({ onClose }: { onClose: () => void }) {
-  const { themeId, setTheme } = useTheme();
+  const { themeId, setTheme, mobileNavPosition, setMobileNavPosition } = useTheme();
 
   return (
-    <Modal title="Appearance" onClose={onClose} width="max-w-md">
+    <Modal title="Appearance" onClose={onClose} width="max-w-md" mobileFullscreen>
       <div className="grid grid-cols-3 gap-3">
         {THEMES.map((t) => {
           const active = themeId === t.id;
@@ -61,6 +61,31 @@ export default function ThemePickerModal({ onClose }: { onClose: () => void }) {
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-5 pt-5 md:hidden" style={{ borderTop: '1px solid var(--border)' }}>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
+          Mobile nav position
+        </p>
+        <div className="flex gap-2">
+          {(['top', 'bottom'] as MobileNavPosition[]).map((pos) => {
+            const active = mobileNavPosition === pos;
+            return (
+              <button
+                key={pos}
+                onClick={() => setMobileNavPosition(pos)}
+                className="flex-1 py-2 rounded-xl text-sm font-medium capitalize transition-all"
+                style={{
+                  background: active ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  border: `2px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
+                  color: active ? 'var(--brand)' : 'var(--text)',
+                }}
+              >
+                {pos}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </Modal>
   );

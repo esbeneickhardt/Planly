@@ -6,6 +6,7 @@
  */
 import { useState } from 'react';
 import { api } from '../../api/client';
+import Modal from './Modal';
 
 interface Props {
   onClose: () => void;
@@ -42,26 +43,8 @@ export default function ChangePasswordModal({ onClose }: Props) {
   }
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl p-6 space-y-5"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
-            Change password
-          </h2>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: 'var(--text-3)' }}>
-            ×
-          </button>
-        </div>
-
+    <Modal title="Change password" onClose={onClose} width="max-w-sm" mobileFullscreen>
+      <div className="space-y-5">
         {done ? (
           <div className="space-y-4 text-center py-2">
             <div className="text-3xl">✓</div>
@@ -140,6 +123,6 @@ export default function ChangePasswordModal({ onClose }: Props) {
           </form>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

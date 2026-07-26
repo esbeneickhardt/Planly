@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Task, KanbanColumn } from '../../types';
 import { displayName } from '../../api/client';
 import { buildMilestoneClusters, UNASSIGNED_CLUSTER } from '../../utils/milestones';
+import { useTheme } from '../../context/ThemeContext';
 
 interface User {
   id: string;
@@ -51,6 +52,7 @@ export default function KanbanMobileList({
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const columnsKey = columns.map((c) => c.id).join(',');
+  const { mobileNavPosition } = useTheme();
 
   // Snap back to the first column when the column set changes (e.g. product switch).
   // `scrollTo` isn't implemented in jsdom (or some older WebViews), so guard it defensively.
@@ -221,18 +223,22 @@ export default function KanbanMobileList({
         )}
       </div>
 
-      {/* Add task FAB */}
+      {/* Add task FAB - fixed to the viewport (not the scrollable column area) so it's always
+          reliably visible regardless of scroll position, offset above the bottom nav bar when
+          that preference is active. */}
       {!readOnly && onAddTask && (
         <button
           onClick={onAddTask}
           aria-label="Add task"
-          className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold shadow-lg"
-          style={{ background: 'var(--brand)', color: 'white', display: 'flex' }}
+          className={`fixed right-4 flex items-center gap-2 px-5 py-3 rounded-full text-sm font-semibold shadow-2xl ${
+            mobileNavPosition === 'bottom' ? 'bottom-20' : 'bottom-5'
+          }`}
+          style={{ background: 'var(--brand)', color: 'white', display: 'flex', zIndex: 30 }}
         >
-          <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>
+          <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>
             +
           </span>{' '}
-          Add task
+          New task
         </button>
       )}
     </div>

@@ -4,6 +4,7 @@
  */
 import { useNavigate } from 'react-router-dom';
 import type { Product } from '../../types';
+import type { MobileNavPosition } from '../../context/ThemeContext';
 
 interface Props {
   products: Product[];
@@ -12,6 +13,10 @@ interface Props {
   chatIsAdmin: boolean;
   isAdmin: boolean;
   isOpen: boolean;
+  /** When the mobile nav bar sits at the bottom, the panel opens upward instead of downward so it
+   * doesn't render off the bottom edge of the viewport. No effect at `lg:` and up (desktop is
+   * always top-anchored regardless of this preference). */
+  mobileNavPosition: MobileNavPosition;
   onExitAdmin: () => void;
   onShowNewProduct: () => void;
   onShowDiscover: () => void;
@@ -26,6 +31,7 @@ export default function TopBarProjectPicker({
   chatIsAdmin,
   isAdmin,
   isOpen,
+  mobileNavPosition,
   onExitAdmin,
   onShowNewProduct,
   onShowDiscover,
@@ -38,7 +44,9 @@ export default function TopBarProjectPicker({
 
   return (
     <div
-      className="absolute right-0 top-full mt-2 w-64 rounded-2xl shadow-2xl overflow-hidden py-1.5"
+      className={`absolute right-0 w-64 rounded-2xl shadow-2xl overflow-hidden py-1.5 ${
+        mobileNavPosition === 'bottom' ? 'bottom-full mb-2 lg:bottom-auto lg:top-full lg:mt-2' : 'top-full mt-2'
+      }`}
       style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
     >
       {chatIsAdmin && products.length > 0 && (

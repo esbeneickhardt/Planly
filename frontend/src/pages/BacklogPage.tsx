@@ -5,6 +5,7 @@
  */
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useProduct } from '../context/ProductContext';
+import { useTheme } from '../context/ThemeContext';
 import { usePermission } from '../context/PermissionContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -18,7 +19,7 @@ import type { StatusTab } from '../hooks/useBacklogFilters';
 import { isBeforeToday } from '../utils/dates';
 import { useColorLegend } from '../hooks/useColorLegend';
 import { computePrimaryMilestones, assignMilestoneColors } from '../utils/milestones';
-import { sortTasks, compareTasks } from '../utils/backlogSort';
+import { sortTasks } from '../utils/backlogSort';
 import type { SortColumn, SortDir } from '../utils/backlogSort';
 
 const SORT_COLUMNS: SortColumn[] = ['name', 'status', 'owner', 'milestone', 'deadline', 'created'];
@@ -45,6 +46,7 @@ const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
 
 export default function BacklogPage() {
   const { activeProduct, tasks, refreshTasks, createTask } = useProduct();
+  const { mobileNavPosition } = useTheme();
   const { canWrite } = usePermission();
   const { user } = useAuth();
   const readOnly = !canWrite('backlog');
@@ -121,9 +123,12 @@ export default function BacklogPage() {
   }
 
   // Group the currently-filtered tasks by the milestone they feed into (for the "Group by
-  // milestone" view). Sections are ordered by milestone deadline; a milestone whose own row got
-  // filtered out of view (e.g. by status tab) can still show as a section header via `tasks`, so
-  // its children aren't orphaned. Tasks with no milestone link land in a trailing "Ungrouped" section.
+  // milestone" view). Section order is always the shared milestoneOrder (same order as
+  // Gantt/Kanban) regardless of the active column sort - changing the sort column only reorders
+  // tasks WITHIN each section, it never reshuffles which milestone section appears first. A
+  // milestone whose own row got filtered out of view (e.g. by status tab) can still show as a
+  // section header via `tasks`, so its children aren't orphaned. Tasks with no milestone link land
+  // in a trailing "Ungrouped" section.
   const milestoneGroups = useMemo(() => {
     if (!groupByMilestone) return null;
     const childrenByMilestoneId = new Map<string, Task[]>();
@@ -143,19 +148,15 @@ export default function BacklogPage() {
       if (!childrenByMilestoneId.has(milestone.id)) childrenByMilestoneId.set(milestone.id, []);
       childrenByMilestoneId.get(milestone.id)!.push(t);
     });
-    // Section order follows the same active column/direction the user picked. "Milestone" doesn't
-    // mean anything when comparing milestone tasks to each other (they never feed into another
-    // milestone), so it's redirected to comparing their own names instead.
-    const sectionSortColumn = sortColumn === 'milestone' ? 'name' : sortColumn;
     const sections = Array.from(childrenByMilestoneId.entries())
       .map(([milestoneId, children]) => ({
         milestone: tasks.find((t) => t.id === milestoneId) ?? null,
         children,
       }))
       .filter((s) => s.milestone)
-      .sort((a, b) => compareTasks(a.milestone!, b.milestone!, sectionSortColumn, sortDir, primaryMilestones));
+      .sort((a, b) => a.milestone!.milestoneOrder - b.milestone!.milestoneOrder || a.milestone!.name.localeCompare(b.milestone!.name));
     return { sections, ungrouped };
-  }, [groupByMilestone, sortedFilteredTasks, tasks, primaryMilestones, sortColumn, sortDir]);
+  }, [groupByMilestone, sortedFilteredTasks, tasks, primaryMilestones]);
 
   // Toggle a single row in/out of the multi-select set
   function toggleSelect(id: string) {
@@ -335,6 +336,18 @@ export default function BacklogPage() {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [showColorPicker]);
+
+  // Mobile "+ New task" FAB: unlike the desktop name-only quick-add, this creates a stub task
+  // immediately and opens it straight in the full TaskDetailPanel (fullscreen on mobile) so status,
+  // owner, etc. can all be set right away instead of needing a second trip back into the task.
+  async function handleMobileAddTask() {
+    try {
+      const task = await createTask({ name: 'New task' });
+      setSelectedTask(task);
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    }
+  }
 
   // Create a minimal task (name only); additional fields can be set via TaskDetailPanel afterwards
   async function handleCreateTask(e: React.FormEvent) {
@@ -801,6 +814,25 @@ export default function BacklogPage() {
           </table>
         )}
       </div>
+
+      {/* Add task FAB (mobile only) - fixed to the viewport, offset above the bottom nav bar when
+          that preference is active. Creates a stub task and opens it straight in the full
+          TaskDetailPanel (fullscreen on mobile) so status/owner/etc. can be set right away. */}
+      {!readOnly && (
+        <button
+          onClick={handleMobileAddTask}
+          aria-label="Add task"
+          className={`md:hidden fixed right-4 flex items-center gap-2 px-5 py-3 rounded-full text-sm font-semibold shadow-2xl ${
+            mobileNavPosition === 'bottom' ? 'bottom-20' : 'bottom-5'
+          }`}
+          style={{ background: 'var(--brand)', color: 'white', zIndex: 30 }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>
+            +
+          </span>
+          New task
+        </button>
+      )}
 
       {selectedTask && (
         <TaskDetailPanel

@@ -24,8 +24,10 @@ import MessageBubble, { formatTime } from './MessageBubble';
 import { useMessageEdit } from '../../hooks/useMessageEdit';
 import { useChatMessages } from '../../hooks/useChatMessages';
 import { useChatPeople } from '../../hooks/useChatPeople';
+import { useChatGroups } from '../../hooks/useChatGroups';
 import { useChatProjects } from '../../hooks/useChatProjects';
 import PdfPreview from './PdfPreview';
+import Modal from './Modal';
 
 interface Props {
   initialTask?: { id: string; name: string };
@@ -33,7 +35,7 @@ interface Props {
   isAdminChat?: boolean;
 }
 
-type Tab = 'messages' | 'tasks' | 'search' | 'files' | 'people' | 'projects';
+type Tab = 'messages' | 'tasks' | 'search' | 'files' | 'people' | 'groups' | 'projects';
 
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -89,6 +91,22 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     openDm: openDmBase,
     totalDmUnread,
   } = useChatPeople({ isAdminChat });
+  const {
+    groupConversations,
+    activeGroupId,
+    setActiveGroupId,
+    groupMessages,
+    setGroupMessages,
+    groupLoading,
+    loadGroups,
+    loadGroupMessages,
+    openGroup: openGroupBase,
+    createGroup,
+    renameGroup,
+    addParticipants: addGroupParticipants,
+    removeParticipant: removeGroupParticipant,
+    totalGroupUnread,
+  } = useChatGroups({ isAdminChat });
   const {
     adminProjects,
     activeProjectId,
@@ -190,6 +208,18 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   } | null>(null);
 
   const [dmUserSearch, setDmUserSearch] = useState('');
+
+  // Groups tab state
+  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+  const [newGroupSelected, setNewGroupSelected] = useState<Set<string>>(new Set());
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupSearch, setNewGroupSearch] = useState('');
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [showManageGroupModal, setShowManageGroupModal] = useState(false);
+  const [manageGroupName, setManageGroupName] = useState('');
+  const [addPeopleSearch, setAddPeopleSearch] = useState('');
+  const [addPeopleSelected, setAddPeopleSelected] = useState<Set<string>>(new Set());
+  const [groupBusy, setGroupBusy] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -299,6 +329,18 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     return () => clearInterval(interval);
   }, [tab, activeConvId, loadPeople, loadDmMessages]);
 
+  // When Groups tab is active, poll group conversations; when a group thread is open, poll its messages
+  useEffect(() => {
+    if (tab !== 'groups') return;
+    loadGroups();
+    if (activeGroupId) loadGroupMessages(activeGroupId);
+    const interval = setInterval(() => {
+      loadGroups();
+      if (activeGroupId) loadGroupMessages(activeGroupId);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [tab, activeGroupId, loadGroups, loadGroupMessages]);
+
   // When Projects tab is active, load projects; poll project chat when one is open
   useEffect(() => {
     if (tab !== 'projects') return;
@@ -407,18 +449,24 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     return result;
   }, [displayMessages]);
 
-  // Filtered mention candidates
+  // Filtered mention candidates. "@all" is a standard-chat-style shortcut (like Slack's @channel)
+  // that notifies every project team member - it's a synthetic entry alongside real members, not
+  // a real TeamMemberEntry, matching the same shape so the dropdown below needs no special-casing.
   const mentionCandidates = useMemo(() => {
     if (mentionSearch === null) return [];
     const q = mentionSearch.toLowerCase();
-    return teamMembers
+    const members = teamMembers
       .filter(
         (m) =>
           m.id !== user?.id &&
           (m.username.toLowerCase().startsWith(q) || m.realName?.trim().toLowerCase().startsWith(q)),
       )
       .slice(0, 6);
-  }, [mentionSearch, teamMembers, user?.id]);
+    const allEntry: TeamMemberEntry = { id: '__all__', username: 'all', realName: 'Everyone', avatarEmoji: '📢' };
+    // Only offered in project chat, where the backend actually fans out notifications for it -
+    // admin chat has no team roster and no backend support for this shortcut.
+    return !isAdminChat && 'all'.startsWith(q) ? [allEntry, ...members] : members;
+  }, [mentionSearch, teamMembers, user?.id, isAdminChat]);
 
   function handleDraftChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
@@ -511,6 +559,27 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
       return;
     }
 
+    // Route to a group thread when one is open in the Groups tab
+    if (tab === 'groups' && activeGroupId) {
+      if (!draft.trim()) return;
+      setSending(true);
+      try {
+        const msg = await api.conversations.send(activeGroupId, draft.trim(), replyingTo?.id);
+        setGroupMessages((prev) => [...prev, msg]);
+        setDraft('');
+        setAttachments([]);
+        setPreview(false);
+        setReplyingTo(null);
+        await api.conversations.markRead(activeGroupId).catch(() => {});
+      } catch (err) {
+        alert((err as Error).message ?? 'Failed to send message');
+      } finally {
+        setSending(false);
+        setTimeout(() => textRef.current?.focus(), 0);
+      }
+      return;
+    }
+
     // Route to project chat when admin is viewing a project in the Projects tab
     if (tab === 'projects' && activeProjectId) {
       if (!draft.trim()) return;
@@ -589,7 +658,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   }
 
   async function deleteMsg(id: string) {
-    if (tab === 'people' || tab === 'projects') return;
+    if (tab === 'people' || tab === 'groups' || tab === 'projects') return;
     if (!(await confirm('Delete this message?'))) return;
     if (!isAdminChat && !productId) return;
     if (isAdminChat) {
@@ -698,7 +767,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   }, []);
 
   async function toggleReaction(messageId: string, emoji: string) {
-    if (tab === 'people' || tab === 'projects') return;
+    if (tab === 'people' || tab === 'groups' || tab === 'projects') return;
     if (!isAdminChat && !productId) return;
     const userId = user?.id ?? '';
     setAllMessages((prev) =>
@@ -784,6 +853,28 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
       setDraft('');
       setAttachments([]);
     });
+  }
+
+  function openGroup(id: string) {
+    return openGroupBase(id, () => {
+      setDraft('');
+      setAttachments([]);
+    });
+  }
+
+  // Display name for a group: its custom name, or a comma-joined list of participant names
+  function groupTitle(conv: { name: string | null; participants: { username: string; realName?: string | null }[] }) {
+    if (conv.name) return conv.name;
+    if (conv.participants.length === 0) return 'Group';
+    return conv.participants.map((p) => p.realName || p.username).join(', ');
+  }
+
+  // Shared roster for group-picking (New group + Add people): all users in admin scope, every
+  // other project team member otherwise. Unlike the DM "People" tab's roster, this deliberately
+  // does NOT exclude admin-flagged users - a project's own team members should all be selectable
+  // for a project group chat regardless of their platform-wide admin status.
+  function groupRoster(): { id: string; username: string; realName?: string | null; avatarEmoji?: string | null }[] {
+    return isAdminChat ? allUsers.filter((u) => u.id !== user?.id) : teamMembers.filter((m) => m.id !== user?.id);
   }
 
   const tabBtn = (t: Tab, label: string) => (
@@ -873,11 +964,12 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
           </div>
         )}
 
-        {/* Compose emoji picker */}
+        {/* Compose emoji picker - fixed near the bottom of the viewport on mobile so it never
+            renders off-screen; anchored precisely above the toolbar at md: and up. */}
         {showComposePicker && (
           <div
             data-emoji-picker
-            className="absolute left-4 bottom-full mb-1 z-50 p-2 rounded-xl shadow-xl"
+            className="fixed left-2 right-2 bottom-4 md:absolute md:left-4 md:right-auto md:bottom-full md:mb-1 z-50 p-2 rounded-xl shadow-xl"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 28px)', gap: 2 }}>
@@ -1427,6 +1519,29 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                   style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
                 >
                   {totalDmUnread > 99 ? '99+' : totalDmUnread}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setTab('groups');
+                setSelectedTask(null);
+                setSearch('');
+                if (!activeGroupId) loadGroups();
+              }}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
+              style={{
+                background: tab === 'groups' ? 'var(--brand-subtle)' : 'transparent',
+                color: tab === 'groups' ? 'var(--brand)' : 'var(--text-3)',
+              }}
+            >
+              Groups
+              {totalGroupUnread > 0 && tab !== 'groups' && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
+                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+                >
+                  {totalGroupUnread > 99 ? '99+' : totalGroupUnread}
                 </span>
               )}
             </button>
@@ -2034,9 +2149,11 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                   {dmUserSearch &&
                     (() => {
                       const q = dmUserSearch.toLowerCase();
+                      // DMs never exclude a project team member from being messageable, regardless
+                      // of their platform-wide admin status.
                       const roster = isAdminChat
                         ? allUsers.filter((u) => u.id !== user?.id)
-                        : teamMembers.filter((m) => m.id !== user?.id && !m.isAdmin);
+                        : teamMembers.filter((m) => m.id !== user?.id);
                       const filtered = roster.filter(
                         (m) =>
                           m.username.toLowerCase().includes(q) ||
@@ -2088,6 +2205,142 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                     >
                       <span className="text-3xl opacity-30">💬</span>
                       <p className="text-sm">Search for someone to message.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+          {/* ── Groups tab ── */}
+          {tab === 'groups' &&
+            (activeGroupId ? (
+              // Group thread — same visual identity as DM/project chat
+              <>
+                <div
+                  className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0"
+                  style={{ borderBottom: '1px solid var(--border)' }}
+                >
+                  <button
+                    onClick={() => {
+                      setActiveGroupId(null);
+                      setGroupMessages([]);
+                      setDraft('');
+                      setAttachments([]);
+                      loadGroups();
+                    }}
+                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                  >
+                    ← Back
+                  </button>
+                  <p className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
+                    {(() => {
+                      const conv = groupConversations.find((c) => c.id === activeGroupId);
+                      return conv ? groupTitle(conv) : 'Group';
+                    })()}
+                  </p>
+                  <button
+                    onClick={() => {
+                      const conv = groupConversations.find((c) => c.id === activeGroupId);
+                      setManageGroupName(conv?.name ?? '');
+                      setAddPeopleSearch('');
+                      setAddPeopleSelected(new Set());
+                      setShowManageGroupModal(true);
+                    }}
+                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                    title="Manage group"
+                  >
+                    ⚙
+                  </button>
+                </div>
+                {groupLoading ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div
+                      className="w-5 h-5 border-2 rounded-full animate-spin"
+                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                    />
+                  </div>
+                ) : (
+                  messageList(groupMessages.map(adaptDm))
+                )}
+                {(() => {
+                  const conv = groupConversations.find((c) => c.id === activeGroupId);
+                  if (conv?.closed) {
+                    return (
+                      <div
+                        className="px-4 py-3 text-xs text-center flex-shrink-0"
+                        style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}
+                      >
+                        This conversation has been closed.
+                      </div>
+                    );
+                  }
+                  return composeArea();
+                })()}
+              </>
+            ) : (
+              // Group list — "+ New group" button + existing groups
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="px-4 pt-3 pb-2 flex-shrink-0">
+                  <button
+                    onClick={() => {
+                      setNewGroupSelected(new Set());
+                      setNewGroupName('');
+                      setNewGroupSearch('');
+                      setShowNewGroupModal(true);
+                    }}
+                    className="btn-primary text-xs w-full justify-center flex"
+                  >
+                    + New group
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {groupConversations.length > 0 ? (
+                    <div className="px-4 pb-3 space-y-0.5">
+                      {groupConversations.map((conv) => (
+                        <button
+                          key={conv.id}
+                          onClick={() => openGroup(conv.id)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
+                          style={{ background: 'transparent' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold relative"
+                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                          >
+                            👥
+                            {conv.unread > 0 && (
+                              <span
+                                className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
+                                style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+                              >
+                                {conv.unread}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
+                              {groupTitle(conv)}
+                            </p>
+                            {conv.lastMessage && (
+                              <p className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
+                                {conv.lastMessage.content}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      className="flex flex-col items-center justify-center h-32 gap-2"
+                      style={{ color: 'var(--text-3)' }}
+                    >
+                      <span className="text-3xl opacity-30">👥</span>
+                      <p className="text-sm">Start a group to chat with several people at once.</p>
                     </div>
                   )}
                 </div>
@@ -2221,6 +2474,310 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
               </a>
             </div>
           )}
+
+          {/* New group creation */}
+          {showNewGroupModal && (
+            <Modal
+              title="New group"
+              onClose={() => setShowNewGroupModal(false)}
+              width="max-w-sm"
+              mobileFullscreen
+            >
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Group name (optional)"
+                  className="input text-sm w-full"
+                />
+                <input
+                  type="text"
+                  value={newGroupSearch}
+                  onChange={(e) => setNewGroupSearch(e.target.value)}
+                  placeholder={isAdminChat ? 'Search users…' : 'Search members…'}
+                  className="input text-sm w-full"
+                />
+                {groupRoster().length > 0 && (
+                  <button
+                    onClick={() => {
+                      const visible = groupRoster().filter((m) => {
+                        const q = newGroupSearch.toLowerCase().trim();
+                        if (!q) return true;
+                        return m.username.toLowerCase().includes(q) || (m.realName ?? '').toLowerCase().includes(q);
+                      });
+                      const allSelected = visible.every((m) => newGroupSelected.has(m.id));
+                      setNewGroupSelected(allSelected ? new Set() : new Set(visible.map((m) => m.id)));
+                    }}
+                    className="text-xs font-medium"
+                    style={{ color: 'var(--brand)' }}
+                  >
+                    {groupRoster().every((m) => newGroupSelected.has(m.id)) ? 'Deselect all' : 'Select all'}
+                  </button>
+                )}
+                <div className="max-h-64 overflow-y-auto space-y-0.5">
+                  {groupRoster()
+                    .filter((m) => {
+                      const q = newGroupSearch.toLowerCase().trim();
+                      if (!q) return true;
+                      return m.username.toLowerCase().includes(q) || (m.realName ?? '').toLowerCase().includes(q);
+                    })
+                    .map((m) => {
+                      const checked = newGroupSelected.has(m.id);
+                      return (
+                        <label
+                          key={m.id}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors"
+                          style={{ background: checked ? 'var(--brand-subtle)' : 'transparent' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setNewGroupSelected((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(m.id)) next.delete(m.id);
+                                else next.add(m.id);
+                                return next;
+                              })
+                            }
+                            style={{ accentColor: 'var(--brand)' }}
+                          />
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
+                            style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                          >
+                            {m.avatarEmoji ?? m.username[0]?.toUpperCase()}
+                          </div>
+                          <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
+                            {m.realName || m.username}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  {groupRoster().length === 0 && (
+                    <p className="text-xs text-center py-4" style={{ color: 'var(--text-3)' }}>
+                      No one else to add.
+                    </p>
+                  )}
+                </div>
+                <div
+                  className="flex items-center justify-between gap-2 pt-2"
+                  style={{ borderTop: '1px solid var(--border)' }}
+                >
+                  <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                    {newGroupSelected.size} selected
+                  </span>
+                  <button
+                    disabled={newGroupSelected.size < 2 || creatingGroup}
+                    onClick={async () => {
+                      setCreatingGroup(true);
+                      try {
+                        await createGroup(Array.from(newGroupSelected), newGroupName.trim() || undefined);
+                        setShowNewGroupModal(false);
+                      } catch (err) {
+                        alert((err as Error).message ?? 'Failed to create group');
+                      } finally {
+                        setCreatingGroup(false);
+                      }
+                    }}
+                    className="btn-primary text-xs px-4"
+                  >
+                    {creatingGroup ? '…' : 'Create'}
+                  </button>
+                </div>
+              </div>
+            </Modal>
+          )}
+
+          {/* Manage group: rename, add/remove participants, leave */}
+          {showManageGroupModal &&
+            activeGroupId &&
+            (() => {
+              const conv = groupConversations.find((c) => c.id === activeGroupId);
+              if (!conv) return null;
+              return (
+                <Modal
+                  title="Manage group"
+                  onClose={() => setShowManageGroupModal(false)}
+                  width="max-w-sm"
+                  mobileFullscreen
+                >
+                  <div className="space-y-4">
+                    <div>
+                      <label className="label">Group name</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={manageGroupName}
+                          onChange={(e) => setManageGroupName(e.target.value)}
+                          placeholder={groupTitle(conv)}
+                          className="input text-sm flex-1"
+                        />
+                        <button
+                          disabled={!manageGroupName.trim() || groupBusy}
+                          onClick={async () => {
+                            setGroupBusy(true);
+                            try {
+                              await renameGroup(activeGroupId, manageGroupName.trim());
+                            } catch (err) {
+                              alert((err as Error).message ?? 'Failed to rename');
+                            } finally {
+                              setGroupBusy(false);
+                            }
+                          }}
+                          className="btn-secondary text-xs px-3 flex-shrink-0"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
+                        Participants
+                      </p>
+                      <div className="space-y-1">
+                        {conv.participants.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                            style={{ background: 'var(--surface-2)' }}
+                          >
+                            <span className="text-xs flex-1 min-w-0 truncate" style={{ color: 'var(--text)' }}>
+                              {displayName(p)}
+                            </span>
+                            <button
+                              disabled={groupBusy}
+                              onClick={async () => {
+                                setGroupBusy(true);
+                                try {
+                                  await removeGroupParticipant(activeGroupId, p.id, user?.id ?? '');
+                                } catch (err) {
+                                  alert((err as Error).message ?? 'Failed to remove');
+                                } finally {
+                                  setGroupBusy(false);
+                                }
+                              }}
+                              className="text-xs opacity-60 hover:opacity-100 flex-shrink-0"
+                              style={{ color: '#ef4444' }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
+                          Add people
+                        </p>
+                        {(() => {
+                          const addable = groupRoster().filter((m) => !conv.participants.some((p) => p.id === m.id));
+                          if (addable.length === 0) return null;
+                          const allSelected = addable.every((m) => addPeopleSelected.has(m.id));
+                          return (
+                            <button
+                              onClick={() =>
+                                setAddPeopleSelected(allSelected ? new Set() : new Set(addable.map((m) => m.id)))
+                              }
+                              className="text-xs font-medium"
+                              style={{ color: 'var(--brand)' }}
+                            >
+                              {allSelected ? 'Deselect all' : 'Select all'}
+                            </button>
+                          );
+                        })()}
+                      </div>
+                      <input
+                        type="text"
+                        value={addPeopleSearch}
+                        onChange={(e) => setAddPeopleSearch(e.target.value)}
+                        placeholder="Search…"
+                        className="input text-sm w-full mb-2"
+                      />
+                      <div className="max-h-40 overflow-y-auto space-y-0.5">
+                        {groupRoster()
+                          .filter((m) => !conv.participants.some((p) => p.id === m.id))
+                          .filter((m) => {
+                            const q = addPeopleSearch.toLowerCase().trim();
+                            if (!q) return true;
+                            return (
+                              m.username.toLowerCase().includes(q) || (m.realName ?? '').toLowerCase().includes(q)
+                            );
+                          })
+                          .map((m) => {
+                            const checked = addPeopleSelected.has(m.id);
+                            return (
+                              <label
+                                key={m.id}
+                                className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
+                                style={{ background: checked ? 'var(--brand-subtle)' : 'transparent' }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    setAddPeopleSelected((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(m.id)) next.delete(m.id);
+                                      else next.add(m.id);
+                                      return next;
+                                    })
+                                  }
+                                  style={{ accentColor: 'var(--brand)' }}
+                                />
+                                <span className="text-xs" style={{ color: 'var(--text)' }}>
+                                  {m.realName || m.username}
+                                </span>
+                              </label>
+                            );
+                          })}
+                      </div>
+                      <button
+                        disabled={addPeopleSelected.size === 0 || groupBusy}
+                        onClick={async () => {
+                          setGroupBusy(true);
+                          try {
+                            await addGroupParticipants(activeGroupId, Array.from(addPeopleSelected));
+                            setAddPeopleSelected(new Set());
+                            setAddPeopleSearch('');
+                          } catch (err) {
+                            alert((err as Error).message ?? 'Failed to add');
+                          } finally {
+                            setGroupBusy(false);
+                          }
+                        }}
+                        className="btn-primary text-xs px-4 mt-2"
+                      >
+                        Add selected
+                      </button>
+                    </div>
+
+                    <button
+                      disabled={groupBusy}
+                      onClick={async () => {
+                        if (!(await confirm('Leave this group?'))) return;
+                        setGroupBusy(true);
+                        try {
+                          await removeGroupParticipant(activeGroupId, user?.id ?? '', user?.id ?? '');
+                          setShowManageGroupModal(false);
+                        } catch (err) {
+                          alert((err as Error).message ?? 'Failed to leave');
+                        } finally {
+                          setGroupBusy(false);
+                        }
+                      }}
+                      className="btn-danger w-full justify-center flex text-sm"
+                    >
+                      Leave group
+                    </button>
+                  </div>
+                </Modal>
+              );
+            })()}
         </>
       )}
     </div>

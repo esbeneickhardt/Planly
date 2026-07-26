@@ -34,6 +34,7 @@ interface ProductContextValue {
     deadline?: string;
   }) => Promise<Task>;
   patchTaskPositions: (updates: { taskId: string; canvasX: number; canvasY: number }[]) => void;
+  patchMilestoneOrder: (updates: { taskId: string; order: number }[]) => void;
   addRealtimeListener: (fn: (e: RealtimeEvent) => void) => () => void;
 }
 
@@ -96,6 +97,14 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         return u ? { ...t, canvasX: u.canvasX, canvasY: u.canvasY } : t;
       }),
     );
+  }, []);
+
+  // Update milestone sort order in the local task cache without a round-trip. Called after a
+  // milestone drag in either Gantt or Kanban, since both write to the same shared Task.milestoneOrder
+  // field and both read `tasks` from this same context.
+  const patchMilestoneOrder = useCallback((updates: { taskId: string; order: number }[]) => {
+    const map = new Map(updates.map((u) => [u.taskId, u.order]));
+    setTasks((prev) => prev.map((t) => (map.has(t.id) ? { ...t, milestoneOrder: map.get(t.id)! } : t)));
   }, []);
 
   // Extra listeners registered by child components to receive WS events without a second connection
@@ -215,6 +224,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         createProduct,
         createTask,
         patchTaskPositions,
+        patchMilestoneOrder,
         addRealtimeListener,
       }}
     >

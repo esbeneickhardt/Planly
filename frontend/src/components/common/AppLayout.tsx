@@ -14,6 +14,7 @@ import NoProjectsWelcome from './NoProjectsWelcome';
 import { usePermission } from '../../context/PermissionContext';
 import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { ChatContext } from '../../context/ChatContext';
 
 const TAB_ROUTES: { path: string; tab: string }[] = [
@@ -57,6 +58,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }, []);
   const { products, productsLoaded } = useProduct();
   const { user } = useAuth();
+  const { mobileNavPosition } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -132,7 +134,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           onExitAdmin={() => setAdminMode(false)}
         />
         <PermissionGuard>
-          <main id="main-content" className="flex-1 overflow-auto min-w-0">
+          <main
+            id="main-content"
+            className={`flex-1 overflow-auto min-w-0 ${mobileNavPosition === 'bottom' ? 'pb-14 lg:pb-0' : ''}`}
+          >
             {productsLoaded && products.length === 0 && !activeAdminMode ? <NoProjectsWelcome /> : children}
           </main>
         </PermissionGuard>

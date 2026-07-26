@@ -96,7 +96,7 @@ export default function IntegrationsModal({ onClose }: Props) {
   ] as const;
 
   return (
-    <Modal title="Integrations" onClose={onClose} width="max-w-lg">
+    <Modal title="Integrations" onClose={onClose} width="max-w-lg" mobileFullscreen>
       {/* Header row: tabs + API docs link */}
       <div className="flex items-center gap-3 mb-5">
         <div className="flex gap-1 flex-1">

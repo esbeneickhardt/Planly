@@ -546,7 +546,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           <option value="">None</option>
           {tasks
             .filter((t) => !!t.deadline && t.id !== task.id)
-            .sort((a, b) => a.name.localeCompare(b.name))
+            .sort((a, b) => a.milestoneOrder - b.milestoneOrder || a.name.localeCompare(b.name))
             .map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
