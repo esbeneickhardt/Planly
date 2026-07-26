@@ -24,6 +24,11 @@ const reorderSchema = z.object({
   updates: z.array(z.object({ taskId: z.string(), order: z.number().int() })).max(1000),
 });
 
+// Validation schema for bulk milestone reorder (up to 1000 milestones per call)
+const milestoneReorderSchema = z.object({
+  updates: z.array(z.object({ taskId: z.string(), order: z.number().int() })).max(1000),
+});
+
 // Validation schema for canvas drag position updates
 const positionSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
 
@@ -83,6 +88,26 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     await prisma.$transaction(
       updates.map(({ taskId, order }) =>
         prisma.task.update({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE }, data: { kanbanOrder: order } }),
+      ),
+    );
+    reply.send({ ok: true });
+  });
+
+  // Bulk-update milestone sort positions (shared across Gantt and Kanban's milestone views), in one
+  // transaction. Must be registered before /:taskId to avoid route conflict.
+  app.patch('/api/products/:productId/tasks/milestone-reorder', { preHandler: requireAuth }, async (req, reply) => {
+    const { productId } = req.params as { productId: string };
+    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabWrite(productId, req.user, ['kanban', 'gantt'], reply))) return;
+    const reorderBody = validate(milestoneReorderSchema, req.body, reply);
+    if (!reorderBody) return;
+    const { updates } = reorderBody;
+    await prisma.$transaction(
+      updates.map(({ taskId, order }) =>
+        prisma.task.update({
+          where: { id: taskId, productId, ...TASK_WHERE_ACTIVE },
+          data: { milestoneOrder: order },
+        }),
       ),
     );
     reply.send({ ok: true });

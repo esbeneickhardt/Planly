@@ -276,3 +276,9 @@
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* Fully hidden scrollbar - for horizontally-scrollable strips (e.g. mobile tab bars) where the
+   scroll affordance is redundant (tap targets/swipe already make it discoverable) and a visible
+   scrollbar reads as clutter. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

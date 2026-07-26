@@ -107,7 +107,7 @@ export default function TopBar({
   const { user, logout } = useAuth();
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
   const { canRead, canManage } = usePermission();
-  const { isDark } = useTheme();
+  const { isDark, mobileNavPosition } = useTheme();
 
   // Modal + dropdown visibility state
   const [showNewProduct, setShowNewProduct] = useState(false);
@@ -200,8 +200,12 @@ export default function TopBar({
   return (
     <>
       <header
-        className="flex-shrink-0 flex items-center h-14 px-3 gap-2"
-        style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', zIndex: 40 }}
+        className={`flex-shrink-0 flex items-center h-14 px-3 gap-2 border-[var(--border)] ${
+          mobileNavPosition === 'bottom'
+            ? 'fixed bottom-0 inset-x-0 border-t lg:static lg:inset-auto lg:border-t-0 lg:border-b'
+            : 'border-b'
+        }`}
+        style={{ background: 'var(--surface)', zIndex: 40 }}
       >
         {/* ── LEFT: logo + search ── */}
         <div className="flex items-center gap-2.5 flex-shrink-0 lg:w-60">
@@ -507,6 +511,7 @@ export default function TopBar({
               chatIsAdmin={!!chatIsAdmin}
               isAdmin={!!user?.isAdmin}
               isOpen={showProjectDd}
+              mobileNavPosition={mobileNavPosition}
               onExitAdmin={() => onExitAdmin?.()}
               onShowNewProduct={() => setShowNewProduct(true)}
               onShowDiscover={() => setShowDiscover(true)}
@@ -545,6 +550,7 @@ export default function TopBar({
               chatIsAdmin={!!chatIsAdmin}
               isAdmin={!!user?.isAdmin}
               isOpen={showProjectDd}
+              mobileNavPosition={mobileNavPosition}
               onExitAdmin={() => onExitAdmin?.()}
               onShowNewProduct={() => setShowNewProduct(true)}
               onShowDiscover={() => setShowDiscover(true)}
@@ -640,9 +646,12 @@ export default function TopBar({
           chatIsAdmin={chatIsAdmin}
           currentAdminTab={adminTab}
           canManage={canManage}
+          mobileNavPosition={mobileNavPosition}
           onClose={() => setShowMobileMenu(false)}
           onShowProfile={() => setShowProfile(true)}
           onShowThemePicker={() => setShowThemePicker(true)}
+          onShowMemberships={() => setShowMemberships(true)}
+          onShowIntegrations={() => setShowIntegrations(true)}
           onShowNotifPrefs={() => setShowNotifPrefs(true)}
           onShowPrivacy={() => setShowPrivacy(true)}
           onShowTotp={() => setShowTotp(true)}

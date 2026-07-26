@@ -17,6 +17,15 @@ import { safeDecryptValue } from '../utils/crypto';
 const sendSchema = z.object({ content: z.string().min(1).max(10000), replyToId: z.string().optional().nullable() });
 // Validates the conversation creation request; isAdminChat scopes the conversation to the admin context
 const createSchema = z.object({ participantId: z.string(), isAdminChat: z.boolean().optional() });
+// Validates group creation — at least 2 other participants (3+ total incl. creator); a smaller
+// group is just a DM, handled by the route above instead.
+const createGroupSchema = z.object({
+  participantIds: z.array(z.string()).min(2),
+  name: z.string().max(100).optional(),
+  isAdminChat: z.boolean().optional(),
+});
+const renameSchema = z.object({ name: z.string().min(1).max(100) });
+const addParticipantsSchema = z.object({ userIds: z.array(z.string()).min(1) });
 
 // Author fields returned with every DM message
 const AUTHOR_SELECT = {
@@ -68,7 +77,8 @@ export async function conversationRoutes(app: FastifyInstance) {
     });
 
     const result = participations.map((p) => {
-      const other = p.conversation.participants.find((x) => x.userId !== userId);
+      const others = p.conversation.participants.filter((x) => x.userId !== userId);
+      const other = others[0];
       const lastMsg = p.conversation.messages[0] ?? null;
       const unread = p.lastReadAt
         ? p.conversation.messages.filter((m) => new Date(m.createdAt) > new Date(p.lastReadAt!)).length
@@ -76,9 +86,15 @@ export async function conversationRoutes(app: FastifyInstance) {
       return {
         id: p.conversation.id,
         closed: (p.conversation as { closed?: boolean }).closed ?? false,
+        isGroup: p.conversation.isGroup,
+        name: p.conversation.name,
         other: other
           ? { ...other.user, realName: other.user.realName ? safeDecryptValue(other.user.realName) : null }
           : null,
+        participants: others.map((o) => ({
+          ...o.user,
+          realName: o.user.realName ? safeDecryptValue(o.user.realName) : null,
+        })),
         lastMessage: lastMsg
           ? decryptAuthor({
               ...lastMsg,
@@ -123,6 +139,109 @@ export async function conversationRoutes(app: FastifyInstance) {
       },
     });
     reply.status(201).send({ id: conv.id });
+  });
+
+  // Create a group conversation (3+ participants incl. creator). Always creates a new
+  // conversation - unlike the 1:1 route above, group creation is a deliberate action that
+  // shouldn't silently reuse an existing group with the same members.
+  app.post('/api/conversations/group', { preHandler: requireAuth }, async (req, reply) => {
+    const userId = req.user.userId;
+    const body = validate(createGroupSchema, req.body, reply);
+    if (!body) return;
+    const { name, isAdminChat = false } = body;
+    const participantIds = Array.from(new Set(body.participantIds.filter((id) => id !== userId)));
+    if (participantIds.length < 2)
+      return reply.status(400).send({ error: 'A group needs at least 2 other participants' });
+
+    const users = await prisma.user.findMany({ where: { id: { in: participantIds } }, select: { id: true } });
+    if (users.length !== participantIds.length) return reply.status(404).send({ error: 'One or more users not found' });
+
+    const conv = await prisma.conversation.create({
+      data: {
+        isAdminChat,
+        isGroup: true,
+        name: name?.trim() || null,
+        participants: { create: [{ userId }, ...participantIds.map((id) => ({ userId: id }))] },
+      },
+    });
+    reply.status(201).send({ id: conv.id });
+  });
+
+  // Rename a group conversation
+  app.patch('/api/conversations/:id/rename', { preHandler: requireAuth }, async (req, reply) => {
+    const userId = req.user.userId;
+    const { id } = req.params as { id: string };
+    const body = validate(renameSchema, req.body, reply);
+    if (!body) return;
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId: id, userId } },
+    });
+    if (!participant) return reply.status(403).send({ error: 'Not a participant' });
+
+    const conv = await prisma.conversation.findUnique({ where: { id }, select: { isGroup: true } });
+    if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
+
+    await prisma.conversation.update({ where: { id }, data: { name: body.name.trim() } });
+    reply.send({ ok: true });
+  });
+
+  // Add participants to a group conversation
+  app.post('/api/conversations/:id/participants', { preHandler: requireAuth }, async (req, reply) => {
+    const userId = req.user.userId;
+    const { id } = req.params as { id: string };
+    const body = validate(addParticipantsSchema, req.body, reply);
+    if (!body) return;
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId: id, userId } },
+    });
+    if (!participant) return reply.status(403).send({ error: 'Not a participant' });
+
+    const conv = await prisma.conversation.findUnique({
+      where: { id },
+      select: { isGroup: true, participants: { select: { userId: true } } },
+    });
+    if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
+
+    const existingIds = new Set(conv.participants.map((p) => p.userId));
+    const toAdd = Array.from(new Set(body.userIds)).filter((uid) => !existingIds.has(uid));
+    if (toAdd.length === 0) return reply.send({ ok: true });
+
+    const users = await prisma.user.findMany({ where: { id: { in: toAdd } }, select: { id: true } });
+    if (users.length !== toAdd.length) return reply.status(404).send({ error: 'One or more users not found' });
+
+    await prisma.conversationParticipant.createMany({
+      data: toAdd.map((uid) => ({ conversationId: id, userId: uid })),
+    });
+    reply.send({ ok: true });
+  });
+
+  // Remove a participant from a group conversation (also how "Leave group" works - a participant
+  // removing themselves). Blocked if it would drop the conversation below 2 remaining participants.
+  app.delete('/api/conversations/:id/participants/:userId', { preHandler: requireAuth }, async (req, reply) => {
+    const userId = req.user.userId;
+    const { id, userId: targetUserId } = req.params as { id: string; userId: string };
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId: id, userId } },
+    });
+    if (!participant) return reply.status(403).send({ error: 'Not a participant' });
+
+    const conv = await prisma.conversation.findUnique({
+      where: { id },
+      select: { isGroup: true, participants: { select: { userId: true } } },
+    });
+    if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
+    if (!conv.participants.some((p) => p.userId === targetUserId))
+      return reply.status(404).send({ error: 'Not a participant of this group' });
+    if (conv.participants.length <= 2)
+      return reply.status(400).send({ error: 'A group needs at least 2 participants' });
+
+    await prisma.conversationParticipant.delete({
+      where: { conversationId_userId: { conversationId: id, userId: targetUserId } },
+    });
+    reply.send({ ok: true });
   });
 
   // List messages in a conversation

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import Modal from './Modal';
 
 type Step = 'status' | 'setup' | 'confirm' | 'backup' | 'disable';
 
@@ -78,26 +79,8 @@ export default function TotpModal({ onClose }: Props) {
   const inputCls = 'input text-center text-2xl tracking-widest';
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl p-6 space-y-5"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
-            Two-factor authentication
-          </h2>
-          <button onClick={onClose} className="text-xl leading-none" style={{ color: 'var(--text-3)' }}>
-            ×
-          </button>
-        </div>
-
+    <Modal title="Two-factor authentication" onClose={onClose} width="max-w-sm" mobileFullscreen>
+      <div className="space-y-5">
         {error && (
           <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
             {error}
@@ -291,6 +274,6 @@ export default function TotpModal({ onClose }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

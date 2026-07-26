@@ -43,7 +43,7 @@ export default function ProfileModal({ user, onClose }: Props) {
   }
 
   return (
-    <Modal title="Edit profile" onClose={onClose} width="max-w-sm">
+    <Modal title="Edit profile" onClose={onClose} width="max-w-sm" mobileFullscreen>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex flex-col items-center gap-1 pb-1">
           <div

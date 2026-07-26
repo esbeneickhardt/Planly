@@ -38,7 +38,7 @@ import Modal from '../common/Modal';
 const FILTER_COLORS = PRESET_COLORS;
 
 export default function KanbanBoard() {
-  const { activeProduct, tasks, refreshTasks, createTask } = useProduct();
+  const { activeProduct, tasks, refreshTasks, createTask, patchMilestoneOrder } = useProduct();
   const { canWrite } = usePermission();
   const { user } = useAuth();
   const readOnly = !canWrite('kanban');
@@ -69,9 +69,6 @@ export default function KanbanBoard() {
     () => localStorage.getItem('planly_kanban_group_by_milestone') === '1',
   );
   const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(new Set());
-  // Manually-dragged milestone order (drives cluster order), persisted per-product - mirrors Gantt's
-  // milestone order, but kept separate since the two views' section granularity differs.
-  const [milestoneOrder, setMilestoneOrder] = useState<string[]>([]);
   const [mineOnly, setMineOnly] = useState(false);
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const lastInitializedProductId = useRef<string | null>(null);
@@ -143,32 +140,30 @@ export default function KanbanBoard() {
     if (next) setMilestoneFilterAndSave(null);
   }
 
+  function persistCollapsedMilestones(next: Set<string>) {
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly-kanban-collapsedMilestones-${activeProduct.id}`, JSON.stringify(Array.from(next)));
+    } catch {}
+  }
+
   function toggleMilestoneCollapsed(id: string) {
     setCollapsedMilestones((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      persistCollapsedMilestones(next);
       return next;
     });
   }
 
-  // Restore the manually-dragged milestone order per product
-  useEffect(() => {
-    if (!activeProduct) return;
-    try {
-      const saved = localStorage.getItem(`planly-kanban-milestoneOrder-${activeProduct.id}`);
-      setMilestoneOrder(saved ? (JSON.parse(saved) as string[]) : []);
-    } catch {
-      setMilestoneOrder([]);
-    }
-  }, [activeProduct?.id]);
-
+  // Persists a full reordering by assigning sequential milestoneOrder values and syncing to the
+  // backend, so Gantt and Kanban share one order regardless of which page the drag happened on.
   function saveMilestoneOrder(ids: string[]) {
-    setMilestoneOrder(ids);
+    const updates = ids.map((id, i) => ({ taskId: id, order: i }));
+    patchMilestoneOrder(updates);
     if (!activeProduct) return;
-    try {
-      localStorage.setItem(`planly-kanban-milestoneOrder-${activeProduct.id}`, JSON.stringify(ids));
-    } catch {}
+    api.tasks.reorderMilestones(activeProduct.id, updates).catch(() => {});
   }
 
   // Board pan: pointer drag on empty board area scrolls horizontally
@@ -252,22 +247,37 @@ export default function KanbanBoard() {
 
   const milestoneMeta = useMemo(() => new Map(milestoneOptions.map((m) => [m.id, m])), [milestoneOptions]);
 
-  // Applies the user's manually-dragged order (if any); milestones not yet in the stored order
-  // (created since the user last reordered) are appended at the end in the default active-first order.
+  // Sorted by the shared, backend-persisted milestoneOrder (set by dragging in either Gantt or
+  // Kanban). Milestones that have never been dragged all share the default 0, so the stable sort
+  // falls through to milestoneOptions' own done-last/alphabetical fallback order.
   const orderedMilestoneIds = useMemo(() => {
-    const ids = milestoneOptions.map((m) => m.id);
-    if (milestoneOrder.length === 0) return ids;
-    const known = new Set(ids);
-    const ordered = milestoneOrder.filter((id) => known.has(id));
-    const missing = ids.filter((id) => !milestoneOrder.includes(id));
-    return [...ordered, ...missing];
-  }, [milestoneOptions, milestoneOrder]);
+    const orderById = new Map(tasks.filter((t) => t.deadline).map((t) => [t.id, t.milestoneOrder]));
+    return [...milestoneOptions]
+      .sort((a, b) => (orderById.get(a.id) ?? 0) - (orderById.get(b.id) ?? 0))
+      .map((m) => m.id);
+  }, [milestoneOptions, tasks]);
+  // Same order as orderedMilestoneIds, but as full MilestoneOption objects for the filter dropdown
+  const orderedMilestoneOptions = useMemo(
+    () => orderedMilestoneIds.map((id) => milestoneMeta.get(id)).filter((m): m is MilestoneOption => !!m),
+    [orderedMilestoneIds, milestoneMeta],
+  );
 
-  // Every milestone (plus the "no milestone" bucket) starts collapsed whenever grouping is turned
-  // on or the product changes - browsing a fresh grouped board fully expanded is just noise.
+  // Restore the saved per-milestone collapse state whenever grouping is turned on or the product
+  // changes, so it survives a reload (e.g. mobile pull-to-refresh) instead of resetting. Only when
+  // nothing has been saved yet for this product (first time grouping this board) does it fall back
+  // to collapsing everything - browsing a fresh grouped board fully expanded is just noise.
   useEffect(() => {
-    if (!groupByMilestone) return;
-    setCollapsedMilestones(new Set([...milestoneOptions.map((m) => m.id), UNASSIGNED_CLUSTER]));
+    if (!groupByMilestone || !activeProduct) return;
+    try {
+      const saved = localStorage.getItem(`planly-kanban-collapsedMilestones-${activeProduct.id}`);
+      if (saved) {
+        setCollapsedMilestones(new Set(JSON.parse(saved) as string[]));
+        return;
+      }
+    } catch {}
+    const next = new Set([...milestoneOptions.map((m) => m.id), UNASSIGNED_CLUSTER]);
+    setCollapsedMilestones(next);
+    persistCollapsedMilestones(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupByMilestone, activeProduct?.id]);
 
@@ -475,6 +485,24 @@ export default function KanbanBoard() {
     }
   }
 
+  // Mobile "+ New task" FAB: unlike the desktop name-only quick-add, this creates a stub task
+  // immediately and opens it straight in the full TaskDetailPanel (fullscreen on mobile) so status,
+  // owner, etc. can all be set right away instead of needing a second trip back into the task.
+  async function handleMobileAddTask() {
+    if (!activeProduct) return;
+    try {
+      const statusKey = columns[0]?.statusKey;
+      const task = await api.tasks.create(activeProduct.id, {
+        name: 'New task',
+        ...(statusKey ? { status: statusKey } : {}),
+      });
+      await refreshTasks();
+      setSelectedTask(task);
+    } catch (err) {
+      showToast((err as Error).message);
+    }
+  }
+
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
     if (!newTaskName.trim()) return;
@@ -597,7 +625,7 @@ export default function KanbanBoard() {
         sprints={sprints}
         sprintFilter={sprintFilter}
         onSprintChange={setSprintFilterAndSave}
-        milestones={milestoneOptions}
+        milestones={orderedMilestoneOptions}
         milestoneFilter={milestoneFilter}
         onMilestoneChange={setMilestoneFilterAndSave}
         groupByMilestone={groupByMilestone}
@@ -635,7 +663,7 @@ export default function KanbanBoard() {
         tasks={filteredTasks}
         users={users}
         onOpenDetail={setSelectedTask}
-        onAddTask={() => setShowNewTask(true)}
+        onAddTask={handleMobileAddTask}
         readOnly={readOnly}
         groupByMilestone={groupByMilestone}
         primaryMilestones={primaryMilestones}

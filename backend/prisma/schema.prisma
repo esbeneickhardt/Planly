@@ -168,6 +168,7 @@ model Task {
   canvasX     Float?
   canvasY     Float?
   kanbanOrder Int       @default(0)
+  milestoneOrder Int    @default(0)
   completedBy String?
   completedAt DateTime?
   createdBy   String?
@@ -680,6 +681,8 @@ model Conversation {
   id           String                    @id @default(uuid())
   isAdminChat  Boolean                   @default(false)
   closed       Boolean                   @default(false)
+  isGroup      Boolean                   @default(false)
+  name         String?
   createdAt    DateTime                  @default(now())
   participants ConversationParticipant[]
   messages     DirectMessage[]

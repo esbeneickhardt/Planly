@@ -94,16 +94,22 @@ export const THEMES: ThemeMeta[] = [
   },
 ];
 
+export type MobileNavPosition = 'top' | 'bottom';
+
 interface ThemeContextValue {
   themeId: ThemeId;
   isDark: boolean;
   setTheme: (id: ThemeId) => void;
+  mobileNavPosition: MobileNavPosition;
+  setMobileNavPosition: (pos: MobileNavPosition) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   themeId: 'dark',
   isDark: true,
   setTheme: () => {},
+  mobileNavPosition: 'top',
+  setMobileNavPosition: () => {},
 });
 
 function isValidThemeId(v: string): v is ThemeId {
@@ -117,6 +123,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (saved && isValidThemeId(saved)) return saved;
     return 'dark';
   });
+  // Device-scoped preference (no reason to sync across devices) for where the mobile top bar sits
+  const [mobileNavPosition, setMobileNavPosition] = useState<MobileNavPosition>(() => {
+    const saved = localStorage.getItem('planly-mobile-nav-position');
+    return saved === 'bottom' ? 'bottom' : 'top';
+  });
 
   // Apply theme to DOM and persist on every change
   useEffect(() => {
@@ -128,9 +139,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('planly-theme', themeId);
   }, [themeId]);
 
+  useEffect(() => {
+    localStorage.setItem('planly-mobile-nav-position', mobileNavPosition);
+  }, [mobileNavPosition]);
+
   const isDark = THEMES.find((t) => t.id === themeId)?.dark ?? true;
 
-  return <ThemeContext.Provider value={{ themeId, isDark, setTheme: setThemeId }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ themeId, isDark, setTheme: setThemeId, mobileNavPosition, setMobileNavPosition }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {

@@ -246,7 +246,7 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
             Verifying webhook signatures
           </p>
           <code
-            className="block text-xs px-3 py-2 rounded-lg whitespace-pre"
+            className="block text-xs px-3 py-2 rounded-lg whitespace-pre overflow-x-auto"
             style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
           >{`const sig = req.headers['x-planly-signature'];
 const expected = 'sha256=' +
