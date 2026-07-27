@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { api } from '../../api/client';
 import AdminUserDetailModal from './AdminUserDetailModal';
+import { CrownIcon, ShieldIcon } from '../../components/common/TopBarIcons';
 import type { AdminUser } from './types';
 
 interface Props {
@@ -35,7 +36,9 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
           .filter((u) => u.isFoundingAdmin)
           .map((u) => (
             <div key={u.id} className="flex items-center gap-3">
-              <span className="text-xl">👑</span>
+              <span style={{ color: '#f59e0b' }}>
+                <CrownIcon size={20} />
+              </span>
               <div>
                 <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                   {u.username}
@@ -66,7 +69,9 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
               onClick={() => setDetailUser(u)}
               className="flex items-center gap-2 py-1.5 w-full text-left rounded-lg transition-colors hover:bg-[var(--surface)]"
             >
-              <span className="flex-shrink-0">{u.isFoundingAdmin ? '👑' : '🛡️'}</span>
+              <span className="flex-shrink-0" style={{ color: u.isFoundingAdmin ? '#f59e0b' : '#6366f1' }}>
+                {u.isFoundingAdmin ? <CrownIcon size={16} /> : <ShieldIcon size={16} />}
+              </span>
               <span className="text-sm flex-1 min-w-0 truncate font-medium" style={{ color: 'var(--text)' }}>
                 {u.username}
               </span>

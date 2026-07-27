@@ -14,24 +14,37 @@ interface Options {
 export function useChatMessages({ isAdminChat, productId }: Options) {
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Fingerprint of the last data we actually applied, so a poll tick that fetches the exact same
+  // messages (the common case) doesn't call setState and force a full list re-render every 5s -
+  // that was the cause of a visible flicker/jank on every poll even when nothing had changed.
+  const lastFingerprintRef = useRef<string>('');
+
+  const applyMessages = useCallback((msgs: unknown) => {
+    const list = Array.isArray(msgs) ? (msgs as Message[]) : [];
+    const fingerprint = JSON.stringify(list);
+    if (fingerprint === lastFingerprintRef.current) return;
+    lastFingerprintRef.current = fingerprint;
+    setAllMessages(list);
+  }, []);
 
   const load = useCallback(async () => {
     if (document.hidden) return;
     try {
       if (isAdminChat) {
         const msgs = await api.adminChat.list();
-        setAllMessages(Array.isArray(msgs) ? msgs : []);
+        applyMessages(msgs);
       } else {
         if (!productId) return;
         const msgs = await api.messages.listAll(productId);
-        setAllMessages(Array.isArray(msgs) ? msgs : []);
+        applyMessages(msgs);
       }
     } catch {}
-  }, [isAdminChat, productId]);
+  }, [isAdminChat, productId, applyMessages]);
 
   // Clear stale messages immediately on product switch
   useEffect(() => {
     setAllMessages([]);
+    lastFingerprintRef.current = '';
   }, [productId]);
 
   // Poll every 5 s; skip hidden-tab ticks to save server requests

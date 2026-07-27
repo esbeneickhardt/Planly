@@ -28,6 +28,7 @@ import { useSprints } from '../../hooks/useSprints';
 import { computePrimaryMilestones, assignMilestoneColors } from '../../utils/milestones';
 import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import KanbanColumn, { UNASSIGNED_CLUSTER } from './KanbanColumn';
+import EmptyState from '../common/EmptyState';
 import KanbanMilestoneColumn from './KanbanMilestoneColumn';
 import KanbanCard from './KanbanCard';
 import KanbanMobileList from './KanbanMobileList';
@@ -79,7 +80,6 @@ export default function KanbanBoard() {
   );
   const [collapsedStatusesInMilestoneView, setCollapsedStatusesInMilestoneView] = useState<Set<string>>(new Set());
   const [mineOnly, setMineOnly] = useState(false);
-  const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const lastInitializedProductId = useRef<string | null>(null);
   const users = useProductMembers(activeProduct?.teamId);
   const { sprints, refresh: refreshSprints } = useSprints(activeProduct?.id);
@@ -96,8 +96,10 @@ export default function KanbanBoard() {
   });
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [bgImage, setBgImage] = useState<string | null>(null);
-  const [showBgPicker, setShowBgPicker] = useState(false);
-  const bgPickerRef = useRef<HTMLDivElement>(null);
+  const [showFiltersMenu, setShowFiltersMenu] = useState(false);
+  const filtersMenuRef = useRef<HTMLDivElement>(null);
+  const [showViewMenu, setShowViewMenu] = useState(false);
+  const viewMenuRef = useRef<HTMLDivElement>(null);
 
   const { legend: colorLegend } = useColorLegend(activeProduct?.id ?? '');
 
@@ -112,7 +114,8 @@ export default function KanbanBoard() {
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (bgPickerRef.current && !bgPickerRef.current.contains(e.target as Node)) setShowBgPicker(false);
+      if (filtersMenuRef.current && !filtersMenuRef.current.contains(e.target as Node)) setShowFiltersMenu(false);
+      if (viewMenuRef.current && !viewMenuRef.current.contains(e.target as Node)) setShowViewMenu(false);
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -410,7 +413,6 @@ export default function KanbanBoard() {
 
   function selectBg(id: string | null) {
     setBgImage(id);
-    setShowBgPicker(false);
     if (!activeProduct) return;
     if (id) localStorage.setItem(`planly-kanban-bg-${activeProduct.id}`, id);
     else localStorage.removeItem(`planly-kanban-bg-${activeProduct.id}`);
@@ -722,12 +724,7 @@ export default function KanbanBoard() {
   }
 
   if (!activeProduct) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
-        <div className="text-5xl opacity-30">▦</div>
-        <p className="text-sm">Create a product to get started</p>
-      </div>
-    );
+    return <EmptyState icon="▦" size="lg" description="Create a product to get started" className="h-full" />;
   }
 
   const pendingTaskCount = pendingDeleteCol ? tasks.filter((t) => t.status === pendingDeleteCol.statusKey).length : 0;
@@ -752,13 +749,8 @@ export default function KanbanBoard() {
         onMineToggle={() => setMineOnly((v) => !v)}
         taskOwners={taskOwners}
         ownerFilters={ownerFilters}
-        showOwnerDropdown={showOwnerDropdown}
-        onToggleOwnerDropdown={() => setShowOwnerDropdown((v) => !v)}
         onToggleOwner={toggleOwner}
-        onClearOwners={() => {
-          setOwnerFilters(new Set());
-          setShowOwnerDropdown(false);
-        }}
+        onClearOwners={() => setOwnerFilters(new Set())}
         taskColors={taskColors}
         colorFilters={colorFilters}
         colorLegend={colorLegend}
@@ -787,9 +779,6 @@ export default function KanbanBoard() {
           localStorage.setItem('planly_kanban_simple', next ? '1' : '0');
         }}
         bgImage={bgImage}
-        showBgPicker={showBgPicker}
-        bgPickerRef={bgPickerRef}
-        onToggleBgPicker={() => setShowBgPicker((v) => !v)}
         onSelectBg={selectBg}
         onReset={() => {
           setOwnerFilters(new Set());
@@ -798,6 +787,12 @@ export default function KanbanBoard() {
           setMilestoneFilterAndSave(null);
           setMineOnly(false);
         }}
+        showFiltersMenu={showFiltersMenu}
+        filtersMenuRef={filtersMenuRef}
+        onToggleFiltersMenu={() => setShowFiltersMenu((v) => !v)}
+        showViewMenu={showViewMenu}
+        viewMenuRef={viewMenuRef}
+        onToggleViewMenu={() => setShowViewMenu((v) => !v)}
       />
 
       {/* Mobile scrollable task list - hidden on md+ where the full board renders */}
@@ -972,6 +967,26 @@ export default function KanbanBoard() {
                     onOpenDetail={() => {}}
                     onRename={() => {}}
                     onDeleteRequest={() => {}}
+                    isOverlay
+                  />
+                </div>
+              ) : activeMilestoneHeader && viewMode === 'milestone' ? (
+                // Dragging a whole milestone column - show a full column ghost, same treatment as
+                // activeColumn above, instead of the small cluster-header chip used below (that
+                // chip is for reordering a milestone header *within* a status column when grouped).
+                <div style={{ opacity: 0.9, width: 288 }}>
+                  <KanbanMilestoneColumn
+                    milestoneId={activeMilestoneHeader.id}
+                    milestone={tasks.find((t) => t.id === activeMilestoneHeader.id) ?? null}
+                    tasks={milestoneColumnTasks.byMilestoneId.get(activeMilestoneHeader.id) ?? []}
+                    columns={columns}
+                    color={activeMilestoneHeader.color}
+                    onOpenDetail={() => {}}
+                    primaryMilestones={primaryMilestones}
+                    milestoneColors={milestoneColors}
+                    simpleMode={simpleMode}
+                    collapsedStatuses={collapsedStatusesInMilestoneView}
+                    onToggleStatusCollapse={() => {}}
                     isOverlay
                   />
                 </div>

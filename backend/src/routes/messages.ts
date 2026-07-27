@@ -23,6 +23,8 @@ import {
   mimeFromExt,
   ALLOWED_MIME_TYPES,
   verifyMimeBytes,
+  generateThumbnail,
+  thumbnailFilename,
 } from '../utils/storage';
 import { sendEmail, mentionEmail } from '../utils/email';
 import { createNotification } from '../utils/notifications';
@@ -37,6 +39,10 @@ const attachmentItemSchema = z.object({
     .regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed'),
   name: z.string(),
   type: z.string(),
+  thumbnailUrl: z
+    .string()
+    .regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/, 'Invalid attachment - only uploads from this server are allowed')
+    .optional(),
 });
 // Role badge values a sender can claim; verified against actual permissions at write time
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
@@ -94,7 +100,26 @@ export async function messageRoutes(app: FastifyInstance) {
         })
         .catch(() => {});
 
-      reply.send({ url: `/api/uploads/${filename}`, name: data.filename, type: data.mimetype });
+      // For images, also store a downscaled thumbnail so chat bubbles don't have to load the
+      // full original - falls back to no thumbnail (client uses the original) on any failure.
+      let thumbnailUrl: string | undefined;
+      const thumbBuf = await generateThumbnail(buf, data.mimetype);
+      if (thumbBuf) {
+        const thumbName = thumbnailFilename(filename);
+        await storeFile(thumbBuf, thumbName, 'image/jpeg');
+        await prisma.fileUpload
+          .create({
+            data: {
+              filename: thumbName,
+              uploaderId: req.user.userId,
+              productId: productId ?? null,
+            },
+          })
+          .catch(() => {});
+        thumbnailUrl = `/api/uploads/${thumbName}`;
+      }
+
+      reply.send({ url: `/api/uploads/${filename}`, name: data.filename, type: data.mimetype, thumbnailUrl });
     },
   );
 
@@ -136,6 +161,10 @@ export async function messageRoutes(app: FastifyInstance) {
     try {
       await deleteFile(safe);
       if (record) await prisma.fileUpload.delete({ where: { filename: safe } }).catch(() => {});
+      // Clean up the derived thumbnail too, if one was generated for this upload
+      const thumbName = thumbnailFilename(safe);
+      await deleteFile(thumbName).catch(() => {});
+      await prisma.fileUpload.delete({ where: { filename: thumbName } }).catch(() => {});
       reply.send({ ok: true });
     } catch {
       reply.status(404).send({ error: 'Not found' });

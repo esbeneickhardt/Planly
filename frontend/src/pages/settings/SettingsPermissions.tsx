@@ -1,11 +1,15 @@
 /**
  * Settings Permissions tab showing a per-member, per-tab access matrix (write / read / none).
  * Owners and co-owners always have write access and cannot be downgraded via this matrix.
- * Changes are sent as a single PUT to avoid partial-save states.
+ * Changes autosave: each edit schedules a single debounced PUT of the whole matrix (still one
+ * request, avoiding partial-save states) instead of requiring an explicit "Save" click.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api, displayName } from '../../api/client';
 import type { Product, TeamMember } from '../../types';
+import StatusPill from '../../components/common/StatusPill';
+import RoleBadge from '../../components/common/RoleBadge';
+import SaveStatus from '../../components/common/SaveStatus';
 
 const FEATURE_TABS = [
   { key: 'kanban', label: 'Kanban' },
@@ -20,26 +24,6 @@ const LEVELS = [
   { value: 'none', label: 'None', color: '#ef4444' },
 ];
 
-function RoleBadge({ kind }: { kind: 'owner' | 'co_owner' }) {
-  if (kind === 'owner')
-    return (
-      <span
-        className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-        style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-      >
-        Owner
-      </span>
-    );
-  return (
-    <span
-      className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-      style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}
-    >
-      Co-owner
-    </span>
-  );
-}
-
 interface Props {
   activeProduct: Product;
   members: TeamMember[];
@@ -50,6 +34,9 @@ interface Props {
 export default function SettingsPermissions({ activeProduct, members, refreshPerms, showToast }: Props) {
   const [matrix, setMatrix] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedIndicatorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Seed the matrix with "write" defaults for all member+tab combos, then overwrite with saved rows
   const initMatrix = useCallback(async () => {
@@ -72,25 +59,43 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
     initMatrix();
   }, [initMatrix]);
 
-  function setLevel(userId: string, tab: string, level: string) {
-    setMatrix((prev) => ({ ...prev, [userId]: { ...prev[userId], [tab]: level } }));
-  }
+  // Clear pending timers on unmount so a stray save/indicator doesn't fire after navigating away
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (savedIndicatorRef.current) clearTimeout(savedIndicatorRef.current);
+    },
+    [],
+  );
 
-  async function savePermissions() {
+  async function savePermissions(m: Record<string, Record<string, string>>) {
     setSaving(true);
     const updates: { userId: string; tab: string; level: string }[] = [];
-    Object.entries(matrix).forEach(([userId, tabs]) => {
+    Object.entries(m).forEach(([userId, tabs]) => {
       Object.entries(tabs).forEach(([tab, level]) => updates.push({ userId, tab, level }));
     });
     try {
       await api.permissions.put(activeProduct.id, updates);
       await refreshPerms();
-      showToast('Permissions saved', 'success');
+      setJustSaved(true);
+      if (savedIndicatorRef.current) clearTimeout(savedIndicatorRef.current);
+      savedIndicatorRef.current = setTimeout(() => setJustSaved(false), 2000);
     } catch (err) {
       showToast((err as Error).message, 'error');
     } finally {
       setSaving(false);
     }
+  }
+
+  // Only ever called from a user edit below (never on initial load), so debouncing here can't
+  // race the seed-from-server matrix set in initMatrix.
+  function setLevel(userId: string, tab: string, level: string) {
+    setMatrix((prev) => {
+      const next = { ...prev, [userId]: { ...prev[userId], [tab]: level } };
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => savePermissions(next), 800);
+      return next;
+    });
   }
 
   return (
@@ -178,16 +183,7 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
                 return (
                   <div key={key} className="flex-1 flex justify-center">
                     {isPrivileged ? (
-                      <span
-                        className="text-xs px-2 py-1 rounded-lg font-medium"
-                        style={{
-                          background: 'rgba(16,185,129,0.12)',
-                          color: '#10b981',
-                          border: '1px solid rgba(16,185,129,0.3)',
-                        }}
-                      >
-                        Write
-                      </span>
+                      <StatusPill tone="success">Write</StatusPill>
                     ) : (
                       <select
                         value={level}
@@ -220,27 +216,9 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
                 title={isPrivileged ? 'Access granted by role' : 'Requires co-owner role'}
               >
                 {isPrivileged ? (
-                  <span
-                    className="text-xs px-2 py-1 rounded-lg font-medium"
-                    style={{
-                      background: 'rgba(16,185,129,0.12)',
-                      color: '#10b981',
-                      border: '1px solid rgba(16,185,129,0.3)',
-                    }}
-                  >
-                    Write 🔒
-                  </span>
+                  <StatusPill tone="success">Write 🔒</StatusPill>
                 ) : (
-                  <span
-                    className="text-xs px-2 py-1 rounded-lg font-medium"
-                    style={{
-                      background: 'rgba(239,68,68,0.08)',
-                      color: '#ef4444',
-                      border: '1px solid rgba(239,68,68,0.2)',
-                    }}
-                  >
-                    No access 🔒
-                  </span>
+                  <StatusPill tone="danger">No access 🔒</StatusPill>
                 )}
               </div>
             </div>
@@ -250,18 +228,7 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
         </div>
       </div>
       <div className="mt-4">
-        <button
-          onClick={savePermissions}
-          disabled={saving}
-          className="btn-primary flex justify-center"
-          style={{ minWidth: 140 }}
-        >
-          {saving ? (
-            <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-          ) : (
-            'Save permissions'
-          )}
-        </button>
+        <SaveStatus saving={saving} saved={justSaved} />
       </div>
     </div>
   );

@@ -224,6 +224,17 @@
     border-color: var(--border-2);
   }
 
+  .btn-danger {
+    @apply px-4 py-2 text-sm font-medium text-white rounded-lg transition-all;
+    background-color: #ef4444;
+  }
+  .btn-danger:hover {
+    background-color: #dc2626;
+  }
+  .btn-danger:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
   .input {
     @apply w-full text-sm rounded-lg px-3 py-2 outline-none transition-all;
     background-color: var(--surface-2);
@@ -239,7 +250,7 @@
   }
 
   .card {
-    @apply rounded-xl;
+    @apply rounded-xl shadow-sm;
     background-color: var(--surface);
     border: 1px solid var(--border);
   }
@@ -247,6 +258,54 @@
   .label {
     @apply block text-xs font-semibold mb-1.5 uppercase tracking-wide;
     color: var(--text-3);
+  }
+}
+
+/* Shared entrance animations - modals fade+scale in from center, dropdowns/popovers fade+drop
+   in from just above their resting position. Kept short (120-150ms) so they read as responsive
+   rather than sluggish. */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-modal-in {
+  animation: modal-in 150ms ease-out;
+}
+.animate-modal-backdrop-in {
+  animation: modal-backdrop-in 150ms ease-out;
+}
+.animate-dropdown-in {
+  animation: dropdown-in 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-modal-in,
+  .animate-modal-backdrop-in,
+  .animate-dropdown-in {
+    animation: none;
   }
 }
 
@@ -277,8 +336,27 @@
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 
+/* Touch devices already have their own transient scroll indicator and gesture affordance, so the
+   thin custom scrollbar above just reads as visual clutter there - hide it everywhere on coarse
+   (touch) pointers rather than only in the handful of spots using .no-scrollbar above. */
+@media (pointer: coarse) {
+  * {
+    scrollbar-width: none;
+  }
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Fully hidden scrollbar - for horizontally-scrollable strips (e.g. mobile tab bars) where the
    scroll affordance is redundant (tap targets/swipe already make it discoverable) and a visible
    scrollbar reads as clutter. */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Shown only for mouse/trackpad users (real :hover) - touch devices get the equivalent gesture
+   instead (e.g. swipe-to-reply on a chat message) rather than a redundant menu entry. */
+.hover-only { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .hover-only { display: inline-flex; }
+}

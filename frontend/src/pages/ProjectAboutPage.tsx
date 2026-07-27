@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { MermaidBlock } from '../components/common/MermaidBlock';
 import UserProfileModal from '../components/common/UserProfileModal';
+import StatusPill from '../components/common/StatusPill';
 import { isBeforeToday } from '../utils/dates';
 import { api, displayName } from '../api/client';
 
@@ -150,17 +151,10 @@ export default function ProjectAboutPage() {
               {product.name}
             </h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span
-                className="text-xs px-2 py-0.5 rounded-full font-medium"
-                style={{
-                  background: isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-                  color: isOverdue ? '#ef4444' : '#10b981',
-                  border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
-                }}
-              >
+              <StatusPill tone={isOverdue ? 'danger' : 'success'} size="pill">
                 {isOverdue ? 'Overdue · ' : 'Deadline · '}
                 {deadlineStr}
-              </span>
+              </StatusPill>
             </div>
           </div>
         </div>
@@ -188,7 +182,7 @@ export default function ProjectAboutPage() {
 
         {/* Tab: Description */}
         {tab === 'description' && (
-          <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="rounded-xl p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
             {product.description ? (
               <div style={{ color: 'var(--text)', fontSize: 14 }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MD}>
@@ -214,7 +208,7 @@ export default function ProjectAboutPage() {
                   key={m.userId}
                   type="button"
                   onClick={() => setProfileUserId(m.userId)}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors w-full"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors w-full shadow-sm"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}

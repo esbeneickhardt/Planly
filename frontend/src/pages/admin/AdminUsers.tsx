@@ -5,6 +5,8 @@
  */
 import { useState } from 'react';
 import { api } from '../../api/client';
+import StatusPill from '../../components/common/StatusPill';
+import { CrownIcon, ShieldIcon } from '../../components/common/TopBarIcons';
 import type { AdminUser } from './types';
 
 interface Props {
@@ -46,8 +48,16 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
           <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
             <td className="py-2.5 pr-4">
               <div className="flex items-center gap-1.5">
-                {u.isFoundingAdmin && <span title="Server owner">👑</span>}
-                {u.isAdmin && !u.isFoundingAdmin && <span title="Admin">🛡️</span>}
+                {u.isFoundingAdmin && (
+                  <span title="Server owner" style={{ color: '#f59e0b' }}>
+                    <CrownIcon size={14} />
+                  </span>
+                )}
+                {u.isAdmin && !u.isFoundingAdmin && (
+                  <span title="Admin" style={{ color: '#6366f1' }}>
+                    <ShieldIcon size={14} />
+                  </span>
+                )}
                 <span className="font-medium" style={{ color: 'var(--text)' }}>
                   {u.username}
                 </span>
@@ -58,15 +68,9 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
             </td>
             <td className="py-2.5 pr-4">
               <div className="flex items-center gap-1.5">
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded"
-                  style={{
-                    background: u.emailVerified ? '#10b98122' : '#f59e0b22',
-                    color: u.emailVerified ? '#10b981' : '#f59e0b',
-                  }}
-                >
+                <StatusPill tone={u.emailVerified ? 'success' : 'warning'} size="sm">
                   {u.emailVerified ? 'Yes' : 'No'}
-                </span>
+                </StatusPill>
                 {!u.emailVerified && (
                   <button
                     onClick={() =>
@@ -90,12 +94,9 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                   const mins = Math.ceil((new Date(u.loginLockedUntil!).getTime() - Date.now()) / 60000);
                   return (
                     <div className="flex items-center gap-1.5">
-                      <span
-                        className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap"
-                        style={{ background: '#ef444422', color: '#ef4444' }}
-                      >
+                      <StatusPill tone="danger" size="sm" className="whitespace-nowrap">
                         Locked {mins}m
-                      </span>
+                      </StatusPill>
                       <button
                         onClick={() =>
                           act(async () => {
@@ -113,12 +114,9 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                 }
                 if (u.failedLoginAttempts > 0) {
                   return (
-                    <span
-                      className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap"
-                      style={{ background: '#f59e0b22', color: '#f59e0b' }}
-                    >
+                    <StatusPill tone="warning" size="sm" className="whitespace-nowrap">
                       {u.failedLoginAttempts} fail{u.failedLoginAttempts === 1 ? '' : 's'}
-                    </span>
+                    </StatusPill>
                   );
                 }
                 if (u.lastLoginAt) {
@@ -130,16 +128,14 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                   const active = days < 7;
                   const label = mins2 < 60 ? `${mins2}m ago` : hours < 24 ? `${hours}h ago` : `${days}d ago`;
                   return (
-                    <span
-                      className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap"
+                    <StatusPill
+                      tone={active ? 'success' : 'neutral'}
+                      size="sm"
+                      className="whitespace-nowrap"
                       title={new Date(u.lastLoginAt).toLocaleString()}
-                      style={{
-                        background: active ? '#10b98122' : 'var(--surface-2)',
-                        color: active ? '#10b981' : 'var(--text-3)',
-                      }}
                     >
                       {label}
-                    </span>
+                    </StatusPill>
                   );
                 }
                 return (

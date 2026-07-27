@@ -1,8 +1,9 @@
 /**
- * Filter bar above the Kanban board: mine-only, owner multi-select, color dots, sprint picker,
- * background image picker, and compact/board toggle. All state lives in KanbanBoard.
+ * Filter bar above the Kanban board: mine-only toggle, a "Filters" menu (owner/color/sprint/
+ * milestone) and a "View" menu (board layout, density, background) consolidate what used to be
+ * ~12 always-visible controls. All state lives in KanbanBoard; this component only renders it.
  */
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import type { Sprint } from '../../api/client';
 import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import { displayName } from '../../api/client';
@@ -21,8 +22,6 @@ interface Props {
 
   taskOwners: User[];
   ownerFilters: Set<string>;
-  showOwnerDropdown: boolean;
-  onToggleOwnerDropdown: () => void;
   onToggleOwner: (id: string) => void;
   onClearOwners: () => void;
 
@@ -55,12 +54,17 @@ interface Props {
   onToggleSimpleMode: () => void;
 
   bgImage: string | null;
-  showBgPicker: boolean;
-  bgPickerRef: RefObject<HTMLDivElement>;
-  onToggleBgPicker: () => void;
   onSelectBg: (id: string | null) => void;
 
   onReset: () => void;
+
+  showFiltersMenu: boolean;
+  filtersMenuRef: RefObject<HTMLDivElement>;
+  onToggleFiltersMenu: () => void;
+
+  showViewMenu: boolean;
+  viewMenuRef: RefObject<HTMLDivElement>;
+  onToggleViewMenu: () => void;
 }
 
 /** Displays a sprint's color swatch next to the sprint selector. */
@@ -82,6 +86,35 @@ function SprintDot({ sprints, sprintFilter }: { sprints: Sprint[]; sprintFilter:
   );
 }
 
+/** One row inside the View menu - a full-width toggle button with an optional trailing checkmark.
+ * `desktopOnly` hides the row on mobile for the settings KanbanMobileList doesn't actually read
+ * (compact/simple density, background), matching what those controls did before consolidation. */
+function ViewMenuRow({
+  active,
+  onClick,
+  desktopOnly,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  desktopOnly?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${desktopOnly ? 'hidden md:flex' : 'flex'}`}
+      style={{
+        background: active ? 'var(--brand-subtle)' : 'transparent',
+        color: active ? 'var(--brand)' : 'var(--text-2)',
+      }}
+    >
+      <span className="flex-1">{children}</span>
+      {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
+    </button>
+  );
+}
+
 export default function KanbanFiltersBar({
   taskCount,
   hasFilters,
@@ -90,8 +123,6 @@ export default function KanbanFiltersBar({
   onMineToggle,
   taskOwners,
   ownerFilters,
-  showOwnerDropdown,
-  onToggleOwnerDropdown,
   onToggleOwner,
   onClearOwners,
   taskColors,
@@ -114,12 +145,21 @@ export default function KanbanFiltersBar({
   simpleMode,
   onToggleSimpleMode,
   bgImage,
-  showBgPicker,
-  bgPickerRef,
-  onToggleBgPicker,
   onSelectBg,
   onReset,
+  showFiltersMenu,
+  filtersMenuRef,
+  onToggleFiltersMenu,
+  showViewMenu,
+  viewMenuRef,
+  onToggleViewMenu,
 }: Props) {
+  const hasFilterOptions = taskOwners.length > 0 || taskColors.length > 0 || sprints.length > 0 || milestones.length > 0;
+  const activeFilterCount =
+    ownerFilters.size + colorFilters.size + (sprintFilter !== null ? 1 : 0) + (milestoneFilter !== null ? 1 : 0);
+  const viewCustomized =
+    compact || simpleMode || viewMode === 'milestone' || groupByMilestone || bgImage !== null;
+
   return (
     <div className="px-4 md:px-6 pt-3 md:pt-4 pb-3 flex-shrink-0 flex items-center gap-2 md:gap-3 flex-wrap">
       {/* Task count */}
@@ -144,332 +184,240 @@ export default function KanbanFiltersBar({
         {user?.avatarEmoji ?? '👤'} Mine
       </button>
 
-      {/* Board layout toggle: status columns (default) vs Trello-style milestone columns. Shown on
-          both mobile and desktop - unlike Simple/Compact below, KanbanMobileList honors this too. */}
-      {milestones.length > 0 && !compact && (
-        <button
-          onClick={onToggleViewMode}
-          className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
-          style={{
-            color: viewMode === 'milestone' ? 'var(--brand)' : 'var(--text-3)',
-            background: viewMode === 'milestone' ? 'var(--brand-subtle)' : 'transparent',
-            border: `1px solid ${viewMode === 'milestone' ? 'var(--brand)' : 'var(--border)'}`,
-          }}
-          title={
-            viewMode === 'milestone'
-              ? 'Switch back to status columns'
-              : 'Switch to milestone columns, grouped by status within each'
-          }
-        >
-          {viewMode === 'milestone' ? '📋 Status columns' : '🏁 Milestone columns'}
-        </button>
-      )}
-
-      {/* Sub-plan and milestone filters, shown on mobile too - both narrow the same `filteredTasks`
-          array that KanbanMobileList already renders from, so they work there exactly as on desktop. */}
-      {sprints.length > 0 && (
-        <div className="md:hidden flex items-center gap-1 flex-shrink-0">
-          <SprintDot sprints={sprints} sprintFilter={sprintFilter} />
-          <select
-            value={sprintFilter ?? ''}
-            onChange={(e) => onSprintChange(e.target.value === '' ? null : e.target.value)}
-            className="text-xs px-2 py-1 rounded transition-all"
-            style={{
-              background: sprintFilter !== null ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              color: sprintFilter !== null ? 'var(--brand)' : 'var(--text-2)',
-              border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
-            }}
-          >
-            <option value="">All sub-plans</option>
-            {sprints.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-      <div className="md:hidden flex-shrink-0">
-        <KanbanMilestoneFilter milestones={milestones} selectedId={milestoneFilter} onChange={onMilestoneChange} />
-      </div>
-
-      {/* Group by milestone toggle, shown on mobile too - unlike Simple/Compact below, the mobile
-          board (KanbanMobileList) does honor this one, clustering each column's cards by milestone.
-          Meaningless once milestones are themselves the columns, so hidden in that mode. */}
-      {milestones.length > 0 && viewMode === 'status' && (
-        <button
-          onClick={onToggleGroupByMilestone}
-          className="md:hidden text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
-          style={{
-            color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
-            background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
-            border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'var(--border)'}`,
-          }}
-          title="Group cards into collapsible milestone sections within each column"
-        >
-          🏁 {groupByMilestone ? 'Grouped' : 'Group by milestone'}
-        </button>
-      )}
-
-      {/* Desktop-only filters */}
-      <div className="hidden md:contents">
-        <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
-
-        {/* Reset */}
+      {/* Reset - only worth showing once something is actually filtered */}
+      {hasFilters && (
         <button
           onClick={onReset}
           className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
-          style={{
-            color: hasFilters ? 'var(--brand)' : 'var(--text-3)',
-            background: hasFilters ? 'var(--brand-subtle)' : 'transparent',
-            border: `1px solid ${hasFilters ? 'var(--brand)' : 'var(--border)'}`,
-            opacity: hasFilters ? 1 : 0.45,
-            cursor: hasFilters ? 'pointer' : 'default',
-          }}
+          style={{ color: 'var(--brand)', background: 'var(--brand-subtle)', border: '1px solid var(--brand)' }}
         >
           ↺ Reset
         </button>
+      )}
 
-        {/* Owner filter */}
-        {taskOwners.length > 0 && (
-          <div className="relative flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-              Owner
-            </span>
-            <button
-              onClick={onToggleOwnerDropdown}
-              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all"
-              style={{
-                background: ownerFilters.size > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                color: ownerFilters.size > 0 ? 'var(--brand)' : 'var(--text-2)',
-                border: `1px solid ${ownerFilters.size > 0 ? 'var(--brand)' : 'var(--border)'}`,
-              }}
-            >
-              {ownerFilters.size === 0 ? 'All' : `${ownerFilters.size} selected`}
-              <span className="text-[10px] ml-0.5">▾</span>
-            </button>
-            {showOwnerDropdown && (
-              <div
-                className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 py-1 overflow-hidden"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }}
-                onMouseLeave={onToggleOwnerDropdown}
-              >
-                {taskOwners.map((u) => {
-                  const active = ownerFilters.has(u.id);
-                  return (
-                    <button
-                      key={u.id}
-                      onClick={() => onToggleOwner(u.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
-                      style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
-                    >
-                      <span>{u.avatarEmoji ?? '👤'}</span>
-                      <span className="flex-1 text-left truncate">{displayName(u)}</span>
-                      {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
-                    </button>
-                  );
-                })}
-                {ownerFilters.size > 0 && (
-                  <div style={{ borderTop: '1px solid var(--border)' }}>
-                    <button
-                      onClick={onClearOwners}
-                      className="w-full text-left px-3 py-1.5 text-xs transition-colors"
-                      style={{ color: 'var(--text-3)' }}
-                    >
-                      Clear owners
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Color dots */}
-        {taskColors.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-              Color
-            </span>
-            <div className="flex items-center gap-2">
-              {taskColors.map((c) => {
-                const active = colorFilters.has(c);
-                return (
-                  <button
-                    key={c}
-                    onClick={() => onToggleColor(c)}
-                    className="w-4 h-4 rounded-full flex-shrink-0 transition-all"
-                    style={{
-                      background: c,
-                      outline: active ? `2px solid ${c}` : 'none',
-                      outlineOffset: active ? '2px' : '0',
-                      boxShadow: active ? `0 0 0 1px var(--surface)` : 'none',
-                    }}
-                    title={colorLegend[c] || c}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Sprint filter */}
-        {sprints.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-              Sub-plan
-            </span>
-            <SprintDot sprints={sprints} sprintFilter={sprintFilter} />
-            <select
-              value={sprintFilter ?? ''}
-              onChange={(e) => onSprintChange(e.target.value === '' ? null : e.target.value)}
-              className="text-xs px-2 py-0.5 rounded transition-all"
-              style={{
-                background: sprintFilter !== null ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                color: sprintFilter !== null ? 'var(--brand)' : 'var(--text-2)',
-                border: `1px solid ${sprintFilter !== null ? 'var(--brand)' : 'var(--border)'}`,
-              }}
-            >
-              <option value="">All sub-plans</option>
-              {sprints.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {!compact && milestones.length > 0 && viewMode === 'status' && (
-          <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
-        )}
-
-        {/* Group by milestone toggle (board view only; not shown in compact mode, meaningless in
-            milestone-columns mode since milestones are themselves the columns there) */}
-        {!compact && milestones.length > 0 && viewMode === 'status' && (
+      {/* Filters menu: owner / color / sub-plan / milestone, all narrowing the same filteredTasks
+          array that both the desktop board and KanbanMobileList render from - shown identically
+          on both, unlike View below which has a couple of desktop-only rows. */}
+      {hasFilterOptions && (
+        <div className="relative flex-shrink-0" ref={filtersMenuRef}>
           <button
-            onClick={onToggleGroupByMilestone}
-            className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+            onClick={onToggleFiltersMenu}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
             style={{
-              color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
-              background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
-              border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'var(--border)'}`,
+              background: activeFilterCount > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              color: activeFilterCount > 0 ? 'var(--brand)' : 'var(--text-3)',
+              border: `1px solid ${activeFilterCount > 0 ? 'var(--brand)' : 'var(--border)'}`,
             }}
-            title="Group cards into collapsible milestone sections within each column"
           >
-            ☰ {groupByMilestone ? 'Grouped' : 'Group by milestone'}
+            Filters
+            {activeFilterCount > 0 && (
+              <span
+                className="text-[10px] leading-none px-1 py-0.5 rounded-full"
+                style={{ background: 'var(--brand)', color: '#fff' }}
+              >
+                {activeFilterCount}
+              </span>
+            )}
+            <span className="text-[10px]">▾</span>
           </button>
-        )}
+          {showFiltersMenu && (
+            <div
+              className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-40 p-3 space-y-3 overflow-y-auto animate-dropdown-in"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 240, maxHeight: '70vh' }}
+            >
+              {taskOwners.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                      Owner
+                    </span>
+                    {ownerFilters.size > 0 && (
+                      <button onClick={onClearOwners} className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-0.5 -mx-1">
+                    {taskOwners.map((u) => {
+                      const active = ownerFilters.has(u.id);
+                      return (
+                        <button
+                          key={u.id}
+                          onClick={() => onToggleOwner(u.id)}
+                          className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+                          style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
+                        >
+                          <span>{u.avatarEmoji ?? '👤'}</span>
+                          <span className="flex-1 text-left truncate">{displayName(u)}</span>
+                          {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-        {/* Milestone filter (board view only; not shown in compact mode). Still useful even while
-            grouped, e.g. to jump straight to one milestone's section. */}
-        {!compact && (
-          <KanbanMilestoneFilter milestones={milestones} selectedId={milestoneFilter} onChange={onMilestoneChange} />
-        )}
+              {taskColors.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                    Color
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                    {taskColors.map((c) => {
+                      const active = colorFilters.has(c);
+                      return (
+                        <button
+                          key={c}
+                          onClick={() => onToggleColor(c)}
+                          className="w-4 h-4 rounded-full flex-shrink-0 transition-all"
+                          style={{
+                            background: c,
+                            outline: active ? `2px solid ${c}` : 'none',
+                            outlineOffset: active ? '2px' : '0',
+                            boxShadow: active ? `0 0 0 1px var(--surface)` : 'none',
+                          }}
+                          title={colorLegend[c] || c}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-        {toast && (
-          <div
-            className="text-xs px-2 py-1 rounded-lg"
-            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
-          >
-            {toast}
-          </div>
-        )}
-      </div>
+              {sprints.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                    Sub-plan
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <SprintDot sprints={sprints} sprintFilter={sprintFilter} />
+                    <select
+                      value={sprintFilter ?? ''}
+                      onChange={(e) => onSprintChange(e.target.value === '' ? null : e.target.value)}
+                      className="input text-xs py-1"
+                    >
+                      <option value="">All sub-plans</option>
+                      {sprints.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {milestones.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                    Milestone
+                  </span>
+                  <div className="mt-1.5">
+                    <KanbanMilestoneFilter milestones={milestones} selectedId={milestoneFilter} onChange={onMilestoneChange} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {toast && (
+        <div
+          className="text-xs px-2 py-1 rounded-lg"
+          style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+        >
+          {toast}
+        </div>
+      )}
 
       <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-        {/* Background picker (desktop, board view only) */}
-        {!compact && (
-          <div ref={bgPickerRef} className="relative hidden md:block">
-            <button
-              onClick={onToggleBgPicker}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
-              title="Board background"
-              style={{
-                background: bgImage ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                color: bgImage ? 'var(--brand)' : 'var(--text-3)',
-                border: `1px solid ${bgImage ? 'var(--brand)' : 'var(--border)'}`,
-              }}
-            >
-              <span>🖼</span> Background
-            </button>
-            {showBgPicker && (
-              <div
-                className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl overflow-hidden py-1.5 z-50"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }}
-              >
-                <button
-                  onClick={() => onSelectBg(null)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${!bgImage ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
-                  style={{ color: !bgImage ? 'var(--brand)' : 'var(--text-2)' }}
-                >
-                  <span
-                    className="w-8 h-6 rounded flex-shrink-0"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-                  />
-                  <span>None</span>
-                  {!bgImage && (
-                    <span className="ml-auto" style={{ color: 'var(--brand)' }}>
-                      ✓
-                    </span>
-                  )}
-                </button>
-                {KANBAN_BACKGROUNDS.map((b) => {
-                  const active = bgImage === b.id;
-                  return (
-                    <button
-                      key={b.id}
-                      onClick={() => onSelectBg(b.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
-                      style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
-                    >
-                      <span className="w-8 h-6 rounded flex-shrink-0" style={{ background: b.gradient }} />
-                      <span>{b.label}</span>
-                      {active && (
-                        <span className="ml-auto" style={{ color: 'var(--brand)' }}>
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Simple mode toggle - dense cards showing just the title. Board-view only and desktop
-            only: the mobile view (KanbanMobileList) always uses its own fixed card density and
-            doesn't read this flag, so the toggle would do nothing on a phone. */}
-        {!compact && (
+        {/* View menu: board layout, density, and background - "how the board looks" rather than
+            "which tasks show". Compact/Simple/Background have no effect on the mobile swipeable
+            list (KanbanMobileList always uses its own fixed layout), so those rows stay desktop-only
+            inside the menu, same as before consolidation. */}
+        <div className="relative" ref={viewMenuRef}>
           <button
-            onClick={onToggleSimpleMode}
-            className="hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
-            title={simpleMode ? 'Show owner, reviewer, and milestone details on cards' : 'Show titles only, for a denser board'}
+            onClick={onToggleViewMenu}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
             style={{
-              background: simpleMode ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              color: simpleMode ? 'var(--brand)' : 'var(--text-3)',
-              border: `1px solid ${simpleMode ? 'var(--brand)' : 'var(--border)'}`,
+              background: viewCustomized ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              color: viewCustomized ? 'var(--brand)' : 'var(--text-3)',
+              border: `1px solid ${viewCustomized ? 'var(--brand)' : 'var(--border)'}`,
             }}
           >
-            ▤ Simple
+            View
+            <span className="text-[10px]">▾</span>
           </button>
-        )}
+          {showViewMenu && (
+            <div
+              className="absolute right-0 top-full mt-1 rounded-xl shadow-xl z-40 p-2 space-y-1 overflow-y-auto animate-dropdown-in"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 220, maxHeight: '70vh' }}
+            >
+              <ViewMenuRow active={compact} onClick={onToggleCompact} desktopOnly>
+                {compact ? '▦ Board view' : '☰ Compact list view'}
+              </ViewMenuRow>
 
-        {/* Compact toggle - also desktop only, for the same reason: the mobile view always
-            renders its own swipeable board regardless of this flag. */}
-        <button
-          onClick={onToggleCompact}
-          className="hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
-          title={compact ? 'Switch to board view' : 'Switch to compact list view'}
-          style={{
-            background: compact ? 'var(--brand-subtle)' : 'var(--surface-2)',
-            color: compact ? 'var(--brand)' : 'var(--text-3)',
-            border: `1px solid ${compact ? 'var(--brand)' : 'var(--border)'}`,
-          }}
-        >
-          {compact ? '▦ Board' : '☰ Compact'}
-        </button>
+              {!compact && (
+                <>
+                  <ViewMenuRow active={simpleMode} onClick={onToggleSimpleMode} desktopOnly>
+                    ▤ Simple cards (titles only)
+                  </ViewMenuRow>
+
+                  {milestones.length > 0 && (
+                    <ViewMenuRow active={viewMode === 'milestone'} onClick={onToggleViewMode}>
+                      🏁 Milestone columns
+                    </ViewMenuRow>
+                  )}
+
+                  {milestones.length > 0 && viewMode === 'status' && (
+                    <ViewMenuRow active={groupByMilestone} onClick={onToggleGroupByMilestone}>
+                      🏁 Group by milestone
+                    </ViewMenuRow>
+                  )}
+
+                  <div className="hidden md:block pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                    <span
+                      className="text-[10px] font-semibold uppercase tracking-widest px-1 block mb-1.5 mt-1"
+                      style={{ color: 'var(--text-3)' }}
+                    >
+                      Background
+                    </span>
+                    <div className="grid grid-cols-4 gap-1.5 px-1">
+                      <button
+                        onClick={() => onSelectBg(null)}
+                        title="None"
+                        className="h-8 rounded flex-shrink-0"
+                        style={{
+                          background: 'var(--surface-2)',
+                          border: `1px solid ${bgImage === null ? 'var(--brand)' : 'var(--border)'}`,
+                          outline: bgImage === null ? '2px solid var(--brand)' : 'none',
+                          outlineOffset: bgImage === null ? '1px' : '0',
+                        }}
+                      />
+                      {KANBAN_BACKGROUNDS.map((b) => {
+                        const active = bgImage === b.id;
+                        return (
+                          <button
+                            key={b.id}
+                            onClick={() => onSelectBg(b.id)}
+                            title={b.label}
+                            className="h-8 rounded flex-shrink-0"
+                            style={{
+                              background: b.gradient,
+                              outline: active ? '2px solid var(--brand)' : 'none',
+                              outlineOffset: active ? '1px' : '0',
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

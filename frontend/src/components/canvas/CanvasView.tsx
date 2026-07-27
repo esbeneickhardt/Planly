@@ -33,6 +33,7 @@ import TaskNode from './nodes/TaskNode';
 import ProductNode from './nodes/ProductNode';
 import TaskDetailPanel from '../common/TaskDetailPanel';
 import Modal from '../common/Modal';
+import EmptyState from '../common/EmptyState';
 import LegendModal from './LegendModal';
 import { useCanvasSnapshots } from '../../hooks/useCanvasSnapshots';
 import { useCanvasSprints } from './useCanvasSprints';
@@ -884,12 +885,7 @@ function CanvasInner() {
   }
 
   if (!activeProduct) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
-        <div className="text-5xl opacity-30">◈</div>
-        <p className="text-sm">Create a product to get started</p>
-      </div>
-    );
+    return <EmptyState icon="◈" size="lg" description="Create a product to get started" className="h-full" />;
   }
 
   const isProductEdge = (s: string, t: string) => s.startsWith('product-') || t.startsWith('product-');
