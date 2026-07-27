@@ -17,7 +17,7 @@ import TaskDetailPanel from '../components/common/TaskDetailPanel';
 import Modal from '../components/common/Modal';
 import EmptyState from '../components/common/EmptyState';
 import { useBacklogFilters } from '../hooks/useBacklogFilters';
-import type { StatusTab } from '../hooks/useBacklogFilters';
+import type { StatusKey, StatusTab } from '../hooks/useBacklogFilters';
 import { isBeforeToday } from '../utils/dates';
 import { useColorLegend } from '../hooks/useColorLegend';
 import { computePrimaryMilestones, assignMilestoneColors } from '../utils/milestones';
@@ -72,6 +72,21 @@ export default function BacklogPage() {
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const { legend, enabledColors } = useColorLegend(activeProduct?.id ?? '');
 
+  // Desktop "Filters" (status/mine) and "View" (group-by-milestone) popovers - same pattern as
+  // KanbanFiltersBar/KanbanBoard.
+  const [showFiltersMenu, setShowFiltersMenu] = useState(false);
+  const filtersMenuRef = useRef<HTMLDivElement>(null);
+  const [showViewMenu, setShowViewMenu] = useState(false);
+  const viewMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (filtersMenuRef.current && !filtersMenuRef.current.contains(e.target as Node)) setShowFiltersMenu(false);
+      if (viewMenuRef.current && !viewMenuRef.current.contains(e.target as Node)) setShowViewMenu(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
   // Supports search's "Create new task" result, which navigates here with ?newTask=1 to open the
   // modal directly instead of requiring a second click once the page loads.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -85,8 +100,9 @@ export default function BacklogPage() {
   }, [searchParams]);
 
   const {
-    statusTab,
-    setStatusTab,
+    statusFilters,
+    toggleStatusFilter,
+    setStatusFilters,
     mineOnly,
     setMineOnly,
     search,
@@ -98,6 +114,12 @@ export default function BacklogPage() {
     unassignedCount,
     overdueCount,
   } = useBacklogFilters(tasks, user?.id);
+
+  // Mobile's single <select> shows a specific status only when exactly one is active; picking an
+  // option there replaces the whole set (single-select), even though desktop's Filters popover
+  // below can combine several at once.
+  const mobileStatusValue: StatusTab = statusFilters.size === 1 ? Array.from(statusFilters)[0]! : 'all';
+  const activeFilterCount = statusFilters.size + (mineOnly ? 1 : 0);
 
   // Column sort - click a header to sort by it; click again to flip direction. Persisted so the
   // choice survives a reload, matching the same pattern as groupByMilestone above.
@@ -416,9 +438,10 @@ export default function BacklogPage() {
         <div className="md:hidden flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <select
-              value={statusTab}
+              value={mobileStatusValue}
               onChange={(e) => {
-                setStatusTab(e.target.value as StatusTab);
+                const v = e.target.value as StatusTab;
+                setStatusFilters(v === 'all' ? new Set() : new Set([v as StatusKey]));
                 setSelected(new Set());
               }}
               className="input text-sm flex-1"
@@ -451,67 +474,127 @@ export default function BacklogPage() {
           />
         </div>
 
-        {/* Status tabs + search + sort on one row (desktop) */}
-        <div className="hidden md:flex items-center gap-1 flex-wrap">
-          {STATUS_TABS.map((tab) => {
-            const count = tabCounts[tab.key] ?? 0;
-            const active = statusTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => {
-                  setStatusTab(tab.key);
-                  setSelected(new Set());
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex-shrink-0"
-                style={{
-                  background: active ? 'var(--brand-subtle)' : 'transparent',
-                  color: active ? 'var(--brand)' : 'var(--text-3)',
-                  border: active ? '1px solid var(--brand)' : '1px solid transparent',
-                }}
-              >
-                {tab.key !== 'all' && <span className="w-2 h-2 rounded-full" style={{ background: tab.color }} />}
-                {tab.label}
+        {/* Filters + View + search on one row (desktop) - same two-popover pattern as
+            KanbanFiltersBar, so Execute and Task tabs feel consistent. */}
+        <div className="hidden md:flex items-center gap-2 flex-wrap">
+          {/* Filters menu: status (multi-select) + mine */}
+          <div className="relative flex-shrink-0" ref={filtersMenuRef}>
+            <button
+              onClick={() => setShowFiltersMenu((v) => !v)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
+              style={{
+                background: activeFilterCount > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                color: activeFilterCount > 0 ? 'var(--brand)' : 'var(--text-3)',
+                border: `1px solid ${activeFilterCount > 0 ? 'var(--brand)' : 'var(--border)'}`,
+              }}
+            >
+              Filters
+              {activeFilterCount > 0 && (
                 <span
-                  className="px-1 py-0.5 rounded text-[10px] leading-none"
+                  className="text-[10px] leading-none px-1 py-0.5 rounded-full"
+                  style={{ background: 'var(--brand)', color: '#fff' }}
+                >
+                  {activeFilterCount}
+                </span>
+              )}
+              <span className="text-[10px]">▾</span>
+            </button>
+            {showFiltersMenu && (
+              <div
+                className="fixed left-2 right-2 top-14 md:absolute md:left-0 md:right-auto md:top-full md:mt-1 md:w-64 rounded-xl shadow-xl z-40 p-3 space-y-3 overflow-y-auto animate-dropdown-in"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '70vh' }}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                      Status
+                    </span>
+                    {statusFilters.size > 0 && (
+                      <button
+                        onClick={() => setStatusFilters(new Set())}
+                        className="text-[10px]"
+                        style={{ color: 'var(--text-3)' }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {STATUS_TABS.filter((tab) => tab.key !== 'all').map((tab) => {
+                      const key = tab.key as StatusKey;
+                      const active = statusFilters.has(key);
+                      const count = tabCounts[tab.key] ?? 0;
+                      return (
+                        <button
+                          key={tab.key}
+                          onClick={() => {
+                            toggleStatusFilter(key);
+                            setSelected(new Set());
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors"
+                          style={{
+                            background: active ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                            color: active ? 'var(--brand)' : 'var(--text-2)',
+                            border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: tab.color }} />
+                          {tab.label}
+                          <span style={{ opacity: 0.7 }}>{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setMineOnly((v) => !v)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left"
                   style={{
-                    background: active ? 'var(--brand)' : 'var(--surface-2)',
-                    color: active ? '#fff' : 'var(--text-3)',
+                    background: mineOnly ? 'var(--brand-subtle)' : 'transparent',
+                    color: mineOnly ? 'var(--brand)' : 'var(--text-2)',
                   }}
                 >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+                  <span className="flex-1">{user?.avatarEmoji ?? '👤'} Mine only</span>
+                  {mineOnly && <span style={{ color: 'var(--brand)' }}>✓</span>}
+                </button>
+              </div>
+            )}
+          </div>
 
-          {/* Mine toggle */}
-          <button
-            onClick={() => setMineOnly((v) => !v)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
-            style={{
-              background: mineOnly ? 'var(--brand-subtle)' : 'transparent',
-              color: mineOnly ? 'var(--brand)' : 'var(--text-3)',
-              border: `1px solid ${mineOnly ? 'var(--brand)' : 'transparent'}`,
-            }}
-            title="Show only my tasks"
-          >
-            {user?.avatarEmoji ?? '👤'} Mine
-          </button>
-
-          {/* Group by milestone toggle */}
-          <button
-            onClick={() => setGroupByMilestone(!groupByMilestone)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
-            style={{
-              background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
-              color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
-              border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'transparent'}`,
-            }}
-            title="Group tasks by the milestone they feed into"
-          >
-            🏁 Group by milestone
-          </button>
+          {/* View menu: group by milestone - the only "how it looks" setting Backlog has */}
+          <div className="relative flex-shrink-0" ref={viewMenuRef}>
+            <button
+              onClick={() => setShowViewMenu((v) => !v)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
+              style={{
+                background: groupByMilestone ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
+                border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'var(--border)'}`,
+              }}
+            >
+              View
+              <span className="text-[10px]">▾</span>
+            </button>
+            {showViewMenu && (
+              <div
+                className="fixed left-2 right-2 top-14 md:absolute md:left-0 md:right-auto md:top-full md:mt-1 md:w-56 rounded-xl shadow-xl z-40 p-2 space-y-1 overflow-y-auto animate-dropdown-in"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '70vh' }}
+              >
+                <button
+                  onClick={() => setGroupByMilestone(!groupByMilestone)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left"
+                  style={{
+                    background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
+                    color: groupByMilestone ? 'var(--brand)' : 'var(--text-2)',
+                  }}
+                >
+                  <span className="flex-1">🏁 Group by milestone</span>
+                  {groupByMilestone && <span style={{ color: 'var(--brand)' }}>✓</span>}
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="flex-1" />
 

@@ -23,6 +23,9 @@ interface Params {
   onSetSprintFilter: (v: string | null) => void;
   /** Called when the hook switches the canvas to sprint view mode. */
   onSetViewMode: (v: ViewMode) => void;
+  /** Marks the next viewMode/selectedSprintFilter change as a mode switch, not a user-picked
+   * filter, so the caller's filter-triggered auto-relayout doesn't fire for it. */
+  suppressNextFilterRelayout: () => void;
 }
 
 type SprintForm = { name: string; startDate: string; endDate: string; color: string };
@@ -34,6 +37,7 @@ export function useCanvasSprints({
   canWriteCanvas,
   onSetSprintFilter,
   onSetViewMode,
+  suppressNextFilterRelayout,
 }: Params) {
   const { showToast } = useToast();
 
@@ -145,6 +149,8 @@ export function useCanvasSprints({
       setShowNewSprint(false);
       // Land straight in "add to sub-plan" mode so the user can start clicking tasks in
       // immediately, instead of having to reopen the picker and select the sprint they just made.
+      // This is a mode switch, not the user picking a filter, so it shouldn't trigger a relayout.
+      suppressNextFilterRelayout();
       onSetSprintFilter(s.id);
       onSetViewMode('sprint');
       showToast(`Sub-plan "${s.name}" created`, 'success');
@@ -176,6 +182,8 @@ export function useCanvasSprints({
     await api.sprints.delete(activeProductId, sprintId).catch(() => {});
     setSprints((prev) => prev.filter((s) => s.id !== sprintId));
     if (selectedSprintFilter === sprintId) {
+      // Forced exit from the deleted sprint's mode, not a user filter pick - suppress relayout.
+      suppressNextFilterRelayout();
       onSetSprintFilter(null);
       onSetViewMode('all');
     }
