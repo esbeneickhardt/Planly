@@ -95,6 +95,15 @@ function CanvasInner() {
   const [columnLabelMap, setColumnLabelMap] = useState<Map<string, string>>(new Map());
 
   const [layoutReady, setLayoutReady] = useState(false);
+  // Guards the "build + layout nodes" effect against running its once-per-product first-load
+  // logic against default filter values. Loading persisted viewMode/filters is itself an async
+  // state update (applies on the NEXT render), so without this the layout effect's first pass -
+  // in the SAME commit, before that render happens - sees `filteredTasks` computed from the
+  // pre-persisted defaults. Existing manually-positioned tasks are unaffected (their saved
+  // position is read straight from localStorage, not from filteredTasks), but a genuinely new,
+  // never-positioned task can get placed using the wrong filtered set and have that wrong
+  // position persisted. Mirrors the existing !tasksLoaded guard just below.
+  const [filtersReady, setFiltersReady] = useState(false);
   const [connectionsVersion, setConnectionsVersion] = useState(0);
   // Undo stack for accidental canvas deletions (last 10 ops)
   type DeletedSnapshot = { name: string; description: string | null; status: string; ownerId: string | null; color: string | null; deadline: string | null; position: { x: number; y: number } }[];
@@ -111,6 +120,13 @@ function CanvasInner() {
   const { legend: bulkColorLegend, enabledColors: bulkEnabledColors } = useColorLegend(activeProduct?.id ?? '');
 
   const initializedRef = useRef<string | null>(null);
+  // Set right before a programmatic (not user-picked) change to viewMode/selectedSprintFilter -
+  // e.g. entering "add tasks to this sub-plan" mode after creating one - so the filter-relayout
+  // effect further down treats that one change as a no-op instead of scheduling a relayout.
+  const skipNextFilterRelayoutRef = useRef(false);
+  const suppressNextFilterRelayout = useCallback(() => {
+    skipNextFilterRelayoutRef.current = true;
+  }, []);
   const productConnectionsRef = useRef<Set<string>>(new Set());
   const activeProductRef = useRef(activeProduct);
   activeProductRef.current = activeProduct;
@@ -192,6 +208,7 @@ function CanvasInner() {
     canWriteCanvas,
     onSetSprintFilter: setSprintFilterSave,
     onSetViewMode: setViewModeSave,
+    suppressNextFilterRelayout,
   });
 
   // Bundles the three filter setters so a saved layout can restore all of them in one call
@@ -241,6 +258,7 @@ function CanvasInner() {
     if (!activeProduct) return;
     initializedRef.current = null;
     setLayoutReady(false);
+    setFiltersReady(false);
     productConnectionsRef.current = new Set();
     const s = loadState(activeProduct.id);
     setViewMode(s.viewMode ?? 'all');
@@ -251,6 +269,7 @@ function CanvasInner() {
     setShowSprintAura(s.showSprintAura ?? false);
     setSimpleMode(s.simpleMode ?? false);
     savedViewportRef.current = s.viewport ?? null;
+    setFiltersReady(true);
   }, [activeProduct?.id]);
 
   const onMoveEnd = useCallback((_: unknown, vp: { x: number; y: number; zoom: number }) => {
@@ -355,7 +374,7 @@ function CanvasInner() {
     setEdges(e);
 
     if (initializedRef.current !== activeProduct.id) {
-      if (!tasksLoaded) {
+      if (!tasksLoaded || !filtersReady) {
         setNodes(n);
         return;
       }
@@ -435,6 +454,7 @@ function CanvasInner() {
     sprintColorsMap,
     localSprintMemberIds,
     tasksLoaded,
+    filtersReady,
     connectionsVersion,
     columnLabelMap,
   ]);
@@ -477,8 +497,17 @@ function CanvasInner() {
   // tasks/sprints/other realtime-driven state - so a teammate's unrelated edit elsewhere never
   // triggers an unwanted relayout here. Debounced so toggling several milestone checkboxes in a
   // row only relays out once, after the user stops.
+  //
+  // viewMode/selectedSprintFilter are also set programmatically (not by the user picking a
+  // filter) when creating or deleting a sub-plan, to land in/out of "add tasks to this sub-plan"
+  // mode - see useCanvasSprints' handleCreateSprint/deleteSprint. Those callers call
+  // suppressNextFilterRelayout() first so that mode switch doesn't masquerade as a filter change.
   const filterRelayoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (skipNextFilterRelayoutRef.current) {
+      skipNextFilterRelayoutRef.current = false;
+      return;
+    }
     const prod = activeProduct;
     if (!prod || initializedRef.current !== prod.id) return; // skip initial load for this product
     if (filterRelayoutTimerRef.current) clearTimeout(filterRelayoutTimerRef.current);

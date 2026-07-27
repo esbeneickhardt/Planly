@@ -3,8 +3,10 @@
  * milestone) and a "View" menu (board layout, density, background) consolidate what used to be
  * ~12 always-visible controls. All state lives in KanbanBoard; this component only renders it.
  */
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import type { Sprint } from '../../api/client';
+import type { KanbanColumn } from '../../types';
 import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import { displayName } from '../../api/client';
 import KanbanMilestoneFilter from './KanbanMilestoneFilter';
@@ -29,6 +31,10 @@ interface Props {
   colorFilters: Set<string>;
   colorLegend: Record<string, string>;
   onToggleColor: (c: string) => void;
+
+  statuses: KanbanColumn[];
+  statusFilters: Set<string>;
+  onToggleStatus: (statusKey: string) => void;
 
   sprints: Sprint[];
   sprintFilter: string | null;
@@ -67,25 +73,6 @@ interface Props {
   onToggleViewMenu: () => void;
 }
 
-/** Displays a sprint's color swatch next to the sprint selector. */
-function SprintDot({ sprints, sprintFilter }: { sprints: Sprint[]; sprintFilter: string | null }) {
-  if (!sprintFilter) return null;
-  const s = sprints.find((s) => s.id === sprintFilter);
-  if (!s) return null;
-  return (
-    <span
-      style={{
-        width: 16,
-        height: 16,
-        borderRadius: '50%',
-        background: s.color,
-        display: 'inline-block',
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
 /** One row inside the View menu - a full-width toggle button with an optional trailing checkmark.
  * `desktopOnly` hides the row on mobile for the settings KanbanMobileList doesn't actually read
  * (compact/simple density, background), matching what those controls did before consolidation. */
@@ -115,6 +102,115 @@ function ViewMenuRow({
   );
 }
 
+/** Owner filter as a collapsed, searchable multi-select dropdown - mirrors
+ * KanbanMilestoneFilter's trigger-button/click-outside/search pattern, adapted to let more than
+ * one owner be active at once (checkmark rows instead of a single selection). */
+function OwnerFilterSection({
+  taskOwners,
+  ownerFilters,
+  onToggleOwner,
+  onClearOwners,
+}: {
+  taskOwners: User[];
+  ownerFilters: Set<string>;
+  onToggleOwner: (id: string) => void;
+  onClearOwners: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch('');
+      }
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 0);
+  }, [open]);
+
+  const q = search.trim().toLowerCase();
+  const filtered = q ? taskOwners.filter((u) => displayName(u).toLowerCase().includes(q)) : taskOwners;
+  const selectedUsers = taskOwners.filter((u) => ownerFilters.has(u.id));
+  const singleSelected = selectedUsers.length === 1 ? selectedUsers[0] : undefined;
+
+  let label = 'All owners';
+  if (singleSelected) label = displayName(singleSelected);
+  else if (selectedUsers.length > 1) label = `${selectedUsers.length} owners`;
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+          Owner
+        </span>
+        {ownerFilters.size > 0 && (
+          <button onClick={onClearOwners} className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+            Clear
+          </button>
+        )}
+      </div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-all"
+        style={{
+          background: ownerFilters.size > 0 ? 'var(--brand-subtle)' : 'var(--surface-2)',
+          color: ownerFilters.size > 0 ? 'var(--brand)' : 'var(--text-2)',
+          border: `1px solid ${ownerFilters.size > 0 ? 'var(--brand)' : 'var(--border)'}`,
+        }}
+      >
+        {singleSelected && <span className="flex-shrink-0">{singleSelected.avatarEmoji ?? '👤'}</span>}
+        <span className="flex-1 text-left truncate">{label}</span>
+        <span className="text-[10px]">▾</span>
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 overflow-hidden flex flex-col w-full"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: 240 }}
+        >
+          <input
+            ref={inputRef}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search people…"
+            className="text-xs px-2.5 py-2 bg-transparent outline-none flex-shrink-0"
+            style={{ color: 'var(--text)', borderBottom: '1px solid var(--border)' }}
+          />
+          <div className="overflow-y-auto py-1">
+            {filtered.length === 0 && (
+              <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-3)' }}>
+                No match
+              </div>
+            )}
+            {filtered.map((u) => {
+              const active = ownerFilters.has(u.id);
+              return (
+                <button
+                  key={u.id}
+                  onClick={() => onToggleOwner(u.id)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+                  style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
+                >
+                  <span className="flex-shrink-0">{u.avatarEmoji ?? '👤'}</span>
+                  <span className="flex-1 text-left truncate">{displayName(u)}</span>
+                  {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function KanbanFiltersBar({
   taskCount,
   hasFilters,
@@ -129,6 +225,9 @@ export default function KanbanFiltersBar({
   colorFilters,
   colorLegend,
   onToggleColor,
+  statuses,
+  statusFilters,
+  onToggleStatus,
   sprints,
   sprintFilter,
   onSprintChange,
@@ -154,9 +253,14 @@ export default function KanbanFiltersBar({
   viewMenuRef,
   onToggleViewMenu,
 }: Props) {
-  const hasFilterOptions = taskOwners.length > 0 || taskColors.length > 0 || sprints.length > 0 || milestones.length > 0;
+  const hasFilterOptions =
+    taskOwners.length > 0 || taskColors.length > 0 || statuses.length > 0 || sprints.length > 0 || milestones.length > 0;
   const activeFilterCount =
-    ownerFilters.size + colorFilters.size + (sprintFilter !== null ? 1 : 0) + (milestoneFilter !== null ? 1 : 0);
+    ownerFilters.size +
+    colorFilters.size +
+    statusFilters.size +
+    (sprintFilter !== null ? 1 : 0) +
+    (milestoneFilter !== null ? 1 : 0);
   const viewCustomized =
     compact || simpleMode || viewMode === 'milestone' || groupByMilestone || bgImage !== null;
 
@@ -222,34 +326,30 @@ export default function KanbanFiltersBar({
           </button>
           {showFiltersMenu && (
             <div
-              className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-40 p-3 space-y-3 overflow-y-auto animate-dropdown-in"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 240, maxHeight: '70vh' }}
+              className="fixed left-2 right-2 top-14 md:absolute md:left-0 md:right-auto md:top-full md:mt-1 md:w-64 rounded-xl shadow-xl z-40 p-3 space-y-3 overflow-y-auto animate-dropdown-in"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '70vh' }}
             >
-              {taskOwners.length > 0 && (
+              {statuses.length > 0 && (
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
-                      Owner
-                    </span>
-                    {ownerFilters.size > 0 && (
-                      <button onClick={onClearOwners} className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                  <div className="max-h-40 overflow-y-auto space-y-0.5 -mx-1">
-                    {taskOwners.map((u) => {
-                      const active = ownerFilters.has(u.id);
+                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                    Status
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                    {statuses.map((s) => {
+                      const active = statusFilters.has(s.statusKey);
                       return (
                         <button
-                          key={u.id}
-                          onClick={() => onToggleOwner(u.id)}
-                          className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
-                          style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
+                          key={s.id}
+                          onClick={() => onToggleStatus(s.statusKey)}
+                          className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors"
+                          style={{
+                            background: active ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                            color: active ? 'var(--brand)' : 'var(--text-2)',
+                            border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
+                          }}
                         >
-                          <span>{u.avatarEmoji ?? '👤'}</span>
-                          <span className="flex-1 text-left truncate">{displayName(u)}</span>
-                          {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                          {s.label}
                         </button>
                       );
                     })}
@@ -269,7 +369,7 @@ export default function KanbanFiltersBar({
                         <button
                           key={c}
                           onClick={() => onToggleColor(c)}
-                          className="w-4 h-4 rounded-full flex-shrink-0 transition-all"
+                          className="w-5 h-5 rounded-full flex-shrink-0 transition-all"
                           style={{
                             background: c,
                             outline: active ? `2px solid ${c}` : 'none',
@@ -284,13 +384,21 @@ export default function KanbanFiltersBar({
                 </div>
               )}
 
+              {taskOwners.length > 0 && (
+                <OwnerFilterSection
+                  taskOwners={taskOwners}
+                  ownerFilters={ownerFilters}
+                  onToggleOwner={onToggleOwner}
+                  onClearOwners={onClearOwners}
+                />
+              )}
+
               {sprints.length > 0 && (
                 <div>
                   <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
                     Sub-plan
                   </span>
                   <div className="flex items-center gap-1.5 mt-1.5">
-                    <SprintDot sprints={sprints} sprintFilter={sprintFilter} />
                     <select
                       value={sprintFilter ?? ''}
                       onChange={(e) => onSprintChange(e.target.value === '' ? null : e.target.value)}
@@ -351,8 +459,8 @@ export default function KanbanFiltersBar({
           </button>
           {showViewMenu && (
             <div
-              className="absolute right-0 top-full mt-1 rounded-xl shadow-xl z-40 p-2 space-y-1 overflow-y-auto animate-dropdown-in"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 220, maxHeight: '70vh' }}
+              className="fixed left-2 right-2 top-14 md:absolute md:left-auto md:right-0 md:top-full md:mt-1 md:w-56 rounded-xl shadow-xl z-40 p-2 space-y-1 overflow-y-auto animate-dropdown-in"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '70vh' }}
             >
               <ViewMenuRow active={compact} onClick={onToggleCompact} desktopOnly>
                 {compact ? '▦ Board view' : '☰ Compact list view'}

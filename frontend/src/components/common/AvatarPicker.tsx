@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { EMOJI_CATEGORIES } from './EmojiPicker';
+import { api } from '../../api/client';
+import { useToast } from '../../context/ToastContext';
 
 // ── EXIF orientation normalizer ───────────────────────────────────────────────
 
@@ -123,9 +125,11 @@ interface Props {
 }
 
 export default function AvatarPicker({ current, onChange }: Props) {
+  const { showToast } = useToast();
   const [tab, setTab] = useState<'emoji' | 'photo'>('emoji');
   const [emojiPage, setEmojiPage] = useState(0);
   const [preview, setPreview] = useState<string | null>(current.avatarUrl ?? null);
+  const [uploading, setUploading] = useState(false);
   const currentEmoji = current.avatarEmoji;
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -207,8 +211,8 @@ export default function AvatarPicker({ current, onChange }: Props) {
     }
   }
 
-  function applyAndConfirm() {
-    if (!cropImg) return;
+  async function applyAndConfirm() {
+    if (!cropImg || uploading) return;
     const canvas = document.createElement('canvas');
     const OUT = 128;
     canvas.width = OUT;
@@ -226,13 +230,26 @@ export default function AvatarPicker({ current, onChange }: Props) {
     const sh = PREVIEW / scale;
     ctx.drawImage(cropImg, sx, sy, sw, sh, 0, 0, OUT, OUT);
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-    onChange({ avatarUrl: dataUrl, avatarEmoji: undefined });
-    setPreview(dataUrl);
-    setCropImg(null);
-    if (cropObjectUrl) {
-      URL.revokeObjectURL(cropObjectUrl);
-      setCropObjectUrl(null);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+    if (!blob) {
+      showToast('Could not process image', 'error');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { url } = await api.upload(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
+      onChange({ avatarUrl: url, avatarEmoji: undefined });
+      setPreview(url);
+      setCropImg(null);
+      if (cropObjectUrl) {
+        URL.revokeObjectURL(cropObjectUrl);
+        setCropObjectUrl(null);
+      }
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -409,11 +426,16 @@ export default function AvatarPicker({ current, onChange }: Props) {
               </div>
 
               <div className="flex gap-2 w-full">
-                <button type="button" onClick={cancelCrop} className="btn-secondary text-xs flex-1">
+                <button type="button" onClick={cancelCrop} disabled={uploading} className="btn-secondary text-xs flex-1">
                   Cancel
                 </button>
-                <button type="button" onClick={applyAndConfirm} className="btn-primary text-xs flex-1">
-                  Apply
+                <button
+                  type="button"
+                  onClick={applyAndConfirm}
+                  disabled={uploading}
+                  className="btn-primary text-xs flex-1 disabled:opacity-60"
+                >
+                  {uploading ? 'Uploading…' : 'Apply'}
                 </button>
               </div>
             </>

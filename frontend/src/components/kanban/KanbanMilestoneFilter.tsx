@@ -50,9 +50,6 @@ export default function KanbanMilestoneFilter({ milestones, selectedId, onChange
 
   return (
     <div ref={ref} className="relative flex items-center gap-1.5 flex-shrink-0">
-      <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-        Milestone
-      </span>
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 px-2 py-0.5 rounded text-xs transition-all"

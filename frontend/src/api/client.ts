@@ -709,9 +709,15 @@ export const api = {
       const qs = params.toString();
       return request<{ count: number }>(`/api/notifications/unread-count${qs ? `?${qs}` : ''}`);
     },
+    unreadByTask: (productId: string) => {
+      const params = new URLSearchParams({ productId });
+      return request<{ general: number; byTask: Record<string, number> }>(
+        `/api/notifications/unread-by-task?${params.toString()}`,
+      );
+    },
     markRead: (ids: string[]) =>
       request<{ ok: boolean }>('/api/notifications/read', { method: 'PATCH', body: json({ ids }) }),
-    markAllRead: (opts?: { types?: string[]; excludeTypes?: string[] }) =>
+    markAllRead: (opts?: { types?: string[]; excludeTypes?: string[]; taskId?: string | null }) =>
       request<{ ok: boolean }>('/api/notifications/read-all', {
         method: 'POST',
         body: json(opts ?? {}),

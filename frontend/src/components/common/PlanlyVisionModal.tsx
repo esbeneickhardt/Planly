@@ -162,9 +162,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
         <div className="flex-1 overflow-y-auto px-9 py-6 min-h-0">
           {/* Page 1 - The flow */}
           {page === 0 && (
-            <div className="space-y-0 relative">
-              {/* Vertical connector */}
-              <div className="absolute left-[27px] top-10 bottom-10 w-px" style={{ background: 'var(--border)' }} />
+            <div className="space-y-0">
               {PHASES.map((phase, i) => (
                 <div key={phase.label} className="flex gap-5 py-4">
                   {/* Step badge */}

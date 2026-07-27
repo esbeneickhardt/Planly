@@ -44,10 +44,10 @@ const TASKS: Task[] = [
 ];
 
 describe('useBacklogFilters', () => {
-  // Initial state: only backlog tasks are shown; the tab is pre-selected
-  it('defaults to statusTab=backlog, showing only backlog tasks', () => {
+  // Initial state: only backlog tasks are shown; the status filter is pre-selected
+  it('defaults to statusFilters={backlog}, showing only backlog tasks', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    expect(result.current.statusTab).toBe('backlog');
+    expect(Array.from(result.current.statusFilters)).toEqual(['backlog']);
     expect(result.current.filteredTasks.map((t) => t.id)).toEqual(['t1']);
   });
 
@@ -62,25 +62,38 @@ describe('useBacklogFilters', () => {
     expect(result.current.tabCounts['blocked']).toBe(1);
   });
 
-  // "All" tab must include every status, not just active ones
-  it('setStatusTab("all") shows every task', () => {
+  // An empty status filter set must include every status, not just active ones
+  it('clearing statusFilters shows every task', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => result.current.setStatusTab('all'));
+    act(() => result.current.setStatusFilters(new Set()));
     expect(result.current.filteredTasks).toHaveLength(5);
   });
 
-  // Status tab filters are mutually exclusive; switching tabs replaces the previous filter
-  it('setStatusTab("done") shows only done tasks', () => {
+  // Replacing the whole set (mobile's single-select convenience) swaps which status is shown
+  it('setStatusFilters(new Set(["done"])) shows only done tasks', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
-    act(() => result.current.setStatusTab('done'));
+    act(() => result.current.setStatusFilters(new Set(['done'])));
     expect(result.current.filteredTasks.map((t) => t.id)).toEqual(['t4']);
   });
 
-  // mineOnly stacks with the active status tab; here "all" + mineOnly = user-1's tasks only
+  // toggleStatusFilter can combine multiple statuses at once (desktop's multi-select Filters menu)
+  it('toggleStatusFilter combines multiple statuses', () => {
+    const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
+    act(() => {
+      result.current.setStatusFilters(new Set());
+      result.current.toggleStatusFilter('todo');
+      result.current.toggleStatusFilter('done');
+    });
+    const ids = result.current.filteredTasks.map((t) => t.id);
+    expect(ids).toEqual(expect.arrayContaining(['t2', 't4']));
+    expect(ids).toHaveLength(2);
+  });
+
+  // mineOnly stacks with the active status filter; here "all statuses" + mineOnly = user-1's tasks only
   it('mineOnly filters to tasks owned by the current user', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
     act(() => {
-      result.current.setStatusTab('all');
+      result.current.setStatusFilters(new Set());
       result.current.setMineOnly(true);
     });
     const ids = result.current.filteredTasks.map((t) => t.id);
@@ -101,7 +114,7 @@ describe('useBacklogFilters', () => {
   it('search filters by task name (case-insensitive)', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
     act(() => {
-      result.current.setStatusTab('all');
+      result.current.setStatusFilters(new Set());
       result.current.setSearch('gam');
     });
     expect(result.current.filteredTasks.map((t) => t.id)).toEqual(['t3']);
@@ -111,7 +124,7 @@ describe('useBacklogFilters', () => {
   it('search with no match returns empty list', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
     act(() => {
-      result.current.setStatusTab('all');
+      result.current.setStatusFilters(new Set());
       result.current.setSearch('zzznomatch');
     });
     expect(result.current.filteredTasks).toHaveLength(0);
