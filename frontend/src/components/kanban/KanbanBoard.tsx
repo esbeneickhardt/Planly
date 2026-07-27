@@ -65,6 +65,7 @@ export default function KanbanBoard() {
   // Filter state: multi-select owner/color, sprint, mine-only
   const [ownerFilters, setOwnerFilters] = useState<Set<string>>(new Set());
   const [colorFilters, setColorFilters] = useState<Set<string>>(new Set());
+  const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set());
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
   const [milestoneFilter, setMilestoneFilter] = useState<string | null>(null);
   // Group cards into collapsible per-milestone sections within each column, instead of filtering
@@ -359,7 +360,12 @@ export default function KanbanBoard() {
   }, [viewMode, activeProduct?.id, columns]);
 
   const hasFilters =
-    ownerFilters.size > 0 || colorFilters.size > 0 || sprintFilter !== null || milestoneFilter !== null || mineOnly;
+    ownerFilters.size > 0 ||
+    colorFilters.size > 0 ||
+    statusFilters.size > 0 ||
+    sprintFilter !== null ||
+    milestoneFilter !== null ||
+    mineOnly;
 
   const filteredTasks = useMemo(() => {
     const sprintTaskIds = sprintFilter ? new Set(sprints.find((s) => s.id === sprintFilter)?.taskIds ?? []) : null;
@@ -368,6 +374,7 @@ export default function KanbanBoard() {
       if (mineOnly && t.ownerId !== user?.id) return false;
       if (ownerFilters.size > 0 && (!t.ownerId || !ownerFilters.has(t.ownerId))) return false;
       if (colorFilters.size > 0 && (!t.color || !colorFilters.has(t.color))) return false;
+      if (statusFilters.size > 0 && !statusFilters.has(t.status)) return false;
       if (sprintFilter && !sprintTaskIds?.has(t.id)) return false;
       if (milestoneFilter && t.id !== milestoneFilter && primaryMilestones.get(t.id)?.id !== milestoneFilter)
         return false;
@@ -379,6 +386,7 @@ export default function KanbanBoard() {
     mineOnly,
     ownerFilters,
     colorFilters,
+    statusFilters,
     sprintFilter,
     sprints,
     user?.id,
@@ -432,6 +440,15 @@ export default function KanbanBoard() {
       const next = new Set(prev);
       if (next.has(c)) next.delete(c);
       else next.add(c);
+      return next;
+    });
+  }
+
+  function toggleStatus(statusKey: string) {
+    setStatusFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(statusKey)) next.delete(statusKey);
+      else next.add(statusKey);
       return next;
     });
   }
@@ -755,6 +772,9 @@ export default function KanbanBoard() {
         colorFilters={colorFilters}
         colorLegend={colorLegend}
         onToggleColor={toggleColor}
+        statuses={columns}
+        statusFilters={statusFilters}
+        onToggleStatus={toggleStatus}
         sprints={sprints}
         sprintFilter={sprintFilter}
         onSprintChange={setSprintFilterAndSave}
@@ -783,6 +803,7 @@ export default function KanbanBoard() {
         onReset={() => {
           setOwnerFilters(new Set());
           setColorFilters(new Set());
+          setStatusFilters(new Set());
           setSprintFilterAndSave(null);
           setMilestoneFilterAndSave(null);
           setMineOnly(false);

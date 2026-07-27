@@ -14,10 +14,13 @@ import { validate } from '../utils/validate';
 
 // Validates the array of notification IDs to mark as read (must have at least one)
 const markReadSchema = z.object({ ids: z.array(z.string()).min(1) });
-// Optional type scoping for read-all - omitted means "all types", matching prior behavior
+// Optional type scoping for read-all - omitted means "all types", matching prior behavior.
+// `taskId` further narrows to one task thread's mentions (null = the general project channel,
+// i.e. mentions with no taskId) - omitted means "any task", matching prior behavior.
 const readAllSchema = z.object({
   types: z.array(z.string()).min(1).optional(),
   excludeTypes: z.array(z.string()).min(1).optional(),
+  taskId: z.string().nullable().optional(),
 });
 
 // Parses a comma-separated `?types=a,b` / `?excludeTypes=a,b` query param into a string array
@@ -77,6 +80,26 @@ export async function notificationRoutes(app: FastifyInstance) {
     reply.send({ count });
   });
 
+  // Unread @mention counts broken down by task thread, for the Chat panel's Project/Tasks tab
+  // badges and per-task-thread row badges. `general` is mentions with no taskId (the project's
+  // general channel); `byTask` maps taskId -> unread count for mentions inside that task's thread.
+  app.get('/api/notifications/unread-by-task', { preHandler: requireAuth }, async (req, reply) => {
+    const { productId } = req.query as { productId?: string };
+    if (!productId) return reply.status(400).send({ error: 'productId is required' });
+    const groups = await prisma.notification.groupBy({
+      by: ['taskId'],
+      where: { userId: req.user.userId, type: 'mention', read: false, productId },
+      _count: { _all: true },
+    });
+    let general = 0;
+    const byTask: Record<string, number> = {};
+    for (const g of groups) {
+      if (g.taskId) byTask[g.taskId] = g._count._all;
+      else general = g._count._all;
+    }
+    reply.send({ general, byTask });
+  });
+
   // Mark specific notifications as read
   app.patch('/api/notifications/read', { preHandler: requireAuth }, async (req, reply) => {
     const body = validate(markReadSchema, req.body, reply);
@@ -102,6 +125,7 @@ export async function notificationRoutes(app: FastifyInstance) {
         read: false,
         ...(body.types ? { type: { in: body.types } } : {}),
         ...(body.excludeTypes ? { type: { notIn: body.excludeTypes } } : {}),
+        ...(body.taskId !== undefined ? { taskId: body.taskId } : {}),
       },
       data: { read: true },
     });

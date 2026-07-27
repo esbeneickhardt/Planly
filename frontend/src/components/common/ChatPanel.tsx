@@ -123,6 +123,53 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [openedTask, setOpenedTask] = useState<Task | null>(null);
   const [openingTask, setOpeningTask] = useState(false);
 
+  // Unread @mention counts, broken down by task thread - powers the Project tab's aggregate
+  // badge (`general`), the Tasks tab's aggregate badge (sum of `byTask`), and each individual
+  // task-thread row's own badge. Not applicable to admin chat (mentions are a per-project
+  // feature tied to a productId, which admin chat doesn't have).
+  const [unreadByTask, setUnreadByTask] = useState<{ general: number; byTask: Record<string, number> }>({
+    general: 0,
+    byTask: {},
+  });
+  const refreshUnreadByTask = useCallback(async () => {
+    if (isAdminChat || !activeProduct?.id) return;
+    try {
+      const data = await api.notifications.unreadByTask(activeProduct.id);
+      setUnreadByTask(data);
+    } catch {}
+  }, [isAdminChat, activeProduct?.id]);
+  useEffect(() => {
+    refreshUnreadByTask();
+    const interval = setInterval(refreshUnreadByTask, 30_000);
+    return () => clearInterval(interval);
+  }, [refreshUnreadByTask]);
+  const tasksUnread = useMemo(
+    () => Object.values(unreadByTask.byTask).reduce((sum, n) => sum + n, 0),
+    [unreadByTask],
+  );
+
+  // Mark mentions read as the user actually visits the general channel or a specific task thread -
+  // granular, unlike the navbar Chat button which used to blanket-clear everything on open.
+  useEffect(() => {
+    if (isAdminChat || !activeProduct?.id) return;
+    let taskId: string | null;
+    if (tab === 'tasks' && selectedTask) taskId = selectedTask.id;
+    else if (tab === 'messages') taskId = null;
+    else return;
+    api.notifications
+      .markAllRead({ types: ['mention'], taskId })
+      .then(() => {
+        setUnreadByTask((prev) => {
+          if (taskId === null) return prev.general === 0 ? prev : { ...prev, general: 0 };
+          if (!(taskId in prev.byTask)) return prev;
+          const next = { ...prev.byTask };
+          delete next[taskId];
+          return { ...prev, byTask: next };
+        });
+      })
+      .catch(() => {});
+  }, [tab, selectedTask, isAdminChat, activeProduct?.id]);
+
   // Panel layout state: size + position persisted to localStorage; refs shadow state for pointer closures
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -888,20 +935,28 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     return isAdminChat ? allUsers.filter((u) => u.id !== user?.id) : teamMembers.filter((m) => m.id !== user?.id);
   }
 
-  const tabBtn = (t: Tab, label: string) => (
+  const tabBtn = (t: Tab, label: string, badge?: number) => (
     <button
       onClick={() => {
         setTab(t);
         if (t !== 'tasks') setSelectedTask(null);
         if (t !== 'search') setSearch('');
       }}
-      className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+      className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
       style={{
         background: tab === t ? 'var(--brand-subtle)' : 'transparent',
         color: tab === t ? 'var(--brand)' : 'var(--text-3)',
       }}
     >
       {label}
+      {!!badge && badge > 0 && tab !== t && (
+        <span
+          className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
+          style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+        >
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </button>
   );
 
@@ -1565,7 +1620,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
             className="flex items-center gap-1 px-3 py-2 flex-shrink-0 overflow-x-auto"
             style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}
           >
-            {tabBtn('messages', isAdminChat ? 'Admin' : 'Project')}
+            {tabBtn('messages', isAdminChat ? 'Admin' : 'Project', unreadByTask.general)}
             {isAdminChat && (
               <button
                 onClick={() => {
@@ -1631,7 +1686,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                 </span>
               )}
             </button>
-            {!isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`)}
+            {!isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`, tasksUnread)}
             {tabBtn('files', 'Files')}
             {tabBtn('search', 'Search')}
           </div>
@@ -1755,6 +1810,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                         const msgInfo = taskMessageCounts.get(task.id);
                         const isPinned = pinnedTaskIds.includes(task.id);
                         const isMentioned = mentionedTaskIds.has(task.id);
+                        const unread = unreadByTask.byTask[task.id] ?? 0;
                         return (
                           <div
                             key={task.id}
@@ -1801,6 +1857,14 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                                   </p>
                                 )}
                               </div>
+                              {unread > 0 && (
+                                <span
+                                  className="flex-shrink-0 self-center flex items-center justify-center rounded-full text-white text-[9px] font-bold"
+                                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+                                >
+                                  {unread > 99 ? '99+' : unread}
+                                </span>
+                              )}
                               {msgInfo && (
                                 <span
                                   className="flex-shrink-0 self-center text-[10px] font-medium px-1.5 py-0.5 rounded-full"

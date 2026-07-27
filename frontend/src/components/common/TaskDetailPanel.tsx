@@ -924,7 +924,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             onTouchMove={handleFsTouchMove}
             onTouchEnd={handleFsTouchEnd}
             onTouchCancel={handleFsTouchEnd}
-            className="flex items-center justify-between px-8 py-4 flex-shrink-0"
+            className="flex items-center justify-between px-4 md:px-8 py-4 flex-shrink-0"
             style={{ borderBottom: '1px solid var(--border)', touchAction: 'none' }}
           >
             {headerLeft}
@@ -942,7 +942,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
               goes back to two side-by-side columns that each scroll independently. */}
           <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
             {/* Left: name + description */}
-            <div className="flex-1 md:overflow-y-auto px-8 py-6 space-y-5">
+            <div className="flex-1 md:overflow-y-auto px-4 py-4 md:px-8 md:py-6 space-y-5">
               <div>
                 <label className="label">Name</label>
                 <input
@@ -957,11 +957,11 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             {/* Right: metadata - stacks below the name/description on narrow screens instead of
                 sitting in a fixed 320px column next to it, which left almost no room for the
                 left side on a phone even once fullscreen mode kicked in. */}
-            <div className="md:w-80 flex-shrink-0 md:overflow-y-auto px-6 py-6 border-t md:border-t-0 md:border-l border-[var(--border)]">
+            <div className="md:w-80 flex-shrink-0 md:overflow-y-auto px-4 py-4 md:px-6 md:py-6 border-t md:border-t-0 md:border-l border-[var(--border)]">
               {metaFields}
             </div>
           </div>
-          {footer('px-8')}
+          {footer('px-4 md:px-8')}
         </div>
       </>
     );
