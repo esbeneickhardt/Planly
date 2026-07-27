@@ -2,12 +2,17 @@
  * Settings General (Project) tab allowing managers to edit the project name, emoji, and description,
  * and giving the owner additional controls: toggling the Analytics tab visibility, exporting the
  * project as JSON, and transferring ownership to another team member.
+ * Name/emoji/description autosave together as one debounced update (~800ms after the last edit)
+ * instead of requiring an explicit "Save" click.
  */
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../../api/client';
 import type { Product, TeamMember, User } from '../../types';
 import EmojiPicker from '../../components/common/EmojiPicker';
 import MarkdownEditor, { type MarkdownEditorHandle } from '../../components/common/MarkdownEditor';
+import SaveStatus from '../../components/common/SaveStatus';
+
+type ProjectFields = { name: string; emoji: string; description: string };
 
 interface Props {
   activeProduct: Product;
@@ -33,22 +38,34 @@ export default function SettingsGeneral({
   const [projName, setProjName] = useState(activeProduct.name);
   const [projEmoji, setProjEmoji] = useState(activeProduct.emoji ?? '');
   const [projDesc, setProjDesc] = useState(activeProduct.description ?? '');
-  const [projDirty, setProjDirty] = useState(false);
   const [savingProj, setSavingProj] = useState(false);
-  const saveRef = useRef<() => Promise<void>>(async () => {});
+  const [justSavedProj, setJustSavedProj] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedIndicatorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const descEditorRef = useRef<MarkdownEditorHandle>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [togglingAnalytics, setTogglingAnalytics] = useState(false);
   const [transferTo, setTransferTo] = useState('');
   const [transferring, setTransferring] = useState(false);
 
-  // Reset local form state when the active product changes so stale values don't leak across products
+  // Reset local form state when the active product changes so stale values don't leak across
+  // products, and drop any pending debounced save from the product we just navigated away from.
   useEffect(() => {
     setProjName(activeProduct.name);
     setProjEmoji(activeProduct.emoji ?? '');
     setProjDesc(activeProduct.description ?? '');
-    setProjDirty(false);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSavingProj(false);
+    setJustSavedProj(false);
   }, [activeProduct.id]);
+
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (savedIndicatorRef.current) clearTimeout(savedIndicatorRef.current);
+    },
+    [],
+  );
 
   async function toggleAnalytics() {
     setTogglingAnalytics(true);
@@ -62,31 +79,52 @@ export default function SettingsGeneral({
     }
   }
 
-  async function saveProjectDetails() {
-    if (savingProj || !projDirty || !projName.trim()) return;
+  async function saveProjectDetails(next: ProjectFields) {
+    if (!next.name.trim()) return;
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
     setSavingProj(true);
     try {
       await api.products.update(activeProduct.id, {
-        name: projName.trim(),
-        emoji: projEmoji || undefined,
-        description: projDesc || undefined,
+        name: next.name.trim(),
+        emoji: next.emoji || undefined,
+        description: next.description || undefined,
       });
       await refreshProducts();
-      setProjDirty(false);
-      showToast('Project updated', 'success');
+      setJustSavedProj(true);
+      if (savedIndicatorRef.current) clearTimeout(savedIndicatorRef.current);
+      savedIndicatorRef.current = setTimeout(() => setJustSavedProj(false), 2000);
+    } catch (err) {
+      showToast((err as Error).message, 'error');
     } finally {
       setSavingProj(false);
     }
   }
 
-  // Keep ref current so the keydown handler always calls the latest save
-  useEffect(() => { saveRef.current = saveProjectDetails; });
+  // Only ever called from a user edit below (never on mount/product-switch), so this can't race
+  // the reset-on-product-change effect above.
+  function scheduleSave(next: ProjectFields) {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveProjectDetails(next), 800);
+  }
+
+  // Keep refs to the latest field values and save function so Cmd/Ctrl+Enter can flush a save
+  // immediately without re-subscribing the keydown listener (and without an exhaustive-deps
+  // warning on a function that's recreated every render).
+  const latestFieldsRef = useRef<ProjectFields>({ name: projName, emoji: projEmoji, description: projDesc });
+  const saveRef = useRef(saveProjectDetails);
+  useEffect(() => {
+    latestFieldsRef.current = { name: projName, emoji: projEmoji, description: projDesc };
+    saveRef.current = saveProjectDetails;
+  });
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canManage) {
         e.preventDefault();
-        saveRef.current();
+        saveRef.current(latestFieldsRef.current);
         descEditorRef.current?.goToPreview();
       }
     }
@@ -140,7 +178,7 @@ export default function SettingsGeneral({
                 value={projName}
                 onChange={(e) => {
                   setProjName(e.target.value);
-                  setProjDirty(true);
+                  scheduleSave({ name: e.target.value, emoji: projEmoji, description: projDesc });
                 }}
                 placeholder="Project name"
               />
@@ -151,8 +189,8 @@ export default function SettingsGeneral({
                   value={projEmoji}
                   onChange={(e) => {
                     setProjEmoji(e);
-                    setProjDirty(true);
                     setShowEmojiPicker(false);
+                    scheduleSave({ name: projName, emoji: e, description: projDesc });
                   }}
                 />
                 {projEmoji && (
@@ -160,8 +198,8 @@ export default function SettingsGeneral({
                     type="button"
                     onClick={() => {
                       setProjEmoji('');
-                      setProjDirty(true);
                       setShowEmojiPicker(false);
+                      scheduleSave({ name: projName, emoji: '', description: projDesc });
                     }}
                     className="mt-1 w-full text-xs py-1 rounded-lg transition-colors"
                     style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
@@ -176,19 +214,13 @@ export default function SettingsGeneral({
               value={projDesc}
               onChange={(v) => {
                 setProjDesc(v);
-                setProjDirty(true);
+                scheduleSave({ name: projName, emoji: projEmoji, description: v });
               }}
               rows={6}
               placeholder="Describe the project… (markdown supported, images can be pasted or attached)"
               initialPreview
             />
-            <button
-              disabled={savingProj || !projDirty || !projName.trim()}
-              onClick={saveProjectDetails}
-              className="btn-primary text-sm px-4"
-            >
-              {savingProj ? 'Saving…' : 'Save'}
-            </button>
+            <SaveStatus saving={savingProj} saved={justSavedProj} />
           </div>
         </div>
       )}

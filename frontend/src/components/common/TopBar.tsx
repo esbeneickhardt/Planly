@@ -11,6 +11,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useProfileModals } from '../../context/ProfileModalsContext';
+import { api } from '../../api/client';
+import { MESSAGE_NOTIFICATION_TYPES } from '../../constants/notifications';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
 import MembershipsModal from './MembershipsModal';
@@ -108,18 +111,27 @@ export default function TopBar({
   const { products, activeProduct, setActiveProduct, tasks, createProduct, refreshProducts } = useProduct();
   const { canRead, canManage } = usePermission();
   const { isDark, mobileNavPosition } = useTheme();
+  const {
+    showThemePicker,
+    setShowThemePicker,
+    showMemberships,
+    setShowMemberships,
+    showIntegrations,
+    setShowIntegrations,
+    showNotifPrefs,
+    setShowNotifPrefs,
+    showPrivacy,
+    setShowPrivacy,
+    showTotp,
+    setShowTotp,
+    showChangePassword,
+    setShowChangePassword,
+  } = useProfileModals();
 
   // Modal + dropdown visibility state
   const [showNewProduct, setShowNewProduct] = useState(false);
-  const [showThemePicker, setShowThemePicker] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [showMemberships, setShowMemberships] = useState(false);
-  const [showIntegrations, setShowIntegrations] = useState(false);
-  const [showNotifPrefs, setShowNotifPrefs] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showTotp, setShowTotp] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [showSeedData, setShowSeedData] = useState(false);
   const [showProjectDd, setShowProjectDd] = useState(false);
@@ -158,6 +170,25 @@ export default function TopBar({
 
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && isBeforeToday(t.deadline)).length;
   const unassignedCount = tasks.filter((t) => t.status !== 'done' && !t.ownerId).length;
+
+  // Unread mentions/DMs - shown as a badge on the Chat button instead of in the notification
+  // bell (NotificationBell.tsx excludes these types), same 30s poll cadence the bell itself uses.
+  const [chatUnread, setChatUnread] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    async function refresh() {
+      try {
+        const { count } = await api.notifications.unreadCount(activeProduct?.id, { types: MESSAGE_NOTIFICATION_TYPES });
+        if (!cancelled) setChatUnread(count);
+      } catch {}
+    }
+    refresh();
+    const interval = setInterval(refresh, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeProduct?.id]);
 
   // Pre-filter nav items so TopBarMobileMenu doesn't need to repeat the canRead/analyticsEnabled
   // logic. Canvas is dropped here (mobile only - desktop's own nav filter below is untouched):
@@ -446,17 +477,24 @@ export default function TopBar({
           )}
 
           {/* Chat - shown at all sizes; used frequently enough on mobile to earn a spot in the
-              top bar rather than the hamburger. */}
+              top bar rather than the hamburger. Badge shows unread mentions/DMs - those no longer
+              appear in the notification bell (NotificationBell.tsx), just here as a count. */}
           <Tooltip
             content={chatIsAdmin ? 'Admin chat' : 'Project chat'}
             side="bottom"
             className="inline-flex relative"
           >
             <button
-              onClick={onOpenChat}
+              onClick={() => {
+                onOpenChat();
+                if (chatUnread > 0) {
+                  setChatUnread(0);
+                  api.notifications.markAllRead({ types: MESSAGE_NOTIFICATION_TYPES }).catch(() => {});
+                }
+              }}
               title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
               aria-label={chatIsAdmin ? 'Admin chat' : 'Project chat'}
-              className="flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+              className="relative flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
               style={{
                 color: chatIsAdmin || chatOpen ? 'var(--brand)' : 'var(--text-3)',
                 background: chatIsAdmin || chatOpen ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -472,6 +510,14 @@ export default function TopBar({
               }}
             >
               <ChatIcon />
+              {chatUnread > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 text-white rounded-full text-[9px] font-bold leading-none flex items-center justify-center"
+                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 3px' }}
+                >
+                  {chatUnread > 99 ? '99+' : chatUnread}
+                </span>
+              )}
             </button>
           </Tooltip>
 

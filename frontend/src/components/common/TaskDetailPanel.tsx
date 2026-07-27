@@ -174,6 +174,38 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     onClose();
   }
 
+  // Swipe-down-to-dismiss for the fullscreen (mobile) layout - the ✕ button sits in the header's
+  // far corner, a reach on a phone, so dragging down from the header closes it instead (same
+  // pattern as Modal.tsx's fullscreen sheets, and auto-saves via handleClose like the ✕ does).
+  const [fsDragY, setFsDragY] = useState(0);
+  const [fsDragging, setFsDragging] = useState(false);
+  const fsDragStartYRef = useRef<number | null>(null);
+  const FS_DRAG_CLOSE_THRESHOLD = 100;
+  const FS_DRAG_MAX = 300;
+
+  function handleFsTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    if (!t) return;
+    fsDragStartYRef.current = t.clientY;
+    setFsDragging(true);
+  }
+
+  function handleFsTouchMove(e: React.TouchEvent) {
+    if (fsDragStartYRef.current === null) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dy = t.clientY - fsDragStartYRef.current;
+    setFsDragY(Math.max(0, Math.min(dy, FS_DRAG_MAX)));
+  }
+
+  function handleFsTouchEnd() {
+    if (fsDragStartYRef.current === null) return;
+    fsDragStartYRef.current = null;
+    setFsDragging(false);
+    if (fsDragY >= FS_DRAG_CLOSE_THRESHOLD) handleClose();
+    setFsDragY(0);
+  }
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !readOnly) {
@@ -193,12 +225,12 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     try {
       const updated = await api.tasks.update(activeProduct.id, task.id, {
         name,
-        description: description || undefined,
-        ownerId: ownerId || undefined,
+        description: description || null,
+        ownerId: ownerId || null,
         reviewerId: reviewerId || null,
         status,
-        color: color || undefined,
-        deadline: deadline || undefined,
+        color: color || null,
+        deadline: deadline || null,
       });
 
       // Apply sprint membership changes
@@ -868,10 +900,32 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   if (fullscreen) {
     return (
       <>
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface)' }}>
+        <div
+          className="fixed inset-0 z-50 flex flex-col"
+          style={{
+            background: 'var(--surface)',
+            transform: fsDragY ? `translateY(${fsDragY}px)` : undefined,
+            transition: fsDragging ? 'none' : 'transform 200ms ease',
+          }}
+        >
           <div
+            onTouchStart={handleFsTouchStart}
+            onTouchMove={handleFsTouchMove}
+            onTouchEnd={handleFsTouchEnd}
+            onTouchCancel={handleFsTouchEnd}
+            className="md:hidden flex justify-center pt-2 flex-shrink-0"
+            style={{ touchAction: 'none' }}
+            aria-hidden="true"
+          >
+            <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border-2)' }} />
+          </div>
+          <div
+            onTouchStart={handleFsTouchStart}
+            onTouchMove={handleFsTouchMove}
+            onTouchEnd={handleFsTouchEnd}
+            onTouchCancel={handleFsTouchEnd}
             className="flex items-center justify-between px-8 py-4 flex-shrink-0"
-            style={{ borderBottom: '1px solid var(--border)' }}
+            style={{ borderBottom: '1px solid var(--border)', touchAction: 'none' }}
           >
             {headerLeft}
             <div className="flex items-center gap-1">

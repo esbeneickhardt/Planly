@@ -44,6 +44,8 @@ function renderBubble(content: string) {
       canEdit={false}
       currentUserId={null}
       reactionPickerOpen={false}
+      actionsOpen={false}
+      onToggleActions={noop}
     />,
   );
 }

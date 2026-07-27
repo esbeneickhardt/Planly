@@ -328,11 +328,7 @@ export default function AnalyticsPage() {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
         <p className="text-sm">{error}</p>
-        <button
-          onClick={() => loadAnalytics(activeProduct.id)}
-          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          style={{ background: 'var(--brand)', color: 'white' }}
-        >
+        <button onClick={() => loadAnalytics(activeProduct.id)} className="btn-primary">
           Retry
         </button>
       </div>
@@ -439,7 +435,7 @@ export default function AnalyticsPage() {
                   {tiles.map(({ label, value, icon, color }) => (
                     <div
                       key={label}
-                      className="rounded-2xl p-4 flex flex-col gap-1"
+                      className="rounded-xl p-4 flex flex-col gap-1 shadow-sm"
                       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                     >
                       <span className="text-xl">{icon}</span>
@@ -458,7 +454,7 @@ export default function AnalyticsPage() {
             {/* Throughput + Status breakdown */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
               <div
-                className="sm:col-span-2 rounded-2xl p-6"
+                className="sm:col-span-2 rounded-xl p-6 shadow-sm"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -483,7 +479,7 @@ export default function AnalyticsPage() {
                 const statusTotal = data.statusBreakdown.reduce((s, x) => s + x.count, 0);
                 return (
                   <div
-                    className="rounded-2xl p-6"
+                    className="rounded-xl p-6 shadow-sm"
                     style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                   >
                     <div className="mb-4">
@@ -564,7 +560,7 @@ export default function AnalyticsPage() {
             {/* Cumulative completions */}
             {data.totalCompleted > 0 && (
               <div
-                className="rounded-2xl p-6"
+                className="rounded-xl p-6 shadow-sm"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -585,7 +581,7 @@ export default function AnalyticsPage() {
             {/* Weekday distribution */}
             {data.totalCompleted > 0 && (
               <div
-                className="rounded-2xl p-6"
+                className="rounded-xl p-6 shadow-sm"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -606,7 +602,7 @@ export default function AnalyticsPage() {
             {/* Cycle velocity */}
             {data.sprintVelocity.length > 0 && (
               <div
-                className="rounded-2xl p-6"
+                className="rounded-xl p-6 shadow-sm"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
                 <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
@@ -623,7 +619,7 @@ export default function AnalyticsPage() {
 
         {/* My workload */}
         {workload && (
-          <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="rounded-xl p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
@@ -706,7 +702,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* Activity feed */}
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text)' }}>
             Recent activity
           </h2>

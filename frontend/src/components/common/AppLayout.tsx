@@ -16,6 +16,7 @@ import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ChatContext } from '../../context/ChatContext';
+import { ProfileModalsContext, type ProfileModalKey } from '../../context/ProfileModalsContext';
 
 const TAB_ROUTES: { path: string; tab: string }[] = [
   { path: '/canvas', tab: 'canvas' },
@@ -51,6 +52,26 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [showVision, setShowVision] = useState(false);
   // adminMode persists across navigation away from /admin
   const [adminMode, setAdminMode] = useState(false);
+
+  // Personal/profile modals - state lives here (not TopBar) so SearchModal, a sibling of TopBar,
+  // can also open them (e.g. "Appearance" or "Notification settings" as a search result).
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showMemberships, setShowMemberships] = useState(false);
+  const [showIntegrations, setShowIntegrations] = useState(false);
+  const [showNotifPrefs, setShowNotifPrefs] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTotp, setShowTotp] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
+  const openProfileModal = useCallback((key: ProfileModalKey) => {
+    if (key === 'theme') setShowThemePicker(true);
+    else if (key === 'memberships') setShowMemberships(true);
+    else if (key === 'integrations') setShowIntegrations(true);
+    else if (key === 'notifications') setShowNotifPrefs(true);
+    else if (key === 'privacy') setShowPrivacy(true);
+    else if (key === 'security') setShowTotp(true);
+    else if (key === 'changePassword') setShowChangePassword(true);
+  }, []);
 
   const openProductChat = useCallback((taskId?: string, taskName?: string) => {
     setChatInitialTask(taskId ? { id: taskId, name: taskName! } : undefined);
@@ -107,6 +128,25 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
+    <ProfileModalsContext.Provider
+      value={{
+        showThemePicker,
+        setShowThemePicker,
+        showMemberships,
+        setShowMemberships,
+        showIntegrations,
+        setShowIntegrations,
+        showNotifPrefs,
+        setShowNotifPrefs,
+        showPrivacy,
+        setShowPrivacy,
+        showTotp,
+        setShowTotp,
+        showChangePassword,
+        setShowChangePassword,
+        openProfileModal,
+      }}
+    >
     <ChatContext.Provider
       value={{
         openChat: activeAdminMode ? () => setShowAdminChat((v) => !v) : openProductChat,
@@ -160,5 +200,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
       </div>
     </ChatContext.Provider>
+    </ProfileModalsContext.Provider>
   );
 }

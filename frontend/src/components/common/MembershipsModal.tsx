@@ -146,7 +146,7 @@ export default function MembershipsModal({ onClose }: Props) {
       {/* Pending invitations */}
       {pendingInvites.length > 0 && (
         <div className="mb-5">
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
             Pending invitations
           </p>
           <div className="space-y-2">
@@ -300,8 +300,7 @@ export default function MembershipsModal({ onClose }: Props) {
                         <button
                           onClick={() => handleTransferAndLeave(p)}
                           disabled={!!busy}
-                          className="w-full text-sm py-1.5 rounded-lg font-medium transition-colors"
-                          style={{ background: 'var(--brand)', color: 'white' }}
+                          className="btn-primary w-full"
                         >
                           {busy === p.id ? '…' : 'Transfer & leave'}
                         </button>

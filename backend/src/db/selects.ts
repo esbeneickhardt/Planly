@@ -18,5 +18,7 @@ export const MESSAGE_INCLUDE = {
   author: { select: MESSAGE_AUTHOR_SELECT },
   task: { select: { id: true, name: true } },
   reactions: { select: { emoji: true, userId: true } },
-  replyTo: { select: { id: true, content: true, author: { select: MESSAGE_AUTHOR_SELECT } } },
+  replyTo: {
+    select: { id: true, content: true, attachments: true, author: { select: MESSAGE_AUTHOR_SELECT } },
+  },
 } as const;

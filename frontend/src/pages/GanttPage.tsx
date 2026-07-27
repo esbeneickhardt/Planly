@@ -20,22 +20,16 @@ import type { MilestoneResult } from '../api/client';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
+import EmptyState from '../components/common/EmptyState';
 import Tooltip from '../components/common/Tooltip';
 import type { Task } from '../types';
 import GanttMobileList, { progressColor } from '../components/gantt/GanttMobileList';
 import { useGanttDragZoom } from '../hooks/useGanttDragZoom';
 import { useGanttData } from '../hooks/useGanttData';
 import { isBeforeToday } from '../utils/dates';
+import { STATUS_COLORS as STATUS_COLOR } from '../utils/statusColors';
 
 type GanttView = 'milestones' | 'sprints';
-
-const STATUS_COLOR: Record<string, string> = {
-  backlog: '#64748b',
-  todo: '#3b82f6',
-  in_progress: '#f59e0b',
-  done: '#10b981',
-  blocked: '#ef4444',
-};
 
 function pct(date: Date, start: Date, end: Date): number {
   const total = end.getTime() - start.getTime();
@@ -240,12 +234,7 @@ export default function GanttPage() {
   }
 
   if (!activeProduct) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
-        <div className="text-5xl opacity-30">📅</div>
-        <p className="text-sm">Create a product to get started</p>
-      </div>
-    );
+    return <EmptyState icon="📅" size="lg" description="Create a product to get started" className="h-full" />;
   }
 
   // Only the very first load shows the full-page spinner. `tasks` changing (e.g. a task marked
@@ -373,9 +362,9 @@ export default function GanttPage() {
                   onClick={() => setGanttView('milestones')}
                   className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
                   style={{
-                    background: ganttView === 'milestones' ? 'var(--surface)' : 'transparent',
-                    color: ganttView === 'milestones' ? 'var(--text)' : 'var(--text-3)',
-                    boxShadow: ganttView === 'milestones' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                    background: ganttView === 'milestones' ? 'var(--brand-subtle)' : 'transparent',
+                    color: ganttView === 'milestones' ? 'var(--brand)' : 'var(--text-3)',
+                    border: `1px solid ${ganttView === 'milestones' ? 'var(--brand)' : 'transparent'}`,
                   }}
                 >
                   Milestones
@@ -386,9 +375,9 @@ export default function GanttPage() {
                   onClick={() => setGanttView('sprints')}
                   className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
                   style={{
-                    background: ganttView === 'sprints' ? 'var(--surface)' : 'transparent',
-                    color: ganttView === 'sprints' ? 'var(--text)' : 'var(--text-3)',
-                    boxShadow: ganttView === 'sprints' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                    background: ganttView === 'sprints' ? 'var(--brand-subtle)' : 'transparent',
+                    color: ganttView === 'sprints' ? 'var(--brand)' : 'var(--text-3)',
+                    border: `1px solid ${ganttView === 'sprints' ? 'var(--brand)' : 'transparent'}`,
                   }}
                 >
                   Sub-plans

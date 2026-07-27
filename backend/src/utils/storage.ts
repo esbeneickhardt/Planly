@@ -5,6 +5,7 @@
  */
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
+import sharp from 'sharp';
 import { config } from '../config/env';
 
 // S3 client is lazily initialised and cached on first use
@@ -124,6 +125,39 @@ export function generateFilename(originalName: string, ext: string): string {
     .replace(/^-+|-+$/g, '')        // trim leading/trailing hyphens
     .slice(0, 60) || 'file';
   return `${ts}_${base}.${ext}`;
+}
+
+const THUMBNAIL_MAX_DIMENSION = 480;
+const THUMBNAIL_JPEG_QUALITY = 80;
+
+// Derives a thumbnail's filename from the original - always .jpg since thumbnails are re-encoded
+// to JPEG regardless of the original format, keeping decoding simple and universally supported.
+export function thumbnailFilename(filename: string): string {
+  return `${filename.replace(/\.[^.]+$/, '')}-thumb.jpg`;
+}
+
+/**
+ * Generates a downscaled JPEG thumbnail for an image buffer - generic enough to reuse for any
+ * future image upload (e.g. profile pictures), not just chat attachments.
+ * Returns null for non-image MIME types or if the image can't be processed (e.g. corrupt file);
+ * callers should fall back to serving the original in that case.
+ */
+export async function generateThumbnail(buf: Buffer, mimeType: string): Promise<Buffer | null> {
+  if (!mimeType.startsWith('image/')) return null;
+  try {
+    return await sharp(buf)
+      .rotate() // auto-orient from EXIF before resizing; sharp then strips metadata by default
+      .resize({
+        width: THUMBNAIL_MAX_DIMENSION,
+        height: THUMBNAIL_MAX_DIMENSION,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: THUMBNAIL_JPEG_QUALITY })
+      .toBuffer();
+  } catch {
+    return null;
+  }
 }
 
 // File storage operations (S3 or local disk)

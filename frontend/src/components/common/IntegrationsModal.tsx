@@ -242,7 +242,7 @@ export default function IntegrationsModal({ onClose }: Props) {
 
           {/* Create form */}
           <form onSubmit={handleCreate} className="mb-5 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
               New token
             </p>
             <div className="flex gap-2">
@@ -292,7 +292,7 @@ export default function IntegrationsModal({ onClose }: Props) {
 
           {/* Token list */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
               Active tokens {tokens.length > 0 && `(${tokens.length})`}
             </p>
             {loading ? (
