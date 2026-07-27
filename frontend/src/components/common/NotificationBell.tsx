@@ -10,6 +10,7 @@ import { api, Notification } from '../../api/client';
 import { useChat } from '../../context/ChatContext';
 import { useProduct } from '../../context/ProductContext';
 import { useToast } from '../../context/ToastContext';
+import { MESSAGE_NOTIFICATION_TYPES } from '../../constants/notifications';
 
 const SEEN_KEY = 'admin_notif_seen_at';
 // Entries created before this timestamp are hidden until new ones arrive after "Clear all"
@@ -94,9 +95,11 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
   const ref = useRef<HTMLDivElement>(null);
 
   // ── Normal mode polling ──
+  // Message-related notifications (mentions, DMs) are surfaced as a badge on the Chat button
+  // instead (see TopBar.tsx) - excluded here so the bell's own count/list are app-event-only.
   const refreshNormal = useCallback(async () => {
     try {
-      const { count } = await api.notifications.unreadCount(productId);
+      const { count } = await api.notifications.unreadCount(productId, { excludeTypes: MESSAGE_NOTIFICATION_TYPES });
       setUnread(count);
     } catch {}
   }, [productId]);
@@ -161,7 +164,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
       setLoading(true);
       try {
         const { notifications: n } = await api.notifications.list(undefined, productId);
-        setNotifications(n);
+        setNotifications(n.filter((x) => !MESSAGE_NOTIFICATION_TYPES.includes(x.type)));
         setUnread(0);
       } catch {
       } finally {
@@ -177,7 +180,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
   }
 
   async function markAllRead() {
-    await api.notifications.markAllRead().catch(() => {});
+    await api.notifications.markAllRead({ excludeTypes: MESSAGE_NOTIFICATION_TYPES }).catch(() => {});
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 

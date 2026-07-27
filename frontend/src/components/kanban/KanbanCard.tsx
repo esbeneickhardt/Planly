@@ -215,7 +215,7 @@ export default function KanbanCard({
   // Overlay render: static, non-interactive clone shown under the cursor during drag
   if (isOverlay) {
     return (
-      <div className="card rounded-xl overflow-hidden" style={{ borderLeft: borderStyle, cursor: 'grabbing' }}>
+      <div className="card rounded-xl overflow-hidden shadow-2xl" style={{ borderLeft: borderStyle, cursor: 'grabbing' }}>
         <CardContent
           task={task}
           onOpenDetail={() => {}}
@@ -242,13 +242,13 @@ export default function KanbanCard({
       {...listeners}
       style={{
         transform: CSS.Transform.toString(transform),
-        transition,
+        transition: [transition, 'box-shadow 150ms ease'].filter(Boolean).join(', '),
         opacity: isDragging ? 0 : 1,
         borderLeft: borderStyle,
         cursor: isDragging ? 'grabbing' : 'grab',
         touchAction: 'none',
       }}
-      className="card rounded-xl overflow-hidden select-none"
+      className="card rounded-xl overflow-hidden select-none hover:shadow-md"
     >
       <CardContent
         task={task}

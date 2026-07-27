@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ToggleSwitch from '../../components/common/ToggleSwitch';
 
 export function Toggle({
   label,
@@ -36,17 +37,9 @@ export function Toggle({
     <button
       onClick={handleClick}
       className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors w-full"
-      style={{ background: 'var(--surface-2)', border: `1px solid ${checked ? '#6366f1' : 'var(--border)'}` }}
+      style={{ background: 'var(--surface-2)', border: `1px solid ${checked ? 'var(--brand)' : 'var(--border)'}` }}
     >
-      <div
-        className="w-9 h-5 rounded-full flex-shrink-0 transition-colors relative"
-        style={{ background: checked ? '#6366f1' : 'var(--border)' }}
-      >
-        <div
-          className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all shadow-sm"
-          style={{ left: checked ? '19px' : '2px' }}
-        />
-      </div>
+      <ToggleSwitch checked={checked} />
       <div>
         <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
           {label}

@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { MermaidBlock } from '../components/common/MermaidBlock';
 import UserProfileModal from '../components/common/UserProfileModal';
+import StatusPill from '../components/common/StatusPill';
+import EmptyState from '../components/common/EmptyState';
 import { isBeforeToday } from '../utils/dates';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
@@ -125,17 +127,10 @@ export default function AboutPage() {
               {activeProduct.name}
             </h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span
-                className="text-xs px-2 py-0.5 rounded-full font-medium"
-                style={{
-                  background: isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-                  color: isOverdue ? '#ef4444' : '#10b981',
-                  border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
-                }}
-              >
+              <StatusPill tone={isOverdue ? 'danger' : 'success'} size="pill">
                 {isOverdue ? 'Overdue · ' : 'Deadline · '}
                 {deadlineStr}
-              </span>
+              </StatusPill>
             </div>
           </div>
         </div>
@@ -163,7 +158,7 @@ export default function AboutPage() {
 
         {/* Tab: Description */}
         {tab === 'description' && (
-          <div className="rounded-2xl p-4 md:p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="rounded-xl p-4 md:p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
             {activeProduct.description ? (
               <div style={{ color: 'var(--text)', fontSize: 14 }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MD}>
@@ -171,23 +166,26 @@ export default function AboutPage() {
                 </ReactMarkdown>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-10 gap-3" style={{ color: 'var(--text-3)' }}>
-                <span className="text-4xl opacity-30">📝</span>
-                <p className="text-sm">No description yet.</p>
-                {canManage && (
-                  <button
-                    onClick={() => navigate('/settings')}
-                    className="text-xs px-3 py-1.5 rounded-lg transition-colors"
-                    style={{
-                      background: 'var(--brand-subtle)',
-                      color: 'var(--brand)',
-                      border: '1px solid var(--brand)',
-                    }}
-                  >
-                    Add one in Settings →
-                  </button>
-                )}
-              </div>
+              <EmptyState
+                icon="📝"
+                description="No description yet."
+                className="py-10"
+                action={
+                  canManage ? (
+                    <button
+                      onClick={() => navigate('/settings')}
+                      className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+                      style={{
+                        background: 'var(--brand-subtle)',
+                        color: 'var(--brand)',
+                        border: '1px solid var(--brand)',
+                      }}
+                    >
+                      Add one in Settings →
+                    </button>
+                  ) : undefined
+                }
+              />
             )}
           </div>
         )}
@@ -202,7 +200,7 @@ export default function AboutPage() {
                   key={m.userId}
                   type="button"
                   onClick={() => setProfileUserId(m.userId)}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors w-full"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors w-full shadow-sm"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}

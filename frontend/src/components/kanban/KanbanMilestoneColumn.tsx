@@ -144,17 +144,23 @@ export default function KanbanMilestoneColumn({
   };
 
   return (
-    <div ref={setNodeRef} style={isOverlay ? {} : colStyle} className="flex flex-col w-72 flex-shrink-0 rounded-xl">
+    <div
+      ref={setNodeRef}
+      style={isOverlay ? {} : colStyle}
+      className="flex flex-col w-72 flex-shrink-0 rounded-xl overflow-visible"
+    >
       <div
         className="rounded-xl flex flex-col h-full"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--surface-2)',
+          border: `${isUnassigned ? '1px solid var(--border)' : `2px solid ${color}`}`,
+        }}
       >
         {/* Column header - drag handle for milestone reordering (shared with Gantt's own order) */}
         <div
           className="px-3 pt-3 pb-2 flex-shrink-0 flex items-start gap-2"
           style={{
             borderBottom: '1px solid var(--border)',
-            borderLeft: `3px solid ${color}`,
             cursor: isUnassigned || isOverlay ? 'default' : 'grab',
           }}
           {...(isUnassigned || isOverlay ? {} : { ...attributes, ...listeners })}

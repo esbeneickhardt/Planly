@@ -11,7 +11,7 @@ import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import { MermaidBlock } from './MermaidBlock';
 import { api, displayName } from '../../api/client';
-import type { Message, DirectMessage } from '../../api/client';
+import type { Message, DirectMessage, MessageAttachment } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
@@ -126,6 +126,13 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   // Panel layout state: size + position persisted to localStorage; refs shadow state for pointer closures
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  // Swipe-down-to-dismiss while expanded (the layout mobile is always forced into below 768px) -
+  // the header's ✕ is a reach on a phone, so dragging down from the header closes the panel
+  // instead. Harmless on desktop's manually-toggled fullscreen too, since touch events simply
+  // never fire from mouse interaction there.
+  const [expandedDragY, setExpandedDragY] = useState(0);
+  const [expandedDragging, setExpandedDragging] = useState(false);
+  const expandedDragStartYRef = useRef<number | null>(null);
   const [isSidebar, setIsSidebar] = useState(() => {
     try {
       return localStorage.getItem('planly-chat-sidebar') === 'true';
@@ -156,6 +163,9 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     return { x: Math.max(8, window.innerWidth - w - 16), y: 64 };
   });
   const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
+  // Which message's reply/edit/delete overlay is showing - tap-to-reveal on touch devices, since
+  // the old opacity-0 group-hover approach never showed at all without a real :hover state.
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [showComposePicker, setShowComposePicker] = useState(false);
   const [showMarkdownHelp, setShowMarkdownHelp] = useState(false);
   const panelWidthRef = useRef(panelWidth);
@@ -172,7 +182,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState(false);
-  const [attachments, setAttachments] = useState<{ url: string; name: string; type: string }[]>([]);
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -204,6 +214,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [replyingTo, setReplyingTo] = useState<{
     id: string;
     content: string;
+    attachments: MessageAttachment[];
     author: { username: string; realName: string | null; avatarEmoji: string | null };
   } | null>(null);
 
@@ -840,7 +851,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
       attachments: [],
       reactions: [],
       replyToId: dm.replyToId,
-      replyTo: dm.replyTo,
+      replyTo: dm.replyTo ? { ...dm.replyTo, attachments: [] } : null,
       postedAsRole: null,
     };
   }
@@ -903,11 +914,21 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
             className="flex items-center gap-2 mb-2 px-2.5 py-1.5 rounded-lg"
             style={{ background: 'var(--surface-2)', borderLeft: '2px solid var(--brand)' }}
           >
+            {(() => {
+              const img = replyingTo.attachments.find((a) => a.type?.startsWith('image/'));
+              return img ? (
+                <img
+                  src={img.thumbnailUrl ?? img.url}
+                  alt=""
+                  className="w-8 h-8 rounded object-cover flex-shrink-0"
+                />
+              ) : null;
+            })()}
             <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--brand)' }}>
               ↩ {displayName(replyingTo.author)}
             </span>
             <span className="text-[10px] flex-1 truncate" style={{ color: 'var(--text-3)' }}>
-              {replyingTo.content.slice(0, 80)}
+              {replyingTo.content ? replyingTo.content.slice(0, 80) : replyingTo.attachments.length > 0 ? '📷 Photo' : ''}
             </span>
             <button
               onClick={() => setReplyingTo(null)}
@@ -1169,7 +1190,11 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
             {attachments.map((att, i) => (
               <div key={i} className="relative group/att">
                 {att.type?.startsWith('image/') ? (
-                  <img src={att.url} alt={att.name} className="h-14 w-14 rounded-lg object-cover" />
+                  <img
+                    src={att.thumbnailUrl ?? att.url}
+                    alt={att.name}
+                    className="h-14 w-14 rounded-lg object-cover"
+                  />
                 ) : (
                   <div
                     className="h-14 px-3 flex items-center text-xs rounded-lg"
@@ -1213,7 +1238,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   // Renders a list of messages; role badges come directly from msg.postedAsRole stored at send time
   function messageList(msgs: Message[]) {
     return (
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5">
         {msgs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: 'var(--text-3)' }}>
             <span className="text-3xl opacity-30">💬</span>
@@ -1261,16 +1286,25 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                     <MessageBubble
                       msg={msg}
                       isOwn={isOwn}
-                      onEdit={() => startEdit(msg.id, msg.content)}
-                      onDelete={() => deleteMsg(msg.id)}
+                      onEdit={() => {
+                        startEdit(msg.id, msg.content);
+                        setActiveMessageId(null);
+                      }}
+                      onDelete={() => {
+                        deleteMsg(msg.id);
+                        setActiveMessageId(null);
+                      }}
                       onImageClick={setLightboxUrl}
                       canEdit={Date.now() - new Date(msg.createdAt).getTime() < EDIT_TIMEOUT_MS}
                       onReact={(emoji) => toggleReaction(msg.id, emoji)}
                       currentUserId={user?.id ?? null}
                       reactionPickerOpen={reactionPickerFor === msg.id}
                       onToggleReactionPicker={() => setReactionPickerFor((v) => (v === msg.id ? null : msg.id))}
+                      actionsOpen={activeMessageId === msg.id}
+                      onToggleActions={() => setActiveMessageId((v) => (v === msg.id ? null : msg.id))}
                       onReply={() => {
                         setReplyingTo(msg);
+                        setActiveMessageId(null);
                         setTimeout(() => textRef.current?.focus(), 0);
                       }}
                       onScrollToReply={(id) => setScrollToMsgId(id)}
@@ -1337,12 +1371,45 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     </button>
   );
 
+  const EXPANDED_DRAG_CLOSE_THRESHOLD = 100;
+  const EXPANDED_DRAG_MAX = 300;
+
+  function handleExpandedTouchStart(e: React.TouchEvent) {
+    if (!isExpanded) return;
+    const t = e.touches[0];
+    if (!t) return;
+    expandedDragStartYRef.current = t.clientY;
+    setExpandedDragging(true);
+  }
+
+  function handleExpandedTouchMove(e: React.TouchEvent) {
+    if (expandedDragStartYRef.current === null) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dy = t.clientY - expandedDragStartYRef.current;
+    setExpandedDragY(Math.max(0, Math.min(dy, EXPANDED_DRAG_MAX)));
+  }
+
+  function handleExpandedTouchEnd() {
+    if (expandedDragStartYRef.current === null) return;
+    expandedDragStartYRef.current = null;
+    setExpandedDragging(false);
+    if (expandedDragY >= EXPANDED_DRAG_CLOSE_THRESHOLD) onClose();
+    setExpandedDragY(0);
+  }
+
   return (
     <div
       className="fixed flex flex-col"
       style={
         isExpanded
-          ? { inset: 0, zIndex: 100, background: 'var(--surface)' }
+          ? {
+              inset: 0,
+              zIndex: 100,
+              background: 'var(--surface)',
+              transform: expandedDragY ? `translateY(${expandedDragY}px)` : undefined,
+              transition: expandedDragging ? 'none' : 'transform 200ms ease',
+            }
           : isSidebar
             ? {
                 top: 0,
@@ -1421,12 +1488,31 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
           style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }}
         />
       )}
-      {/* Header - drag handle */}
+      {/* Grab handle - swipe-down-to-dismiss affordance, only relevant in the expanded/mobile layout */}
+      {isExpanded && (
+        <div
+          onTouchStart={handleExpandedTouchStart}
+          onTouchMove={handleExpandedTouchMove}
+          onTouchEnd={handleExpandedTouchEnd}
+          onTouchCancel={handleExpandedTouchEnd}
+          className="md:hidden flex justify-center pt-2 flex-shrink-0"
+          style={{ touchAction: 'none' }}
+          aria-hidden="true"
+        >
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border-2)' }} />
+        </div>
+      )}
+      {/* Header - drag handle (desktop float-panel drag) or swipe-down-to-dismiss (expanded) */}
       <div
+        onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
+        onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
+        onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
+        onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
         className="flex items-center justify-between px-4 py-3 flex-shrink-0 select-none"
         style={{
           borderBottom: isMinimized ? 'none' : '1px solid var(--border)',
           cursor: isExpanded ? 'default' : 'grab',
+          touchAction: isExpanded ? 'none' : undefined,
         }}
         onPointerDown={isExpanded ? undefined : onHeaderDrag}
       >
@@ -1885,8 +1971,10 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                             {images.map(({ att, msg }, i) => (
                               <div key={i} className="relative group/img aspect-square">
                                 <img
-                                  src={att.url}
+                                  src={att.thumbnailUrl ?? att.url}
                                   alt={att.name}
+                                  loading="lazy"
+                                  decoding="async"
                                   className="w-full h-full object-cover rounded-lg cursor-zoom-in"
                                   onClick={() => setLightboxUrl(att.url)}
                                 />

@@ -34,6 +34,7 @@ vi.mock('../../context/PermissionContext', () => ({
   usePermission: () => ({
     canRead: (_tab: string) => true,
     canManage: true,
+    canWrite: (_tab: string) => true,
   }),
 }));
 
