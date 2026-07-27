@@ -26,7 +26,14 @@ const updateProfileSchema = z.object({
   realName: z.string().max(100).optional(),
   phone: z.string().max(30).optional(),
   avatarEmoji: z.string().max(8).optional(),
-  avatarUrl: z.string().url().max(2048).startsWith('https').nullable().optional(),
+  // Set exclusively via AvatarPicker's upload flow, which always produces this exact shape
+  // (see /api/upload in messages.ts) - not a free-form URL field.
+  avatarUrl: z
+    .string()
+    .max(2048)
+    .regex(/^\/api\/uploads\/[a-zA-Z0-9._-]+$/)
+    .nullable()
+    .optional(),
   acceptsInvites: z.boolean().optional(),
 });
 // Notification preferences are stored as a JSON blob; keys are preference names, values are booleans

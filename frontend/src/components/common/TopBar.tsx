@@ -13,7 +13,6 @@ import { usePermission } from '../../context/PermissionContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfileModals } from '../../context/ProfileModalsContext';
 import { api } from '../../api/client';
-import { MESSAGE_NOTIFICATION_TYPES } from '../../constants/notifications';
 import Modal from './Modal';
 import DiscoverProjectsModal from './DiscoverProjectsModal';
 import MembershipsModal from './MembershipsModal';
@@ -171,15 +170,25 @@ export default function TopBar({
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && isBeforeToday(t.deadline)).length;
   const unassignedCount = tasks.filter((t) => t.status !== 'done' && !t.ownerId).length;
 
-  // Unread mentions/DMs - shown as a badge on the Chat button instead of in the notification
-  // bell (NotificationBell.tsx excludes these types), same 30s poll cadence the bell itself uses.
+  // Unread mentions/DMs/groups - shown as a badge on the Chat button instead of in the
+  // notification bell (NotificationBell.tsx excludes these types), same 30s poll cadence the
+  // bell itself uses. Sums the same two sources ChatPanel's own tab badges are built from -
+  // conversations.unreadCount (DMs + groups) and unread-by-task (mentions, general + per-task) -
+  // so this aggregate never drifts from what the panel shows once opened. Each sub-count clears
+  // granularly as the user visits that specific tab/thread inside the panel, not all at once.
   const [chatUnread, setChatUnread] = useState(0);
   useEffect(() => {
     let cancelled = false;
     async function refresh() {
       try {
-        const { count } = await api.notifications.unreadCount(activeProduct?.id, { types: MESSAGE_NOTIFICATION_TYPES });
-        if (!cancelled) setChatUnread(count);
+        const [convCount, mentions] = await Promise.all([
+          api.conversations.unreadCount(!!chatIsAdmin).then((r) => r.count).catch(() => 0),
+          !chatIsAdmin && activeProduct?.id
+            ? api.notifications.unreadByTask(activeProduct.id).catch(() => ({ general: 0, byTask: {} }))
+            : Promise.resolve({ general: 0, byTask: {} as Record<string, number> }),
+        ]);
+        const mentionCount = mentions.general + Object.values(mentions.byTask).reduce((s, n) => s + n, 0);
+        if (!cancelled) setChatUnread(convCount + mentionCount);
       } catch {}
     }
     refresh();
@@ -188,7 +197,7 @@ export default function TopBar({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [activeProduct?.id]);
+  }, [activeProduct?.id, chatIsAdmin]);
 
   // Pre-filter nav items so TopBarMobileMenu doesn't need to repeat the canRead/analyticsEnabled
   // logic. Canvas is dropped here (mobile only - desktop's own nav filter below is untouched):
@@ -477,21 +486,17 @@ export default function TopBar({
           )}
 
           {/* Chat - shown at all sizes; used frequently enough on mobile to earn a spot in the
-              top bar rather than the hamburger. Badge shows unread mentions/DMs - those no longer
-              appear in the notification bell (NotificationBell.tsx), just here as a count. */}
+              top bar rather than the hamburger. Badge shows unread mentions/DMs/groups - those no
+              longer appear in the notification bell (NotificationBell.tsx), just here as a count.
+              Clicking only opens the panel; clearing now happens granularly inside ChatPanel as
+              the user actually visits each tab/thread, not all at once here. */}
           <Tooltip
             content={chatIsAdmin ? 'Admin chat' : 'Project chat'}
             side="bottom"
             className="inline-flex relative"
           >
             <button
-              onClick={() => {
-                onOpenChat();
-                if (chatUnread > 0) {
-                  setChatUnread(0);
-                  api.notifications.markAllRead({ types: MESSAGE_NOTIFICATION_TYPES }).catch(() => {});
-                }
-              }}
+              onClick={onOpenChat}
               title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
               aria-label={chatIsAdmin ? 'Admin chat' : 'Project chat'}
               className="relative flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"

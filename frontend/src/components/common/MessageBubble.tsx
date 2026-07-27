@@ -234,7 +234,7 @@ export default function MessageBubble({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
-      className={`relative flex gap-2.5 group ${isOwn ? 'flex-row-reverse' : ''}`}
+      className="relative flex group"
       style={{
         transform: `translateX(${dragX}px)`,
         transition: dragging ? 'none' : 'transform 200ms ease',
@@ -258,16 +258,11 @@ export default function MessageBubble({
         </div>
       )}
       <div
-        className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-sm"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-      >
-        {msg.author.avatarEmoji ?? '👤'}
-      </div>
-      <div
         onClick={handleBubbleClick}
         className={`flex-1 min-w-0 ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative cursor-pointer ${hasReactions ? 'pb-3' : ''}`}
       >
-        <div className={`flex items-baseline gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
+        <div className={`flex items-center gap-1.5 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
+          <span className="text-sm leading-none flex-shrink-0">{msg.author.avatarEmoji ?? '👤'}</span>
           <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
             {displayName(msg.author)}
           </span>
@@ -290,7 +285,7 @@ export default function MessageBubble({
         <div className="relative">
         {(msg.content || msg.replyTo) && (
           <div
-            className={`px-3 py-2 rounded-2xl text-sm max-w-[280px] ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
+            className={`px-3 py-2 rounded-2xl text-sm max-w-[320px] ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
             style={{
               background: isOwn ? 'var(--brand)' : 'var(--surface-2)',
               color: isOwn ? 'white' : 'var(--text)',
@@ -439,15 +434,19 @@ export default function MessageBubble({
         )}
 
         {/* Message actions: reply, react, edit/delete (own only) - one menu, icon-only (Teams-style).
-            Absolutely positioned (floats just above the whole message, like the reaction picker
-            above) so it takes zero layout space when hidden - unlike the old in-flow opacity-0 row,
-            which reserved height for every message regardless of whether it was ever revealed.
-            Shown on desktop hover (group-hover) or tap-toggled via actionsOpen (touch devices have
-            no real :hover state). Reply is hover-only (.hover-only, desktop mouse only) since touch
-            devices use swipe-to-reply instead - showing it here too would just duplicate that. */}
+            Absolutely positioned so it takes zero layout space when hidden - unlike the old in-flow
+            opacity-0 row, which reserved height for every message regardless of whether it was ever
+            revealed. Deliberately overlaps the top of the name/timestamp row (negative top, not
+            bottom-full+margin) rather than floating above it with a gap - a gap between the bubble
+            and the menu is dead space the mouse has to cross on the way there, and group-hover ends
+            the moment the cursor leaves every element of the group, closing the menu before it's
+            reached. Covering part of the name row briefly is fine since it's already how you'd know
+            whose message this is. Shown on desktop hover (group-hover) or tap-toggled via
+            actionsOpen (touch devices have no real :hover state). Reply is hover-only (.hover-only,
+            desktop mouse only) since touch devices use swipe-to-reply instead. */}
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute bottom-full mb-1 flex gap-0.5 p-1 rounded-lg shadow-lg transition-opacity z-10 ${
+          className={`absolute -top-2 flex gap-0.5 p-1 rounded-lg shadow-lg transition-opacity z-10 ${
             isOwn ? 'right-0 flex-row-reverse' : 'left-0'
           } ${actionsOpen ? 'opacity-100' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'}`}
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
