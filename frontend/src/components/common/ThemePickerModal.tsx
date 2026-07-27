@@ -64,7 +64,7 @@ export default function ThemePickerModal({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="mt-5 pt-5 md:hidden" style={{ borderTop: '1px solid var(--border)' }}>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
+        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
           Mobile nav position
         </p>
         <div className="flex gap-2">

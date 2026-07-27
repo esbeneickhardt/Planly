@@ -3,6 +3,7 @@ import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Modal from './Modal';
+import ToggleSwitch from './ToggleSwitch';
 
 const NOTIFICATION_TYPES: { type: string; label: string; description: string; defaultOn: boolean; group?: string }[] = [
   { type: 'task_assigned', label: 'Task assigned', description: 'When a task is assigned to you', defaultOn: true },
@@ -97,15 +98,7 @@ export default function NotificationPreferencesModal({ onClose }: Props) {
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <div
-                  className="w-9 h-5 rounded-full flex-shrink-0 relative transition-colors"
-                  style={{ background: prefs[type] ? 'var(--brand)' : 'var(--border)' }}
-                >
-                  <div
-                    className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
-                    style={{ background: 'white', left: prefs[type] ? 'calc(100% - 18px)' : '2px' }}
-                  />
-                </div>
+                <ToggleSwitch checked={prefs[type] ?? false} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                     {label}

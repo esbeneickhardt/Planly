@@ -9,6 +9,7 @@ import { api } from '../../api/client';
 import type { ApiToken, AppRegistration, AppPermissions, AppPermissionLevel } from '../../api/client';
 import type { Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import SaveStatus from '../../components/common/SaveStatus';
 
 const APP_TABS: { key: keyof AppPermissions; label: string }[] = [
   { key: 'kanban', label: 'Kanban' },
@@ -53,6 +54,30 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
   const [githubConfig, setGithubConfig] = useState<GithubConfig | null>(null);
   const [revealedWebhookSecret, setRevealedWebhookSecret] = useState<string | null>(null);
   const [savingGithub, setSavingGithub] = useState(false);
+  const [justSavedGithub, setJustSavedGithub] = useState(false);
+
+  // Each import checkbox saves immediately on toggle instead of requiring a separate "Save" click;
+  // rolls the local checkbox back on failure so it never shows a state the server didn't accept.
+  async function saveGithubImportSettings(
+    next: { githubImportIssues: boolean; githubImportPrs: boolean },
+    rollback: () => void,
+  ) {
+    setSavingGithub(true);
+    try {
+      await api.github.updateConfig({
+        githubImportIssues: next.githubImportIssues,
+        githubImportPrs: next.githubImportPrs,
+        githubDefaultProductId: activeProduct.id,
+      });
+      setJustSavedGithub(true);
+      setTimeout(() => setJustSavedGithub(false), 2000);
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+      rollback();
+    } finally {
+      setSavingGithub(false);
+    }
+  }
 
   const loadApps = useCallback(async () => {
     try {
@@ -554,7 +579,14 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 type="checkbox"
                 checked={githubConfig.githubImportIssues}
                 style={{ accentColor: 'var(--brand)' }}
-                onChange={(e) => setGithubConfig((c) => (c ? { ...c, githubImportIssues: e.target.checked } : c))}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setGithubConfig((c) => (c ? { ...c, githubImportIssues: checked } : c));
+                  saveGithubImportSettings(
+                    { githubImportIssues: checked, githubImportPrs: githubConfig.githubImportPrs },
+                    () => setGithubConfig((c) => (c ? { ...c, githubImportIssues: !checked } : c)),
+                  );
+                }}
               />
               <span className="text-xs" style={{ color: 'var(--text)' }}>
                 Import GitHub issues as tasks
@@ -565,33 +597,20 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 type="checkbox"
                 checked={githubConfig.githubImportPrs}
                 style={{ accentColor: 'var(--brand)' }}
-                onChange={(e) => setGithubConfig((c) => (c ? { ...c, githubImportPrs: e.target.checked } : c))}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setGithubConfig((c) => (c ? { ...c, githubImportPrs: checked } : c));
+                  saveGithubImportSettings(
+                    { githubImportIssues: githubConfig.githubImportIssues, githubImportPrs: checked },
+                    () => setGithubConfig((c) => (c ? { ...c, githubImportPrs: !checked } : c)),
+                  );
+                }}
               />
               <span className="text-xs" style={{ color: 'var(--text)' }}>
                 Import GitHub pull requests as tasks
               </span>
             </label>
-            <button
-              disabled={savingGithub}
-              className="btn-primary text-xs"
-              onClick={async () => {
-                setSavingGithub(true);
-                try {
-                  await api.github.updateConfig({
-                    githubImportIssues: githubConfig.githubImportIssues,
-                    githubImportPrs: githubConfig.githubImportPrs,
-                    githubDefaultProductId: activeProduct.id,
-                  });
-                  showToast('GitHub settings saved', 'success');
-                } catch (err) {
-                  showToast((err as Error).message, 'error');
-                } finally {
-                  setSavingGithub(false);
-                }
-              }}
-            >
-              {savingGithub ? '…' : 'Save'}
-            </button>
+            <SaveStatus saving={savingGithub} saved={justSavedGithub} />
           </div>
         </div>
       )}

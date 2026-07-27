@@ -205,15 +205,24 @@ export interface ColorLegendEntryResult {
   enabled: boolean;
 }
 
+export interface MessageAttachment {
+  url: string;
+  name: string;
+  type: string;
+  /** Smaller re-encoded variant for inline display - falls back to `url` when absent (older
+   * attachments predate thumbnailing, or the file wasn't an image). */
+  thumbnailUrl?: string;
+}
+
 export interface Message {
   id: string;
   productId: string | null;
   taskId: string | null;
   authorId: string;
   content: string;
-  attachments: { url: string; name: string; type: string }[];
+  attachments: MessageAttachment[];
   replyToId: string | null;
-  replyTo: { id: string; content: string; author: MinUser } | null;
+  replyTo: { id: string; content: string; attachments: MessageAttachment[]; author: MinUser } | null;
   postedAsRole: string | null;
   createdAt: string;
   editedAt: string | null;
@@ -419,9 +428,13 @@ export const api = {
       productId: string,
       taskId: string,
       data: Partial<
-        Pick<Task, 'name' | 'description' | 'ownerId' | 'color' | 'deadline'> & {
-          status: Status;
+        Pick<Task, 'name'> & {
+          description: string | null;
+          ownerId: string | null;
           reviewerId: string | null;
+          color: string | null;
+          deadline: string | null;
+          status: Status;
         }
       >,
     ) => request<Task>(`/api/products/${productId}/tasks/${taskId}`, { method: 'PATCH', body: json(data) }),
@@ -636,7 +649,7 @@ export const api = {
         const body = await r.json().catch(() => ({}));
         throw new Error((body as { error?: string }).error ?? `HTTP ${r.status}`);
       }
-      return r.json() as Promise<{ url: string; name: string; type: string }>;
+      return r.json() as Promise<MessageAttachment>;
     });
   },
 
@@ -688,13 +701,21 @@ export const api = {
         `/api/notifications${qs ? `?${qs}` : ''}`,
       );
     },
-    unreadCount: (productId?: string) =>
-      request<{ count: number }>(
-        `/api/notifications/unread-count${productId ? `?productId=${encodeURIComponent(productId)}` : ''}`,
-      ),
+    unreadCount: (productId?: string, opts?: { types?: string[]; excludeTypes?: string[] }) => {
+      const params = new URLSearchParams();
+      if (productId) params.set('productId', productId);
+      if (opts?.types?.length) params.set('types', opts.types.join(','));
+      if (opts?.excludeTypes?.length) params.set('excludeTypes', opts.excludeTypes.join(','));
+      const qs = params.toString();
+      return request<{ count: number }>(`/api/notifications/unread-count${qs ? `?${qs}` : ''}`);
+    },
     markRead: (ids: string[]) =>
       request<{ ok: boolean }>('/api/notifications/read', { method: 'PATCH', body: json({ ids }) }),
-    markAllRead: () => request<{ ok: boolean }>('/api/notifications/read-all', { method: 'POST', body: json({}) }),
+    markAllRead: (opts?: { types?: string[]; excludeTypes?: string[] }) =>
+      request<{ ok: boolean }>('/api/notifications/read-all', {
+        method: 'POST',
+        body: json(opts ?? {}),
+      }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/notifications/${id}`, { method: 'DELETE' }),
     clearAll: () => request<{ ok: boolean }>('/api/notifications', { method: 'DELETE' }),
   },

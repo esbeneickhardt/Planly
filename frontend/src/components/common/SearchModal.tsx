@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProduct } from '../../context/ProductContext';
 import { useChat } from '../../context/ChatContext';
+import { useProfileModals } from '../../context/ProfileModalsContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
 import { api, displayName } from '../../api/client';
@@ -18,11 +19,22 @@ import TaskDetailPanel from './TaskDetailPanel';
 type MsgResult = SearchResults['messages'][number];
 type TabFilter = 'all' | 'tasks' | 'messages' | 'settings' | 'projects';
 
-type NavItem = { label: string; subtitle: string; path: string; icon: string; keywords: string[] };
+type NavItem = {
+  label: string;
+  subtitle: string;
+  /** Only used as a React key and as the destination when `action` is absent - personal/profile
+   * items that open a modal instead of navigating use a unique `#`-prefixed placeholder here. */
+  path: string;
+  icon: string;
+  keywords: string[];
+  /** When present, runs instead of `navigate(path)` - used for items that open a modal
+   * (personal settings, chat) or need to do something before navigating (create new task). */
+  action?: () => void;
+};
 
 /** Returns true for settings/admin nav items so they can be separated into the Settings tab. */
 function isSettingsNav(item: NavItem): boolean {
-  return item.label.startsWith('Settings') || item.label === 'Admin Panel';
+  return item.label.startsWith('Settings') || item.label.startsWith('Profile') || item.label === 'Admin Panel';
 }
 
 function buildNavItems(
@@ -194,6 +206,7 @@ interface Props {
 export default function SearchModal({ onClose }: Props) {
   const { activeProduct, products, setActiveProduct, refreshTasks } = useProduct();
   const { openChat } = useChat();
+  const { openProfileModal } = useProfileModals();
   const { canRead, canManage, canWrite } = usePermission();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -257,10 +270,97 @@ export default function SearchModal({ onClose }: Props) {
     [canRead, canManage, user?.isAdmin, user?.announcementsEnabled],
   );
 
+  // Actions and personal/profile settings - these open a modal (or navigate + act) instead of
+  // being a plain route, so they carry `action` and use a `#`-prefixed placeholder `path` (only
+  // used as a React key here, never actually visited).
+  const personalNavItems = useMemo((): NavItem[] => {
+    const items: NavItem[] = [
+      {
+        label: 'Chat',
+        subtitle: 'Open the project chat panel',
+        path: '#chat',
+        icon: '💬',
+        keywords: ['chat', 'message', 'messages', 'talk', 'conversation', 'discuss'],
+        action: () => openChat(),
+      },
+      {
+        label: 'Profile - Appearance',
+        subtitle: 'Theme, colors, mobile nav position',
+        path: '#profile-theme',
+        icon: '🎨',
+        keywords: ['appearance', 'theme', 'themes', 'color', 'colors', 'dark mode', 'light mode', 'style'],
+        action: () => openProfileModal('theme'),
+      },
+      {
+        label: 'Profile - Notification Settings',
+        subtitle: 'Email & in-app notification preferences',
+        path: '#profile-notifications',
+        icon: '🔔',
+        keywords: ['notification', 'notifications', 'email', 'alerts', 'preferences'],
+        action: () => openProfileModal('notifications'),
+      },
+      {
+        label: 'Profile - Privacy',
+        subtitle: 'Who can invite you, activity visibility',
+        path: '#profile-privacy',
+        icon: '🔒',
+        keywords: ['privacy', 'invite', 'invites', 'visibility'],
+        action: () => openProfileModal('privacy'),
+      },
+      {
+        label: 'Profile - Integrations',
+        subtitle: 'API tokens & connected apps',
+        path: '#profile-integrations',
+        icon: '🔗',
+        keywords: ['integration', 'integrations', 'api', 'token', 'tokens', 'app', 'apps'],
+        action: () => openProfileModal('integrations'),
+      },
+      {
+        label: 'Profile - Security (2FA)',
+        subtitle: 'Two-factor authentication',
+        path: '#profile-security',
+        icon: '🛡️',
+        keywords: ['security', '2fa', 'mfa', 'two factor', 'authenticator', 'totp'],
+        action: () => openProfileModal('security'),
+      },
+      {
+        label: 'Profile - Change Password',
+        subtitle: 'Update your account password',
+        path: '#profile-change-password',
+        icon: '🔑',
+        keywords: ['password', 'change password'],
+        action: () => openProfileModal('changePassword'),
+      },
+      {
+        label: 'Profile - Memberships',
+        subtitle: 'Projects you belong to',
+        path: '#profile-memberships',
+        icon: '👥',
+        keywords: ['membership', 'memberships', 'projects', 'teams'],
+        action: () => openProfileModal('memberships'),
+      },
+    ];
+    if (activeProduct && canWrite('backlog')) {
+      items.unshift({
+        label: 'Create new task',
+        subtitle: 'Add a task to the backlog',
+        path: '#new-task',
+        icon: '➕',
+        keywords: ['create', 'new', 'add', 'task', 'todo'],
+        action: () => {
+          navigate('/backlog?newTask=1');
+        },
+      });
+    }
+    return items;
+  }, [activeProduct, canWrite, openChat, openProfileModal, navigate]);
+
+  const allNavItems = useMemo(() => [...navItems, ...personalNavItems], [navItems, personalNavItems]);
+
   const { matchingNav, matchingSprints, matchingProjects } = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (q.length < 2) return { matchingNav: [], matchingSprints: [], matchingProjects: [] };
-    const matchingNav = navItems.filter(
+    const matchingNav = allNavItems.filter(
       (item) =>
         item.label.toLowerCase().includes(q) ||
         item.subtitle.toLowerCase().includes(q) ||
@@ -271,7 +371,7 @@ export default function SearchModal({ onClose }: Props) {
       (p) => p.name.toLowerCase().includes(q) || (p.description ?? '').toLowerCase().includes(q),
     );
     return { matchingNav, matchingSprints, matchingProjects };
-  }, [query, navItems, sprints, products]);
+  }, [query, allNavItems, sprints, products]);
 
   const QUICK_NAV = [
     { label: 'Plan - Canvas & Dependencies', path: '/canvas' },
@@ -332,6 +432,17 @@ export default function SearchModal({ onClose }: Props) {
   function goToView(path: string) {
     navigate(path);
     onClose();
+  }
+
+  // Runs a NavItem's `action` if it has one (personal-settings modals, chat, create task) instead
+  // of navigating - see the NavItem type for why these use an action rather than a real route.
+  function activateNav(item: NavItem) {
+    if (item.action) {
+      item.action();
+      onClose();
+    } else {
+      goToView(item.path);
+    }
   }
 
   async function handleTaskClick(task: SearchResults['tasks'][number]) {
@@ -401,7 +512,7 @@ export default function SearchModal({ onClose }: Props) {
       e.preventDefault();
       const item = allItems[highlightIdx];
       if (!item) return;
-      if (item.type === 'nav') goToView(item.item.path);
+      if (item.type === 'nav') activateNav(item.item);
       else if (item.type === 'sprint') goToView('/gantt');
       else if (item.type === 'project') {
         setActiveProduct(item.product);
@@ -581,7 +692,7 @@ export default function SearchModal({ onClose }: Props) {
                   <button
                     key={item.path}
                     data-idx={i}
-                    onClick={() => goToView(item.path)}
+                    onClick={() => activateNav(item)}
                     className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
                     style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}

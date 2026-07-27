@@ -76,7 +76,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
     <div className="space-y-6 max-w-xl">
       {/* Status banner */}
       <div
-        className="p-4 rounded-xl flex items-center gap-3 flex-wrap"
+        className="p-4 rounded-xl flex items-center gap-3 flex-wrap shadow-sm"
         style={{
           background: emailStatus?.enabled ? 'rgba(16,185,129,0.08)' : 'var(--surface-2)',
           border: `1px solid ${emailStatus?.enabled ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
@@ -112,7 +112,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
       </div>
 
       {/* SMTP configuration */}
-      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+      <div className="rounded-xl overflow-hidden shadow-sm" style={{ border: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ background: 'var(--surface-2)' }}>
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
@@ -614,7 +614,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
               <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                 Who can post announcements?
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 {[
                   { value: 'admin', label: 'Admins only' },
                   { value: 'admin_and_owners', label: 'Admins + Project owners' },
@@ -629,11 +629,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                         showToast(`Posting restricted to ${label.toLowerCase()}`, 'success');
                       })
                     }
-                    className="px-3 py-1.5 rounded-lg text-sm transition-colors"
+                    className="w-full sm:w-auto px-3 py-1.5 rounded-lg text-sm transition-colors"
                     style={{
-                      background: serverConfig.announcementPostRole === value ? '#6366f1' : 'var(--surface)',
+                      background: serverConfig.announcementPostRole === value ? 'var(--brand)' : 'var(--surface)',
                       color: serverConfig.announcementPostRole === value ? '#fff' : 'var(--text-2)',
-                      border: `1px solid ${serverConfig.announcementPostRole === value ? '#6366f1' : 'var(--border)'}`,
+                      border: `1px solid ${serverConfig.announcementPostRole === value ? 'var(--brand)' : 'var(--border)'}`,
                     }}
                   >
                     {label}

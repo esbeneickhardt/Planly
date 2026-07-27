@@ -44,7 +44,7 @@ export default function TopBarProjectPicker({
 
   return (
     <div
-      className={`absolute right-0 w-64 rounded-2xl shadow-2xl overflow-hidden py-1.5 ${
+      className={`absolute right-0 w-64 rounded-2xl shadow-2xl overflow-hidden py-1.5 animate-dropdown-in ${
         mobileNavPosition === 'bottom' ? 'bottom-full mb-2 lg:bottom-auto lg:top-full lg:mt-2' : 'top-full mt-2'
       }`}
       style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}

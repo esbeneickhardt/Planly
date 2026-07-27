@@ -91,7 +91,7 @@ export default function TopBarAccountDropdown({
       },
     },
     {
-      icon: '🔑',
+      icon: '🔐',
       label: 'Change password',
       action: () => {
         onShowChangePassword();
@@ -102,7 +102,7 @@ export default function TopBarAccountDropdown({
 
   return (
     <div
-      className="absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl overflow-y-auto py-1.5"
+      className="absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl overflow-y-auto py-1.5 animate-dropdown-in"
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',

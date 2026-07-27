@@ -4,6 +4,7 @@
  * bulk-move-to-todo, and bulk-delete mutations via the API, refreshing the shared ProductContext after each.
  */
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useProduct } from '../context/ProductContext';
 import { useTheme } from '../context/ThemeContext';
 import { usePermission } from '../context/PermissionContext';
@@ -14,6 +15,7 @@ import { api, displayName } from '../api/client';
 import type { Task } from '../types';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
 import Modal from '../components/common/Modal';
+import EmptyState from '../components/common/EmptyState';
 import { useBacklogFilters } from '../hooks/useBacklogFilters';
 import type { StatusTab } from '../hooks/useBacklogFilters';
 import { isBeforeToday } from '../utils/dates';
@@ -21,6 +23,7 @@ import { useColorLegend } from '../hooks/useColorLegend';
 import { computePrimaryMilestones, assignMilestoneColors } from '../utils/milestones';
 import { sortTasks } from '../utils/backlogSort';
 import type { SortColumn, SortDir } from '../utils/backlogSort';
+import { STATUS_COLORS, STATUS_LABELS } from '../utils/statusColors';
 
 const SORT_COLUMNS: SortColumn[] = ['name', 'status', 'owner', 'milestone', 'deadline', 'created'];
 // Column headers, in table order. `column` is omitted for headers that aren't sortable.
@@ -37,11 +40,11 @@ const COLUMN_HEADERS: { label: string; column?: SortColumn }[] = [
 
 const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: 'var(--text-3)' },
-  { key: 'backlog', label: 'Not started', color: '#64748b' },
-  { key: 'todo', label: 'To Do', color: '#3b82f6' },
-  { key: 'in_progress', label: 'In Progress', color: '#f59e0b' },
-  { key: 'blocked', label: 'Blocked', color: '#ef4444' },
-  { key: 'done', label: 'Done', color: '#10b981' },
+  { key: 'backlog', label: STATUS_LABELS.backlog!, color: STATUS_COLORS.backlog! },
+  { key: 'todo', label: STATUS_LABELS.todo!, color: STATUS_COLORS.todo! },
+  { key: 'in_progress', label: STATUS_LABELS.in_progress!, color: STATUS_COLORS.in_progress! },
+  { key: 'blocked', label: STATUS_LABELS.blocked!, color: STATUS_COLORS.blocked! },
+  { key: 'done', label: STATUS_LABELS.done!, color: STATUS_COLORS.done! },
 ];
 
 export default function BacklogPage() {
@@ -68,6 +71,18 @@ export default function BacklogPage() {
   const statusPickerRef = useRef<HTMLDivElement>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const { legend, enabledColors } = useColorLegend(activeProduct?.id ?? '');
+
+  // Supports search's "Create new task" result, which navigates here with ?newTask=1 to open the
+  // modal directly instead of requiring a second click once the page loads.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('newTask') !== '1') return;
+    if (!readOnly) setShowNewTask(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('newTask');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const {
     statusTab,
@@ -364,12 +379,7 @@ export default function BacklogPage() {
   }
 
   if (!activeProduct) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: 'var(--text-3)' }}>
-        <div className="text-5xl opacity-30">☰</div>
-        <p className="text-sm">Create a product to get started</p>
-      </div>
-    );
+    return <EmptyState icon="☰" size="lg" description="Create a product to get started" className="h-full" />;
   }
 
   return (
@@ -421,7 +431,7 @@ export default function BacklogPage() {
             </select>
             <button
               onClick={() => setGroupByMilestone(!groupByMilestone)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
+              className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
               style={{
                 background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
                 color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
@@ -455,9 +465,9 @@ export default function BacklogPage() {
                 }}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex-shrink-0"
                 style={{
-                  background: active ? 'var(--surface-2)' : 'transparent',
-                  color: active ? 'var(--text)' : 'var(--text-3)',
-                  border: active ? '1px solid var(--border)' : '1px solid transparent',
+                  background: active ? 'var(--brand-subtle)' : 'transparent',
+                  color: active ? 'var(--brand)' : 'var(--text-3)',
+                  border: active ? '1px solid var(--brand)' : '1px solid transparent',
                 }}
               >
                 {tab.key !== 'all' && <span className="w-2 h-2 rounded-full" style={{ background: tab.color }} />}
@@ -465,8 +475,8 @@ export default function BacklogPage() {
                 <span
                   className="px-1 py-0.5 rounded text-[10px] leading-none"
                   style={{
-                    background: active ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                    color: active ? 'var(--brand)' : 'var(--text-3)',
+                    background: active ? 'var(--brand)' : 'var(--surface-2)',
+                    color: active ? '#fff' : 'var(--text-3)',
                   }}
                 >
                   {count}
@@ -718,15 +728,18 @@ export default function BacklogPage() {
       {/* Table */}
       <div className="flex-1 overflow-auto min-w-0">
         {filteredTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-3" style={{ color: 'var(--text-3)' }}>
-            <span className="text-4xl opacity-30">{search ? '🔍' : '✓'}</span>
-            <p className="text-sm">{search ? `No tasks matching "${search}"` : 'No tasks in this view'}</p>
-            {!search && !readOnly && (
-              <button onClick={() => setShowNewTask(true)} className="btn-primary text-xs">
-                + Add first task
-              </button>
-            )}
-          </div>
+          <EmptyState
+            icon={search ? '🔍' : '✓'}
+            description={search ? `No tasks matching "${search}"` : 'No tasks in this view'}
+            className="h-48"
+            action={
+              !search && !readOnly ? (
+                <button onClick={() => setShowNewTask(true)} className="btn-primary text-xs">
+                  + Add first task
+                </button>
+              ) : undefined
+            }
+          />
         ) : (
           <table className="w-full min-w-[640px] text-sm border-collapse">
             <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
@@ -884,21 +897,6 @@ export default function BacklogPage() {
   );
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  backlog: '#64748b',
-  todo: '#3b82f6',
-  in_progress: '#f59e0b',
-  done: '#10b981',
-  blocked: '#ef4444',
-};
-const STATUS_LABEL: Record<string, string> = {
-  backlog: 'Not started',
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  done: 'Done',
-  blocked: 'Blocked',
-};
-
 function BacklogRow({
   task,
   selected,
@@ -926,7 +924,7 @@ function BacklogRow({
 }) {
   const isMilestone = !!task.deadline;
   const done = task.subtasks.filter((s) => s.completed).length;
-  const statusColor = STATUS_COLOR[task.status] ?? '#64748b';
+  const statusColor = STATUS_COLORS[task.status] ?? '#64748b';
 
   return (
     <tr
@@ -962,7 +960,7 @@ function BacklogRow({
       <td className="px-4 py-3">
         <span className="flex items-center gap-1.5 text-xs">
           <span className="w-2 h-2 rounded-full" style={{ background: statusColor }} />
-          <span style={{ color: 'var(--text-2)' }}>{STATUS_LABEL[task.status] ?? task.status}</span>
+          <span style={{ color: 'var(--text-2)' }}>{STATUS_LABELS[task.status] ?? task.status}</span>
         </span>
       </td>
       <td className="px-4 py-3">
