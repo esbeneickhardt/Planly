@@ -13,11 +13,11 @@ import KanbanCard from './KanbanCard';
 import { usePermission } from '../../context/PermissionContext';
 import type { MilestoneOption } from './KanbanMilestoneFilter';
 import { buildMilestoneClusters, UNASSIGNED_CLUSTER } from '../../utils/milestones';
+import { SORT_LABELS, SORT_CYCLE, sortTasks, loadColumnSortMode, saveColumnSortMode } from '../../utils/kanbanSort';
+import type { SortMode } from '../../utils/kanbanSort';
 
 // Re-exported so existing imports from this file (e.g. KanbanBoard.tsx) keep working unchanged
 export { UNASSIGNED_CLUSTER };
-
-type SortMode = 'default' | 'alpha-asc' | 'alpha-desc' | 'deadline' | 'oldest' | 'newest';
 
 interface Props {
   column: KanbanColumnType;
@@ -104,32 +104,6 @@ function SortableMilestoneHeader({
   );
 }
 
-const SORT_LABELS: Record<SortMode, string> = {
-  default: 'Custom (drag order)',
-  'alpha-asc': 'A → Z',
-  'alpha-desc': 'Z → A',
-  deadline: 'Deadline',
-  oldest: 'Oldest first',
-  newest: 'Newest first',
-};
-const SORT_CYCLE: SortMode[] = ['default', 'alpha-asc', 'alpha-desc', 'deadline', 'oldest', 'newest'];
-
-function sortTasks(tasks: Task[], mode: SortMode): Task[] {
-  if (mode === 'default') return tasks;
-  return [...tasks].sort((a, b) => {
-    if (mode === 'alpha-asc') return a.name.localeCompare(b.name);
-    if (mode === 'alpha-desc') return b.name.localeCompare(a.name);
-    if (mode === 'deadline') {
-      if (a.deadline && b.deadline) return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-      if (a.deadline) return -1;
-      if (b.deadline) return 1;
-      return a.kanbanOrder - b.kanbanOrder;
-    }
-    if (mode === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
-}
-
 export default function KanbanColumn({
   column,
   tasks,
@@ -166,10 +140,7 @@ export default function KanbanColumn({
   // Column UI state
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(column.label);
-  const [sortMode, setSortMode] = useState<SortMode>(() => {
-    const saved = localStorage.getItem(`planly-col-sort-${column.id}`) as SortMode | null;
-    return saved && SORT_CYCLE.includes(saved) ? saved : 'default';
-  });
+  const [sortMode, setSortMode] = useState<SortMode>(() => loadColumnSortMode(column.id));
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
@@ -327,9 +298,7 @@ export default function KanbanColumn({
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => {
                         setSortMode(mode);
-                        try {
-                          localStorage.setItem(`planly-col-sort-${column.id}`, mode);
-                        } catch {}
+                        saveColumnSortMode(column.id, mode);
                         setShowSortMenu(false);
                       }}
                       className="w-full text-left px-3 py-1.5 text-xs transition-colors"

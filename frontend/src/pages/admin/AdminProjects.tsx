@@ -101,12 +101,12 @@ export default function AdminProjects({ showToast }: Props) {
             {projects.map((p) => (
               <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="py-2.5 pr-4">
-                  <span className="font-medium" style={{ color: 'var(--text)' }}>
+                  <span className="font-medium whitespace-nowrap" style={{ color: 'var(--text)' }}>
                     {p.emoji && <span className="mr-1.5">{p.emoji}</span>}
                     {p.name}
                   </span>
                 </td>
-                <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+                <td className="py-2.5 pr-4 text-xs whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
                   {p.ownerEmoji && <span className="mr-1">{p.ownerEmoji}</span>}
                   {p.ownerUsername ?? '-'}
                 </td>

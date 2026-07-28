@@ -625,14 +625,15 @@ export default function TopBar({
             <SearchIcon />
           </button>
 
-          {/* Mobile: hamburger */}
+          {/* Mobile: hamburger - colored like the other admin-aware buttons in this row when in
+              admin mode, so the collapsed menu still hints there's admin-only stuff inside. */}
           <button
             onClick={() => setShowMobileMenu((v) => !v)}
             className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-lg"
             style={{
-              background: showMobileMenu ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              color: showMobileMenu ? 'var(--brand)' : 'var(--text-3)',
-              border: `1px solid ${showMobileMenu ? 'var(--brand)' : 'transparent'}`,
+              background: showMobileMenu || chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
+              color: showMobileMenu || chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
+              border: `1px solid ${showMobileMenu || chatIsAdmin ? 'var(--brand)' : 'transparent'}`,
             }}
             title="Menu"
             aria-label={showMobileMenu ? 'Close navigation menu' : 'Open navigation menu'}

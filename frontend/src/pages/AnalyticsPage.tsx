@@ -120,7 +120,7 @@ function BarChart({
   return (
     <div className="flex items-end gap-px" style={{ height: height + labelHeight }}>
       {data.map(({ label, count }, i) => (
-        <div key={i} className="flex-1 flex flex-col group" style={{ height: '100%' }}>
+        <div key={i} className="flex-1 min-w-0 flex flex-col group" style={{ height: '100%' }}>
           {/* Bar area */}
           <div className="relative flex-1 flex flex-col justify-end">
             {count > 0 && (
@@ -148,10 +148,15 @@ function BarChart({
               alignItems: 'flex-end',
               justifyContent: 'center',
               paddingBottom: 1,
+              overflow: 'hidden',
+              width: '100%',
             }}
           >
             {label && (
-              <span className="text-[9px] leading-none" style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+              <span
+                className="text-[9px] leading-none"
+                style={{ color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'clip' }}
+              >
                 {label}
               </span>
             )}
@@ -395,8 +400,8 @@ export default function AnalyticsPage() {
   const weekdayData = WEEKDAYS.map((label, i) => ({ label, count: wdCounts[i] ?? 0 }));
 
   return (
-    <div className="h-full overflow-auto" style={{ background: 'var(--bg)' }}>
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+    <div className="h-full overflow-y-auto overflow-x-hidden" style={{ background: 'var(--bg)' }}>
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6 min-w-0">
         {/* Header */}
         <div>
           <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>

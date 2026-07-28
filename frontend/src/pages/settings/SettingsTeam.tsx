@@ -264,7 +264,7 @@ export default function SettingsTeam({
         <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
           Co-owners can manage settings and approve access requests. Pending rows show users who haven't accepted yet.
         </p>
-        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+        <div className="rounded-xl overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
           {totalRows === 0 && (
             <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-3)' }}>
               No members yet.
@@ -278,7 +278,7 @@ export default function SettingsTeam({
             return (
               <div
                 key={userId}
-                className="flex items-center gap-3 px-4 py-3"
+                className="flex items-center gap-3 px-4 py-3 min-w-max"
                 style={{
                   background: idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
                   borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
@@ -292,15 +292,15 @@ export default function SettingsTeam({
                 >
                   <span className="text-xl flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium hover:underline" style={{ color: 'var(--text)' }}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium hover:underline whitespace-nowrap" style={{ color: 'var(--text)' }}>
                         {displayName(user)}
                       </span>
                       {isProductOwner && <RoleBadge kind="owner" />}
                       {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
                       {userId === currentUser?.id && (
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded"
+                          className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
                           style={{
                             background: 'var(--surface-2)',
                             color: 'var(--text-3)',
@@ -346,7 +346,7 @@ export default function SettingsTeam({
             return (
               <div
                 key={inv.id}
-                className="flex items-center gap-3 px-4 py-3"
+                className="flex items-center gap-3 px-4 py-3 min-w-max"
                 style={{
                   background: rowIdx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
                   borderTop: rowIdx > 0 ? '1px solid var(--border)' : 'none',
@@ -357,13 +357,13 @@ export default function SettingsTeam({
                   {inv.toUser!.avatarEmoji ?? '👤'}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--text-2)' }}>
                       {displayName(inv.toUser!)}
                     </span>
                     <PendingBadge />
                   </div>
-                  <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+                  <p className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
                     Expires {new Date(inv.expiresAt).toLocaleDateString()}
                   </p>
                 </div>
