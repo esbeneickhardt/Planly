@@ -115,10 +115,6 @@ export default function BacklogPage() {
     overdueCount,
   } = useBacklogFilters(tasks, user?.id);
 
-  // Mobile's single <select> shows a specific status only when exactly one is active; picking an
-  // option there replaces the whole set (single-select), even though desktop's Filters popover
-  // below can combine several at once.
-  const mobileStatusValue: StatusTab = statusFilters.size === 1 ? Array.from(statusFilters)[0]! : 'all';
   const activeFilterCount = statusFilters.size + (mineOnly ? 1 : 0);
 
   // Column sort - click a header to sort by it; click again to flip direction. Persisted so the
@@ -434,49 +430,11 @@ export default function BacklogPage() {
           </div>
         )}
 
-        {/* Mobile toolbar: status select, group-by-milestone toggle, search */}
-        <div className="md:hidden flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <select
-              value={mobileStatusValue}
-              onChange={(e) => {
-                const v = e.target.value as StatusTab;
-                setStatusFilters(v === 'all' ? new Set() : new Set([v as StatusKey]));
-                setSelected(new Set());
-              }}
-              className="input text-sm flex-1"
-            >
-              {STATUS_TABS.map((tab) => (
-                <option key={tab.key} value={tab.key}>
-                  {tab.label} ({tabCounts[tab.key] ?? 0})
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => setGroupByMilestone(!groupByMilestone)}
-              className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
-              style={{
-                background: groupByMilestone ? 'var(--brand-subtle)' : 'transparent',
-                color: groupByMilestone ? 'var(--brand)' : 'var(--text-3)',
-                border: `1px solid ${groupByMilestone ? 'var(--brand)' : 'var(--border)'}`,
-              }}
-              title="Group tasks by the milestone they feed into"
-            >
-              🏁
-            </button>
-          </div>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search…"
-            className="input text-sm w-full"
-          />
-        </div>
-
-        {/* Filters + View + search on one row (desktop) - same two-popover pattern as
-            KanbanFiltersBar, so Execute and Task tabs feel consistent. */}
-        <div className="hidden md:flex items-center gap-2 flex-wrap">
+        {/* Filters + View + search - one bar at every breakpoint (no more separate mobile-only
+            controls), same two-popover pattern as KanbanFiltersBar, so Execute and Task tabs feel
+            consistent everywhere, not just on desktop. The dropdown panels below already use
+            "fixed full-bleed on mobile, absolute-anchored on desktop" positioning. */}
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Filters menu: status (multi-select) + mine */}
           <div className="relative flex-shrink-0" ref={filtersMenuRef}>
             <button
@@ -808,8 +766,9 @@ export default function BacklogPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto min-w-0">
+      {/* Table - explicit overflow-x-auto so long cell content (task names, owner names) grows the
+          table wider via horizontal scroll instead of wrapping across many lines. */}
+      <div className="flex-1 overflow-y-auto overflow-x-auto min-w-0">
         {filteredTasks.length === 0 ? (
           <EmptyState
             icon={search ? '🔍' : '✓'}
@@ -1035,7 +994,11 @@ function BacklogRow({
           ) : (
             task.color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
           )}
-          <button onClick={onOpen} className="font-medium text-left hover:underline" style={{ color: 'var(--text)' }}>
+          <button
+            onClick={onOpen}
+            className="font-medium text-left hover:underline whitespace-nowrap"
+            style={{ color: 'var(--text)' }}
+          >
             {task.name}
           </button>
         </div>
@@ -1048,20 +1011,24 @@ function BacklogRow({
       </td>
       <td className="px-4 py-3">
         {task.owner ? (
-          <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-2)' }}>
+          <span className="flex items-center gap-1.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-2)' }}>
             <span>{task.owner.avatarEmoji ?? '👤'}</span>
             <span>{displayName(task.owner)}</span>
           </span>
         ) : (
           <span
-            className="text-xs px-2 py-0.5 rounded font-medium"
+            className="text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap"
             style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}
           >
             Unassigned
           </span>
         )}
       </td>
-      <td className="px-4 py-3 text-xs truncate" style={{ color: 'var(--text-3)' }} title={milestoneName ?? undefined}>
+      <td
+        className="px-4 py-3 text-xs truncate max-w-[180px]"
+        style={{ color: 'var(--text-3)' }}
+        title={milestoneName ?? undefined}
+      >
         {milestoneName ? (
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? 'var(--text-3)' }} />

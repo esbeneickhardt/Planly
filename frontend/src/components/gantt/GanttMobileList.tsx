@@ -205,6 +205,7 @@ export default function GanttMobileList({
   onMilestoneDragEnd,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showProductStatus, setShowProductStatus] = useState(false);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -219,8 +220,92 @@ export default function GanttMobileList({
     if (t) setSelectedTask(t);
   }
 
+  const hasIncompleteTasks = milestones.some(
+    (m) => m.status !== 'done' && m.doneDependencies < m.totalDependencies && m.totalDependencies > 0,
+  );
+
   return (
     <div className="md:hidden h-full overflow-y-auto px-4 py-3 space-y-2">
+      {/* Product status - tap-friendly equivalent of the desktop timeline's hoverable "Product /
+          Final Delivery" row, persistent regardless of which tab (Milestones/Sub-plans) is
+          active, since hover doesn't exist on touch. */}
+      {milestones.length > 0 && (
+        <div className="rounded-xl overflow-hidden bg-surface-2 border border-border">
+          <button
+            onClick={() => setShowProductStatus((v) => !v)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-left"
+          >
+            <span className="text-sm">🏁</span>
+            <span className="flex-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+              Product status
+            </span>
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-3)' }}>
+              {doneCount}/{milestones.length} complete
+            </span>
+            <span
+              className="text-[10px]"
+              style={{ color: 'var(--text-3)', transform: showProductStatus ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
+            >
+              ▸
+            </span>
+          </button>
+          {showProductStatus && (
+            <div className="px-4 pb-3 pt-0.5" style={{ borderTop: '1px solid var(--border)' }}>
+              <div className="h-1.5 rounded-full overflow-hidden bg-border my-2">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${milestones.length > 0 ? (doneCount / milestones.length) * 100 : 0}%`, background: '#10b981' }}
+                />
+              </div>
+              <div className="space-y-1 max-h-48 overflow-auto">
+                {milestones.map((m) => {
+                  const isDone = m.status === 'done';
+                  return (
+                    <button
+                      key={m.id}
+                      className="flex items-center gap-2 text-xs w-full text-left rounded px-0.5 py-0.5"
+                      onClick={() => openTask(m.id)}
+                    >
+                      {isDone ? (
+                        <span
+                          className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                          style={{ background: '#10b981', color: 'white' }}
+                        >
+                          ✓
+                        </span>
+                      ) : (
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0"
+                          style={{ borderColor: progressColor(m) }}
+                        />
+                      )}
+                      <span
+                        className="flex-1 truncate"
+                        style={{
+                          color: isDone ? 'var(--text-3)' : 'var(--text)',
+                          textDecoration: isDone ? 'line-through' : 'none',
+                          opacity: isDone ? 0.55 : 1,
+                        }}
+                      >
+                        {m.name}
+                      </span>
+                      <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
+                        {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {hasIncompleteTasks && (
+                <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
+                  ⚠ Some milestones have incomplete tasks
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* View toggle - mirrors the desktop segmented control */}
       <div
         className="inline-flex items-center gap-0.5 p-0.5 rounded-lg mb-2"
@@ -250,9 +335,7 @@ export default function GanttMobileList({
 
       {ganttView === 'milestones' ? (
         <>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3 text-token-3">
-            {doneCount}/{milestones.length} done - drag to reorder
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3 text-token-3">Drag to reorder</p>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onMilestoneDragEnd}>
             <SortableContext items={visibleMilestones.map((m) => m.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
