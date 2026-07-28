@@ -114,8 +114,9 @@ describe('KanbanMobileList', () => {
   it('renders the deadline for tasks that have one', () => {
     const task = makeTask('t1', { deadline: '2030-06-15T00:00:00.000Z' });
     render(<KanbanMobileList columns={[makeColumn()]} tasks={[task]} users={[]} onOpenDetail={onOpenDetail} />);
-    // The short locale string includes the month abbreviation; "Jun" or "15" should appear
-    const btn = screen.getByRole('button');
+    // The short locale string includes the month abbreviation; "Jun" or "15" should appear.
+    // Named explicitly since the column now also has a sort-mode button and a drag-handle.
+    const btn = screen.getByRole('button', { name: /Task t1/ });
     expect(btn.textContent).toMatch(/Jun|15/);
   });
 

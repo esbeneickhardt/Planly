@@ -58,12 +58,12 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                     <ShieldIcon size={14} />
                   </span>
                 )}
-                <span className="font-medium" style={{ color: 'var(--text)' }}>
+                <span className="font-medium whitespace-nowrap" style={{ color: 'var(--text)' }}>
                   {u.username}
                 </span>
               </div>
             </td>
-            <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
+            <td className="py-2.5 pr-4 text-xs whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
               {u.email}
             </td>
             <td className="py-2.5 pr-4">

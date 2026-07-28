@@ -97,14 +97,15 @@ export default function IntegrationsModal({ onClose }: Props) {
 
   return (
     <Modal title="Integrations" onClose={onClose} width="max-w-lg" mobileFullscreen>
-      {/* Header row: tabs + API docs link */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="flex gap-1 flex-1">
+      {/* Header row: tabs + API docs link - items-stretch plus nowrap on every child keeps them
+          the same height even if the row gets tight on a narrow phone. */}
+      <div className="flex items-stretch gap-3 mb-5">
+        <div className="flex gap-1 flex-1 overflow-x-auto">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap flex-shrink-0"
               style={{
                 background: tab === t.id ? 'var(--brand)' : 'var(--surface-2)',
                 color: tab === t.id ? 'white' : 'var(--text-3)',
@@ -119,7 +120,7 @@ export default function IntegrationsModal({ onClose }: Props) {
           href="/api/docs"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium flex-shrink-0 transition-colors"
+          className="text-xs flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg font-medium flex-shrink-0 whitespace-nowrap transition-colors"
           style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = 'var(--brand)';

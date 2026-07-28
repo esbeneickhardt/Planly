@@ -161,7 +161,7 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
               >
                 <div className="flex items-center justify-between gap-2 sm:contents">
                   <span
-                    className="text-xs px-2 py-0.5 rounded font-medium flex-shrink-0"
+                    className="text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 whitespace-nowrap"
                     style={{
                       background:
                         log.action.includes('FAIL') || log.action.includes('DELETE') || log.action.includes('PRUNE')
@@ -175,7 +175,7 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
                   >
                     {ACTION_LABELS[log.action] ?? log.action}
                   </span>
-                  <span className="text-xs flex-shrink-0 sm:order-3" style={{ color: 'var(--text-3)' }}>
+                  <span className="text-xs flex-shrink-0 whitespace-nowrap sm:order-3" style={{ color: 'var(--text-3)' }}>
                     {new Date(log.createdAt).toLocaleString()}
                   </span>
                 </div>
