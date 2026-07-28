@@ -726,6 +726,22 @@ export default function KanbanBoard() {
     }
   }
 
+  // Mobile Kanban's drag-reorder within a single status column - same bulk reorder endpoint the
+  // desktop same-column drag branch of handleDragEnd uses, just without the cross-column/milestone
+  // scoping that only applies to a live drag-and-drop event.
+  async function handleMobileReorderTasks(_statusKey: string, orderedTaskIds: string[]) {
+    if (!activeProduct || readOnly) return;
+    try {
+      await api.tasks.reorder(
+        activeProduct.id,
+        orderedTaskIds.map((taskId, i) => ({ taskId, order: i })),
+      );
+      await refreshTasks();
+    } catch (err) {
+      showToast((err as Error).message);
+    }
+  }
+
   async function handleDeleteColumn() {
     if (!pendingDeleteCol || !activeProduct) return;
     setDeleting(true);
@@ -836,6 +852,8 @@ export default function KanbanBoard() {
         milestoneMeta={milestoneMeta}
         collapsedStatuses={collapsedStatusesInMilestoneView}
         onToggleStatusCollapse={toggleStatusCollapsed}
+        onQuickStatusChange={readOnly ? undefined : handleCompactStatusChange}
+        onReorderTasks={readOnly ? undefined : handleMobileReorderTasks}
       />
 
       {/* Desktop board area - hidden on small screens to give way to KanbanMobileList */}
