@@ -3,7 +3,7 @@
  * `CardContent` is extracted as an inner component so the same JSX renders both the live card and the drag overlay (which passes static no-op props).
  * Left border colour comes from `task.color`; subtask expand/add controls live directly on the card without opening the detail panel.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task, Subtask, KanbanColumn as KanbanColumnType } from '../../types';
@@ -11,7 +11,6 @@ import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useChat } from '../../context/ChatContext';
 import { useLongPress } from '../../hooks/useLongPress';
-import { QuickStatusMenu } from './KanbanMobileList';
 
 interface Props {
   task: Task;
@@ -70,57 +69,99 @@ function CardContent({
   // to jump straight into its chat instead of opening the full detail panel first.
   const longPressChat = useLongPress(() => openChat(task.id, task.name));
   // Desktop/mouse equivalent of the long-press above: a hover-revealed trigger (hidden entirely on
-  // touch, which already has the long-press) opening the exact same quick-actions menu mobile
-  // uses - single click still opens the full detail panel as it always has.
+  // touch, which already has the long-press) opening a small quick-actions dropdown - single click
+  // still opens the full detail panel as it always has. This is a plain anchored dropdown (own
+  // ref + click-outside listener, the same pattern KanbanBoard.tsx's own Filters/View menus already
+  // use), not mobile's QuickStatusMenu - that one dismisses via a full-screen fixed backdrop button,
+  // which doesn't play well anchored inside a dnd-kit sortable card on desktop.
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const quickActionsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showStatusMenu) return;
+    function onDocMouseDown(e: MouseEvent) {
+      if (quickActionsRef.current && !quickActionsRef.current.contains(e.target as Node)) {
+        setShowStatusMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [showStatusMenu]);
 
   return (
     <div className="p-3 relative">
-      {columns && (
-        <>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowStatusMenu(true);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            title="Quick actions (change status, open chat)"
-            aria-label="Quick actions"
-            className="hidden md:flex absolute top-1.5 right-1.5 items-center justify-center w-6 h-6 rounded-md text-sm opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
-          >
-            ⋯
-          </button>
-          {showStatusMenu && (
-            <QuickStatusMenu
-              columns={columns}
-              current={task.status}
-              onClose={() => setShowStatusMenu(false)}
-              onOpenChat={() => {
-                openChat(task.id, task.name);
-                setShowStatusMenu(false);
+      <div className="flex items-start gap-1">
+        <button
+          onClick={() => onOpenDetail(task)}
+          className={`text-sm font-medium text-left flex-1 min-w-0 leading-snug hover:underline ${simpleMode ? '' : 'mb-1.5'}`}
+          style={{ color: 'var(--text)', wordBreak: 'break-word', whiteSpace: 'normal' }}
+          title="Long-press to open this task's chat"
+          {...longPressChat}
+        >
+          {task.name}
+        </button>
+        {columns && (
+          <div className="relative flex-shrink-0" ref={quickActionsRef}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowStatusMenu((v) => !v);
               }}
-              onSelect={
-                onQuickStatusChange
-                  ? (statusKey) => {
-                      onQuickStatusChange(task.id, statusKey);
-                      setShowStatusMenu(false);
-                    }
-                  : undefined
-              }
-            />
-          )}
-        </>
-      )}
-      <button
-        onClick={() => onOpenDetail(task)}
-        className={`text-sm font-medium text-left w-full leading-snug hover:underline ${simpleMode ? '' : 'mb-1.5'}`}
-        style={{ color: 'var(--text)', wordBreak: 'break-word', whiteSpace: 'normal' }}
-        title="Long-press to open this task's chat"
-        {...longPressChat}
-      >
-        {task.name}
-      </button>
+              onPointerDown={(e) => e.stopPropagation()}
+              title="Quick actions: change status or open chat"
+              aria-label="Quick actions"
+              className={`hidden md:flex items-center justify-center w-6 h-6 rounded-md text-sm transition-opacity flex-shrink-0 ${
+                showStatusMenu ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`}
+              style={{
+                color: 'var(--text-3)',
+                background: showStatusMenu ? 'var(--surface-2)' : 'transparent',
+              }}
+            >
+              ⋯
+            </button>
+            {showStatusMenu && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="absolute right-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-dropdown-in"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }}
+              >
+                <button
+                  onClick={() => {
+                    openChat(task.id, task.name);
+                    setShowStatusMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left"
+                  style={{ color: 'var(--text)', borderBottom: onQuickStatusChange ? '1px solid var(--border)' : 'none' }}
+                >
+                  <span className="flex-shrink-0">💬</span>
+                  <span className="flex-1">Open chat</span>
+                </button>
+                {onQuickStatusChange &&
+                  columns.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => {
+                        onQuickStatusChange(task.id, c.statusKey);
+                        setShowStatusMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left"
+                      style={{
+                        color: c.statusKey === task.status ? c.color : 'var(--text)',
+                        background: c.statusKey === task.status ? `${c.color}14` : 'transparent',
+                        fontWeight: c.statusKey === task.status ? 600 : 400,
+                      }}
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                      <span className="flex-1">{c.label}</span>
+                      {c.statusKey === task.status && <span>✓</span>}
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {!simpleMode && (
         <>
