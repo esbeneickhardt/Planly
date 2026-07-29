@@ -79,7 +79,17 @@ function CardContent({
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  // Already `position: fixed` (just parked off-screen and invisible) from the very first render -
+  // critical for measuring its real size correctly below. Without this, the dropdown briefly
+  // renders as a normal in-flow block appended to document.body (no positioning applied yet),
+  // which stretches it to the full viewport width; measuring THAT wrong width is what threw the
+  // "align dropdown's right edge to the button" math off by however wide the viewport is.
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({
+    position: 'fixed',
+    top: -9999,
+    left: -9999,
+    visibility: 'hidden',
+  });
 
   useLayoutEffect(() => {
     if (!showStatusMenu) return;
