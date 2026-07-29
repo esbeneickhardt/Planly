@@ -20,6 +20,7 @@ const DEFAULT_ENABLED: Record<string, boolean> = {
   invite_received: true,
   role_changed: true,
   sprint_started: false, // opt-in only
+  reaction: true,
 };
 
 /**

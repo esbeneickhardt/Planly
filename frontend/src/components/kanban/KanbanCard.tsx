@@ -9,6 +9,8 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Task, Subtask } from '../../types';
 import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
+import { useChat } from '../../context/ChatContext';
+import { useLongPress } from '../../hooks/useLongPress';
 
 interface Props {
   task: Task;
@@ -53,6 +55,10 @@ function CardContent({
 }) {
   const doneSubtasks = task.subtasks.filter((s) => s.completed).length;
   const isMilestone = !!task.deadline;
+  const { openChat } = useChat();
+  // Touch-only - a no-op for mouse users, but lets touchscreen laptops/tablets long-press a card
+  // to jump straight into its chat instead of opening the full detail panel first.
+  const longPressChat = useLongPress(() => openChat(task.id, task.name));
 
   return (
     <div className="p-3">
@@ -60,6 +66,8 @@ function CardContent({
         onClick={() => onOpenDetail(task)}
         className={`text-sm font-medium text-left w-full leading-snug hover:underline ${simpleMode ? '' : 'mb-1.5'}`}
         style={{ color: 'var(--text)', wordBreak: 'break-word', whiteSpace: 'normal' }}
+        title="Long-press to open this task's chat"
+        {...longPressChat}
       >
         {task.name}
       </button>

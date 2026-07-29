@@ -201,6 +201,12 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
     if (!n.read) markRead(n.id);
     setOpen(false);
 
+    // A reaction notification carries the reacted-to message's id in metadata (see
+    // routes/messages.ts) - passed through to openChat so the panel scrolls to and highlights
+    // that exact message instead of just landing on the thread with nothing to show for it.
+    const reactionMessageId =
+      n.type === 'reaction' ? (n.metadata as { messageId?: string } | null)?.messageId : undefined;
+
     if (n.taskId && n.productId) {
       // Switch into the notification's own project first if it isn't already active - a
       // notification can easily reference a task in a project other than the one you're browsing.
@@ -209,13 +215,13 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
         if (product) setActiveProduct(product);
       }
       // "task_assigned" (owner or reviewer) is about the task itself, not a message, so it opens
-      // the task's full detail view; "task_commented"/"mention" are specifically about a message,
-      // so those still open the chat thread as before.
+      // the task's full detail view; "task_commented"/"mention"/"reaction" are specifically about
+      // a message, so those still open the chat thread as before.
       if (n.type === 'task_assigned') {
         navigate(`/kanban?openTask=${n.taskId}`);
       } else {
         const task = tasks.find((t) => t.id === n.taskId);
-        openChat(n.taskId, task?.name ?? '');
+        openChat(n.taskId, task?.name ?? '', reactionMessageId);
       }
       return;
     }
@@ -224,7 +230,13 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
         const product = products.find((p) => p.id === n.productId);
         if (product) setActiveProduct(product);
       }
-      navigate('/kanban');
+      // A reaction on a message in the general project channel (no task) - open straight to it,
+      // rather than just landing on the Kanban board with nothing to show for the click.
+      if (n.type === 'reaction') {
+        openChat(undefined, undefined, reactionMessageId);
+      } else {
+        navigate('/kanban');
+      }
     }
   }
 

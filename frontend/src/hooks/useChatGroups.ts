@@ -4,35 +4,45 @@
  * structure but kept separate since group "open" is by-existing-conversation-id (rows already
  * exist in the list) rather than DM's find-or-create-by-user-id.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import type { ConversationSummary, DirectMessage } from '../api/client';
 
 interface Options {
   isAdminChat: boolean;
+  /** Non-admin chat is always scoped to one project - required whenever isAdminChat is false. */
+  productId?: string;
 }
 
-export function useChatGroups({ isAdminChat }: Options) {
+export function useChatGroups({ isAdminChat, productId }: Options) {
   const [groupConversations, setGroupConversations] = useState<ConversationSummary[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [groupMessages, setGroupMessages] = useState<DirectMessage[]>([]);
   const [groupLoading, setGroupLoading] = useState(false);
+  // Same stale-fetch guard as useChatPeople.ts's loadDmMessages - see there for why.
+  const latestRequestedConvId = useRef<string | null>(null);
 
   const loadGroups = useCallback(async () => {
+    if (!isAdminChat && !productId) {
+      setGroupConversations([]);
+      return;
+    }
     try {
-      const { conversations: convs } = await api.conversations.list(isAdminChat);
+      const { conversations: convs } = await api.conversations.list(isAdminChat, productId);
       setGroupConversations(convs.filter((c) => c.isGroup));
     } catch {}
-  }, [isAdminChat]);
+  }, [isAdminChat, productId]);
 
   const loadGroupMessages = useCallback(async (convId: string) => {
+    latestRequestedConvId.current = convId;
     setGroupLoading(true);
     try {
       const { messages } = await api.conversations.messages(convId);
+      if (latestRequestedConvId.current !== convId) return; // superseded by a newer request
       setGroupMessages(messages);
     } catch {
     } finally {
-      setGroupLoading(false);
+      if (latestRequestedConvId.current === convId) setGroupLoading(false);
     }
   }, []);
 
@@ -49,12 +59,12 @@ export function useChatGroups({ isAdminChat }: Options) {
 
   const createGroup = useCallback(
     async (participantIds: string[], name?: string) => {
-      const { id } = await api.conversations.createGroup(participantIds, name, isAdminChat);
+      const { id } = await api.conversations.createGroup(participantIds, name, isAdminChat, productId);
       await loadGroups();
       await openGroup(id);
       return id;
     },
-    [isAdminChat, loadGroups, openGroup],
+    [isAdminChat, productId, loadGroups, openGroup],
   );
 
   const renameGroup = useCallback(

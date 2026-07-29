@@ -134,6 +134,7 @@ model Product {
   accessRequests     AccessRequest[]
   webhooks           Webhook[]
   fileUploads        FileUpload[]
+  conversations      Conversation[]
 
   @@index([teamId])
   @@index([ownerId])
@@ -677,15 +678,24 @@ model FileUpload {
 
 // ── Activity log ──────────────────────────────────────────────────────────────
 
+// Non-admin conversations (DMs and groups) are scoped to the project they were started in -
+// `productId` is always null for admin-chat conversations (isAdminChat: true), which stay
+// deliberately unscoped since server admins are allowed to contact anyone directly. A non-admin
+// conversation's participants must all be members of `productId`'s team at creation time (enforced
+// in routes/conversations.ts, not here) so chat never bleeds across unrelated projects.
 model Conversation {
   id           String                    @id @default(uuid())
   isAdminChat  Boolean                   @default(false)
   closed       Boolean                   @default(false)
   isGroup      Boolean                   @default(false)
   name         String?
+  productId    String?
+  product      Product?                  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt    DateTime                  @default(now())
   participants ConversationParticipant[]
   messages     DirectMessage[]
+
+  @@index([productId, isAdminChat])
 }
 
 model ConversationParticipant {
