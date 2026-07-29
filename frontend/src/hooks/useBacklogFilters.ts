@@ -10,7 +10,7 @@
  * option there just replaces the whole set with that one status, so mobile stays a single-select
  * experience even though desktop's Filters dropdown can combine several.
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Task } from '../types';
 import { isBeforeToday } from '../utils/dates';
 
@@ -59,7 +59,12 @@ export function useBacklogFilters(tasks: Task[], userId: string | undefined): Ba
       return next;
     });
   };
-  const [mineOnly, setMineOnly] = useState(false);
+  const [mineOnly, setMineOnly] = useState(() => localStorage.getItem('planly_backlog_mine_only') === 'true');
+  useEffect(() => {
+    try {
+      localStorage.setItem('planly_backlog_mine_only', String(mineOnly));
+    } catch {}
+  }, [mineOnly]);
   const [search, setSearch] = useState('');
   const [groupByMilestone, setGroupByMilestoneRaw] = useState(
     () => localStorage.getItem('planly_backlog_group_by_milestone') === 'true',

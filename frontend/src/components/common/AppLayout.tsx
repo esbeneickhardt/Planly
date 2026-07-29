@@ -48,6 +48,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [showSearch, setShowSearch] = useState(false);
   const [showProductChat, setShowProductChat] = useState(false);
   const [chatInitialTask, setChatInitialTask] = useState<{ id: string; name: string } | undefined>();
+  // Set alongside chatInitialTask when opening chat targeted at one specific message (e.g. from a
+  // reaction notification) - passed through to ChatPanel, which scrolls to and briefly highlights
+  // it once that message's thread has loaded. Independent of chatInitialTask since the target
+  // message might be in the general project channel (no task at all).
+  const [chatScrollToMessageId, setChatScrollToMessageId] = useState<string | undefined>();
   const [showAdminChat, setShowAdminChat] = useState(false);
   const [showVision, setShowVision] = useState(false);
   // adminMode persists across navigation away from /admin
@@ -73,8 +78,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     else if (key === 'changePassword') setShowChangePassword(true);
   }, []);
 
-  const openProductChat = useCallback((taskId?: string, taskName?: string) => {
+  const openProductChat = useCallback((taskId?: string, taskName?: string, messageId?: string) => {
     setChatInitialTask(taskId ? { id: taskId, name: taskName! } : undefined);
+    setChatScrollToMessageId(messageId);
     setShowProductChat(true);
   }, []);
   const { products, productsLoaded } = useProduct();
@@ -190,9 +196,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {showProductChat && (
           <ChatPanel
             initialTask={chatInitialTask}
+            scrollToMessageId={chatScrollToMessageId}
             onClose={() => {
               setShowProductChat(false);
               setChatInitialTask(undefined);
+              setChatScrollToMessageId(undefined);
             }}
           />
         )}

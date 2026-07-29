@@ -6,7 +6,9 @@
 import { createContext, useContext } from 'react';
 
 interface ChatContextValue {
-  openChat: (taskId?: string, taskName?: string) => void;
+  /** `messageId` scrolls to and briefly highlights that specific message once its thread loads -
+   * used when jumping in from a notification about one particular message (e.g. a reaction). */
+  openChat: (taskId?: string, taskName?: string, messageId?: string) => void;
   chatOpen: boolean;
   chatTaskId?: string;
   adminMode: boolean;

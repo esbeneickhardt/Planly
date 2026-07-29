@@ -46,11 +46,18 @@ const editMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 const EDIT_TIMEOUT_MS = 15 * 60 * 1000;
 
 export async function adminChatRoutes(app: FastifyInstance) {
-  // Paginated fetch of admin chat history (ascending by default, cursor moves forward in time).
-  // An optional `q` switches to a search mode instead: most-recent-first, content match, capped
-  // at 20 - a different shape of query than the chronological scroll-through-history fetch above.
+  // Paginated fetch of admin chat history. `cursor` moves forward in time (catch-up polling);
+  // `before` fetches older history (lazy-load on scroll-up). With neither, returns the LATEST
+  // `limit` messages (not the oldest) so a long-running admin channel doesn't get stuck showing
+  // only its earliest messages. An optional `q` switches to a search mode instead: most-recent-
+  // first, content match, capped at 20 - a different shape of query than the chronological one.
   app.get('/api/admin/chat', { preHandler: requireAdmin }, async (req, reply) => {
-    const { cursor, limit = '200', q } = req.query as { cursor?: string; limit?: string; q?: string };
+    const { cursor, before, limit = '200', q } = req.query as {
+      cursor?: string;
+      before?: string;
+      limit?: string;
+      q?: string;
+    };
     const query = q?.trim();
     if (query && query.length >= 2) {
       const messages = await prisma.message.findMany({
@@ -62,13 +69,19 @@ export async function adminChatRoutes(app: FastifyInstance) {
       return reply.send(messages.map(decryptMessageAuthor));
     }
     const take = Math.min(parseInt(limit), 500);
+    const latestMode = !cursor && !before;
     const messages = await prisma.message.findMany({
-      where: { isAdminChat: true, ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}) },
+      where: {
+        isAdminChat: true,
+        ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}),
+        ...(before ? { createdAt: { lt: new Date(before) } } : {}),
+      },
       include: MESSAGE_INCLUDE,
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: latestMode || before ? 'desc' : 'asc' },
       take,
     });
-    reply.send(messages.map(decryptMessageAuthor));
+    const ordered = latestMode || before ? messages.reverse() : messages;
+    reply.send(ordered.map(decryptMessageAuthor));
   });
 
   // Post a message to the admin chat channel

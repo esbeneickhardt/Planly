@@ -3,7 +3,7 @@
  * Messages are polled every 5 s and paused while the browser tab is hidden.
  * Pinned and dismissed task IDs are persisted to localStorage; reactions are applied optimistically.
  */
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -19,8 +19,8 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { useChat } from '../../context/ChatContext';
 import type { Task } from '../../types';
 import TaskDetailPanel from './TaskDetailPanel';
-import { EMOJI_SET } from './MarkdownEditor';
 import MessageBubble, { formatTime } from './MessageBubble';
+import EmojiPicker from './EmojiPicker';
 import { useMessageEdit } from '../../hooks/useMessageEdit';
 import { useChatMessages } from '../../hooks/useChatMessages';
 import { useChatPeople } from '../../hooks/useChatPeople';
@@ -31,6 +31,10 @@ import Modal from './Modal';
 
 interface Props {
   initialTask?: { id: string; name: string };
+  /** Scrolls to and briefly highlights this specific message once its thread has loaded - set
+   * when opening chat from a notification about one particular message (e.g. a reaction). Applies
+   * to the task thread when `initialTask` is also set, otherwise the general project channel. */
+  scrollToMessageId?: string;
   onClose: () => void;
   isAdminChat?: boolean;
 }
@@ -63,7 +67,7 @@ function saveDismissed(productId: string, ids: string[]) {
   localStorage.setItem(DISMISSED_KEY(productId), JSON.stringify(ids));
 }
 
-export default function ChatPanel({ initialTask, onClose, isAdminChat = false }: Props) {
+export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isAdminChat = false }: Props) {
   const { activeProduct, tasks } = useProduct();
   const { user } = useAuth();
   const { confirm } = useConfirm();
@@ -74,7 +78,10 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const taskReadOnly = !(canWrite('backlog') || canWrite('kanban'));
 
   // ── Extracted hooks ──
-  const { allMessages, setAllMessages } = useChatMessages({ isAdminChat, productId: activeProduct?.id });
+  const { allMessages, setAllMessages, loadOlder, hasMoreOlder, loadingOlder } = useChatMessages({
+    isAdminChat,
+    productId: activeProduct?.id,
+  });
   const {
     conversations,
     setConversations,
@@ -90,7 +97,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     loadDmMessages,
     openDm: openDmBase,
     totalDmUnread,
-  } = useChatPeople({ isAdminChat });
+  } = useChatPeople({ isAdminChat, productId: activeProduct?.id });
   const {
     groupConversations,
     activeGroupId,
@@ -106,7 +113,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     addParticipants: addGroupParticipants,
     removeParticipant: removeGroupParticipant,
     totalGroupUnread,
-  } = useChatGroups({ isAdminChat });
+  } = useChatGroups({ isAdminChat, productId: activeProduct?.id });
   const {
     adminProjects,
     activeProjectId,
@@ -215,6 +222,9 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [showComposePicker, setShowComposePicker] = useState(false);
   const [showMarkdownHelp, setShowMarkdownHelp] = useState(false);
+  // Mobile-only overflow menu for Emoji/Markdown/Preview - keeps the compose bar down to just
+  // Attach + textarea + Send on a phone, closer to Messenger's minimal bar.
+  const [showMoreTools, setShowMoreTools] = useState(false);
   const panelWidthRef = useRef(panelWidth);
   panelWidthRef.current = panelWidth;
   const panelHeightRef = useRef(panelHeight);
@@ -282,6 +292,28 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  // The scrollable message-list container - tracked so the auto-scroll-to-bottom effect below can
+  // check whether the user is actually near the bottom (rather than yanking their view down every
+  // time a poll tick delivers someone else's message while they're scrolled up reading history),
+  // and so "Load earlier messages" can restore the scroll position after prepending older history.
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  function onMessageListScroll() {
+    const el = messageListRef.current;
+    if (!el) return;
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
+  async function handleLoadOlder() {
+    const el = messageListRef.current;
+    if (!el) return;
+    const prevScrollHeight = el.scrollHeight;
+    const prevScrollTop = el.scrollTop;
+    await loadOlder();
+    requestAnimationFrame(() => {
+      if (!messageListRef.current) return;
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight - prevScrollHeight + prevScrollTop;
+    });
+  }
 
   const productId = activeProduct?.id;
   const sendTaskId = tab === 'tasks' && selectedTask ? selectedTask.id : undefined;
@@ -291,15 +323,42 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     setAllMessages,
   });
 
-  // On small screens always use fullscreen mode; also re-check on resize
+  // On small screens always use fullscreen mode; also re-check on resize. `isMobile` is tracked
+  // separately from `isExpanded` because the latter can also be true on desktop (manual fullscreen
+  // toggle) - the compose bar needs a real breakpoint signal to render only one textarea (mobile's
+  // compact single-row one, or desktop's toolbar+textarea), never both, so `textRef` always points
+  // at whichever one is actually visible.
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => {
     function syncMobile() {
-      if (window.innerWidth < 768) setIsExpanded(true);
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setIsExpanded(true);
     }
     syncMobile();
     window.addEventListener('resize', syncMobile);
     return () => window.removeEventListener('resize', syncMobile);
   }, []);
+
+  // Mobile's single-line compose textarea grows with the message (up to the same 100px cap it
+  // already had) instead of staying a fixed one-line height. "Multiline" (which switches the
+  // +/textarea/Send row from centered to bottom-anchored) is judged against THIS device's own
+  // actual empty-textarea height, captured once, rather than a hardcoded pixel guess - line-height
+  // and padding render slightly differently across browsers/fonts, and a static threshold could
+  // misfire and leave the row bottom-anchored (looking off-center) even for a single line.
+  const [composeMultiline, setComposeMultiline] = useState(false);
+  const singleLineHeightRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (!isMobile) return;
+    const ta = textRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    const next = Math.min(ta.scrollHeight, 100);
+    ta.style.height = `${next}px`;
+    if (!draft) singleLineHeightRef.current = next;
+    const baseline = singleLineHeightRef.current ?? next;
+    setComposeMultiline(next > baseline + 4);
+  }, [draft, isMobile]);
 
   // When opened from a task's chat button, jump directly to that task's thread
   useEffect(() => {
@@ -309,10 +368,26 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     }
   }, [initialTask?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Opened from a notification about one specific message (e.g. a reaction) - land on the right
+  // thread and queue it up to scroll to. When initialTask is also set, the effect above already
+  // handles switching to that task's thread; otherwise the target is the general project channel.
+  useEffect(() => {
+    if (!scrollToMessageId) return;
+    if (!initialTask) setTab('messages');
+    setScrollToMsgId(scrollToMessageId);
+  }, [scrollToMessageId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!scrollToMsgId) return;
-    const timer = setTimeout(() => {
-      const el = document.getElementById(`chat-msg-${scrollToMsgId}`);
+    const id = scrollToMsgId;
+    let attempt = 0;
+    // Retries with backoff instead of one fixed delay - a same-thread "jump to reply" only needs a
+    // beat for the DOM to settle, but landing here fresh from a notification (new thread, history
+    // still being fetched) can take noticeably longer for the target message to actually render.
+    const maxAttempts = 10;
+    let timer: ReturnType<typeof setTimeout>;
+    function tryScroll() {
+      const el = document.getElementById(`chat-msg-${id}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.style.transition = 'background 0.3s';
@@ -320,9 +395,17 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
         setTimeout(() => {
           el.style.background = '';
         }, 2000);
+        setScrollToMsgId(null);
+        return;
       }
-      setScrollToMsgId(null);
-    }, 120);
+      attempt += 1;
+      if (attempt >= maxAttempts) {
+        setScrollToMsgId(null);
+        return;
+      }
+      timer = setTimeout(tryScroll, 150 * attempt);
+    }
+    timer = setTimeout(tryScroll, 120);
     return () => clearTimeout(timer);
   }, [scrollToMsgId]);
 
@@ -457,15 +540,15 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     return tasks.filter((t) => {
       if (q) return t.name.toLowerCase().includes(q);
       if (showAllTasks) return true;
-      // Default: show pinned, owned, mentioned - hide dismissed and done (unless pinned)
+      // Default: only pinned tasks and ones with an existing chat thread - being owned by or
+      // mentioning you isn't enough to earn a spot here on its own (a bulk task assignment would
+      // otherwise flood this list and bury the one task you're actually mid-conversation on);
+      // search above still finds any task by name regardless of this filter.
       if (pinnedTaskIds.includes(t.id)) return true;
       if (dismissedTaskIds.includes(t.id)) return false;
-      if (t.status === 'done') return false;
-      if (t.ownerId === user?.id) return true;
-      if (mentionedTaskIds.has(t.id)) return true;
-      return false;
+      return taskMessageCounts.has(t.id);
     });
-  }, [tasks, taskSearch, showAllTasks, pinnedTaskIds, dismissedTaskIds, user, mentionedTaskIds]);
+  }, [tasks, taskSearch, showAllTasks, pinnedTaskIds, dismissedTaskIds, taskMessageCounts]);
 
   // Pinned tasks shown first in list
   const sortedFilteredTasks = useMemo(() => {
@@ -484,8 +567,21 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
   }, [filteredTasks, pinnedTaskIds, taskMessageCounts]);
 
   const showingMessages = tab === 'messages' || (tab === 'tasks' && selectedTask != null);
+  // Whether a specific conversation is open (a DM thread, a group thread, or a task thread) - each
+  // of these already has its own compact "← Back" sub-header, so the outer panel header and tab
+  // bar are pure redundant chrome stacked above it on a phone; hidden there, kept on desktop where
+  // there's room for both and the tab bar stays useful as persistent navigation.
+  const inSubThread =
+    (tab === 'people' && !!activeConvId) ||
+    (tab === 'groups' && !!activeGroupId) ||
+    (tab === 'tasks' && !!selectedTask) ||
+    (tab === 'projects' && !!activeProjectId);
   useEffect(() => {
-    if (showingMessages) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only auto-scroll when the user was already near the bottom - otherwise a poll tick
+    // delivering someone else's message (or loading older history) would yank a user who's
+    // scrolled up reading back down. Right after sending your own message you're virtually
+    // always near the bottom already, so this still auto-scrolls for that case with no extra flag.
+    if (showingMessages && isNearBottomRef.current) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [displayMessages.length, showingMessages]);
 
   const filteredMessages = useMemo(() => {
@@ -960,9 +1056,52 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
     </button>
   );
 
+  // Rendered markdown preview of the current draft - shared by mobile and desktop's compose areas.
+  function markdownPreviewPane() {
+    return (
+      <div
+        className="min-h-[80px] max-h-40 overflow-y-auto px-3 py-2 rounded-lg mb-2 text-sm"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+      >
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkBreaks]}
+          rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
+          components={{
+            pre: ({ children }: any) => <>{children}</>,
+            code: ({ className, children, ...props }: any) => {
+              if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
+              if (String(children).includes('\n'))
+                return (
+                  <pre>
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  </pre>
+                );
+              return (
+                <code className={className} {...props}>
+                  {children}
+                </code>
+              );
+            },
+          }}
+        >
+          {draft || '*Nothing to preview*'}
+        </ReactMarkdown>
+      </div>
+    );
+  }
+
   function composeArea() {
     return (
-      <div className="px-4 pb-4 pt-2 flex-shrink-0 relative" style={{ borderTop: '1px solid var(--border)' }}>
+      // pb-4 (16px) used to be exactly double pt-2 (8px) here - fine on desktop where more rows
+      // (attachments, mention footer) usually sit between the last input row and this padding,
+      // but on mobile the compact row is always the very last thing in flow, so that doubled
+      // bottom padding read as a lopsided gap instead of the row sitting centered in its box.
+      <div
+        className={`px-4 flex-shrink-0 relative ${isMobile ? 'pt-2 pb-2' : 'pt-2 pb-4'}`}
+        style={{ borderTop: '1px solid var(--border)' }}
+      >
         {/* Reply-to preview bar */}
         {replyingTo && (
           <div
@@ -1048,33 +1187,28 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
             className="fixed left-2 right-2 bottom-4 md:absolute md:left-4 md:right-auto md:bottom-full md:mb-1 z-50 p-2 rounded-xl shadow-xl"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
           >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 28px)', gap: 2 }}>
-              {EMOJI_SET.map((e) => (
-                <button
-                  key={e}
-                  onMouseDown={(ev) => {
-                    ev.preventDefault();
-                    const ta = textRef.current;
-                    if (ta) {
-                      const start = ta.selectionStart ?? draft.length;
-                      const end = ta.selectionEnd ?? draft.length;
-                      const next = draft.slice(0, start) + e + draft.slice(end);
-                      setDraft(next);
-                      requestAnimationFrame(() => {
-                        ta.focus();
-                        ta.setSelectionRange(start + e.length, start + e.length);
-                      });
-                    } else {
-                      setDraft((d) => d + e);
-                    }
-                    setShowComposePicker(false);
-                  }}
-                  className="flex items-center justify-center rounded text-base"
-                  style={{ width: 28, height: 28 }}
-                >
-                  {e}
-                </button>
-              ))}
+            {/* onMouseDown+preventDefault here (not inside EmojiPicker itself) keeps the textarea
+                focused through the tap, same fix as the Send button - otherwise the click steals
+                focus first, closing the mobile keyboard, then the refocus below reopens it. */}
+            <div onMouseDown={(ev) => ev.preventDefault()}>
+              <EmojiPicker
+                onChange={(e) => {
+                  const ta = textRef.current;
+                  if (ta) {
+                    const start = ta.selectionStart ?? draft.length;
+                    const end = ta.selectionEnd ?? draft.length;
+                    const next = draft.slice(0, start) + e + draft.slice(end);
+                    setDraft(next);
+                    requestAnimationFrame(() => {
+                      ta.focus();
+                      ta.setSelectionRange(start + e.length, start + e.length);
+                    });
+                  } else {
+                    setDraft((d) => d + e);
+                  }
+                  setShowComposePicker(false);
+                }}
+              />
             </div>
           </div>
         )}
@@ -1150,150 +1284,328 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
           </div>
         )}
 
-        {/* Toolbar - order: 😊 Emoji | 📎 Attach | ℹ Markdown | Preview */}
-        <div className="flex items-center gap-1 mb-2">
-          <button
-            data-emoji-picker
-            onClick={() => setShowComposePicker((v) => !v)}
-            className="text-xs px-2 py-0.5 rounded-md transition-colors"
-            style={{
-              background: showComposePicker ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              color: showComposePicker ? 'var(--brand)' : 'var(--text-2)',
-            }}
-            title="Insert emoji"
-          >
-            😊
-          </button>
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="text-xs px-2 py-0.5 rounded-md transition-colors"
-            style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
-          >
-            {uploading ? '⏳' : '📎'} Attach
-          </button>
-          <button
-            onClick={() => setShowMarkdownHelp((v) => !v)}
-            className="text-xs px-2 py-0.5 rounded-md transition-colors font-medium"
-            style={{
-              background: showMarkdownHelp ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              color: showMarkdownHelp ? 'var(--brand)' : 'var(--text-3)',
-            }}
-            title="Markdown reference"
-          >
-            ℹ Markdown
-          </button>
-          <button
-            onClick={() => setPreview((v) => !v)}
-            className="text-xs px-2 py-0.5 rounded-md transition-colors"
-            style={{
-              background: preview ? 'var(--brand-subtle)' : 'var(--surface-2)',
-              color: preview ? 'var(--brand)' : 'var(--text-3)',
-            }}
-          >
-            {preview ? 'Edit' : 'Preview'}
-          </button>
-        </div>
+        {isMobile ? (
+          <>
+            {/* Attachment previews sit above the composer row on mobile (no separate row to put
+                them below, since the compact bar's Send is already inline). */}
+            {attachments.length > 0 && (
+              <div className="pb-2 flex gap-2 flex-wrap">
+                {attachments.map((att, i) => (
+                  <div key={i} className="relative">
+                    {att.type?.startsWith('image/') ? (
+                      <img
+                        src={att.thumbnailUrl ?? att.url}
+                        alt={att.name}
+                        className="h-14 w-14 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="h-14 px-3 flex items-center text-xs rounded-lg"
+                        style={{
+                          background: 'var(--surface-2)',
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-2)',
+                        }}
+                      >
+                        📎 {att.name}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
+                      style={{ background: '#ef4444', color: 'white' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-        {preview ? (
-          <div
-            className="min-h-[80px] max-h-40 overflow-y-auto px-3 py-2 rounded-lg mb-2 text-sm"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
-          >
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkBreaks]}
-              rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
-              components={{
-                pre: ({ children }: any) => <>{children}</>,
-                code: ({ className, children, ...props }: any) => {
-                  if (className?.includes('language-mermaid'))
-                    return <MermaidBlock code={String(children).trimEnd()} />;
-                  if (String(children).includes('\n'))
-                    return (
-                      <pre>
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      </pre>
-                    );
-                  return (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-              }}
-            >
-              {draft || '*Nothing to preview*'}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          <textarea
-            ref={textRef}
-            rows={3}
-            value={draft}
-            onChange={handleDraftChange}
-            onPaste={handlePaste}
-            onKeyDown={handleDraftKeyDown}
-            placeholder="Write a message… type @ to mention · ⌘↵ send"
-            className="input text-sm w-full resize-none mb-2"
-          />
-        )}
-
-        {attachments.length > 0 && (
-          <div className="pb-2 flex gap-2 flex-wrap">
-            {attachments.map((att, i) => (
-              <div key={i} className="relative group/att">
-                {att.type?.startsWith('image/') ? (
-                  <img
-                    src={att.thumbnailUrl ?? att.url}
-                    alt={att.name}
-                    className="h-14 w-14 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div
-                    className="h-14 px-3 flex items-center text-xs rounded-lg"
+            {/* Mobile compact bar - Messenger-style: one "+" tray replaces the whole desktop
+                toolbar row, a single-line textarea grows in place, Send sits at the end. Hidden
+                while previewing markdown (falls through to the shared preview pane below instead,
+                with its own Send row, same as desktop). */}
+            {!preview && (
+              // No trailing margin here - this row is always the last thing in flow in this branch
+              // (the container's own pb-4 already provides bottom spacing), so an mb-2 here was
+              // pure extra dead space stacking on top of that padding - "two boxes" worth of bottom
+              // spacing for what should have been one, pushing the row up off-center inside the
+              // bordered compose box.
+              <div className={`flex ${composeMultiline ? 'items-end' : 'items-center'} gap-2`}>
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={() => setShowMoreTools((v) => !v)}
+                    aria-label="More options"
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-xl transition-colors flex-shrink-0"
                     style={{
-                      background: 'var(--surface-2)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--text-2)',
+                      background: showMoreTools ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                      color: showMoreTools ? 'var(--brand)' : 'var(--text-2)',
                     }}
                   >
-                    📎 {att.name}
-                  </div>
-                )}
+                    {showMoreTools ? '✕' : '+'}
+                  </button>
+                  {showMoreTools && (
+                    <>
+                      <button
+                        className="fixed inset-0 z-10"
+                        style={{ background: 'transparent' }}
+                        aria-label="Close more options"
+                        onClick={() => setShowMoreTools(false)}
+                      />
+                      <div
+                        className="absolute left-0 bottom-full mb-2 z-20 rounded-2xl shadow-xl p-3 grid grid-cols-4 gap-3 animate-dropdown-in"
+                        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 236 }}
+                      >
+                        {[
+                          {
+                            icon: uploading ? '⏳' : '📎',
+                            label: 'Attach',
+                            active: false,
+                            onClick: () => {
+                              fileRef.current?.click();
+                              setShowMoreTools(false);
+                            },
+                          },
+                          {
+                            icon: '😊',
+                            label: 'Emoji',
+                            active: showComposePicker,
+                            onClick: () => {
+                              setShowComposePicker((v) => !v);
+                              setShowMoreTools(false);
+                            },
+                            dataAttr: true,
+                          },
+                          {
+                            icon: 'ℹ',
+                            label: 'Markdown',
+                            active: showMarkdownHelp,
+                            onClick: () => {
+                              setShowMarkdownHelp((v) => !v);
+                              setShowMoreTools(false);
+                            },
+                          },
+                          {
+                            icon: '👁',
+                            label: preview ? 'Edit' : 'Preview',
+                            active: preview as boolean,
+                            onClick: () => {
+                              setPreview((v) => !v);
+                              setShowMoreTools(false);
+                            },
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            {...(item.dataAttr ? { 'data-emoji-picker': true } : {})}
+                            onClick={item.onClick}
+                            className="flex flex-col items-center gap-1"
+                          >
+                            <span
+                              className="w-11 h-11 rounded-full flex items-center justify-center text-lg transition-colors"
+                              style={{
+                                background: item.active ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                                color: item.active ? 'var(--brand)' : 'var(--text-2)',
+                              }}
+                            >
+                              {item.icon}
+                            </span>
+                            <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+                              {item.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <textarea
+                  ref={textRef}
+                  rows={1}
+                  value={draft}
+                  onChange={handleDraftChange}
+                  onPaste={handlePaste}
+                  onKeyDown={handleDraftKeyDown}
+                  placeholder="Message…"
+                  className="input text-sm flex-1 resize-none rounded-full py-2"
+                  style={{ maxHeight: 100, overflowY: 'auto', boxSizing: 'border-box', lineHeight: '20px' }}
+                />
                 <button
-                  onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))}
-                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover/att:opacity-100"
-                  style={{ background: '#ef4444', color: 'white' }}
+                  onClick={send}
+                  onMouseDown={(e) => e.preventDefault()}
+                  disabled={sending || (!draft.trim() && attachments.length === 0)}
+                  aria-label="Send"
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity disabled:opacity-40"
+                  style={{ background: 'var(--brand)', color: 'white' }}
                 >
-                  ✕
+                  {sending ? '…' : '➤'}
                 </button>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        <div className="flex justify-between items-center">
-          <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-            @ mention · ```python · ⌘↵ send
-          </span>
-          <button
-            onClick={send}
-            disabled={sending || (!draft.trim() && attachments.length === 0)}
-            className="btn-primary text-xs px-4"
-          >
-            {sending ? '…' : 'Send'}
-          </button>
-        </div>
+            {preview && (
+              <>
+                {markdownPreviewPane()}
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => setPreview(false)}
+                    className="text-xs px-3 py-1.5 rounded-lg"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                  >
+                    ✎ Edit
+                  </button>
+                  <button
+                    onClick={send}
+                    onMouseDown={(e) => e.preventDefault()}
+                    disabled={sending || (!draft.trim() && attachments.length === 0)}
+                    className="btn-primary text-xs px-4"
+                  >
+                    {sending ? '…' : 'Send'}
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Desktop toolbar - order: 😊 Emoji | 📎 Attach | ℹ Markdown | Preview, all inline */}
+            <div className="flex items-center gap-1 mb-2">
+              <button
+                data-emoji-picker
+                onClick={() => setShowComposePicker((v) => !v)}
+                className="text-xs px-2 py-0.5 rounded-md transition-colors"
+                style={{
+                  background: showComposePicker ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  color: showComposePicker ? 'var(--brand)' : 'var(--text-2)',
+                }}
+                title="Insert emoji"
+              >
+                😊
+              </button>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="text-xs px-2 py-0.5 rounded-md transition-colors"
+                style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
+              >
+                {uploading ? '⏳' : '📎'} Attach
+              </button>
+              <button
+                onClick={() => setShowMarkdownHelp((v) => !v)}
+                className="text-xs px-2 py-0.5 rounded-md transition-colors font-medium"
+                style={{
+                  background: showMarkdownHelp ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  color: showMarkdownHelp ? 'var(--brand)' : 'var(--text-3)',
+                }}
+                title="Markdown reference"
+              >
+                ℹ Markdown
+              </button>
+              <button
+                onClick={() => setPreview((v) => !v)}
+                className="text-xs px-2 py-0.5 rounded-md transition-colors"
+                style={{
+                  background: preview ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  color: preview ? 'var(--brand)' : 'var(--text-3)',
+                }}
+              >
+                {preview ? 'Edit' : 'Preview'}
+              </button>
+            </div>
+
+            {preview ? (
+              markdownPreviewPane()
+            ) : (
+              <textarea
+                ref={textRef}
+                rows={3}
+                value={draft}
+                onChange={handleDraftChange}
+                onPaste={handlePaste}
+                onKeyDown={handleDraftKeyDown}
+                placeholder="Write a message… type @ to mention · ⌘↵ send"
+                className="input text-sm w-full resize-none mb-2"
+              />
+            )}
+
+            {attachments.length > 0 && (
+              <div className="pb-2 flex gap-2 flex-wrap">
+                {attachments.map((att, i) => (
+                  <div key={i} className="relative group/att">
+                    {att.type?.startsWith('image/') ? (
+                      <img
+                        src={att.thumbnailUrl ?? att.url}
+                        alt={att.name}
+                        className="h-14 w-14 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="h-14 px-3 flex items-center text-xs rounded-lg"
+                        style={{
+                          background: 'var(--surface-2)',
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-2)',
+                        }}
+                      >
+                        📎 {att.name}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover/att:opacity-100"
+                      style={{ background: '#ef4444', color: 'white' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-between items-center">
+              <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+                @ mention · ```python · ⌘↵ send
+              </span>
+              <button
+                onClick={send}
+                onMouseDown={(e) => e.preventDefault()}
+                disabled={sending || (!draft.trim() && attachments.length === 0)}
+                className="btn-primary text-xs px-4"
+              >
+                {sending ? '…' : 'Send'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     );
   }
 
-  // Renders a list of messages; role badges come directly from msg.postedAsRole stored at send time
-  function messageList(msgs: Message[]) {
+  // Renders a list of messages; role badges come directly from msg.postedAsRole stored at send time.
+  // `showLoadOlder` only applies to project-chat's own message list (the one backed by
+  // useChatMessages' pagination) - DM/group/admin-project views don't support it.
+  function messageList(msgs: Message[], showLoadOlder = false) {
     return (
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5">
+      <div ref={messageListRef} onScroll={onMessageListScroll} className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5">
+        {showLoadOlder && msgs.length > 0 && (
+          <div className="flex justify-center pb-1">
+            {hasMoreOlder ? (
+              <button
+                onClick={handleLoadOlder}
+                disabled={loadingOlder}
+                className="text-xs px-3 py-1 rounded-lg"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+              >
+                {loadingOlder ? 'Loading…' : 'Load earlier messages'}
+              </button>
+            ) : (
+              <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+                Beginning of conversation
+              </span>
+            )}
+          </div>
+        )}
         {msgs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: 'var(--text-3)' }}>
             <span className="text-3xl opacity-30">💬</span>
@@ -1364,6 +1676,8 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                       }}
                       onScrollToReply={(id) => setScrollToMsgId(id)}
                       authorRole={authorRole}
+                      isMobile={isMobile}
+                      scrollContainerRef={messageListRef}
                     />
                   </div>
                 )}
@@ -1543,27 +1857,15 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
           style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }}
         />
       )}
-      {/* Grab handle - swipe-down-to-dismiss affordance, only relevant in the expanded/mobile layout */}
-      {isExpanded && (
-        <div
-          onTouchStart={handleExpandedTouchStart}
-          onTouchMove={handleExpandedTouchMove}
-          onTouchEnd={handleExpandedTouchEnd}
-          onTouchCancel={handleExpandedTouchEnd}
-          className="md:hidden flex justify-center pt-2 flex-shrink-0"
-          style={{ touchAction: 'none' }}
-          aria-hidden="true"
-        >
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border-2)' }} />
-        </div>
-      )}
-      {/* Header - drag handle (desktop float-panel drag) or swipe-down-to-dismiss (expanded) */}
+      {/* Header - drag handle (desktop float-panel drag) or swipe-down-to-dismiss (expanded); also
+          doubles as the grab handle itself (no separate bar needed - one less stacked row). Hidden
+          on mobile while a sub-thread's own compact header is showing (see inSubThread above). */}
       <div
         onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
         onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
         onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
         onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
-        className="flex items-center justify-between px-4 py-3 flex-shrink-0 select-none"
+        className="hidden md:flex items-center justify-between px-4 py-3 flex-shrink-0 select-none"
         style={{
           borderBottom: isMinimized ? 'none' : '1px solid var(--border)',
           cursor: isExpanded ? 'default' : 'grab',
@@ -1592,7 +1894,9 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
               </span>
             </div>
           ) : (
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+            // Hidden on mobile - the tab bar directly below already shows which section is
+            // selected, so this title would just repeat it; desktop keeps it as window chrome.
+            <h2 className="hidden md:block text-sm font-semibold" style={{ color: 'var(--text)' }}>
               💬 {isAdminChat ? 'Admin chat' : 'Project chat'}
             </h2>
           )}
@@ -1615,13 +1919,20 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
 
       {!isMinimized && (
         <>
-          {/* Tabs */}
+          {/* Tabs - the top-most row on mobile (the panel header above is desktop-only there),
+              so it also carries the swipe-down-to-dismiss handlers and a mobile-only close button.
+              Hidden entirely on mobile while a sub-thread's own header is showing instead. */}
           <div
-            className="flex items-center gap-1 px-3 py-2 flex-shrink-0 overflow-x-auto"
-            style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}
+            onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
+            onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
+            onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
+            onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
+            className={`${inSubThread ? 'hidden md:flex' : 'flex'} items-center gap-1 px-3 py-2 flex-shrink-0`}
+            style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
           >
-            {tabBtn('messages', isAdminChat ? 'Admin' : 'Project', unreadByTask.general)}
-            {isAdminChat && (
+            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              {tabBtn('messages', isAdminChat ? 'Admin' : 'Project', unreadByTask.general)}
+              {isAdminChat && (
               <button
                 onClick={() => {
                   setTab('projects');
@@ -1686,15 +1997,24 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                 </span>
               )}
             </button>
-            {!isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`, tasksUnread)}
-            {tabBtn('files', 'Files')}
-            {tabBtn('search', 'Search')}
+              {!isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`, tasksUnread)}
+              {tabBtn('files', 'Files')}
+              {tabBtn('search', 'Search')}
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close chat"
+              className="md:hidden flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm ml-1"
+              style={{ color: 'var(--text-3)' }}
+            >
+              ✕
+            </button>
           </div>
 
           {/* ── Messages tab ── */}
           {tab === 'messages' && (
             <>
-              {messageList(displayMessages)}
+              {messageList(displayMessages, true)}
               {composeArea()}
             </>
           )}
@@ -1705,8 +2025,12 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
             (selectedTask ? (
               <>
                 <div
-                  className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)' }}
+                  onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
+                  onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
+                  onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
+                  onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
+                  className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
+                  style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
                 >
                   <button
                     onClick={() => {
@@ -1714,12 +2038,20 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                       setDraft('');
                       setAttachments([]);
                     }}
-                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                    aria-label="Back"
+                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+                    style={{ color: 'var(--text-2)' }}
                   >
-                    ← Back
+                    ‹
                   </button>
-                  <p className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+                    style={{ background: 'var(--surface-2)' }}
+                    aria-hidden="true"
+                  >
+                    📋
+                  </span>
+                  <p className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
                     {selectedTask.name}
                   </p>
                   <button
@@ -1753,7 +2085,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                     {openingTask ? '…' : 'Open task →'}
                   </button>
                 </div>
-                {messageList(displayMessages)}
+                {messageList(displayMessages, true)}
                 {composeArea()}
               </>
             ) : (
@@ -1770,7 +2102,7 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                   {!taskSearch && (
                     <div className="flex items-center justify-between">
                       <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-                        {showAllTasks ? 'All tasks' : 'Your tasks (owned or mentioned)'}
+                        {showAllTasks ? 'All tasks' : 'Pinned & active chats'}
                       </span>
                       <button
                         onClick={() => setShowAllTasks((v) => !v)}
@@ -1793,7 +2125,9 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                       style={{ color: 'var(--text-3)' }}
                     >
                       <span className="text-3xl opacity-30">📋</span>
-                      <p className="text-sm">{taskSearch ? 'No tasks match.' : 'No active tasks assigned to you.'}</p>
+                      <p className="text-sm">
+                        {taskSearch ? 'No tasks match.' : 'No pinned tasks or active chats yet - search to find one.'}
+                      </p>
                       {!taskSearch && !showAllTasks && (
                         <button
                           onClick={() => setShowAllTasks(true)}
@@ -2159,8 +2493,12 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
               // DM thread — same visual identity as project/admin chat
               <>
                 <div
-                  className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)' }}
+                  onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
+                  onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
+                  onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
+                  onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
+                  className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
+                  style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
                 >
                   <button
                     onClick={() => {
@@ -2171,12 +2509,20 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                       setAttachments([]);
                       loadPeople();
                     }}
-                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                    aria-label="Back"
+                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+                    style={{ color: 'var(--text-2)' }}
                   >
-                    ← Back
+                    ‹
                   </button>
-                  <p className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+                    style={{ background: 'var(--surface-2)' }}
+                    aria-hidden="true"
+                  >
+                    {activeConvOther?.avatarEmoji ?? '👤'}
+                  </span>
+                  <p className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
                     {(() => {
                       if (activeConvOther) return displayName(activeConvOther);
                       const conv = conversations.find((c) => c.id === activeConvId);
@@ -2369,8 +2715,12 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
               // Group thread — same visual identity as DM/project chat
               <>
                 <div
-                  className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)' }}
+                  onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
+                  onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
+                  onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
+                  onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
+                  className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
+                  style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
                 >
                   <button
                     onClick={() => {
@@ -2380,12 +2730,20 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                       setAttachments([]);
                       loadGroups();
                     }}
-                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                    aria-label="Back"
+                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+                    style={{ color: 'var(--text-2)' }}
                   >
-                    ← Back
+                    ‹
                   </button>
-                  <p className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+                    style={{ background: 'var(--surface-2)' }}
+                    aria-hidden="true"
+                  >
+                    👥
+                  </span>
+                  <p className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
                     {(() => {
                       const conv = groupConversations.find((c) => c.id === activeGroupId);
                       return conv ? groupTitle(conv) : 'Group';
@@ -2506,8 +2864,12 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
               // Project chat view
               <>
                 <div
-                  className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)' }}
+                  onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
+                  onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
+                  onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
+                  onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
+                  className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
+                  style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
                 >
                   <button
                     onClick={() => {
@@ -2516,13 +2878,20 @@ export default function ChatPanel({ initialTask, onClose, isAdminChat = false }:
                       setDraft('');
                       setAttachments([]);
                     }}
-                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                    aria-label="Back"
+                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+                    style={{ color: 'var(--text-2)' }}
                   >
-                    ← Back
+                    ‹
                   </button>
-                  <p className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
-                    {adminProjects.find((p) => p.id === activeProjectId)?.emoji ?? ''}{' '}
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+                    style={{ background: 'var(--surface-2)' }}
+                    aria-hidden="true"
+                  >
+                    {adminProjects.find((p) => p.id === activeProjectId)?.emoji ?? '📁'}
+                  </span>
+                  <p className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
                     {adminProjects.find((p) => p.id === activeProjectId)?.name ?? 'Project'}
                   </p>
                 </div>

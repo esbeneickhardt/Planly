@@ -80,6 +80,31 @@ export async function notificationRoutes(app: FastifyInstance) {
     reply.send({ count });
   });
 
+  // Unread counts broken down by project, for the project picker's per-project badges (plus a
+  // grand `total` across every project, including system notifications with no productId, for
+  // the mobile project-picker button's own aggregate badge). Optional ?excludeTypes= (comma-
+  // separated) matches the bell's own message-type exclusion so the two stay consistent.
+  app.get('/api/notifications/unread-by-product', { preHandler: requireAuth }, async (req, reply) => {
+    const { excludeTypes } = req.query as { excludeTypes?: string };
+    const omitTypes = parseTypesParam(excludeTypes);
+    const groups = await prisma.notification.groupBy({
+      by: ['productId'],
+      where: {
+        userId: req.user.userId,
+        read: false,
+        ...(omitTypes ? { type: { notIn: omitTypes } } : {}),
+      },
+      _count: { _all: true },
+    });
+    const byProduct: Record<string, number> = {};
+    let total = 0;
+    for (const g of groups) {
+      total += g._count._all;
+      if (g.productId) byProduct[g.productId] = g._count._all;
+    }
+    reply.send({ byProduct, total });
+  });
+
   // Unread @mention counts broken down by task thread, for the Chat panel's Project/Tasks tab
   // badges and per-task-thread row badges. `general` is mentions with no taskId (the project's
   // general channel); `byTask` maps taskId -> unread count for mentions inside that task's thread.

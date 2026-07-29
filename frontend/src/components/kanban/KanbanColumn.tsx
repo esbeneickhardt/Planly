@@ -220,7 +220,10 @@ export default function KanbanColumn({
     >
       <div
         className="rounded-xl flex flex-col h-full"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+        // Colored by the column's own status color (blue for To Do, etc.) - matches the Milestone
+        // columns view's own 2px colored border exactly, instead of the plain neutral gray this had
+        // before, so status columns get the same "cool" colored look.
+        style={{ background: 'var(--surface-2)', border: `2px solid ${column.color}` }}
       >
         {/* Column header - drag handle for column reordering */}
         <div

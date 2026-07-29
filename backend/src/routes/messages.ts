@@ -171,7 +171,11 @@ export async function messageRoutes(app: FastifyInstance) {
     }
   });
 
-  // List messages for a product (or a specific task)
+  // List messages for a product (or a specific task).
+  // `cursor` fetches messages newer than a point (forward catch-up); `before` fetches messages
+  // older than a point (lazy-loading history further up). When neither is given (initial load or
+  // a poll tick), this returns the LATEST `limit` messages, not the oldest - a channel with more
+  // than `limit` total messages would otherwise be stuck showing only its oldest ones forever.
   app.get('/api/products/:productId/messages', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!(await requireProductMember(productId, req.user, reply))) return;
@@ -179,17 +183,26 @@ export async function messageRoutes(app: FastifyInstance) {
       taskId,
       all,
       cursor,
+      before,
       limit = '100',
-    } = req.query as { taskId?: string; all?: string; cursor?: string; limit?: string };
+    } = req.query as { taskId?: string; all?: string; cursor?: string; before?: string; limit?: string };
     const take = Math.min(parseInt(limit), 200);
     const where = all === 'true' ? { productId } : { productId, taskId: taskId ?? null };
+    // "Latest N" mode (no cursor/before): fetch newest-first then reverse, so callers always get
+    // ascending order regardless of which mode served the request.
+    const latestMode = !cursor && !before;
     const messages = await prisma.message.findMany({
-      where: { ...where, ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}) },
+      where: {
+        ...where,
+        ...(cursor ? { createdAt: { gt: new Date(cursor) } } : {}),
+        ...(before ? { createdAt: { lt: new Date(before) } } : {}),
+      },
       include: MESSAGE_INCLUDE,
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: latestMode || before ? 'desc' : 'asc' },
       take,
     });
-    reply.send(messages.map(decryptMessageAuthor));
+    const ordered = latestMode || before ? messages.reverse() : messages;
+    reply.send(ordered.map(decryptMessageAuthor));
   });
 
   // Create a message, broadcast it, dispatch webhooks, and notify @mentions
@@ -330,6 +343,24 @@ export async function messageRoutes(app: FastifyInstance) {
         await prisma.messageReaction.delete({ where: { messageId_userId_emoji: key } });
       } else {
         await prisma.messageReaction.create({ data: key });
+        // Notify the message author on a new reaction (not on toggle-off, and never for
+        // reacting to your own message).
+        const message = await prisma.message.findUnique({
+          where: { id: messageId },
+          select: { authorId: true, taskId: true },
+        });
+        if (message && message.authorId !== req.user.userId) {
+          createNotification({
+            userId: message.authorId,
+            type: 'reaction',
+            title: `${req.user.username} reacted ${emoji} to your message`,
+            productId,
+            taskId: message.taskId ?? undefined,
+            // Lets the frontend jump straight to (and highlight) the reacted-to message when the
+            // notification is clicked, instead of just landing on the general chat/task thread.
+            metadata: { messageId },
+          }).catch(() => {});
+        }
       }
 
       const reactions = await prisma.messageReaction.findMany({

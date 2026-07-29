@@ -9,10 +9,18 @@ const NOTIFICATION_TYPES: { type: string; label: string; description: string; de
   { type: 'task_assigned', label: 'Task assigned', description: 'When a task is assigned to you', defaultOn: true },
   { type: 'task_commented', label: 'Task comment', description: 'When someone comments on your task', defaultOn: true },
   { type: 'mention', label: '@Mention', description: 'When someone mentions you in a message', defaultOn: true },
+  { type: 'reaction', label: 'Reactions', description: 'When someone reacts to your message', defaultOn: true },
   {
     type: 'emailMentions',
     label: 'Email for @mentions',
     description: 'Send an email when you are @mentioned (requires SMTP)',
+    defaultOn: false,
+    group: 'email',
+  },
+  {
+    type: 'emailDirectMessages',
+    label: 'Email for messages',
+    description: 'Send an email when you receive a direct or group message (requires SMTP)',
     defaultOn: false,
     group: 'email',
   },

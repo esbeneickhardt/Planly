@@ -105,10 +105,11 @@ describe('KanbanMobileList', () => {
     expect(screen.getByText(/No columns yet/i)).toBeInTheDocument();
   });
 
-  it('renders the assignee name for assigned tasks', () => {
+  it('renders the assignee name inline, left-aligned in the card metadata row', () => {
     const task = makeTask('t1', { ownerId: 'u1' });
     render(<KanbanMobileList columns={[makeColumn()]} tasks={[task]} users={USERS} onOpenDetail={onOpenDetail} />);
     expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /assigned to Alice/i })).toBeInTheDocument();
   });
 
   it('renders the deadline for tasks that have one', () => {
@@ -154,6 +155,6 @@ describe('KanbanMobileList', () => {
       ] as unknown as Task['subtasks'],
     });
     render(<KanbanMobileList columns={[makeColumn()]} tasks={[task]} users={[]} onOpenDetail={onOpenDetail} />);
-    expect(screen.getByText('1/2 subtasks')).toBeInTheDocument();
+    expect(screen.getByText('1/2')).toBeInTheDocument();
   });
 });
