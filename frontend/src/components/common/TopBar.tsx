@@ -18,6 +18,7 @@ import DiscoverProjectsModal from './DiscoverProjectsModal';
 import MembershipsModal from './MembershipsModal';
 import IntegrationsModal from './IntegrationsModal';
 import NotificationBell from './NotificationBell';
+import { MESSAGE_NOTIFICATION_TYPES } from '../../constants/notifications';
 import NotificationPreferencesModal from './NotificationPreferencesModal';
 import PrivacyModal from './PrivacyModal';
 import ThemePickerModal from './ThemePickerModal';
@@ -181,8 +182,15 @@ export default function TopBar({
     let cancelled = false;
     async function refresh() {
       try {
+        // Non-admin chat is always scoped to one project now, so there's nothing to count
+        // without an active project (mirrors the mentions guard just below).
         const [convCount, mentions] = await Promise.all([
-          api.conversations.unreadCount(!!chatIsAdmin).then((r) => r.count).catch(() => 0),
+          chatIsAdmin || activeProduct?.id
+            ? api.conversations
+                .unreadCount(!!chatIsAdmin, chatIsAdmin ? undefined : activeProduct?.id)
+                .then((r) => r.count)
+                .catch(() => 0)
+            : Promise.resolve(0),
           !chatIsAdmin && activeProduct?.id
             ? api.notifications.unreadByTask(activeProduct.id).catch(() => ({ general: 0, byTask: {} }))
             : Promise.resolve({ general: 0, byTask: {} as Record<string, number> }),
@@ -198,6 +206,33 @@ export default function TopBar({
       clearInterval(interval);
     };
   }, [activeProduct?.id, chatIsAdmin]);
+
+  // Per-project unread notification counts for the project picker (each project's own badge, plus
+  // an aggregate `total` across all of them for the mobile picker button's own badge - desktop
+  // already shows the active project's count via the bell right next to it, so it doesn't need a
+  // second one). Same exclusion as the bell itself so the two stay consistent.
+  const [notifByProduct, setNotifByProduct] = useState<Record<string, number>>({});
+  const [notifTotal, setNotifTotal] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    async function refresh() {
+      try {
+        const { byProduct, total } = await api.notifications.unreadByProduct({
+          excludeTypes: MESSAGE_NOTIFICATION_TYPES,
+        });
+        if (!cancelled) {
+          setNotifByProduct(byProduct);
+          setNotifTotal(total);
+        }
+      } catch {}
+    }
+    refresh();
+    const interval = setInterval(refresh, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Pre-filter nav items so TopBarMobileMenu doesn't need to repeat the canRead/analyticsEnabled
   // logic. Canvas is dropped here (mobile only - desktop's own nav filter below is untouched):
@@ -562,6 +597,7 @@ export default function TopBar({
               chatIsAdmin={!!chatIsAdmin}
               isAdmin={!!user?.isAdmin}
               isOpen={showProjectDd}
+              unreadByProduct={notifByProduct}
               mobileNavPosition={mobileNavPosition}
               onExitAdmin={() => onExitAdmin?.()}
               onShowNewProduct={() => setShowNewProduct(true)}
@@ -572,14 +608,16 @@ export default function TopBar({
           </div>
 
           {/* Project picker (mobile) - round, emoji-only button instead of the desktop pill so it
-              matches the other icon buttons in this row; opens the same picker dropdown. */}
+              matches the other icon buttons in this row; opens the same picker dropdown. Also
+              carries the aggregate notification-total badge (mobile only - desktop already shows
+              the active project's own count via the bell right next to this button). */}
           <div ref={projectRefMobile} className="lg:hidden relative">
             <button
               onClick={() => {
                 setShowProjectDd((v) => !v);
                 setShowAccountDd(false);
               }}
-              className="flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0 text-lg font-semibold"
+              className="flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0 text-lg font-semibold relative"
               style={{
                 color: chatIsAdmin ? 'var(--brand)' : 'var(--text)',
                 background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -593,6 +631,14 @@ export default function TopBar({
               ) : (
                 <span aria-hidden="true">{activeProduct?.emoji ?? '🎯'}</span>
               )}
+              {notifTotal > 0 && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
+                  style={{ background: '#ef4444', minWidth: 16, height: 16, padding: '0 3px' }}
+                >
+                  {notifTotal > 99 ? '99+' : notifTotal}
+                </span>
+              )}
             </button>
             <TopBarProjectPicker
               products={products}
@@ -601,6 +647,7 @@ export default function TopBar({
               chatIsAdmin={!!chatIsAdmin}
               isAdmin={!!user?.isAdmin}
               isOpen={showProjectDd}
+              unreadByProduct={notifByProduct}
               mobileNavPosition={mobileNavPosition}
               onExitAdmin={() => onExitAdmin?.()}
               onShowNewProduct={() => setShowNewProduct(true)}

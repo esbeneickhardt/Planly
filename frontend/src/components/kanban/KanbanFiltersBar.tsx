@@ -74,8 +74,9 @@ interface Props {
 }
 
 /** One row inside the View menu - a full-width toggle button with an optional trailing checkmark.
- * `desktopOnly` hides the row on mobile for the settings KanbanMobileList doesn't actually read
- * (compact/simple density, background), matching what those controls did before consolidation. */
+ * `desktopOnly` hides the row on mobile for settings KanbanMobileList doesn't apply at all (the
+ * compact-vs-board layout swap, a desktop-only concept) - simple cards and background are both
+ * mobile-relevant now and don't use this flag. */
 function ViewMenuRow({
   active,
   onClick,
@@ -272,11 +273,14 @@ export default function KanbanFiltersBar({
         {hasFilters ? ' filtered' : ''} tasks
       </span>
 
-      <div className="w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
+      <div className="hidden md:block w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
 
-      {/* Mine toggle */}
+      {/* Mine toggle - icon-only on mobile (label hidden below md:) to keep this whole row from
+          wrapping to a second line on a phone-width screen; the emoji plus title/aria-label alone
+          still reads clearly as a toggle at that size. */}
       <button
         onClick={onMineToggle}
+        aria-label="Show only my tasks"
         className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
         style={{
           color: mineOnly ? 'var(--brand)' : 'var(--text-3)',
@@ -285,17 +289,19 @@ export default function KanbanFiltersBar({
         }}
         title="Show only my tasks"
       >
-        {user?.avatarEmoji ?? '👤'} Mine
+        {user?.avatarEmoji ?? '👤'} <span className="hidden md:inline">Mine</span>
       </button>
 
-      {/* Reset - only worth showing once something is actually filtered */}
+      {/* Reset - only worth showing once something is actually filtered; icon-only on mobile,
+          same reasoning as Mine above. */}
       {hasFilters && (
         <button
           onClick={onReset}
+          aria-label="Reset filters"
           className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
           style={{ color: 'var(--brand)', background: 'var(--brand-subtle)', border: '1px solid var(--brand)' }}
         >
-          ↺ Reset
+          ↺ <span className="hidden md:inline">Reset</span>
         </button>
       )}
 
@@ -441,12 +447,13 @@ export default function KanbanFiltersBar({
 
       <div className="ml-auto flex items-center gap-2 flex-shrink-0">
         {/* View menu: board layout, density, and background - "how the board looks" rather than
-            "which tasks show". Compact/Simple/Background have no effect on the mobile swipeable
-            list (KanbanMobileList always uses its own fixed layout), so those rows stay desktop-only
-            inside the menu, same as before consolidation. */}
+            "which tasks show". Compact list view is a desktop-only layout swap (KanbanCompactList),
+            so that row stays desktop-only; Simple cards and Background both now render on the
+            mobile swipeable list too, so their pickers are available there. */}
         <div className="relative" ref={viewMenuRef}>
           <button
             onClick={onToggleViewMenu}
+            aria-label="View options"
             className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
             style={{
               background: viewCustomized ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -454,7 +461,10 @@ export default function KanbanFiltersBar({
               border: `1px solid ${viewCustomized ? 'var(--brand)' : 'var(--border)'}`,
             }}
           >
-            View
+            {/* Icon-only on mobile (label hidden below md:) - a bare "View" word with nothing
+                else isn't recognizable as a button at a glance the way an icon is. */}
+            <span aria-hidden="true">🎨</span>
+            <span className="hidden md:inline">View</span>
             <span className="text-[10px]">▾</span>
           </button>
           {showViewMenu && (
@@ -466,12 +476,18 @@ export default function KanbanFiltersBar({
                 {compact ? '▦ Board view' : '☰ Compact list view'}
               </ViewMenuRow>
 
+              {/* Hidden on desktop specifically while compact list view is active (a different
+                  desktop-only layout a title-density toggle wouldn't apply to) - but mobile
+                  ignores `compact` entirely (it always uses its own swipeable card list), so this
+                  must stay visible there regardless of that desktop-only state. */}
+              <div className={compact ? 'md:hidden' : ''}>
+                <ViewMenuRow active={simpleMode} onClick={onToggleSimpleMode}>
+                  ▤ Simple cards (titles only)
+                </ViewMenuRow>
+              </div>
+
               {!compact && (
                 <>
-                  <ViewMenuRow active={simpleMode} onClick={onToggleSimpleMode} desktopOnly>
-                    ▤ Simple cards (titles only)
-                  </ViewMenuRow>
-
                   {milestones.length > 0 && (
                     <ViewMenuRow active={viewMode === 'milestone'} onClick={onToggleViewMode}>
                       🏁 Milestone columns
@@ -484,7 +500,7 @@ export default function KanbanFiltersBar({
                     </ViewMenuRow>
                   )}
 
-                  <div className="hidden md:block pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                  <div className="pt-1" style={{ borderTop: '1px solid var(--border)' }}>
                     <span
                       className="text-[10px] font-semibold uppercase tracking-widest px-1 block mb-1.5 mt-1"
                       style={{ color: 'var(--text-3)' }}

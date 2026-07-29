@@ -558,7 +558,12 @@ export const api = {
   messages: {
     list: (productId: string, taskId?: string) =>
       request<Message[]>(`/api/products/${productId}/messages${taskId ? `?taskId=${taskId}` : ''}`),
-    listAll: (productId: string) => request<Message[]>(`/api/products/${productId}/messages?all=true`),
+    listAll: (productId: string, opts?: { before?: string; limit?: number }) => {
+      const params = new URLSearchParams({ all: 'true' });
+      if (opts?.before) params.set('before', opts.before);
+      if (opts?.limit) params.set('limit', String(opts.limit));
+      return request<Message[]>(`/api/products/${productId}/messages?${params.toString()}`);
+    },
     create: (
       productId: string,
       data: {
@@ -584,10 +589,12 @@ export const api = {
   },
 
   adminChat: {
-    list: (cursor?: string, query?: string) => {
+    list: (cursor?: string, query?: string, opts?: { before?: string; limit?: number }) => {
       const params = new URLSearchParams();
       if (cursor) params.set('cursor', cursor);
       if (query) params.set('q', query);
+      if (opts?.before) params.set('before', opts.before);
+      if (opts?.limit) params.set('limit', String(opts.limit));
       const qs = params.toString();
       return request<Message[]>(`/api/admin/chat${qs ? `?${qs}` : ''}`);
     },
@@ -713,6 +720,14 @@ export const api = {
       const params = new URLSearchParams({ productId });
       return request<{ general: number; byTask: Record<string, number> }>(
         `/api/notifications/unread-by-task?${params.toString()}`,
+      );
+    },
+    unreadByProduct: (opts?: { excludeTypes?: string[] }) => {
+      const params = new URLSearchParams();
+      if (opts?.excludeTypes?.length) params.set('excludeTypes', opts.excludeTypes.join(','));
+      const qs = params.toString();
+      return request<{ byProduct: Record<string, number>; total: number }>(
+        `/api/notifications/unread-by-product${qs ? `?${qs}` : ''}`,
       );
     },
     markRead: (ids: string[]) =>
@@ -1145,12 +1160,16 @@ export const api = {
       }>(`/api/products/${productId}/analytics/workload`),
   },
   conversations: {
-    list: (adminChat?: boolean) =>
-      request<{ conversations: ConversationSummary[] }>(`/api/conversations${adminChat ? '?admin=true' : ''}`),
-    findOrCreate: (participantId: string, isAdminChat?: boolean) =>
+    // Non-admin (project) chat is always scoped to one project - productId is required whenever
+    // adminChat isn't set, mirroring the backend's own requirement.
+    list: (adminChat?: boolean, productId?: string) =>
+      request<{ conversations: ConversationSummary[] }>(
+        `/api/conversations?${adminChat ? 'admin=true' : `productId=${encodeURIComponent(productId ?? '')}`}`,
+      ),
+    findOrCreate: (participantId: string, isAdminChat?: boolean, productId?: string) =>
       request<{ id: string }>('/api/conversations', {
         method: 'POST',
-        body: json({ participantId, isAdminChat: isAdminChat ?? false }),
+        body: json({ participantId, isAdminChat: isAdminChat ?? false, productId }),
       }),
     messages: (id: string) => request<{ messages: DirectMessage[] }>(`/api/conversations/${id}/messages`),
     send: (id: string, content: string, replyToId?: string | null) =>
@@ -1162,12 +1181,14 @@ export const api = {
       request<{ ok: boolean }>(`/api/conversations/${id}/read`, { method: 'PATCH', body: json({}) }),
     close: (id: string) =>
       request<{ ok: boolean; closed: boolean }>(`/api/conversations/${id}/close`, { method: 'PATCH', body: json({}) }),
-    unreadCount: (adminChat?: boolean) =>
-      request<{ count: number }>(`/api/conversations/unread-count${adminChat ? '?admin=true' : ''}`),
-    createGroup: (participantIds: string[], name?: string, isAdminChat?: boolean) =>
+    unreadCount: (adminChat?: boolean, productId?: string) =>
+      request<{ count: number }>(
+        `/api/conversations/unread-count?${adminChat ? 'admin=true' : `productId=${encodeURIComponent(productId ?? '')}`}`,
+      ),
+    createGroup: (participantIds: string[], name?: string, isAdminChat?: boolean, productId?: string) =>
       request<{ id: string }>('/api/conversations/group', {
         method: 'POST',
-        body: json({ participantIds, name, isAdminChat: isAdminChat ?? false }),
+        body: json({ participantIds, name, isAdminChat: isAdminChat ?? false, productId }),
       }),
     rename: (id: string, name: string) =>
       request<{ ok: boolean }>(`/api/conversations/${id}/rename`, { method: 'PATCH', body: json({ name }) }),
