@@ -3,7 +3,8 @@
  * `CardContent` is extracted as an inner component so the same JSX renders both the live card and the drag overlay (which passes static no-op props).
  * Left border colour comes from `task.color`; subtask expand/add controls live directly on the card without opening the detail panel.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task, Subtask, KanbanColumn as KanbanColumnType } from '../../types';
@@ -70,18 +71,38 @@ function CardContent({
   const longPressChat = useLongPress(() => openChat(task.id, task.name));
   // Desktop/mouse equivalent of the long-press above: a hover-revealed trigger (hidden entirely on
   // touch, which already has the long-press) opening a small quick-actions dropdown - single click
-  // still opens the full detail panel as it always has. This is a plain anchored dropdown (own
-  // ref + click-outside listener, the same pattern KanbanBoard.tsx's own Filters/View menus already
-  // use), not mobile's QuickStatusMenu - that one dismisses via a full-screen fixed backdrop button,
-  // which doesn't play well anchored inside a dnd-kit sortable card on desktop.
+  // still opens the full detail panel as it always has. The dropdown itself is portaled to
+  // document.body (see below) rather than nested normally - the card has `overflow-hidden` (for
+  // its rounded corners/left color accent), which was silently clipping the dropdown the moment it
+  // extended past the card's own edge. Portaling escapes that entirely, same fix already used for
+  // the chat emoji picker elsewhere in this app.
   const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const quickActionsRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+
+  useLayoutEffect(() => {
+    if (!showStatusMenu) return;
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const dropdownRect = dropdownRef.current?.getBoundingClientRect();
+    const dropdownHeight = dropdownRect?.height ?? 160;
+    const dropdownWidth = dropdownRect?.width ?? 180;
+    const margin = 6;
+    let top = rect.bottom + 4;
+    if (top + dropdownHeight > window.innerHeight - margin) top = Math.max(margin, rect.top - dropdownHeight - 4);
+    let left = rect.right - dropdownWidth;
+    left = Math.max(margin, Math.min(left, window.innerWidth - dropdownWidth - margin));
+    setDropdownStyle({ position: 'fixed', top, left, zIndex: 100 });
+  }, [showStatusMenu]);
+
   useEffect(() => {
     if (!showStatusMenu) return;
     function onDocMouseDown(e: MouseEvent) {
-      if (quickActionsRef.current && !quickActionsRef.current.contains(e.target as Node)) {
-        setShowStatusMenu(false);
-      }
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || dropdownRef.current?.contains(target)) return;
+      setShowStatusMenu(false);
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
@@ -100,8 +121,9 @@ function CardContent({
           {task.name}
         </button>
         {columns && (
-          <div className="relative flex-shrink-0" ref={quickActionsRef}>
+          <>
             <button
+              ref={triggerRef}
               onClick={(e) => {
                 e.stopPropagation();
                 setShowStatusMenu((v) => !v);
@@ -119,47 +141,50 @@ function CardContent({
             >
               ⋯
             </button>
-            {showStatusMenu && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="absolute right-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-dropdown-in"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180 }}
-              >
-                <button
-                  onClick={() => {
-                    openChat(task.id, task.name);
-                    setShowStatusMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left"
-                  style={{ color: 'var(--text)', borderBottom: onQuickStatusChange ? '1px solid var(--border)' : 'none' }}
+            {showStatusMenu &&
+              createPortal(
+                <div
+                  ref={dropdownRef}
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="rounded-xl shadow-xl overflow-hidden animate-dropdown-in"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180, ...dropdownStyle }}
                 >
-                  <span className="flex-shrink-0">💬</span>
-                  <span className="flex-1">Open chat</span>
-                </button>
-                {onQuickStatusChange &&
-                  columns.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => {
-                        onQuickStatusChange(task.id, c.statusKey);
-                        setShowStatusMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left"
-                      style={{
-                        color: c.statusKey === task.status ? c.color : 'var(--text)',
-                        background: c.statusKey === task.status ? `${c.color}14` : 'transparent',
-                        fontWeight: c.statusKey === task.status ? 600 : 400,
-                      }}
-                    >
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                      <span className="flex-1">{c.label}</span>
-                      {c.statusKey === task.status && <span>✓</span>}
-                    </button>
-                  ))}
-              </div>
-            )}
-          </div>
+                  <button
+                    onClick={() => {
+                      openChat(task.id, task.name);
+                      setShowStatusMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left"
+                    style={{ color: 'var(--text)', borderBottom: onQuickStatusChange ? '1px solid var(--border)' : 'none' }}
+                  >
+                    <span className="flex-shrink-0">💬</span>
+                    <span className="flex-1">Open chat</span>
+                  </button>
+                  {onQuickStatusChange &&
+                    columns.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          onQuickStatusChange(task.id, c.statusKey);
+                          setShowStatusMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left"
+                        style={{
+                          color: c.statusKey === task.status ? c.color : 'var(--text)',
+                          background: c.statusKey === task.status ? `${c.color}14` : 'transparent',
+                          fontWeight: c.statusKey === task.status ? 600 : 400,
+                        }}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                        <span className="flex-1">{c.label}</span>
+                        {c.statusKey === task.status && <span>✓</span>}
+                      </button>
+                    ))}
+                </div>,
+                document.body,
+              )}
+          </>
         )}
       </div>
 
