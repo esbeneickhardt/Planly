@@ -1022,6 +1022,7 @@ export default function KanbanBoard() {
                             simpleMode={simpleMode}
                             collapsedStatuses={collapsedStatusesInMilestoneView}
                             onToggleStatusCollapse={toggleStatusCollapsed}
+                            onQuickStatusChange={readOnly ? undefined : handleCompactStatusChange}
                           />
                         </div>
                       ))}
@@ -1039,6 +1040,7 @@ export default function KanbanBoard() {
                             simpleMode={simpleMode}
                             collapsedStatuses={collapsedStatusesInMilestoneView}
                             onToggleStatusCollapse={toggleStatusCollapsed}
+                            onQuickStatusChange={readOnly ? undefined : handleCompactStatusChange}
                           />
                         </div>
                       )}
@@ -1063,6 +1065,8 @@ export default function KanbanBoard() {
                           milestoneMeta={milestoneMeta}
                           collapsedMilestones={collapsedMilestones}
                           onToggleMilestoneCollapse={toggleMilestoneCollapsed}
+                          allColumns={columns}
+                          onQuickStatusChange={readOnly ? undefined : handleCompactStatusChange}
                         />
                       </div>
                     ))
