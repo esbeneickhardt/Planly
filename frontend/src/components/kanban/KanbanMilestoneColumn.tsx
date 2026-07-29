@@ -37,6 +37,8 @@ interface Props {
   collapsedStatuses: Set<string>;
   onToggleStatusCollapse: (statusKey: string) => void;
   isOverlay?: boolean;
+  /** Omit to hide the status-change option in cards' quick-actions menu (e.g. read-only boards) */
+  onQuickStatusChange?: (taskId: string, newStatus: string) => void;
 }
 
 function StatusSection({
@@ -108,6 +110,7 @@ export default function KanbanMilestoneColumn({
   collapsedStatuses,
   onToggleStatusCollapse,
   isOverlay = false,
+  onQuickStatusChange,
 }: Props) {
   const isUnassigned = milestone === null;
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
@@ -133,6 +136,8 @@ export default function KanbanMilestoneColumn({
         primaryMilestone={primaryMilestone}
         milestoneColor={milestoneColor}
         simpleMode={simpleMode}
+        columns={columns}
+        onQuickStatusChange={onQuickStatusChange}
       />
     );
   }
