@@ -36,6 +36,10 @@ interface Props {
   milestoneMeta?: Map<string, MilestoneOption>;
   collapsedMilestones?: Set<string>;
   onToggleMilestoneCollapse?: (id: string) => void;
+  /** All status columns - passed through to each card's hover quick-actions menu (status list) */
+  allColumns?: KanbanColumnType[];
+  /** Omit to hide the status-change option in cards' quick-actions menu (e.g. read-only boards) */
+  onQuickStatusChange?: (taskId: string, newStatus: string) => void;
 }
 
 /**
@@ -120,6 +124,8 @@ export default function KanbanColumn({
   milestoneMeta,
   collapsedMilestones,
   onToggleMilestoneCollapse,
+  allColumns,
+  onQuickStatusChange,
 }: Props) {
   // Sortable (for column reordering)
   const {
@@ -194,6 +200,8 @@ export default function KanbanColumn({
         primaryMilestone={primaryMilestone}
         milestoneColor={milestoneColor}
         simpleMode={simpleMode}
+        columns={allColumns}
+        onQuickStatusChange={onQuickStatusChange}
       />
     );
   }
