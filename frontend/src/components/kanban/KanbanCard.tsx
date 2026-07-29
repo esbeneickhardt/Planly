@@ -6,11 +6,12 @@
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Task, Subtask } from '../../types';
+import type { Task, Subtask, KanbanColumn as KanbanColumnType } from '../../types';
 import { api, displayName } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { useChat } from '../../context/ChatContext';
 import { useLongPress } from '../../hooks/useLongPress';
+import { QuickStatusMenu } from './KanbanMobileList';
 
 interface Props {
   task: Task;
@@ -22,6 +23,11 @@ interface Props {
   milestoneColor?: string;
   /** Dense display: title only, everything else (owner, reviewer, milestone, subtasks) hidden */
   simpleMode?: boolean;
+  /** All status columns, needed by the hover quick-actions menu below to list status options */
+  columns?: KanbanColumnType[];
+  /** Omit (or leave undefined) to hide the status-change option in the quick-actions menu, same
+   * convention KanbanMobileList.tsx already uses for read-only boards. */
+  onQuickStatusChange?: (taskId: string, newStatus: string) => void;
 }
 
 function CardContent({
@@ -30,6 +36,8 @@ function CardContent({
   primaryMilestone,
   milestoneColor,
   simpleMode,
+  columns,
+  onQuickStatusChange,
   expanded,
   setExpanded,
   addingSubtask,
@@ -44,6 +52,8 @@ function CardContent({
   primaryMilestone?: Task;
   milestoneColor?: string;
   simpleMode?: boolean;
+  columns?: KanbanColumnType[];
+  onQuickStatusChange?: (taskId: string, newStatus: string) => void;
   expanded: boolean;
   setExpanded: (v: boolean) => void;
   addingSubtask: boolean;
@@ -59,9 +69,49 @@ function CardContent({
   // Touch-only - a no-op for mouse users, but lets touchscreen laptops/tablets long-press a card
   // to jump straight into its chat instead of opening the full detail panel first.
   const longPressChat = useLongPress(() => openChat(task.id, task.name));
+  // Desktop/mouse equivalent of the long-press above: a hover-revealed trigger (hidden entirely on
+  // touch, which already has the long-press) opening the exact same quick-actions menu mobile
+  // uses - single click still opens the full detail panel as it always has.
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
 
   return (
-    <div className="p-3">
+    <div className="p-3 relative">
+      {columns && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowStatusMenu(true);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            title="Quick actions (change status, open chat)"
+            aria-label="Quick actions"
+            className="hidden md:flex absolute top-1.5 right-1.5 items-center justify-center w-6 h-6 rounded-md text-sm opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
+          >
+            ⋯
+          </button>
+          {showStatusMenu && (
+            <QuickStatusMenu
+              columns={columns}
+              current={task.status}
+              onClose={() => setShowStatusMenu(false)}
+              onOpenChat={() => {
+                openChat(task.id, task.name);
+                setShowStatusMenu(false);
+              }}
+              onSelect={
+                onQuickStatusChange
+                  ? (statusKey) => {
+                      onQuickStatusChange(task.id, statusKey);
+                      setShowStatusMenu(false);
+                    }
+                  : undefined
+              }
+            />
+          )}
+        </>
+      )}
       <button
         onClick={() => onOpenDetail(task)}
         className={`text-sm font-medium text-left w-full leading-snug hover:underline ${simpleMode ? '' : 'mb-1.5'}`}
@@ -191,6 +241,8 @@ export default function KanbanCard({
   primaryMilestone,
   milestoneColor,
   simpleMode,
+  columns,
+  onQuickStatusChange,
 }: Props) {
   const { activeProduct, refreshTasks } = useProduct();
   // Subtask expand + inline-add state lives here, not in the detail panel
@@ -256,7 +308,7 @@ export default function KanbanCard({
         cursor: isDragging ? 'grabbing' : 'grab',
         touchAction: 'none',
       }}
-      className="card rounded-xl overflow-hidden select-none hover:shadow-md"
+      className="card rounded-xl overflow-hidden select-none hover:shadow-md group relative"
     >
       <CardContent
         task={task}
@@ -264,6 +316,8 @@ export default function KanbanCard({
         primaryMilestone={primaryMilestone}
         milestoneColor={milestoneColor}
         simpleMode={simpleMode}
+        columns={columns}
+        onQuickStatusChange={onQuickStatusChange}
         expanded={expanded}
         setExpanded={setExpanded}
         addingSubtask={addingSubtask}
