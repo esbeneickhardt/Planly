@@ -90,11 +90,13 @@ interface Props {
   simpleMode?: boolean;
 }
 
-/** Small "quick actions" popover - long-press a card (mobile) or click its hover-revealed trigger
- * (desktop, see KanbanCard.tsx) to open this instead of the full detail panel: jump straight to
- * the task's chat, or (task-write permitting) change its status without opening the panel just to
- * move it. Exported so both platforms share the exact same menu rather than two implementations. */
-export function QuickStatusMenu({
+/** Small "quick actions" popover - long-press a card to open this instead of the full detail
+ * panel: jump straight to the task's chat, or (task-write permitting) change its status without
+ * opening the panel just to move it. Both actions share this one long-press gesture since a card
+ * can only claim the gesture once. Mobile-only - this leans on a full-screen fixed backdrop button
+ * for dismissal, which fits a touch/modal-style interaction but isn't the right pattern for
+ * desktop's hover+click dropdown (see KanbanCard.tsx's own, separate popover for that). */
+function QuickStatusMenu({
   columns,
   current,
   onSelect,
