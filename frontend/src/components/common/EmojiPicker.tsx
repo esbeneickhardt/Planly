@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 export const EMOJI_CATEGORIES = [
   {
@@ -282,9 +282,57 @@ interface Props {
   onChange: (emoji: string) => void;
 }
 
+// Swipe-to-change-page tuning (mirrors the drag-with-live-feedback-then-snap pattern used
+// elsewhere for touch gestures in this app, e.g. MessageBubble.tsx's swipe-to-reply).
+const SWIPE_THRESHOLD = 40;
+
 export default function EmojiPicker({ value, onChange }: Props) {
   const [page, setPage] = useState(0);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const horizontalRef = useRef(false);
   const category = EMOJI_CATEGORIES[page];
+
+  function handleTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    if (!t) return;
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+    horizontalRef.current = false;
+    setDragging(true);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!touchStartRef.current) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - touchStartRef.current.x;
+    const dy = t.clientY - touchStartRef.current.y;
+    // Lock to horizontal only once movement is clearly sideways, so a vertical scroll/tap on the
+    // grid doesn't get misread as a page swipe (same direction-lock idea as the message swipe).
+    if (!horizontalRef.current) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      horizontalRef.current = Math.abs(dx) > Math.abs(dy);
+      if (!horizontalRef.current) return;
+    }
+    e.preventDefault();
+    // Rubber-band at the first/last page instead of dragging past where there's nothing to reveal.
+    const atStart = page === 0 && dx > 0;
+    const atEnd = page === EMOJI_CATEGORIES.length - 1 && dx < 0;
+    setDragX(atStart || atEnd ? dx / 3 : dx);
+  }
+
+  function handleTouchEnd() {
+    if (!touchStartRef.current) return;
+    touchStartRef.current = null;
+    setDragging(false);
+    if (horizontalRef.current) {
+      if (dragX <= -SWIPE_THRESHOLD) setPage((p) => Math.min(EMOJI_CATEGORIES.length - 1, p + 1));
+      else if (dragX >= SWIPE_THRESHOLD) setPage((p) => Math.max(0, p - 1));
+    }
+    setDragX(0);
+  }
+
   if (!category) return null;
 
   return (
@@ -320,8 +368,20 @@ export default function EmojiPicker({ value, onChange }: Props) {
         </button>
       </div>
 
-      {/* Emoji grid */}
-      <div className="grid grid-cols-8 gap-0.5 p-2">
+      {/* Emoji grid - swipeable on touch devices to move between pages, like the app's other
+          emoji pickers. */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        className="grid grid-cols-8 gap-0.5 p-2"
+        style={{
+          touchAction: 'pan-y',
+          transform: dragX ? `translateX(${dragX}px)` : undefined,
+          transition: dragging ? 'none' : 'transform 200ms ease',
+        }}
+      >
         {category.emojis.map((e) => (
           <button
             key={e}

@@ -15,6 +15,7 @@ import {
   useSensor,
   useSensors,
   pointerWithin,
+  MeasuringStrategy,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
@@ -122,12 +123,15 @@ export default function KanbanBoard() {
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
+  // A cleared sub-plan filter is saved as the literal string 'none', not by deleting the
+  // localStorage key - the init effect below needs to tell "you explicitly chose no filter" apart
+  // from "you've never chosen one" (an absent key), since only the latter should fall back to
+  // auto-selecting today's current sub-plan. Without this distinction, clearing the filter looked
+  // identical to never having set it, so the next time this component mounted (switching back to
+  // this product, or just revisiting the tab) it would silently reapply the current sub-plan again.
   function setSprintFilterAndSave(val: string | null) {
     setSprintFilter(val);
-    if (activeProduct) {
-      if (val !== null) localStorage.setItem(`planly_sprint_${activeProduct.id}`, val);
-      else localStorage.removeItem(`planly_sprint_${activeProduct.id}`);
-    }
+    if (activeProduct) localStorage.setItem(`planly_sprint_${activeProduct.id}`, val ?? 'none');
   }
 
   function setMilestoneFilterAndSave(val: string | null) {
@@ -143,6 +147,53 @@ export default function KanbanBoard() {
     if (!activeProduct) return;
     setMilestoneFilter(localStorage.getItem(`planly_kanban_milestone_${activeProduct.id}`));
   }, [activeProduct?.id]);
+
+  // Restore owner/color/status filters and mine-only per product - so leaving and returning to
+  // the Execute tab doesn't silently drop them (each toggle below re-persists on its own change,
+  // matching the milestone/sprint filters' explicit-setter pattern rather than a blanket
+  // persist-on-any-change effect, which would race with this restore on product switch).
+  useEffect(() => {
+    if (!activeProduct) {
+      setOwnerFilters(new Set());
+      setColorFilters(new Set());
+      setStatusFilters(new Set());
+      setMineOnly(false);
+      return;
+    }
+    const readSet = (key: string) => {
+      const saved = localStorage.getItem(key);
+      return saved ? new Set(saved.split(',').filter(Boolean)) : new Set<string>();
+    };
+    setOwnerFilters(readSet(`planly_kanban_owner_filters_${activeProduct.id}`));
+    setColorFilters(readSet(`planly_kanban_color_filters_${activeProduct.id}`));
+    setStatusFilters(readSet(`planly_kanban_status_filters_${activeProduct.id}`));
+    setMineOnly(localStorage.getItem(`planly_kanban_mine_only_${activeProduct.id}`) === '1');
+  }, [activeProduct?.id]);
+
+  function persistOwnerFilters(next: Set<string>) {
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly_kanban_owner_filters_${activeProduct.id}`, Array.from(next).join(','));
+    } catch {}
+  }
+  function persistColorFilters(next: Set<string>) {
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly_kanban_color_filters_${activeProduct.id}`, Array.from(next).join(','));
+    } catch {}
+  }
+  function persistStatusFilters(next: Set<string>) {
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly_kanban_status_filters_${activeProduct.id}`, Array.from(next).join(','));
+    } catch {}
+  }
+  function persistMineOnly(next: boolean) {
+    if (!activeProduct) return;
+    try {
+      localStorage.setItem(`planly_kanban_mine_only_${activeProduct.id}`, next ? '1' : '0');
+    } catch {}
+  }
 
   function toggleGroupByMilestone() {
     const next = !groupByMilestone;
@@ -167,6 +218,10 @@ export default function KanbanBoard() {
   }
 
   function toggleStatusCollapsed(statusKey: string) {
+    // Capture scroll position before this triggers the dndBoardKey remount below (see boardRef's
+    // declaration for why the remount itself is necessary) - otherwise the board would visibly
+    // snap back to its left edge every time a status section is collapsed or expanded.
+    preservedScrollLeftRef.current = boardRef.current?.scrollLeft ?? null;
     setCollapsedStatusesInMilestoneView((prev) => {
       const next = new Set(prev);
       if (next.has(statusKey)) next.delete(statusKey);
@@ -207,6 +262,23 @@ export default function KanbanBoard() {
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, scrollLeft: 0 });
 
+  // Forces the DndContext below to fully remount whenever a milestone column's status-section
+  // collapse state changes. Collapsing/expanding changes a milestone column's real height without
+  // any drag ever happening, and even with measuring.droppable.strategy set to Always (see the
+  // DndContext below), dragging that column right afterwards could still pick up a stale, wrong-
+  // sized rect - a shrunken ghost with no valid drop target - until something forced a fully fresh
+  // start, like a page refresh. A remount reproduces exactly that "fresh start" without a reload.
+  // Scroll position is preserved across it (see toggleStatusCollapsed/the layout effect below)
+  // since remounting the board's own scroll container would otherwise snap it back to the left edge.
+  const dndBoardKey = Array.from(collapsedStatusesInMilestoneView).sort().join(',');
+  const preservedScrollLeftRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (preservedScrollLeftRef.current != null && boardRef.current) {
+      boardRef.current.scrollLeft = preservedScrollLeftRef.current;
+      preservedScrollLeftRef.current = null;
+    }
+  }, [dndBoardKey]);
+
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -216,9 +288,13 @@ export default function KanbanBoard() {
     if (!activeProduct) return;
     lastInitializedProductId.current = null;
     refreshSprints().then((ss) => {
-      // Restore last user selection; fall back to current overlapping sprint
+      // Restore last user selection; fall back to current overlapping sprint - but only when
+      // nothing has been chosen yet. 'none' means the user explicitly cleared the filter, which
+      // must stick (not silently reapply the current sub-plan on the next visit).
       const saved = localStorage.getItem(`planly_sprint_${activeProduct.id}`);
-      if (saved && ss.some((s) => s.id === saved)) {
+      if (saved === 'none') {
+        setSprintFilter(null);
+      } else if (saved && ss.some((s) => s.id === saved)) {
         setSprintFilter(saved);
       } else {
         const now = new Date();
@@ -431,6 +507,7 @@ export default function KanbanBoard() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      persistOwnerFilters(next);
       return next;
     });
   }
@@ -440,6 +517,7 @@ export default function KanbanBoard() {
       const next = new Set(prev);
       if (next.has(c)) next.delete(c);
       else next.add(c);
+      persistColorFilters(next);
       return next;
     });
   }
@@ -449,6 +527,7 @@ export default function KanbanBoard() {
       const next = new Set(prev);
       if (next.has(statusKey)) next.delete(statusKey);
       else next.add(statusKey);
+      persistStatusFilters(next);
       return next;
     });
   }
@@ -779,11 +858,20 @@ export default function KanbanBoard() {
         hasFilters={hasFilters}
         user={user}
         mineOnly={mineOnly}
-        onMineToggle={() => setMineOnly((v) => !v)}
+        onMineToggle={() =>
+          setMineOnly((v) => {
+            const next = !v;
+            persistMineOnly(next);
+            return next;
+          })
+        }
         taskOwners={taskOwners}
         ownerFilters={ownerFilters}
         onToggleOwner={toggleOwner}
-        onClearOwners={() => setOwnerFilters(new Set())}
+        onClearOwners={() => {
+          setOwnerFilters(new Set());
+          persistOwnerFilters(new Set());
+        }}
         taskColors={taskColors}
         colorFilters={colorFilters}
         colorLegend={colorLegend}
@@ -823,6 +911,10 @@ export default function KanbanBoard() {
           setSprintFilterAndSave(null);
           setMilestoneFilterAndSave(null);
           setMineOnly(false);
+          persistOwnerFilters(new Set());
+          persistColorFilters(new Set());
+          persistStatusFilters(new Set());
+          persistMineOnly(false);
         }}
         showFiltersMenu={showFiltersMenu}
         filtersMenuRef={filtersMenuRef}
@@ -854,6 +946,8 @@ export default function KanbanBoard() {
         onToggleStatusCollapse={toggleStatusCollapsed}
         onQuickStatusChange={readOnly ? undefined : handleCompactStatusChange}
         onReorderTasks={readOnly ? undefined : handleMobileReorderTasks}
+        bgImage={bgImage}
+        simpleMode={simpleMode}
       />
 
       {/* Desktop board area - hidden on small screens to give way to KanbanMobileList */}
@@ -885,8 +979,16 @@ export default function KanbanBoard() {
         {/* ── Board ── */}
         {!compact && (
           <DndContext
+            key={dndBoardKey}
             sensors={sensors}
             collisionDetection={pointerWithin}
+            // Without this, dnd-kit only re-measures a droppable/sortable's rect lazily, so
+            // collapsing/expanding a "Group by milestone" section (which changes a column's real
+            // height without a drag ever happening) can leave a stale, wrong-sized rect cached -
+            // the next drag on that column then measures/animates against the old size, producing
+            // a shrunken drag ghost with no valid drop target until a full page refresh forces a
+            // fresh measurement. Always re-measuring on every drag start is the standard fix.
+            measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
             onDragStart={onDragStart}
             onDragEnd={handleDragEnd}
           >
@@ -999,13 +1101,27 @@ export default function KanbanBoard() {
                   />
                 </div>
               ) : activeColumn ? (
+                // Mirrors every display-affecting prop the live column gets (below, in the board
+                // itself) - missing groupByMilestone/milestoneOrderIds/etc previously made the
+                // dragged ghost silently fall back to the flat task list even when "Group by
+                // milestone" was on, showing a different view than what was actually being dragged.
                 <div style={{ opacity: 0.9, width: 288 }}>
                   <KanbanColumn
                     column={activeColumn}
-                    tasks={tasks.filter((t) => t.status === activeColumn.statusKey)}
+                    tasks={filteredTasks
+                      .filter((t) => t.status === activeColumn.statusKey)
+                      .sort((a, b) => a.kanbanOrder - b.kanbanOrder)}
                     onOpenDetail={() => {}}
                     onRename={() => {}}
                     onDeleteRequest={() => {}}
+                    primaryMilestones={primaryMilestones}
+                    milestoneColors={milestoneColors}
+                    simpleMode={simpleMode}
+                    groupByMilestone={groupByMilestone}
+                    milestoneOrderIds={orderedMilestoneIds}
+                    milestoneMeta={milestoneMeta}
+                    collapsedMilestones={collapsedMilestones}
+                    onToggleMilestoneCollapse={() => {}}
                     isOverlay
                   />
                 </div>

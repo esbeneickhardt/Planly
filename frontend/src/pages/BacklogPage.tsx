@@ -11,6 +11,8 @@ import { usePermission } from '../context/PermissionContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useChat } from '../context/ChatContext';
+import { useLongPress } from '../hooks/useLongPress';
 import { api, displayName } from '../api/client';
 import type { Task } from '../types';
 import TaskDetailPanel from '../components/common/TaskDetailPanel';
@@ -967,6 +969,8 @@ function BacklogRow({
   const isMilestone = !!task.deadline;
   const done = task.subtasks.filter((s) => s.completed).length;
   const statusColor = STATUS_COLORS[task.status] ?? '#64748b';
+  const { openChat } = useChat();
+  const longPressChat = useLongPress(() => openChat(task.id, task.name));
 
   return (
     <tr
@@ -998,14 +1002,16 @@ function BacklogRow({
             onClick={onOpen}
             className="font-medium text-left hover:underline whitespace-nowrap"
             style={{ color: 'var(--text)' }}
+            title="Long-press to open this task's chat"
+            {...longPressChat}
           >
             {task.name}
           </button>
         </div>
       </td>
       <td className="px-4 py-3">
-        <span className="flex items-center gap-1.5 text-xs">
-          <span className="w-2 h-2 rounded-full" style={{ background: statusColor }} />
+        <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
           <span style={{ color: 'var(--text-2)' }}>{STATUS_LABELS[task.status] ?? task.status}</span>
         </span>
       </td>
@@ -1056,7 +1062,10 @@ function BacklogRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3 justify-end">
-          {!readOnly && task.status !== 'todo' && task.status !== 'done' && (
+          {/* Only for genuinely "Not started" (backlog) tasks - this used to fire for anything
+              that wasn't literally 'todo' or 'done', which wrongly suggested moving already
+              in-progress or blocked tasks backward to To Do. */}
+          {!readOnly && task.status === 'backlog' && (
             <button
               onClick={onMoveTodo}
               className="text-xs font-medium whitespace-nowrap transition-colors"

@@ -147,6 +147,24 @@ export function mentionEmail(mentionerUsername: string, context: string, snippet
   `;
 }
 
+export function directMessageEmail(senderUsername: string, snippet: string, appUrl: string, context?: string) {
+  const safeSender = escHtml(senderUsername);
+  const safeContext = context ? escHtml(context) : '';
+  return `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+      <h2 style="margin:0 0 16px">New message in Planly</h2>
+      <p><strong>${safeSender}</strong> sent you a message${safeContext ? ` in <em>${safeContext}</em>` : ''}:</p>
+      <blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid #7c3aed;background:#f5f3ff;border-radius:4px;color:#444;font-size:14px">
+        ${snippet.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}
+      </blockquote>
+      <a href="${appUrl}" style="display:inline-block;margin:16px 0;padding:10px 20px;background:#7c3aed;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">
+        View in Planly
+      </a>
+      <p style="color:#aaa;font-size:12px">You can turn off email message notifications in your Planly notification preferences.</p>
+    </div>
+  `;
+}
+
 export function teamInviteEmail(inviteUrl: string, teamName: string, inviterName: string) {
   const safeTeam = escHtml(teamName);
   const safeInviter = escHtml(inviterName);

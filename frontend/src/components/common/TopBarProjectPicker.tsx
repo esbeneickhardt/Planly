@@ -13,6 +13,8 @@ interface Props {
   chatIsAdmin: boolean;
   isAdmin: boolean;
   isOpen: boolean;
+  /** Unread notification count per project id, shown as a small badge on each row. */
+  unreadByProduct?: Record<string, number>;
   /** When the mobile nav bar sits at the bottom, the panel opens upward instead of downward so it
    * doesn't render off the bottom edge of the viewport. No effect at `lg:` and up (desktop is
    * always top-anchored regardless of this preference). */
@@ -31,6 +33,7 @@ export default function TopBarProjectPicker({
   chatIsAdmin,
   isAdmin,
   isOpen,
+  unreadByProduct,
   mobileNavPosition,
   onExitAdmin,
   onShowNewProduct,
@@ -89,6 +92,14 @@ export default function TopBarProjectPicker({
             >
               <span className="text-base">{p.emoji ?? '🎯'}</span>
               <span className="flex-1 truncate font-medium">{p.name}</span>
+              {!!unreadByProduct?.[p.id] && (
+                <span
+                  className="flex items-center justify-center rounded-full text-white text-[10px] font-bold flex-shrink-0"
+                  style={{ background: '#ef4444', minWidth: 16, height: 16, padding: '0 4px' }}
+                >
+                  {unreadByProduct[p.id]! > 99 ? '99+' : unreadByProduct[p.id]}
+                </span>
+              )}
               {!chatIsAdmin && activeProduct?.id === p.id && (
                 <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>
                   ✓

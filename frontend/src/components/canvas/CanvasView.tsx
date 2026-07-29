@@ -127,6 +127,14 @@ function CanvasInner() {
   const suppressNextFilterRelayout = useCallback(() => {
     skipNextFilterRelayoutRef.current = true;
   }, []);
+  // Guards the filter-relayout effect against firing right after (re)initializing this product -
+  // e.g. leaving the Canvas and coming back remounts this component, and restoring the persisted
+  // viewMode/statusFilter/etc from localStorage changes those exact same state values that effect
+  // watches, even though the user didn't touch anything. Reset to false alongside initializedRef
+  // whenever the product changes; the first time the filter-relayout effect observes the board as
+  // initialized for this product, it just arms this flag instead of relaying out - only a LATER
+  // filter change (a real one, made after that point) goes on to trigger the actual relayout.
+  const filterEffectPrimedRef = useRef(false);
   const productConnectionsRef = useRef<Set<string>>(new Set());
   const activeProductRef = useRef(activeProduct);
   activeProductRef.current = activeProduct;
@@ -257,6 +265,7 @@ function CanvasInner() {
   useEffect(() => {
     if (!activeProduct) return;
     initializedRef.current = null;
+    filterEffectPrimedRef.current = false;
     setLayoutReady(false);
     setFiltersReady(false);
     productConnectionsRef.current = new Set();
@@ -510,6 +519,15 @@ function CanvasInner() {
     }
     const prod = activeProduct;
     if (!prod || initializedRef.current !== prod.id) return; // skip initial load for this product
+    if (!filterEffectPrimedRef.current) {
+      // First time this effect sees the board as initialized for this product - this fires either
+      // on a genuine first-ever visit, or right after restoring the persisted viewMode/filters on
+      // a remount (leaving Canvas and coming back), both of which change these same state values
+      // without the user actually touching a filter. Arm the guard instead of relaying out now; a
+      // later change made after this point is a real one and should go on to relayout as normal.
+      filterEffectPrimedRef.current = true;
+      return;
+    }
     if (filterRelayoutTimerRef.current) clearTimeout(filterRelayoutTimerRef.current);
     filterRelayoutTimerRef.current = setTimeout(() => {
       const currentProd = activeProductRef.current;
