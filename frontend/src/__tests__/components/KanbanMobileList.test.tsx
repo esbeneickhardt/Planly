@@ -71,8 +71,8 @@ describe('KanbanMobileList', () => {
     const columns = [makeColumn(), makeColumn({ id: 'col-2', label: 'Done', statusKey: 'done', isDone: true })];
     const tasks = [makeTask('t1', { status: 'todo' }), makeTask('t2', { status: 'done' })];
     render(<KanbanMobileList columns={columns} tasks={tasks} users={[]} onOpenDetail={onOpenDetail} />);
-    // Each column shows its task count; both have 1 task so two (1) spans appear
-    const counts = screen.getAllByText('(1)', { selector: 'span' });
+    // Each column shows its task count; both have 1 task so two count spans appear
+    const counts = screen.getAllByText('1', { selector: 'span' });
     expect(counts).toHaveLength(2);
   });
 

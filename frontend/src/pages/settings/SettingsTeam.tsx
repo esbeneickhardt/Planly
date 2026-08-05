@@ -265,6 +265,12 @@ export default function SettingsTeam({
           Co-owners can manage settings and approve access requests. Pending rows show users who haven't accepted yet.
         </p>
         <div className="rounded-xl overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
+          {/* Shared minWidth (same fix as SettingsPermissions.tsx's own table) so every row takes
+              the exact same total width - each row used to size itself independently via
+              min-w-max + whitespace-nowrap on the name, so a long name made just THAT row wider,
+              leaving action buttons landing at a different horizontal position per row instead of
+              a shared right edge. Names now truncate instead, and every row shares this width. */}
+          <div style={{ minWidth: 460 }}>
           {totalRows === 0 && (
             <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-3)' }}>
               No members yet.
@@ -278,7 +284,7 @@ export default function SettingsTeam({
             return (
               <div
                 key={userId}
-                className="flex items-center gap-3 px-4 py-3 min-w-max"
+                className="flex items-center gap-3 px-4 py-3"
                 style={{
                   background: idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
                   borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
@@ -292,15 +298,15 @@ export default function SettingsTeam({
                 >
                   <span className="text-xl flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium hover:underline whitespace-nowrap" style={{ color: 'var(--text)' }}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium hover:underline truncate" style={{ color: 'var(--text)' }}>
                         {displayName(user)}
                       </span>
                       {isProductOwner && <RoleBadge kind="owner" />}
                       {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
                       {userId === currentUser?.id && (
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
+                          className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0"
                           style={{
                             background: 'var(--surface-2)',
                             color: 'var(--text-3)',
@@ -346,7 +352,7 @@ export default function SettingsTeam({
             return (
               <div
                 key={inv.id}
-                className="flex items-center gap-3 px-4 py-3 min-w-max"
+                className="flex items-center gap-3 px-4 py-3"
                 style={{
                   background: rowIdx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
                   borderTop: rowIdx > 0 ? '1px solid var(--border)' : 'none',
@@ -357,8 +363,8 @@ export default function SettingsTeam({
                   {inv.toUser!.avatarEmoji ?? '👤'}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--text-2)' }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium truncate" style={{ color: 'var(--text-2)' }}>
                       {displayName(inv.toUser!)}
                     </span>
                     <PendingBadge />
@@ -380,6 +386,7 @@ export default function SettingsTeam({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 

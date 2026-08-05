@@ -234,6 +234,15 @@ export default function BacklogPage() {
           await api.tasks.update(activeProduct.id, task.id, { status: 'todo' });
           await refreshTasks();
         }}
+        onQuickStatusChange={
+          readOnly
+            ? undefined
+            : async (status) => {
+                if (!activeProduct) return;
+                await api.tasks.update(activeProduct.id, task.id, { status: status as Task['status'] });
+                await refreshTasks();
+              }
+        }
         onDelete={async () => {
           if (!activeProduct || !(await confirm('Delete this task?'))) return;
           await api.tasks.delete(activeProduct.id, task.id);
@@ -941,6 +950,117 @@ export default function BacklogPage() {
   );
 }
 
+/** Small "quick actions" menu - long-press a task name to open this instead of jumping straight
+ * to its chat: pick "Open chat" or change status without opening the full detail panel.
+ *
+ * A bottom sheet, not a popover anchored to the row (`absolute ... top-full`, as this used to
+ * be) - anchoring to the row broke for any task low on screen, since the popover had nowhere to
+ * open without running past the bottom edge. Fixed to the viewport bottom instead, mirroring the
+ * identical long-press pattern used for mobile Kanban cards (`KanbanMobileList.tsx`'s
+ * `QuickStatusMenu`) - same slide-up-on-open animation and swipe-down-to-dismiss, so both feel
+ * like the same gesture across the app. */
+function QuickTaskMenu({
+  current,
+  onSelect,
+  onOpenChat,
+  onClose,
+}: {
+  current: string;
+  onSelect?: (status: string) => void;
+  onOpenChat: () => void;
+  onClose: () => void;
+}) {
+  // Mounts already translated off-screen, then flips to translateY(0) one frame later so the
+  // transition actually animates a slide-up instead of just appearing in place.
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Swipe-down-to-dismiss, mirroring KanbanMobileList.tsx's own quick-actions sheet.
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<number | null>(null);
+  const DISMISS_THRESHOLD = 80;
+  function handleTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    if (!t) return;
+    dragStartRef.current = t.clientY;
+    setDragging(true);
+  }
+  function handleTouchMove(e: React.TouchEvent) {
+    if (dragStartRef.current === null) return;
+    const t = e.touches[0];
+    if (!t) return;
+    setDragY(Math.max(0, t.clientY - dragStartRef.current));
+  }
+  function handleTouchEnd() {
+    if (dragStartRef.current === null) return;
+    dragStartRef.current = null;
+    setDragging(false);
+    if (dragY > DISMISS_THRESHOLD) onClose();
+    setDragY(0);
+  }
+
+  return (
+    <>
+      <button
+        className="fixed inset-0 z-40"
+        style={{ background: 'rgba(0,0,0,0.5)' }}
+        aria-label="Close quick actions menu"
+        onClick={onClose}
+      />
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        className="fixed left-0 right-0 bottom-0 z-50 rounded-t-2xl shadow-2xl overflow-hidden"
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderBottom: 'none',
+          paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+          transform: visible ? `translateY(${dragY}px)` : 'translateY(100%)',
+          transition: dragging ? 'none' : 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)',
+          touchAction: 'none',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-center pt-2 pb-1" aria-hidden="true">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border-2)' }} />
+        </div>
+        <button
+          onClick={onOpenChat}
+          className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left transition-colors"
+          style={{ color: 'var(--text)', borderBottom: onSelect ? '1px solid var(--border)' : 'none' }}
+        >
+          <span className="flex-shrink-0">💬</span>
+          <span className="flex-1">Open chat</span>
+        </button>
+        {onSelect &&
+          STATUS_TABS.filter((t) => t.key !== 'all').map((t) => (
+            <button
+              key={t.key}
+              onClick={() => onSelect(t.key)}
+              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left transition-colors"
+              style={{
+                color: t.key === current ? t.color : 'var(--text)',
+                background: t.key === current ? `${t.color}14` : 'transparent',
+                fontWeight: t.key === current ? 600 : 400,
+              }}
+            >
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.color }} />
+              <span className="flex-1">{t.label}</span>
+              {t.key === current && <span>✓</span>}
+            </button>
+          ))}
+      </div>
+    </>
+  );
+}
+
 function BacklogRow({
   task,
   selected,
@@ -950,6 +1070,7 @@ function BacklogRow({
   onToggle,
   onOpen,
   onMoveTodo,
+  onQuickStatusChange,
   onDelete,
   readOnly,
 }: {
@@ -964,13 +1085,15 @@ function BacklogRow({
   onToggle: () => void;
   onOpen: () => void;
   onMoveTodo: () => void;
+  onQuickStatusChange?: (status: string) => void;
   onDelete: () => void;
 }) {
   const isMilestone = !!task.deadline;
   const done = task.subtasks.filter((s) => s.completed).length;
   const statusColor = STATUS_COLORS[task.status] ?? '#64748b';
   const { openChat } = useChat();
-  const longPressChat = useLongPress(() => openChat(task.id, task.name));
+  const [showQuickMenu, setShowQuickMenu] = useState(false);
+  const longPress = useLongPress(() => setShowQuickMenu(true));
 
   return (
     <tr
@@ -992,7 +1115,7 @@ function BacklogRow({
         </td>
       )}
       <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center gap-2">
           {isMilestone ? (
             <span title="Milestone">⭐</span>
           ) : (
@@ -1002,11 +1125,29 @@ function BacklogRow({
             onClick={onOpen}
             className="font-medium text-left hover:underline whitespace-nowrap"
             style={{ color: 'var(--text)' }}
-            title="Long-press to open this task's chat"
-            {...longPressChat}
+            title="Long-press for quick actions (chat, change status)"
+            {...longPress}
           >
             {task.name}
           </button>
+          {showQuickMenu && (
+            <QuickTaskMenu
+              current={task.status}
+              onClose={() => setShowQuickMenu(false)}
+              onOpenChat={() => {
+                openChat(task.id, task.name);
+                setShowQuickMenu(false);
+              }}
+              onSelect={
+                onQuickStatusChange
+                  ? (status) => {
+                      onQuickStatusChange(status);
+                      setShowQuickMenu(false);
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </td>
       <td className="px-4 py-3">

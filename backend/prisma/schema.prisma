@@ -27,6 +27,12 @@ enum AccessRequestStatus {
   rejected
 }
 
+enum ProductStatus {
+  active
+  completed
+  archived
+}
+
 // ── Core models ──────────────────────────────────────────────────────────────
 
 model User {
@@ -55,6 +61,7 @@ model User {
   totpSecret              String?
   totpEnabled             Boolean   @default(false)
   lastLoginAt             DateTime?
+  lastActiveAt            DateTime?
   createdAt               DateTime  @default(now())
 
   teams               TeamMember[]
@@ -116,6 +123,7 @@ model Product {
   deadline         DateTime
   teamId           String
   ownerId          String?
+  status           ProductStatus @default(active)
   analyticsEnabled Boolean   @default(true)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @default(now()) @updatedAt

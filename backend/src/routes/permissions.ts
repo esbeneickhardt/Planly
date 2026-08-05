@@ -14,12 +14,14 @@ import { requireProductCoOwner } from '../utils/product-guard';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 
+const GOVERNED_TABS = ['kanban', 'backlog', 'gantt', 'canvas', 'messages', 'analytics', 'settings'] as const;
+
 // Validates a batch permission update — up to 100 user+tab+level tuples per request
 const permissionUpdateSchema = z
   .array(
     z.object({
       userId: z.string(),
-      tab: z.enum(['kanban', 'backlog', 'gantt', 'canvas', 'messages', 'analytics', 'settings']),
+      tab: z.enum(GOVERNED_TABS),
       level: z.enum(['write', 'read', 'none']),
     }),
   )
@@ -46,10 +48,17 @@ export async function permissionRoutes(app: FastifyInstance) {
     const result = memberships.flatMap((m) =>
       m.team.products.map((p) => {
         const role = p.ownerId === userId ? 'owner' : m.role;
+        // Project-lifecycle lockdown, mirroring requireTabWrite/requireProductWritable's rule:
+        // 'archived' forces every governed tab to read-only for everyone, including the owner;
+        // 'completed' does the same but only for plain members (owner/co-owner keep write).
+        // Computed live from `status` on every fetch (never stored), so reverting to 'active'
+        // restores everyone's original access automatically.
+        const locked = p.status === 'archived' || (p.status === 'completed' && role !== 'owner' && role !== 'co_owner');
         // Owners and co-owners bypass tab permissions entirely - don't expose potentially
         // stale rows that would make the display inconsistent across projects.
-        const permissions =
-          role === 'owner' || role === 'co_owner'
+        const permissions = locked
+          ? Object.fromEntries(GOVERNED_TABS.map((tab) => [tab, 'read']))
+          : role === 'owner' || role === 'co_owner'
             ? {}
             : Object.fromEntries(p.tabPermissions.map((tp) => [tp.tab, tp.level]));
         return { productId: p.id, productName: p.name, productEmoji: p.emoji, role, permissions };

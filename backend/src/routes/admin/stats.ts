@@ -8,6 +8,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAdmin } from '../../middleware/auth';
+import { revokeProjectTokens } from '../../utils/product-guard';
 import { logAdminEvent } from '../../utils/audit';
 import prisma from '../../db/client';
 import { decryptMessageAuthor } from '../../utils/crypto';
@@ -44,6 +45,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
         createdAt: true,
         ownerId: true,
         teamId: true,
+        status: true,
         ownerUser: { select: { username: true, avatarEmoji: true } },
         _count: { select: { tasks: { where: { deletedAt: null } } } },
         team: { select: { _count: { select: { members: true } }, members: { select: { userId: true, role: true } } } },
@@ -60,6 +62,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
         createdAt: p.createdAt,
         ownerId: p.ownerId ?? null,
         teamId: p.teamId,
+        status: p.status,
         ownerUsername: p.ownerUser?.username ?? null,
         ownerEmoji: p.ownerUser?.avatarEmoji ?? null,
         memberCount: p.team._count.members,
@@ -67,6 +70,38 @@ export async function adminStatsRoutes(app: FastifyInstance) {
         teamMembers: p.team.members,
       })),
     );
+  });
+
+  // Set any project's status regardless of team membership - the owner/co-owner-gated version on
+  // the regular product route can't be used here since an admin reviewing the platform-wide
+  // project list is very often not a member of the project's own team at all.
+  app.patch('/api/admin/products/:id/status', { preHandler: requireAdmin }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = (() => {
+      try {
+        return z.object({ status: z.enum(['active', 'completed', 'archived']) }).parse(req.body);
+      } catch {
+        return null;
+      }
+    })();
+    if (!body) return reply.status(400).send({ error: 'Invalid body' });
+    const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
+    if (!product) return reply.status(404).send({ error: 'Not found' });
+    await prisma.product.update({ where: { id }, data: { status: body.status } });
+
+    // Entering a locked state revokes every API/app token scoped to this project - see
+    // revokeProjectTokens for why this is what keeps the read-only lockdown actually enforced.
+    const revoked =
+      body.status !== product.status && (body.status === 'completed' || body.status === 'archived')
+        ? await revokeProjectTokens(id)
+        : 0;
+
+    logAdminEvent('PRODUCT_STATUS_CHANGED', {
+      actorName: (req as any).user?.username,
+      targetName: product.name,
+      metadata: { productId: id, status: body.status, revokedTokens: revoked },
+    });
+    reply.send({ ok: true });
   });
 
   // List soft-deleted projects so admins can review before hard-deleting or restoring

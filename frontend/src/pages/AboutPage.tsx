@@ -120,18 +120,34 @@ export default function AboutPage() {
     <div className="h-full overflow-auto" style={{ background: 'var(--bg)' }}>
       <div className="max-w-2xl mx-auto px-4 md:px-6 py-5 md:py-10 space-y-4 md:space-y-8">
         {/* Hero */}
-        <div className="flex items-start gap-4">
-          {activeProduct.emoji && <span className="text-5xl leading-none flex-shrink-0">{activeProduct.emoji}</span>}
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
-              {activeProduct.name}
-            </h1>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <StatusPill tone={isOverdue ? 'danger' : 'success'} size="pill">
-                {isOverdue ? 'Overdue · ' : 'Deadline · '}
-                {deadlineStr}
-              </StatusPill>
+        <div className="space-y-2">
+          <div className="flex items-start gap-4">
+            {activeProduct.emoji && <span className="text-5xl leading-none flex-shrink-0">{activeProduct.emoji}</span>}
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
+                {activeProduct.name}
+              </h1>
             </div>
+          </div>
+
+          {/* A direct child of this space-y-2 wrapper, not nested inside the emoji-indented title
+              column - so it left-aligns with the tabs/box below instead of sitting pushed right
+              under the emoji. */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatusPill tone={isOverdue ? 'danger' : 'success'} size="pill">
+              {isOverdue ? 'Overdue · ' : 'Deadline · '}
+              {deadlineStr}
+            </StatusPill>
+            {activeProduct.status === 'completed' && (
+              <StatusPill tone="success" size="pill">
+                ✓ Completed
+              </StatusPill>
+            )}
+            {activeProduct.status === 'archived' && (
+              <StatusPill tone="neutral" size="pill">
+                📦 Archived
+              </StatusPill>
+            )}
           </div>
         </div>
 

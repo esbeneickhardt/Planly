@@ -55,6 +55,7 @@ export default function AdminUserDetailModal({ user, onClose }: Props) {
                 : 'OK'}
           </Row>
           <Row label="Last login">{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never'}</Row>
+          <Row label="Last activity">{user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleString() : 'Never'}</Row>
           <Row label="Joined">{new Date(user.createdAt).toLocaleDateString()}</Row>
         </div>
       </div>

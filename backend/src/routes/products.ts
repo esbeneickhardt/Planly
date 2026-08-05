@@ -14,6 +14,8 @@ import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 import { decryptUserPii } from '../utils/crypto';
+import { revokeProjectTokens } from '../utils/product-guard';
+import { logAdminEvent } from '../utils/audit';
 
 // Validates strings as data format
 const validDate = z.string().refine((s) => !isNaN(new Date(s).getTime()), 'Invalid date');
@@ -35,6 +37,7 @@ const updateProductSchema = z.object({
   deadline: validDate.optional(),
   ownerId: z.string().optional(),
   analyticsEnabled: z.boolean().optional(),
+  status: z.enum(['active', 'completed', 'archived']).optional(),
 });
 
 export async function productRoutes(app: FastifyInstance) {
@@ -87,6 +90,7 @@ export async function productRoutes(app: FastifyInstance) {
         description: true,
         deadline: true,
         ownerId: true,
+        status: true,
         team: {
           select: {
             members: { include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true } } } },
@@ -136,7 +140,7 @@ export async function productRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const body = validate(updateProductSchema, req.body, reply);
     if (!body) return;
-    const { name, emoji, description, deadline, ownerId, analyticsEnabled } = body;
+    const { name, emoji, description, deadline, ownerId, analyticsEnabled, status } = body;
 
     // Verify the caller is a member and load their role
     const product = await prisma.product.findFirst({
@@ -150,6 +154,19 @@ export async function productRoutes(app: FastifyInstance) {
     // Enforce per-field permission rules based on role
     const isProductOwner = product.ownerId === req.user.userId;
     const isCoOwner = membership.role === 'co_owner';
+
+    // 'archived' locks out everyone, including the owner, from every field except `status`
+    // itself - status must stay editable or archiving would be a one-way trap with no revert path.
+    const touchesNonStatusField =
+      name !== undefined ||
+      emoji !== undefined ||
+      description !== undefined ||
+      deadline !== undefined ||
+      ownerId !== undefined ||
+      analyticsEnabled !== undefined;
+    if (product.status === 'archived' && touchesNonStatusField) {
+      return reply.status(403).send({ error: 'This project is archived - only its status can be changed.' });
+    }
 
     if ((name !== undefined || emoji !== undefined || description !== undefined) && !isProductOwner && !isCoOwner) {
       return reply.status(403).send({ error: 'Only the owner or co-owners can update project details' });
@@ -166,6 +183,9 @@ export async function productRoutes(app: FastifyInstance) {
     if (analyticsEnabled !== undefined && !isProductOwner) {
       return reply.status(403).send({ error: 'Only the owner can change analytics visibility' });
     }
+    if (status !== undefined && !isProductOwner && !isCoOwner) {
+      return reply.status(403).send({ error: 'Only the owner or co-owners can change project status' });
+    }
 
     // Sync team name if project name changes, then persist product fields
     try {
@@ -181,13 +201,154 @@ export async function productRoutes(app: FastifyInstance) {
           ...(deadline ? { deadline: new Date(deadline) } : {}),
           ...(ownerId !== undefined ? { ownerId } : {}),
           ...(analyticsEnabled !== undefined ? { analyticsEnabled } : {}),
+          ...(status !== undefined ? { status } : {}),
         },
         include: { team: { select: { id: true, name: true } } },
       });
+
+      // Entering a locked state revokes every API/app token scoped to this project, so a live
+      // token can never bypass the read-only lockdown (see revokeProjectTokens for why the
+      // permission checks themselves don't need their own app-token special case).
+      if (status !== undefined && status !== product.status && (status === 'completed' || status === 'archived')) {
+        const revoked = await revokeProjectTokens(id);
+        logAdminEvent('PRODUCT_STATUS_CHANGED', {
+          actorName: req.user.username,
+          targetName: product.name,
+          metadata: { productId: id, status, revokedTokens: revoked },
+        });
+      }
+
       reply.send(updated);
     } catch {
       reply.status(404).send({ error: 'Not found' });
     }
+  });
+
+  // Duplicate a project as a fresh template - owner only (stricter than the co-owner-friendly
+  // rules above, since this spins up a whole new team/project rather than editing the existing
+  // one). Copies the task/dependency/subtask structure, canvas layout, kanban columns, and color
+  // legend, but otherwise starts completely clean: a brand new team with only the duplicating
+  // user as a member (none of the source project's other members), no sub-plans, no
+  // webhooks/API tokens, no chat history, no tab permissions, and every task reset to its default
+  // status. Every deadline is shifted forward by the same offset (anchored on the new product's
+  // own deadline landing ~2 years out) so the whole timeline moves into the future while
+  // preserving how far apart milestones were from each other and from the project deadline,
+  // rather than collapsing every date onto the same far-future point.
+  app.post('/api/products/:id/duplicate', { preHandler: requireAuth }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const source = await prisma.product.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        tasks: { where: { deletedAt: null }, include: { subtasks: true, dependsOn: true } },
+        kanbanColumns: true,
+        colorLegendEntries: true,
+      },
+    });
+    if (!source) return reply.status(404).send({ error: 'Not found' });
+    if (source.ownerId !== req.user.userId) {
+      return reply.status(403).send({ error: 'Only the owner can duplicate this project' });
+    }
+
+    // Same server-level project-creation gate as creating a brand-new project from scratch.
+    const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+    if (!requestingUser?.isAdmin) {
+      const cfg = await getServerConfig();
+      if (!cfg.allowProjectCreation)
+        return reply.status(403).send({ error: 'Project creation is restricted to admins on this server.' });
+    }
+
+    const FAR_FUTURE_YEARS = 2;
+    const newDeadline = new Date(source.deadline);
+    newDeadline.setFullYear(newDeadline.getFullYear() + FAR_FUTURE_YEARS);
+    const deltaMs = newDeadline.getTime() - source.deadline.getTime();
+
+    const created = await prisma.$transaction(async (tx) => {
+      // Mirrors the frontend's own "create team, then create product in it" flow for a normal
+      // new project (see ProductContext.tsx's createProduct) - the new team's only member is
+      // whoever duplicated the project, exactly like starting a brand-new one.
+      const team = await tx.team.create({
+        data: { name: `${source.name} Team`, members: { create: [{ userId: req.user.userId }] } },
+      });
+
+      const product = await tx.product.create({
+        data: {
+          name: `${source.name} (Copy)`,
+          emoji: source.emoji,
+          description: source.description,
+          deadline: newDeadline,
+          teamId: team.id,
+          ownerId: req.user.userId,
+          analyticsEnabled: source.analyticsEnabled,
+        },
+      });
+
+      if (source.kanbanColumns.length > 0) {
+        await tx.kanbanColumn.createMany({
+          data: source.kanbanColumns.map((c) => ({
+            productId: product.id,
+            label: c.label,
+            color: c.color,
+            order: c.order,
+            isDone: c.isDone,
+            statusKey: c.statusKey,
+          })),
+        });
+      }
+
+      if (source.colorLegendEntries.length > 0) {
+        await tx.colorLegendEntry.createMany({
+          data: source.colorLegendEntries.map((e) => ({
+            productId: product.id,
+            colorKey: e.colorKey,
+            name: e.name,
+            enabled: e.enabled,
+          })),
+        });
+      }
+
+      // Created one at a time (not createMany) so each new id is known immediately - needed to
+      // remap dependency edges and subtasks to the copied tasks below.
+      const idMap = new Map<string, string>();
+      for (const t of source.tasks) {
+        const copy = await tx.task.create({
+          data: {
+            productId: product.id,
+            name: t.name,
+            description: t.description,
+            status: 'backlog',
+            color: t.color,
+            deadline: t.deadline ? new Date(t.deadline.getTime() + deltaMs) : null,
+            canvasX: t.canvasX,
+            canvasY: t.canvasY,
+            kanbanOrder: t.kanbanOrder,
+            milestoneOrder: t.milestoneOrder,
+            createdBy: req.user.userId,
+          },
+        });
+        idMap.set(t.id, copy.id);
+      }
+
+      const subtaskRows = source.tasks.flatMap((t) =>
+        t.subtasks.map((s) => ({ taskId: idMap.get(t.id)!, name: s.name, completed: false, order: s.order })),
+      );
+      if (subtaskRows.length > 0) await tx.subtask.createMany({ data: subtaskRows });
+
+      const dependencyRows = source.tasks.flatMap((t) =>
+        t.dependsOn.map((d) => ({
+          dependentId: idMap.get(d.dependentId)!,
+          prerequisiteId: idMap.get(d.prerequisiteId)!,
+        })),
+      );
+      if (dependencyRows.length > 0) await tx.taskDependency.createMany({ data: dependencyRows });
+
+      return product;
+    });
+
+    const full = await prisma.product.findUnique({
+      where: { id: created.id },
+      include: { team: { select: { id: true, name: true } } },
+    });
+    reply.status(201).send(full);
   });
 
   // Soft-delete by setting deletedAt (owner only, cannot be undone via API)
