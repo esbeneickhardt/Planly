@@ -21,6 +21,7 @@ interface Props {
   currentUser: User | null;
   members: TeamMember[];
   refreshProducts: () => Promise<void>;
+  setActiveProduct: (p: Product) => void;
   showToast: (msg: string, type: 'success' | 'error') => void;
   confirm: (msg: string) => Promise<boolean>;
 }
@@ -32,6 +33,7 @@ export default function SettingsGeneral({
   currentUser,
   members,
   refreshProducts,
+  setActiveProduct,
   showToast,
   confirm,
 }: Props) {
@@ -47,6 +49,7 @@ export default function SettingsGeneral({
   const [togglingAnalytics, setTogglingAnalytics] = useState(false);
   const [transferTo, setTransferTo] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   // Reset local form state when the active product changes so stale values don't leak across
   // products, and drop any pending debounced save from the product we just navigated away from.
@@ -131,6 +134,26 @@ export default function SettingsGeneral({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [canManage]);
+
+  async function duplicateProject() {
+    if (
+      !(await confirm(
+        `Create a copy of "${activeProduct.name}"? The new project keeps its tasks and canvas layout, but starts with no members, sub-plans, or integrations, and deadlines shifted into the future.`,
+      ))
+    )
+      return;
+    setDuplicating(true);
+    try {
+      const copy = await api.products.duplicate(activeProduct.id);
+      await refreshProducts();
+      setActiveProduct(copy);
+      showToast(`Created "${copy.name}" - switched to the new copy`, 'success');
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setDuplicating(false);
+    }
+  }
 
   async function transferOwnership() {
     if (!transferTo) return;
@@ -252,6 +275,19 @@ export default function SettingsGeneral({
                 : activeProduct.analyticsEnabled
                   ? 'Analytics enabled (visible to all members)'
                   : 'Analytics disabled (hidden from team)'}
+            </button>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
+              Duplicate project
+            </h2>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+              Create a fresh copy of this project's tasks, dependencies, and canvas layout in a brand new project - no
+              members, sub-plans, or integrations carried over, and every deadline shifted into the future.
+            </p>
+            <button onClick={duplicateProject} disabled={duplicating} className="btn-secondary text-sm inline-flex items-center gap-2">
+              <span>⧉</span> {duplicating ? 'Duplicating…' : 'Duplicate project'}
             </button>
           </div>
 

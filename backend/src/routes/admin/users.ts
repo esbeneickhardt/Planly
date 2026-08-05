@@ -32,6 +32,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
         failedLoginAttempts: true,
         loginLockedUntil: true,
         lastLoginAt: true,
+        lastActiveAt: true,
       },
       orderBy: [{ isFoundingAdmin: 'desc' }, { isAdmin: 'desc' }, { createdAt: 'asc' }],
     });

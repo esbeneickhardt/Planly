@@ -90,12 +90,17 @@ interface Props {
   simpleMode?: boolean;
 }
 
-/** Small "quick actions" popover - long-press a card to open this instead of the full detail
+/** Small "quick actions" menu - long-press a card to open this instead of the full detail
  * panel: jump straight to the task's chat, or (task-write permitting) change its status without
  * opening the panel just to move it. Both actions share this one long-press gesture since a card
- * can only claim the gesture once. Mobile-only - this leans on a full-screen fixed backdrop button
- * for dismissal, which fits a touch/modal-style interaction but isn't the right pattern for
- * desktop's hover+click dropdown (see KanbanCard.tsx's own, separate popover for that). */
+ * can only claim the gesture once.
+ *
+ * A bottom sheet, not a popover anchored to the card (`absolute ... top-full`, as this used to
+ * be) - anchoring to the card broke for any card in the lower half of the screen, since the
+ * popover had nowhere to open without running past the bottom edge. Fixed to the viewport bottom
+ * instead, mirroring the identical long-press pattern already used for per-message actions in the
+ * chat panel (MessageBubble.tsx) - same slide-up-on-open animation and swipe-down-to-dismiss, so
+ * both feel like the same gesture across the app. */
 function QuickStatusMenu({
   columns,
   current,
@@ -109,22 +114,70 @@ function QuickStatusMenu({
   onOpenChat: () => void;
   onClose: () => void;
 }) {
+  // Mounts already translated off-screen, then flips to translateY(0) one frame later so the
+  // transition actually animates a slide-up instead of just appearing in place.
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Swipe-down-to-dismiss, mirroring MessageBubble.tsx's own message-actions sheet.
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<number | null>(null);
+  const DISMISS_THRESHOLD = 80;
+  function handleTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    if (!t) return;
+    dragStartRef.current = t.clientY;
+    setDragging(true);
+  }
+  function handleTouchMove(e: React.TouchEvent) {
+    if (dragStartRef.current === null) return;
+    const t = e.touches[0];
+    if (!t) return;
+    setDragY(Math.max(0, t.clientY - dragStartRef.current));
+  }
+  function handleTouchEnd() {
+    if (dragStartRef.current === null) return;
+    dragStartRef.current = null;
+    setDragging(false);
+    if (dragY > DISMISS_THRESHOLD) onClose();
+    setDragY(0);
+  }
+
   return (
     <>
-      {/* Invisible backdrop - tapping anywhere outside the menu closes it */}
       <button
         className="fixed inset-0 z-40"
-        style={{ background: 'transparent' }}
+        style={{ background: 'rgba(0,0,0,0.5)' }}
         aria-label="Close quick actions menu"
         onClick={onClose}
       />
       <div
-        className="absolute left-3 right-3 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden animate-dropdown-in"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        className="fixed left-0 right-0 bottom-0 z-50 rounded-t-2xl shadow-2xl overflow-hidden"
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderBottom: 'none',
+          paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+          transform: visible ? `translateY(${dragY}px)` : 'translateY(100%)',
+          transition: dragging ? 'none' : 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)',
+          touchAction: 'none',
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
+        <div className="flex justify-center pt-2 pb-1" aria-hidden="true">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border-2)' }} />
+        </div>
         <button
           onClick={onOpenChat}
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors"
+          className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left transition-colors"
           style={{ color: 'var(--text)', borderBottom: onSelect ? '1px solid var(--border)' : 'none' }}
         >
           <span className="flex-shrink-0">💬</span>
@@ -135,7 +188,7 @@ function QuickStatusMenu({
             <button
               key={c.id}
               onClick={() => onSelect(c.statusKey)}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors"
+              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left transition-colors"
               style={{
                 color: c.statusKey === current ? c.color : 'var(--text)',
                 background: c.statusKey === current ? `${c.color}14` : 'transparent',
@@ -196,7 +249,10 @@ function CardBody({
         style={{
           background: 'var(--surface)',
           border: '1px solid var(--border)',
-          borderLeft: `3px solid ${task.color ?? 'transparent'}`,
+          // Neutral fallback, not 'transparent' - a transparent left border next to the 1px
+          // neutral border on the other 3 sides left a visible "hole" in the outline for any
+          // uncolored task, since the (3px) left edge fell back to nothing instead of matching.
+          borderLeft: `3px solid ${task.color ?? 'var(--border)'}`,
         }}
       >
         {dragHandle && (
@@ -311,7 +367,6 @@ function MobileStatusColumn({
   onQuickStatusChange,
   onReorderTasks,
   simpleMode,
-  boardBg,
 }: {
   col: KanbanColumn;
   colTasks: Task[];
@@ -321,9 +376,6 @@ function MobileStatusColumn({
   onQuickStatusChange?: (taskId: string, newStatus: string) => void;
   onReorderTasks?: (statusKey: string, orderedTaskIds: string[]) => void;
   simpleMode?: boolean;
-  /** The enclosing "status board" panel's own background - applied to this sticky header too so
-   * scrolled cards don't visually show through behind it. */
-  boardBg: string;
 }) {
   const [sortMode, setSortMode] = useState<SortMode>(() => loadColumnSortMode(col.id));
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -347,22 +399,21 @@ function MobileStatusColumn({
 
   return (
     <>
-      {/* Sticky so the status label stays visible while the card list scrolls underneath - needs
-          its own matching background so scrolled cards don't visually show through behind it. */}
+      {/* A genuine header row - not `position: sticky` layered over the scrolling list (that
+          needed an opaque background faked in to mask cards scrolling underneath, and still only
+          ever covered the list's own padding box, not the panel's full width). Instead, same
+          structure as desktop's KanbanColumn.tsx: a separate flex-shrink-0 row above a separately-
+          scrollable body below, so it's trivially full-bleed edge-to-edge within the panel and
+          never has to fight a scroll container's own clipping to stay covered or aligned. */}
       <div
-        className="flex items-center gap-2 mb-2 flex-shrink-0"
-        style={{ position: 'sticky', top: 0, zIndex: 1, background: boardBg }}
+        className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--border)' }}
       >
-        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: col.color }} aria-hidden="true" />
-        <h2
-          id={`col-heading-${col.id}`}
-          className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: 'var(--text-3)' }}
-        >
+        <h2 id={`col-heading-${col.id}`} className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
           {col.label}
         </h2>
         <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-          ({colTasks.length})
+          {colTasks.length}
         </span>
         <div className="relative ml-auto flex-shrink-0">
           <button
@@ -407,30 +458,32 @@ function MobileStatusColumn({
         </div>
       </div>
 
-      {colTasks.length === 0 ? (
-        <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
-          No tasks
-        </p>
-      ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={sorted.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-            <ul className="space-y-2">
-              {sorted.map((task) => (
-                <SortableMobileCard
-                  key={task.id}
-                  task={task}
-                  col={col}
-                  columns={columns}
-                  users={users}
-                  onOpenDetail={onOpenDetail}
-                  onQuickStatusChange={onQuickStatusChange}
-                  simpleMode={simpleMode}
-                />
-              ))}
-            </ul>
-          </SortableContext>
-        </DndContext>
-      )}
+      <div className="flex-1 overflow-y-auto p-3 pt-2">
+        {colTasks.length === 0 ? (
+          <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
+            No tasks
+          </p>
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={sorted.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              <ul className="space-y-2">
+                {sorted.map((task) => (
+                  <SortableMobileCard
+                    key={task.id}
+                    task={task}
+                    col={col}
+                    columns={columns}
+                    users={users}
+                    onOpenDetail={onOpenDetail}
+                    onQuickStatusChange={onQuickStatusChange}
+                    simpleMode={simpleMode}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
     </>
   );
 }
@@ -545,7 +598,7 @@ export default function KanbanMobileList({
       {/* Pager: one dot per page, current one highlighted, tap to jump - pages are status columns
           or milestones depending on viewMode */}
       {pageIds.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5 py-2 flex-shrink-0">
+        <div className="flex items-center justify-center gap-1.5 py-0.5 flex-shrink-0">
           {pageIds.map((id, i) => {
             const label =
               viewMode === 'milestone'
@@ -596,47 +649,44 @@ export default function KanbanMobileList({
                 <section
                   key={milestoneId}
                   aria-labelledby={`mcol-heading-${milestoneId}`}
-                  className="w-full flex-shrink-0 p-2 flex flex-col"
+                  className="w-full flex-shrink-0 p-3 flex flex-col"
                   style={{ scrollSnapAlign: 'start' }}
                 >
                   {/* The "status board" panel - the Trello list layer, sitting on top of the page
                       background above (photo wallpaper if set, otherwise just the plain page) and
                       tinted with this page's own color so it reads as a distinct board while
                       swiping. Task cards then sit inset within its own padding below, appearing
-                      visibly smaller than the page itself: background -> board -> cards. Scrolling
-                      now happens on this panel itself (not the outer section) so the header below
-                      can stick to ITS top edge while the card list scrolls underneath it. */}
+                      visibly smaller than the page itself: background -> board -> cards. A thin
+                      neutral border plus a colored top accent bar (not a full-strength colored
+                      outline on every edge) keeps this reading as a compact list card rather than
+                      a big solid-colored box. */}
                   <div
-                    className="rounded-2xl flex-1 flex flex-col p-3 shadow-sm overflow-y-auto"
+                    className="rounded-xl flex-1 flex flex-col shadow-sm overflow-hidden"
                     style={{
                       background: bgImage ? 'color-mix(in srgb, var(--surface) 88%, transparent)' : boardTint(color),
-                      // Full-strength 2px, matching desktop's own milestone-column border exactly -
-                      // the previous 1px/25%-opacity version read as washed-out and thin next to it.
-                      border: `2px solid ${color.startsWith('#') ? color : 'var(--border)'}`,
+                      border: '1px solid var(--border)',
+                      borderTop: `3px solid ${color.startsWith('#') ? color : 'var(--border)'}`,
                     }}
                   >
-                    {/* Sticky so the milestone name stays visible while the card list scrolls
-                        underneath - needs its own matching background (not transparent) so scrolled
-                        cards don't visually show through behind it. */}
+                    {/* A genuine header row - not `position: sticky` layered over the scrolling
+                        list (that needed an opaque background faked in to mask cards scrolling
+                        underneath, and still only ever covered the list's own padding box, not
+                        the panel's full width). Instead, same structure as desktop's
+                        KanbanColumn.tsx: a separate flex-shrink-0 row above a separately-
+                        scrollable body below, so it's trivially full-bleed edge-to-edge and never
+                        has to fight a scroll container's own clipping to stay covered or aligned. */}
                     <div
-                      className="flex items-center gap-2 mb-2 flex-shrink-0"
-                      style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1,
-                        background: bgImage ? 'color-mix(in srgb, var(--surface) 88%, transparent)' : boardTint(color),
-                      }}
+                      className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0"
+                      style={{ borderBottom: '1px solid var(--border)' }}
                     >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ background: color }}
-                        aria-hidden="true"
-                      />
+                      {/* No color dot here - the panel's own top accent bar (borderTop, set from
+                          this same `color`) already conveys it, so a second color chip next to
+                          the title was redundant. */}
                       <h2 id={`mcol-heading-${milestoneId}`} className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
                         {label}
                       </h2>
                       <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-                        ({pageTasks.length})
+                        {pageTasks.length}
                       </span>
                       {milestoneTask?.deadline && (
                         <span className="text-xs ml-auto" style={{ color: 'var(--text-3)' }}>
@@ -645,38 +695,40 @@ export default function KanbanMobileList({
                       )}
                     </div>
 
-                    {pageTasks.length === 0 && (
-                      <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
-                        No tasks
-                      </p>
-                    )}
+                    <div className="flex-1 overflow-y-auto p-3 pt-2">
+                      {pageTasks.length === 0 && (
+                        <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
+                          No tasks
+                        </p>
+                      )}
 
-                    {statusClusters.map(({ statusKey, label: statusLabel, color: statusColor, children }) => {
-                      const statusCol = columns.find((c) => c.statusKey === statusKey)!;
-                      const collapsed = collapsedStatuses?.has(statusKey) ?? false;
-                      return (
-                        <div key={statusKey} className="mb-2">
-                          <button
-                            onClick={() => onToggleStatusCollapse?.(statusKey)}
-                            className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
-                            style={{ color: 'var(--text-2)', background: `${statusColor}14` }}
-                          >
-                            <span
-                              className="inline-block flex-shrink-0"
-                              style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+                      {statusClusters.map(({ statusKey, label: statusLabel, color: statusColor, children }) => {
+                        const statusCol = columns.find((c) => c.statusKey === statusKey)!;
+                        const collapsed = collapsedStatuses?.has(statusKey) ?? false;
+                        return (
+                          <div key={statusKey} className="mb-2">
+                            <button
+                              onClick={() => onToggleStatusCollapse?.(statusKey)}
+                              className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
+                              style={{ color: 'var(--text-2)', background: `${statusColor}14` }}
                             >
-                              ▾
-                            </span>
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: statusColor }} />
-                            <span className="truncate flex-1 text-left">{statusLabel}</span>
-                            <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{children.length}</span>
-                          </button>
-                          {!collapsed && (
-                            <ul className="space-y-2 mb-2">{children.map((t) => renderCard(t, statusCol))}</ul>
-                          )}
-                        </div>
-                      );
-                    })}
+                              <span
+                                className="inline-block flex-shrink-0"
+                                style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+                              >
+                                ▾
+                              </span>
+                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+                              <span className="truncate flex-1 text-left">{statusLabel}</span>
+                              <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{children.length}</span>
+                            </button>
+                            {!collapsed && (
+                              <ul className="space-y-2 mb-2">{children.map((t) => renderCard(t, statusCol))}</ul>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </section>
               );
@@ -694,84 +746,80 @@ export default function KanbanMobileList({
             <section
               key={col.id}
               aria-labelledby={`col-heading-${col.id}`}
-              className="w-full flex-shrink-0 p-2 flex flex-col"
+              className="w-full flex-shrink-0 p-3 flex flex-col"
               style={{ scrollSnapAlign: 'start' }}
             >
               {/* The "status board" panel - see the milestone-mode branch above for the full
-                  three-layer explanation (page background -> this board -> task cards), and for
-                  why scrolling now happens here instead of on the outer section (lets the header
-                  below stick to this panel's own top edge). */}
+                  three-layer explanation (page background -> this board -> task cards). A thin
+                  neutral border plus a colored top accent bar (not a full-strength colored
+                  outline) keeps this reading as a compact list card, not a big solid-colored box. */}
               <div
-                className="rounded-2xl flex-1 flex flex-col p-3 shadow-sm overflow-y-auto"
+                className="rounded-xl flex-1 flex flex-col shadow-sm overflow-hidden"
                 style={{
                   background: boardBg,
-                  // Full-strength 2px, matching desktop's own column border exactly - the previous
-                  // 1px/25%-opacity version read as washed-out and thin next to it.
-                  border: `2px solid ${col.color}`,
+                  border: '1px solid var(--border)',
+                  borderTop: `3px solid ${col.color}`,
                 }}
               >
                 {clusters ? (
                   <>
-                    {/* Sticky so the status label stays visible while the card list scrolls
-                        underneath - needs its own matching background so scrolled cards don't
-                        visually show through behind it. */}
+                    {/* A genuine header row - not `position: sticky` layered over the scrolling
+                        list (that needed an opaque background faked in to mask cards scrolling
+                        underneath, and still only ever covered the list's own padding box, not
+                        the panel's full width). Instead, same structure as desktop's
+                        KanbanColumn.tsx: a separate flex-shrink-0 row above a separately-
+                        scrollable body below, so it's trivially full-bleed edge-to-edge and never
+                        has to fight a scroll container's own clipping to stay covered or aligned. */}
                     <div
-                      className="flex items-center gap-2 mb-2 flex-shrink-0"
-                      style={{ position: 'sticky', top: 0, zIndex: 1, background: boardBg }}
+                      className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0"
+                      style={{ borderBottom: '1px solid var(--border)' }}
                     >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ background: col.color }}
-                        aria-hidden="true"
-                      />
-                      <h2
-                        id={`col-heading-${col.id}`}
-                        className="text-xs font-semibold uppercase tracking-widest"
-                        style={{ color: 'var(--text-3)' }}
-                      >
+                      <h2 id={`col-heading-${col.id}`} className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
                         {col.label}
                       </h2>
                       <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-                        ({colTasks.length})
+                        {colTasks.length}
                       </span>
                     </div>
 
-                    {colTasks.length === 0 && (
-                      <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
-                        No tasks
-                      </p>
-                    )}
+                    <div className="flex-1 overflow-y-auto p-3 pt-2">
+                      {colTasks.length === 0 && (
+                        <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
+                          No tasks
+                        </p>
+                      )}
 
-                    {clusters.map(({ id, children }) => {
-                      const isUnassigned = id === UNASSIGNED_CLUSTER;
-                      const meta = isUnassigned ? null : milestoneColors?.get(id);
-                      const milestoneTask = isUnassigned ? null : tasks.find((t) => t.id === id);
-                      const label = isUnassigned ? 'No milestone' : (milestoneTask?.name ?? 'Milestone');
-                      const color = isUnassigned ? 'var(--text-3)' : (meta ?? 'var(--text-3)');
-                      const collapsed = collapsedMilestones?.has(id) ?? false;
-                      return (
-                        <div key={id} className="mb-2">
-                          <button
-                            onClick={() => onToggleMilestoneCollapse?.(id)}
-                            className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
-                            style={{ color: 'var(--text-2)', background: `${color}14`, borderLeft: `3px solid ${color}` }}
-                          >
-                            <span
-                              className="inline-block flex-shrink-0"
-                              style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+                      {clusters.map(({ id, children }) => {
+                        const isUnassigned = id === UNASSIGNED_CLUSTER;
+                        const meta = isUnassigned ? null : milestoneColors?.get(id);
+                        const milestoneTask = isUnassigned ? null : tasks.find((t) => t.id === id);
+                        const label = isUnassigned ? 'No milestone' : (milestoneTask?.name ?? 'Milestone');
+                        const color = isUnassigned ? 'var(--text-3)' : (meta ?? 'var(--text-3)');
+                        const collapsed = collapsedMilestones?.has(id) ?? false;
+                        return (
+                          <div key={id} className="mb-2">
+                            <button
+                              onClick={() => onToggleMilestoneCollapse?.(id)}
+                              className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
+                              style={{ color: 'var(--text-2)', background: `${color}14`, borderLeft: `3px solid ${color}` }}
                             >
-                              ▾
-                            </span>
-                            {!isUnassigned && (
-                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-                            )}
-                            <span className="truncate flex-1 text-left">{label}</span>
-                            <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{children.length}</span>
-                          </button>
-                          {!collapsed && <ul className="space-y-2 mb-2">{children.map((t) => renderCard(t, col))}</ul>}
-                        </div>
-                      );
-                    })}
+                              <span
+                                className="inline-block flex-shrink-0"
+                                style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+                              >
+                                ▾
+                              </span>
+                              {!isUnassigned && (
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                              )}
+                              <span className="truncate flex-1 text-left">{label}</span>
+                              <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{children.length}</span>
+                            </button>
+                            {!collapsed && <ul className="space-y-2 mb-2">{children.map((t) => renderCard(t, col))}</ul>}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </>
                 ) : (
                   <MobileStatusColumn
@@ -783,7 +831,6 @@ export default function KanbanMobileList({
                     onQuickStatusChange={onQuickStatusChange}
                     onReorderTasks={onReorderTasks}
                     simpleMode={simpleMode}
-                    boardBg={boardBg}
                   />
                 )}
               </div>

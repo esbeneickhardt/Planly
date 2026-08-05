@@ -33,7 +33,7 @@ const PAGE_TABS: { key: SettingsTab; label: string; danger?: boolean }[] = [
 ];
 
 export default function SettingsPage() {
-  const { activeProduct, productsLoaded, refreshProducts } = useProduct();
+  const { activeProduct, productsLoaded, refreshProducts, setActiveProduct } = useProduct();
   const { user: currentUser } = useAuth();
   const { refresh: refreshPerms, canManage, isOwner } = usePermission();
   const { showToast } = useToast();
@@ -219,6 +219,7 @@ export default function SettingsPage() {
                   currentUser={currentUser}
                   members={members}
                   refreshProducts={refreshProducts}
+                  setActiveProduct={setActiveProduct}
                   showToast={showToast}
                   confirm={confirm}
                 />
@@ -258,6 +259,7 @@ export default function SettingsPage() {
                 <SettingsDanger
                   activeProduct={activeProduct!}
                   isOwner={isOwner}
+                  canManage={canManage}
                   currentUser={currentUser}
                   members={members}
                   showToast={showToast}

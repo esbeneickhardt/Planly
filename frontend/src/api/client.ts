@@ -393,7 +393,7 @@ export const api = {
     get: (id: string) => request<Product>(`/api/products/${id}`),
     getAbout: (id: string) =>
       request<
-        Pick<Product, 'id' | 'name' | 'emoji' | 'description' | 'deadline'> & {
+        Pick<Product, 'id' | 'name' | 'emoji' | 'description' | 'deadline' | 'status'> & {
           members: {
             userId: string;
             role: string;
@@ -403,9 +403,12 @@ export const api = {
       >(`/api/products/${id}/about`),
     update: (
       id: string,
-      data: Partial<Pick<Product, 'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled'>>,
+      data: Partial<
+        Pick<Product, 'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled' | 'status'>
+      >,
     ) => request<Product>(`/api/products/${id}`, { method: 'PATCH', body: json(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/products/${id}`, { method: 'DELETE' }),
+    duplicate: (id: string) => request<Product>(`/api/products/${id}/duplicate`, { method: 'POST' }),
   },
 
   tasks: {
@@ -893,6 +896,7 @@ export const api = {
           failedLoginAttempts: number;
           loginLockedUntil: string | null;
           lastLoginAt: string | null;
+          lastActiveAt: string | null;
         }[]
       >('/api/admin/users'),
     promote: (userId: string) =>
@@ -1034,6 +1038,7 @@ export const api = {
           createdAt: string;
           ownerId: string | null;
           teamId: string;
+          status: 'active' | 'completed' | 'archived';
           ownerUsername: string | null;
           ownerEmoji: string | null;
           memberCount: number;
@@ -1041,6 +1046,8 @@ export const api = {
           teamMembers: { userId: string; role: string }[];
         }[]
       >('/api/admin/projects'),
+    updateProjectStatus: (id: string, status: 'active' | 'completed' | 'archived') =>
+      request<{ ok: boolean }>(`/api/admin/products/${id}/status`, { method: 'PATCH', body: json({ status }) }),
     deletedProjects: () =>
       request<
         {
