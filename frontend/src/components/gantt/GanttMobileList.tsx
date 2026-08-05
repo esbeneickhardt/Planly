@@ -397,6 +397,18 @@ export default function GanttMobileList({
                         · {doneTasks.length}/{sprintTasks.length} done
                       </span>
                     </div>
+                    {/* Same progress bar treatment as milestone cards above - sub-plans were
+                        missing this entirely, showing only the "X/Y done" text. */}
+                    {sprintTasks.length > 0 && (
+                      <div className="mt-2">
+                        <div className="h-1.5 rounded-full overflow-hidden bg-border">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${(doneTasks.length / sprintTasks.length) * 100}%`, background: s.color }}
+                          />
+                        </div>
+                      </div>
+                    )}
                     {expanded && (
                       <div className="mt-2.5 pt-2.5 space-y-0.5" style={{ borderTop: '1px solid var(--border)' }}>
                         {sprintTasks.length === 0 ? (

@@ -89,12 +89,24 @@ export async function requireTabWrite(
     where: { id: productId, deletedAt: null },
     select: {
       ownerId: true,
+      status: true,
       team: { select: { members: { where: { userId }, select: { role: true } } } },
     },
   });
 
   if (!product) {
     reply.status(404).send({ error: 'Not found' });
+    return false;
+  }
+
+  // Project-lifecycle lockdown, checked before anything else: 'archived' blocks writes for
+  // everyone, including the owner (checked here, ahead of the owner bypass below). A
+  // project-scoped API/app token can never reach this function with a still-valid token once
+  // the project is locked - revokeProjectTokens (see products.ts / admin/stats.ts) deletes every
+  // token scoped to this project the moment it enters 'completed' or 'archived', so the
+  // app-token branch above doesn't need its own copy of this check.
+  if (product.status === 'archived') {
+    reply.status(403).send({ error: 'This project is archived and read-only.' });
     return false;
   }
   if (product.ownerId === userId) return true;
@@ -105,6 +117,13 @@ export async function requireTabWrite(
     return false;
   }
   if (member.role === 'co_owner') return true;
+
+  // 'completed' blocks writes for everyone except the owner/co-owner (both already handled
+  // above), regardless of what their stored TabPermission rows say.
+  if (product.status === 'completed') {
+    reply.status(403).send({ error: 'This project is completed and read-only for members.' });
+    return false;
+  }
 
   const rows = await prisma.tabPermission.findMany({
     where: { productId, userId, tab: { in: tabs } },
@@ -118,6 +137,53 @@ export async function requireTabWrite(
 
   if (!hasWrite) {
     reply.status(403).send({ error: 'Write access required' });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Same project-lifecycle lockdown rule as requireTabWrite above ('archived' blocks everyone
+ * including the owner; 'completed' blocks everyone except the owner/co-owner), for routes that
+ * don't have per-tab permissions at all - currently just chat message posting/editing/deleting/
+ * reacting, which only checks membership via requireProductMember today even though 'messages' is
+ * a valid TabPermission tab. See requireTabWrite's comment for why this doesn't need its own
+ * app-token special case.
+ */
+export async function requireProductWritable(
+  productId: string,
+  user: AuthPayload,
+  reply: FastifyReply,
+): Promise<boolean> {
+  const { userId } = user;
+  const product = await prisma.product.findFirst({
+    where: { id: productId, deletedAt: null },
+    select: {
+      ownerId: true,
+      status: true,
+      team: { select: { members: { where: { userId }, select: { role: true } } } },
+    },
+  });
+
+  if (!product) {
+    reply.status(404).send({ error: 'Not found' });
+    return false;
+  }
+  if (product.status === 'archived') {
+    reply.status(403).send({ error: 'This project is archived and read-only.' });
+    return false;
+  }
+  if (product.ownerId === userId) return true;
+
+  const member = product.team.members[0];
+  if (!member) {
+    reply.status(403).send({ error: 'Forbidden' });
+    return false;
+  }
+  if (member.role === 'co_owner') return true;
+
+  if (product.status === 'completed') {
+    reply.status(403).send({ error: 'This project is completed and read-only for members.' });
     return false;
   }
   return true;
@@ -210,4 +276,18 @@ export async function requireProductCoOwner(productId: string, userId: string, r
 
   reply.status(403).send({ error: 'Forbidden' });
   return false;
+}
+
+/**
+ * Deletes every ApiToken scoped to this exact project - both directly-scoped PATs and ones
+ * issued under a project-scoped App Registration (both already store productId on the ApiToken
+ * row itself, see api-tokens.ts/app-registrations.ts). Call this whenever a project transitions
+ * into 'completed' or 'archived', so a token that would otherwise bypass the read-only lockdown
+ * can't be used at all - see requireTabWrite/requireProductWritable's comments for why those two
+ * don't need their own app-token special case. Returns the number of tokens revoked, for the
+ * audit log.
+ */
+export async function revokeProjectTokens(productId: string): Promise<number> {
+  const { count } = await prisma.apiToken.deleteMany({ where: { productId } });
+  return count;
 }

@@ -49,6 +49,23 @@ export function invalidateCachedTokenVersion(userId: string) {
   _tvCache.delete(userId);
 }
 
+// 5-minute in-memory cache tracking the last time each user's `lastActiveAt` was written,
+// same throttling idea as _tvCache above but for a much coarser signal - "last activity" only
+// needs minute-level precision, so there's no reason to write on every single request.
+const _lastActiveCache = new Map<string, number>();
+const LAST_ACTIVE_TTL_MS = 5 * 60_000;
+
+// Fire-and-forget - never awaited by callers, since touching this on every authenticated
+// request must not add latency. Covers both Bearer and cookie auth, so API-token/App
+// Registration usage counts as activity too, not just interactive logins.
+function touchUserActivity(userId: string) {
+  const last = _lastActiveCache.get(userId);
+  const now = Date.now();
+  if (last !== undefined && now - last < LAST_ACTIVE_TTL_MS) return;
+  _lastActiveCache.set(userId, now);
+  prisma.user.update({ where: { id: userId }, data: { lastActiveAt: new Date() } }).catch(() => {});
+}
+
 // Routes where an authenticated but unverified user must still be allowed through
 // (so they can verify themselves or change their password)
 const EMAIL_VERIFY_EXEMPT = new Set([
@@ -149,6 +166,7 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
             return false;
           }
         }
+        touchUserActivity(apiToken.userId);
         return true;
       }
     } catch {
@@ -202,6 +220,7 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
         return false;
       }
       req.user = payload;
+      touchUserActivity(payload.userId);
       return true;
     } catch {
       // invalid/expired
