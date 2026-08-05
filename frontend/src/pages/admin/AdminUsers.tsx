@@ -38,7 +38,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
           <th className="text-left py-2 font-medium">User</th>
           <th className="text-left py-2 font-medium">Email</th>
           <th className="text-left py-2 font-medium">Verified</th>
-          <th className="text-left py-2 font-medium">Login</th>
+          <th className="text-left py-2 font-medium">Activity</th>
           <th className="text-left py-2 font-medium">Joined</th>
           {isFoundingAdmin && <th className="py-2 text-right font-medium pr-1">Actions</th>}
         </tr>
@@ -119,12 +119,14 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                     </StatusPill>
                   );
                 }
-                if (u.lastLoginAt) {
-                  const ms = Date.now() - new Date(u.lastLoginAt).getTime();
+                if (u.lastActiveAt) {
+                  const ms = Date.now() - new Date(u.lastActiveAt).getTime();
                   const days = Math.floor(ms / 86400000);
                   const hours = Math.floor(ms / 3600000);
                   const mins2 = Math.floor(ms / 60000);
-                  // Sessions expire after 7 days; highlight users who appear to have an active session
+                  // Last activity (not just last login) is tracked on every authenticated
+                  // request, so a genuinely stale user is a much more reliable "days" cutoff
+                  // than the old session-length heuristic.
                   const active = days < 7;
                   const label = mins2 < 60 ? `${mins2}m ago` : hours < 24 ? `${hours}h ago` : `${days}d ago`;
                   return (
@@ -132,7 +134,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                       tone={active ? 'success' : 'neutral'}
                       size="sm"
                       className="whitespace-nowrap"
-                      title={new Date(u.lastLoginAt).toLocaleString()}
+                      title={new Date(u.lastActiveAt).toLocaleString()}
                     >
                       {label}
                     </StatusPill>

@@ -48,6 +48,8 @@ export interface Team {
   members: TeamMember[];
 }
 
+export type ProductStatus = 'active' | 'completed' | 'archived';
+
 export interface Product {
   id: string;
   name: string;
@@ -56,6 +58,7 @@ export interface Product {
   deadline: string;
   teamId: string;
   ownerId?: string | null;
+  status: ProductStatus;
   analyticsEnabled: boolean;
   createdAt: string;
   team?: Team;

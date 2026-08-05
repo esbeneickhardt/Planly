@@ -15,6 +15,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
+import { requireProductWritable } from '../utils/product-guard';
 import { validate } from '../utils/validate';
 import { createNotification } from '../utils/notifications';
 import { safeDecryptValue } from '../utils/crypto';
@@ -372,11 +373,18 @@ export async function conversationRoutes(app: FastifyInstance) {
     if (!participant) return reply.status(403).send({ error: 'Not a participant' });
 
     // Check if conversation is closed — non-admins cannot send to a closed conversation
-    const conv = await prisma.conversation.findUnique({ where: { id }, select: { closed: true, isGroup: true, name: true } });
+    const conv = await prisma.conversation.findUnique({
+      where: { id },
+      select: { closed: true, isGroup: true, name: true, productId: true },
+    });
     if ((conv as { closed?: boolean })?.closed) {
       const actor = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
       if (!actor?.isAdmin) return reply.status(403).send({ error: 'This conversation has been closed.' });
     }
+    // Project-scoped conversations respect the project's own lockdown rule; admin-chat
+    // conversations have no productId and aren't affected by any project's status.
+    const convProductId = (conv as { productId?: string | null } | null)?.productId;
+    if (convProductId && !(await requireProductWritable(convProductId, req.user, reply))) return;
 
     const msg = await prisma.directMessage.create({
       data: { conversationId: id, authorId: userId, content: body.content.trim(), replyToId: body.replyToId ?? null },

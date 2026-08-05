@@ -9,6 +9,7 @@ export type AdminUser = {
   failedLoginAttempts: number;
   loginLockedUntil: string | null;
   lastLoginAt: string | null;
+  lastActiveAt: string | null;
 };
 
 export type AdminProject = {
@@ -17,6 +18,7 @@ export type AdminProject = {
   emoji: string | null;
   deadline: string;
   createdAt: string;
+  status: 'active' | 'completed' | 'archived';
   ownerUsername: string | null;
   ownerEmoji: string | null;
   memberCount: number;
@@ -81,4 +83,5 @@ export const ACTION_LABELS: Record<string, string> = {
   LOGIN_LOCKED: 'Account locked',
   LOGIN_UNLOCKED: 'Account unlocked',
   PASSWORD_RESET_BY_ADMIN: 'Password reset by admin',
+  PRODUCT_STATUS_CHANGED: 'Project status changed',
 };

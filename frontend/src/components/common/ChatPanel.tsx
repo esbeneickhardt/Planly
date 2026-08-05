@@ -76,6 +76,10 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
   // Matches the backend's requireTabWrite OR-semantics for task mutations (kanban or backlog write access).
   // Only relevant when a task is actually opened here, which only happens outside admin chat.
   const taskReadOnly = !(canWrite('backlog') || canWrite('kanban'));
+  // Mirrors the backend's requireProductWritable rule (messages.ts/conversations.ts): false once
+  // the active project is 'completed' (member) or 'archived' (anyone). Always true in admin chat,
+  // since there's no activeProduct to lock there.
+  const chatWritable = canWrite('messages');
 
   // ── Extracted hooks ──
   const { allMessages, setAllMessages, loadOlder, hasMoreOlder, loadingOlder } = useChatMessages({
@@ -457,6 +461,21 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
     },
     [productId],
   );
+
+  // Keep the Users/Groups tab badges (totalDmUnread/totalGroupUnread) live even when neither tab
+  // is the active one - a notification badge that only updates once you've already opened the tab
+  // it's warning you about defeats its own purpose. Runs unconditionally (unlike the "active tab"
+  // pollers below, which also fetch the open thread's messages), same unconditional-polling
+  // pattern already used for unreadByTask above.
+  useEffect(() => {
+    loadPeople();
+    loadGroups();
+    const interval = setInterval(() => {
+      loadPeople();
+      loadGroups();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [loadPeople, loadGroups]);
 
   // When People tab is active, poll conversations; when a DM thread is open, poll its messages
   useEffect(() => {
@@ -1427,14 +1446,15 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                   onChange={handleDraftChange}
                   onPaste={handlePaste}
                   onKeyDown={handleDraftKeyDown}
-                  placeholder="Message…"
+                  readOnly={!chatWritable}
+                  placeholder={chatWritable ? 'Message…' : 'This project is read-only'}
                   className="input text-sm flex-1 resize-none rounded-full py-2"
                   style={{ maxHeight: 100, overflowY: 'auto', boxSizing: 'border-box', lineHeight: '20px' }}
                 />
                 <button
                   onClick={send}
                   onMouseDown={(e) => e.preventDefault()}
-                  disabled={sending || (!draft.trim() && attachments.length === 0)}
+                  disabled={sending || !chatWritable || (!draft.trim() && attachments.length === 0)}
                   aria-label="Send"
                   className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity disabled:opacity-40"
                   style={{ background: 'var(--brand)', color: 'white' }}
@@ -1458,7 +1478,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                   <button
                     onClick={send}
                     onMouseDown={(e) => e.preventDefault()}
-                    disabled={sending || (!draft.trim() && attachments.length === 0)}
+                    disabled={sending || !chatWritable || (!draft.trim() && attachments.length === 0)}
                     className="btn-primary text-xs px-4"
                   >
                     {sending ? '…' : 'Send'}
@@ -1485,7 +1505,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
               </button>
               <button
                 onClick={() => fileRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || !chatWritable}
                 className="text-xs px-2 py-0.5 rounded-md transition-colors"
                 style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
               >
@@ -1524,7 +1544,8 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                 onChange={handleDraftChange}
                 onPaste={handlePaste}
                 onKeyDown={handleDraftKeyDown}
-                placeholder="Write a message… type @ to mention · ⌘↵ send"
+                readOnly={!chatWritable}
+                placeholder={chatWritable ? 'Write a message… type @ to mention · ⌘↵ send' : 'This project is read-only'}
                 className="input text-sm w-full resize-none mb-2"
               />
             )}
@@ -1570,7 +1591,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
               <button
                 onClick={send}
                 onMouseDown={(e) => e.preventDefault()}
-                disabled={sending || (!draft.trim() && attachments.length === 0)}
+                disabled={sending || !chatWritable || (!draft.trim() && attachments.length === 0)}
                 className="btn-primary text-xs px-4"
               >
                 {sending ? '…' : 'Send'}
@@ -1662,18 +1683,24 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                         setActiveMessageId(null);
                       }}
                       onImageClick={setLightboxUrl}
-                      canEdit={Date.now() - new Date(msg.createdAt).getTime() < EDIT_TIMEOUT_MS}
-                      onReact={(emoji) => toggleReaction(msg.id, emoji)}
+                      canEdit={chatWritable && Date.now() - new Date(msg.createdAt).getTime() < EDIT_TIMEOUT_MS}
+                      onReact={(emoji) => chatWritable && toggleReaction(msg.id, emoji)}
                       currentUserId={user?.id ?? null}
                       reactionPickerOpen={reactionPickerFor === msg.id}
-                      onToggleReactionPicker={() => setReactionPickerFor((v) => (v === msg.id ? null : msg.id))}
+                      onToggleReactionPicker={() =>
+                        chatWritable && setReactionPickerFor((v) => (v === msg.id ? null : msg.id))
+                      }
                       actionsOpen={activeMessageId === msg.id}
-                      onToggleActions={() => setActiveMessageId((v) => (v === msg.id ? null : msg.id))}
-                      onReply={() => {
-                        setReplyingTo(msg);
-                        setActiveMessageId(null);
-                        setTimeout(() => textRef.current?.focus(), 0);
-                      }}
+                      onToggleActions={() => chatWritable && setActiveMessageId((v) => (v === msg.id ? null : msg.id))}
+                      onReply={
+                        chatWritable
+                          ? () => {
+                              setReplyingTo(msg);
+                              setActiveMessageId(null);
+                              setTimeout(() => textRef.current?.focus(), 0);
+                            }
+                          : undefined
+                      }
                       onScrollToReply={(id) => setScrollToMsgId(id)}
                       authorRole={authorRole}
                       isMobile={isMobile}
@@ -1930,7 +1957,12 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
             className={`${inSubThread ? 'hidden md:flex' : 'flex'} items-center gap-1 px-3 py-2 flex-shrink-0`}
             style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
           >
-            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            {/* pt-1.5 gives the unread badges (positioned -top-0.5 on each tab button, i.e.
+                slightly overlapping the button's top-right corner) room to render - without it,
+                this row's own overflow-x-auto forces overflow-y to 'auto' too (browsers coerce a
+                'visible' cross-axis to 'auto' whenever the other axis isn't 'visible'), which was
+                clipping the badges' top edge since they had zero slack above the buttons. */}
+            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto pt-1.5" style={{ scrollbarWidth: 'none' }}>
               {tabBtn('messages', isAdminChat ? 'Admin' : 'Project', unreadByTask.general)}
               {isAdminChat && (
               <button

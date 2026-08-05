@@ -12,7 +12,7 @@ import multipart from '@fastify/multipart';
 import prisma from '../db/client';
 import { config } from '../config/env';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, requireProductWritable } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { broadcast } from '../realtime/manager';
 import {
@@ -218,6 +218,7 @@ export async function messageRoutes(app: FastifyInstance) {
       prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } }),
     ]);
     if (!isMember) return;
+    if (!(await requireProductWritable(productId, req.user, reply))) return;
     let postedAsRole: string | null = rawRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
@@ -301,6 +302,7 @@ export async function messageRoutes(app: FastifyInstance) {
   app.patch('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
     if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireProductWritable(productId, req.user, reply))) return;
     const editBody = validate(updateMessageSchema, req.body, reply);
     if (!editBody) return;
     const { content } = editBody;
@@ -319,6 +321,7 @@ export async function messageRoutes(app: FastifyInstance) {
   app.delete('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
     if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireProductWritable(productId, req.user, reply))) return;
     const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
@@ -333,6 +336,7 @@ export async function messageRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { productId, messageId } = req.params as { productId: string; messageId: string };
       if (!(await requireProductMember(productId, req.user, reply))) return;
+      if (!(await requireProductWritable(productId, req.user, reply))) return;
       const rxnBody = validate(addReactionSchema, req.body, reply);
       if (!rxnBody) return;
       const { emoji } = rxnBody;
