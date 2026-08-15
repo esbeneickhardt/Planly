@@ -3,7 +3,7 @@
  * Reactions are grouped by emoji with the current user's own reaction highlighted; `reactionPickerOpen` state is lifted to the parent.
  * Edit and delete controls are only shown on hover for the message author; `formatTime` is exported for reuse in task list timestamps.
  */
-import { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -13,6 +13,7 @@ import { displayName } from '../../api/client';
 import type { Message } from '../../api/client';
 import { EMOJI_SET } from './MarkdownEditor';
 import EmojiPicker from './EmojiPicker';
+import { logTouch } from './TouchDebugOverlay';
 
 // Swipe-right-to-reply thresholds (mirrors Messenger/WhatsApp-style chat gestures)
 const SWIPE_MAX = 60;
@@ -31,6 +32,22 @@ const DIRECTION_LOCK_DISTANCE = 14;
 // Swipe is the priority gesture here (tap-to-open-menu is the fallback), so an ambiguous diagonal
 // drag should still commit to "horizontal" unless it's clearly more vertical than horizontal.
 const VERTICAL_BIAS = 2;
+
+// Per-element `user-select: none` (mdTouchProps below) reliably stops selection FROM COMPLETING,
+// but real-world testing showed the native long-press-to-select negotiation can still CAPTURE the
+// touch over a rendered text run even so, silently eating the rest of the gesture (confirmed: works
+// on the sender name, bubble padding/edges, quoted text, images - fails only in the middle of the
+// message's own rendered text, every time). This matches a documented, cross-browser class of bug:
+// react-aria's own textSelection.ts utility (a widely-used, heavily cross-browser-tested library)
+// carries the exact same workaround, with the comment "adding [user-select:none] to the pressable
+// element prevents that element from being selected, but nearby elements may still receive
+// selection." Their fix - and this one - is to suppress selection at the DOCUMENT ROOT, imperatively,
+// for the duration of the touch, rather than trusting a static per-element style alone.
+function suppressGlobalTextSelection(disabled: boolean) {
+  const style = document.documentElement.style;
+  style.userSelect = disabled ? 'none' : '';
+  (style as unknown as { webkitUserSelect: string }).webkitUserSelect = disabled ? 'none' : '';
+}
 
 export function formatTime(iso: string) {
   const d = new Date(iso);
@@ -98,76 +115,132 @@ export default function MessageBubble({
   isMobile,
   scrollContainerRef,
 }: Props) {
-  const renderContent = (content: string, own: boolean) => (
-    <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5, touchAction: 'pan-y' }}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
-        components={{
-          pre: ({ children }) => <>{children}</>,
-          code: ({ className, children, ...props }) => {
-            if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
-            if (String(children).includes('\n'))
-              return (
-                <pre style={{ margin: '6px -4px', borderRadius: 6, overflow: 'auto', fontSize: 12 }}>
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                </pre>
-              );
-            return (
-              <code
-                style={{
-                  background: own ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
-                  padding: '1px 4px',
-                  borderRadius: 3,
-                  fontSize: '0.88em',
-                  fontFamily: 'monospace',
-                }}
-                {...props}
-              >
+  // Every element ReactMarkdown renders below needs touch-action/user-select applied directly on
+  // ITSELF, not just on the wrapping chat-markdown div - this is the actual missing piece: the
+  // sender-name row and the reply-quote button (plain hand-written JSX elsewhere in this file)
+  // already had this applied at their own level and swipe worked fine on them, while a plain-text
+  // message - which renders as nothing but a bare <p> from the `p` component below, previously
+  // with no touch/select styling of its own at all - did not. Both properties are used-value
+  // computed per element on real mobile browsers and don't reliably fall back to an ancestor's
+  // value (the file's own established, repeatedly-learned lesson - see the bubble div and outer
+  // row's own copies of this same style for the earlier instances of the same problem).
+  //
+  // touchAction stays 'pan-y' here, same as everywhere else - an earlier attempt switched this to
+  // 'none' plus a hand-rolled manual scroll (translating scrollContainerRef directly from touch
+  // deltas) to route around native scroll not engaging over glyphs, but that manual scroll proved
+  // unreliable in the field (regressed ordinary scrolling) and wasn't even a full fix for the
+  // swipe issue it targeted. Reverted - see handleTouchEnd's ground-truth fallback for how a swipe
+  // that starts on text is actually made to work reliably instead, without touching scroll at all.
+  const mdTouchProps = (isMob: boolean | undefined): React.CSSProperties => ({
+    touchAction: 'pan-y',
+    WebkitUserSelect: isMob ? 'none' : undefined,
+    userSelect: isMob ? 'none' : undefined,
+    WebkitTouchCallout: isMob ? 'none' : undefined,
+  });
+
+  // Built once per [isMobile, isOwn] pair via useMemo, NOT recreated fresh on every render like the
+  // rest of this component's inline styles are - this turned out to be the actual root cause of the
+  // whole swipe-over-text saga, not native browser gesture-stealing at all. React distinguishes
+  // custom component types (react-markdown renders each entry here as `<Component {...props}/>`, not
+  // by calling it inline) by FUNCTION REFERENCE, not by visual output. A fresh object literal full of
+  // fresh arrow functions on every render - which is what this used to be, defined inline inside
+  // renderContent below - means React sees a "new" `p` (etc.) component type at the same tree
+  // position on every re-render, and fully unmounts + remounts that subtree rather than patching it.
+  // handleTouchStart's own setDragging(true) re-renders this component on every touch that begins
+  // over text, destroying the actual DOM node the finger is touching in the process - and once a
+  // touch's target is removed from the document mid-gesture, no browser (confirmed identically on
+  // Chrome/Brave and Firefox) keeps delivering touchmove/touchend for it. That's why nothing about
+  // touch-action, user-select, or even a hard non-passive preventDefault() on touchstart ever made a
+  // difference: none of those address DOM node identity, which was the actual problem the whole time.
+  const mdComponents = useMemo(
+    () => ({
+      pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+      code: ({ className, children, ...props }: { className?: string; children?: React.ReactNode }) => {
+        if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
+        if (String(children).includes('\n'))
+          return (
+            <pre style={{ margin: '6px -4px', borderRadius: 6, overflow: 'auto', fontSize: 12, ...mdTouchProps(isMobile) }}>
+              <code className={className} {...props}>
                 {children}
               </code>
-            );
-          },
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: own ? 'rgba(255,255,255,0.85)' : 'var(--brand)', textDecoration: 'underline' }}
-            >
-              {children}
-            </a>
-          ),
-          p: ({ children }) => <p style={{ margin: '2px 0' }}>{children}</p>,
-          h1: ({ children }) => (
-            <h1 style={{ margin: '6px 0 2px', fontSize: '1.3em', fontWeight: 700, lineHeight: 1.3 }}>{children}</h1>
-          ),
-          h2: ({ children }) => (
-            <h2 style={{ margin: '5px 0 2px', fontSize: '1.15em', fontWeight: 700, lineHeight: 1.3 }}>{children}</h2>
-          ),
-          h3: ({ children }) => (
-            <h3 style={{ margin: '4px 0 2px', fontSize: '1.05em', fontWeight: 600, lineHeight: 1.3 }}>{children}</h3>
-          ),
-          h4: ({ children }) => <h4 style={{ margin: '3px 0 2px', fontSize: '1em', fontWeight: 600 }}>{children}</h4>,
-          ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ul>,
-          ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: 16 }}>{children}</ol>,
-          li: ({ children }) => <li style={{ margin: '2px 0' }}>{children}</li>,
-          blockquote: ({ children }) => (
-            <blockquote
-              style={{
-                margin: '4px 0',
-                paddingLeft: 10,
-                borderLeft: `3px solid ${own ? 'rgba(255,255,255,0.4)' : 'var(--brand)'}`,
-                opacity: 0.8,
-              }}
-            >
-              {children}
-            </blockquote>
-          ),
-        }}
-      >
+            </pre>
+          );
+        return (
+          <code
+            style={{
+              background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+              padding: '1px 4px',
+              borderRadius: 3,
+              fontSize: '0.88em',
+              fontFamily: 'monospace',
+              ...mdTouchProps(isMobile),
+            }}
+            {...props}
+          >
+            {children}
+          </code>
+        );
+      },
+      a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--brand)',
+            textDecoration: 'underline',
+            ...mdTouchProps(isMobile),
+          }}
+        >
+          {children}
+        </a>
+      ),
+      p: ({ children }: { children?: React.ReactNode }) => <p style={{ margin: '2px 0', ...mdTouchProps(isMobile) }}>{children}</p>,
+      h1: ({ children }: { children?: React.ReactNode }) => (
+        <h1 style={{ margin: '6px 0 2px', fontSize: '1.3em', fontWeight: 700, lineHeight: 1.3, ...mdTouchProps(isMobile) }}>
+          {children}
+        </h1>
+      ),
+      h2: ({ children }: { children?: React.ReactNode }) => (
+        <h2 style={{ margin: '5px 0 2px', fontSize: '1.15em', fontWeight: 700, lineHeight: 1.3, ...mdTouchProps(isMobile) }}>
+          {children}
+        </h2>
+      ),
+      h3: ({ children }: { children?: React.ReactNode }) => (
+        <h3 style={{ margin: '4px 0 2px', fontSize: '1.05em', fontWeight: 600, lineHeight: 1.3, ...mdTouchProps(isMobile) }}>
+          {children}
+        </h3>
+      ),
+      h4: ({ children }: { children?: React.ReactNode }) => (
+        <h4 style={{ margin: '3px 0 2px', fontSize: '1em', fontWeight: 600, ...mdTouchProps(isMobile) }}>{children}</h4>
+      ),
+      ul: ({ children }: { children?: React.ReactNode }) => (
+        <ul style={{ margin: '4px 0', paddingLeft: 16, ...mdTouchProps(isMobile) }}>{children}</ul>
+      ),
+      ol: ({ children }: { children?: React.ReactNode }) => (
+        <ol style={{ margin: '4px 0', paddingLeft: 16, ...mdTouchProps(isMobile) }}>{children}</ol>
+      ),
+      li: ({ children }: { children?: React.ReactNode }) => <li style={{ margin: '2px 0', ...mdTouchProps(isMobile) }}>{children}</li>,
+      blockquote: ({ children }: { children?: React.ReactNode }) => (
+        <blockquote
+          style={{
+            margin: '4px 0',
+            paddingLeft: 10,
+            borderLeft: `3px solid ${isOwn ? 'rgba(255,255,255,0.4)' : 'var(--brand)'}`,
+            opacity: 0.8,
+            ...mdTouchProps(isMobile),
+          }}
+        >
+          {children}
+        </blockquote>
+      ),
+    }),
+    [isMobile, isOwn],
+  );
+
+  const renderContent = (content: string) => (
+    <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5, ...mdTouchProps(isMobile) }}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]} components={mdComponents}>
         {content}
       </ReactMarkdown>
     </div>
@@ -265,7 +338,30 @@ export default function MessageBubble({
 
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
+  // Attached to the outer row (see the ref prop below) so a raw, non-passive touchmove listener can
+  // be registered on it directly - see the useEffect further down for why.
+  const rowRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  // Set once at touchstart and only ever cleared at touchend/touchcancel - unlike touchStartRef
+  // above (which gets nulled early: once direction resolves to 'vertical', or once the long-press
+  // timer fires), this always survives to the end of the gesture. handleTouchEnd uses it as a
+  // ground-truth fallback: touchend/touchcancel is guaranteed to fire with the touch's real final
+  // position, regardless of whether any touchmove ticks made it through live (see its own comment).
+  const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
+  // Updated on every touchmove tick regardless of direction classification - a fire-time safety
+  // net for the long-press timer below (see its own comment for why this is needed on top of
+  // handleTouchMove's own cancellation).
+  const lastTouchPosRef = useRef<{ x: number; y: number } | null>(null);
+  // Set at touchstart: whether the touch began inside a rendered markdown text element. The debug
+  // overlay proved touchstart on such an element is where the browser silently swallows the whole
+  // gesture (no touchmove/touchend ever arrives) - a hard native touch veto is now applied for these
+  // (see the touchstart useEffect below), which also suppresses native vertical panning for the same
+  // touch, so a 'vertical' classification for a text-started gesture has to manually drive
+  // scrollContainerRef itself instead of trusting the browser to already be handling it.
+  const startedOnTextRef = useRef(false);
+  // Last position the manual-scroll passthrough computed a delta from - separate from touchStartRef
+  // (which holds the gesture's ORIGIN, not a rolling last position).
+  const lastScrollTickRef = useRef<{ x: number; y: number } | null>(null);
   const directionRef = useRef<'unknown' | 'horizontal' | 'vertical'>('unknown');
   // True for the brief window after a real swipe (meaningful horizontal movement) ends - the
   // browser can still fire a synthetic "click" on release even after a drag, which would otherwise
@@ -306,6 +402,7 @@ export default function MessageBubble({
     const el = scrollContainerRef?.current;
     if (!el) return;
     function onScroll() {
+      logTouch(msg.id, isOwn, 'nativeScrollCancel');
       clearLongPressTimer();
       touchStartRef.current = null;
       directionRef.current = 'unknown';
@@ -314,19 +411,50 @@ export default function MessageBubble({
     }
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }, [isMobile, scrollContainerRef]);
+  }, [isMobile, scrollContainerRef, msg.id, isOwn]);
 
   function handleTouchStart(e: React.TouchEvent) {
     if (!onReply && !isMobile) return;
     const t = e.touches[0];
     if (!t) return;
+    if (isMobile) suppressGlobalTextSelection(true);
+    const targetEl = e.target as HTMLElement | null;
+    logTouch(msg.id, isOwn, 'start', {
+      tag: targetEl?.tagName,
+      onText: !!targetEl?.closest?.('.chat-markdown'),
+    });
     touchStartRef.current = { x: t.clientX, y: t.clientY };
+    gestureStartRef.current = { x: t.clientX, y: t.clientY };
+    lastTouchPosRef.current = { x: t.clientX, y: t.clientY };
+    startedOnTextRef.current = !!targetEl?.closest?.('.chat-markdown');
+    lastScrollTickRef.current = { x: t.clientX, y: t.clientY };
     directionRef.current = 'unknown';
     setDragging(true);
     longPressFiredRef.current = false;
     if (isMobile) {
       clearLongPressTimer();
       longPressTimerRef.current = setTimeout(() => {
+        // Fire-time safety net: the cancellation in handleTouchMove below depends on that handler
+        // receiving touchmove ticks at a fine enough grain to notice movement before this timer
+        // elapses - not guaranteed if the browser delays touchmove delivery while internally
+        // evaluating a native text-selection gesture (a documented WebKit/Blink quirk specifically
+        // when a touch starts over selectable text, even with user-select suppressed - see
+        // renderContent's own comment on this file for the CSS side of the same problem). Re-
+        // checking the LAST known position here, not just trusting that cancellation already
+        // happened, catches a real swipe whose cancelling touchmove ticks only arrived late.
+        //
+        // Reads from gestureStartRef, NOT touchStartRef: touchStartRef gets deliberately nulled by
+        // handleTouchMove as soon as a gesture classifies 'vertical' (see below), and if that
+        // nulling happens to land in the same narrow window as this timer firing, using it here
+        // would skip the check entirely and let the menu open mid-scroll. gestureStartRef only ever
+        // clears at touchend/touchcancel, so it's always available for this comparison.
+        const start = gestureStartRef.current;
+        const last = lastTouchPosRef.current;
+        if (start && last) {
+          const dx = last.x - start.x;
+          const dy = last.y - start.y;
+          if (Math.abs(dx) >= LONG_PRESS_CANCEL_DISTANCE || Math.abs(dy) >= LONG_PRESS_CANCEL_DISTANCE) return;
+        }
         longPressFiredRef.current = true;
         touchStartRef.current = null;
         setDragging(false);
@@ -340,6 +468,7 @@ export default function MessageBubble({
     if (!touchStartRef.current) return;
     const t = e.touches[0];
     if (!t) return;
+    lastTouchPosRef.current = { x: t.clientX, y: t.clientY };
     const dx = t.clientX - touchStartRef.current.x;
     const dy = t.clientY - touchStartRef.current.y;
 
@@ -353,24 +482,139 @@ export default function MessageBubble({
     if (directionRef.current === 'unknown') {
       if (Math.abs(dx) < DIRECTION_LOCK_DISTANCE && Math.abs(dy) < DIRECTION_LOCK_DISTANCE) return;
       directionRef.current = Math.abs(dy) > Math.abs(dx) * VERTICAL_BIAS ? 'vertical' : 'horizontal';
+      logTouch(msg.id, isOwn, 'directionLocked', { dir: directionRef.current, dx: Math.round(dx), dy: Math.round(dy) });
       if (directionRef.current === 'vertical') {
-        touchStartRef.current = null;
         setDragging(false);
         setDragX(0);
+        // The touchstart veto below preempts ALL native touch handling for a gesture that started
+        // on rendered text, including native vertical panning - so a 'vertical' classification here
+        // has to manually drive the scroll container itself instead of trusting the browser to
+        // already be handling it, the way every other gesture does. Keep touchStartRef alive (don't
+        // null it) so subsequent ticks keep reaching this function, and rebase the scroll tick to
+        // THIS tick's position so the first actual scroll adjustment below is a smooth incremental
+        // step, not a jump covering the whole accumulated distance since touchstart.
+        if (startedOnTextRef.current) {
+          lastScrollTickRef.current = { x: t.clientX, y: t.clientY };
+        } else {
+          touchStartRef.current = null;
+        }
         return;
       }
     }
 
     if (directionRef.current === 'horizontal') setDragX(Math.max(0, Math.min(dx, SWIPE_MAX)));
+    else if (directionRef.current === 'vertical' && startedOnTextRef.current && scrollContainerRef?.current) {
+      const last = lastScrollTickRef.current;
+      if (last) scrollContainerRef.current.scrollTop -= t.clientY - last.y;
+      lastScrollTickRef.current = { x: t.clientX, y: t.clientY };
+    }
   }
 
-  function handleTouchEnd() {
+  // React's JSX touch props above are attached as passive listeners, so calling preventDefault
+  // inside them is a silent no-op. That alone wasn't the full story though - the debug overlay
+  // (added a couple rounds ago) proved something stronger: for a touch starting on rendered
+  // markdown text, NO further touchmove or touchend ever arrives at all, on Chrome/Brave AND
+  // Firefox alike. The browser isn't just winning a race against our classification logic - it's
+  // consuming the entire touch sequence right at touchstart, before any of our JS (including a
+  // touchmove-time preventDefault) gets a chance to run at all. A veto has to happen at touchstart
+  // itself, immediately, for a touch beginning inside `.chat-markdown`, to have any effect.
+  //
+  // Blocking native default behavior at touchstart also blocks native vertical panning for that
+  // same touch - unlike the touchmove-time veto below (which only ever fires once a gesture is
+  // already confirmed horizontal, leaving vertical scrolling untouched), this one can't know yet
+  // whether the gesture will turn out to be a swipe or a scroll. That's why handleTouchMove above
+  // now manually drives scrollContainerRef for a 'vertical'-classified gesture that started on text
+  // (see startedOnTextRef) - native pan-y no longer engages for it, so nothing else would.
+  useEffect(() => {
+    if (!isMobile) return;
+    const el = rowRef.current;
+    if (!el) return;
+    function onNativeTouchStart(e: TouchEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('.chat-markdown')) {
+        e.preventDefault();
+        logTouch(msg.id, isOwn, 'nativePreventDefaultOnStart');
+      }
+    }
+    el.addEventListener('touchstart', onNativeTouchStart, { passive: false });
+    return () => el.removeEventListener('touchstart', onNativeTouchStart);
+  }, [isMobile, msg.id, isOwn]);
+
+  // Belt-and-suspenders on top of the touchstart veto above: if a gesture somehow still classifies
+  // horizontal without that veto having caught it (e.g. it started just outside `.chat-markdown` and
+  // drifted onto text), preempt native handling here too once we're sure it's a swipe, not a scroll.
+  useEffect(() => {
+    if (!isMobile) return;
+    const el = rowRef.current;
+    if (!el) return;
+    function onNativeTouchMove(e: TouchEvent) {
+      if (directionRef.current === 'horizontal') {
+        e.preventDefault();
+        logTouch(msg.id, isOwn, 'nativePreventDefault');
+      }
+    }
+    el.addEventListener('touchmove', onNativeTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onNativeTouchMove);
+  }, [isMobile, msg.id, isOwn]);
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (isMobile) suppressGlobalTextSelection(false);
     clearLongPressTimer();
-    if (!touchStartRef.current) return;
+    const gestureStart = gestureStartRef.current;
+    gestureStartRef.current = null;
+    logTouch(msg.id, isOwn, 'end', {
+      dir: directionRef.current,
+      dragX: Math.round(dragX),
+      hasGestureStart: !!gestureStart,
+      hasTouchStart: !!touchStartRef.current,
+      changedTouches: e.changedTouches.length,
+    });
+
+    // Ground-truth fallback, independent of whatever `dragX` ended up as live: touchend/touchcancel
+    // is guaranteed to fire with the touch's real final position, even when intermediate touchmove
+    // ticks got starved mid-gesture (observed in the field: classification succeeds and dragX starts
+    // updating normally - the reply arrow shows - then live ticks stop arriving before the gesture
+    // reaches SWIPE_THRESHOLD, leaving dragX stuck below it even though the finger kept moving).
+    // Runs whenever direction isn't 'vertical' - i.e. either never classified at all, or correctly
+    // classified 'horizontal' but then starved - trusting the real final position over a `dragX`
+    // that may be stale in either case. Only genuinely skipped for 'vertical': a real scroll that
+    // happens to drift a bit sideways by the time the finger lifts shouldn't be reinterpreted as a
+    // swipe just because the final position looks swipe-shaped.
+    if (gestureStart && directionRef.current !== 'vertical') {
+      const finalTouch = e.changedTouches[0];
+      if (finalTouch) {
+        const finalDx = finalTouch.clientX - gestureStart.x;
+        const finalDy = finalTouch.clientY - gestureStart.y;
+        logTouch(msg.id, isOwn, 'groundTruthCheck', { finalDx: Math.round(finalDx), finalDy: Math.round(finalDy) });
+        if (finalDx >= SWIPE_THRESHOLD && Math.abs(finalDy) <= Math.abs(finalDx) * VERTICAL_BIAS) {
+          if (longPressFiredRef.current) {
+            longPressFiredRef.current = false;
+            onToggleActions();
+          }
+          touchStartRef.current = null;
+          setDragging(false);
+          setDragX(0);
+          suppressNextClickRef.current = true;
+          logTouch(msg.id, isOwn, 'onReply-fired-groundTruth');
+          onReply?.();
+          return;
+        }
+      }
+    }
+
+    if (!touchStartRef.current) {
+      logTouch(msg.id, isOwn, 'end-noop-noTouchStart');
+      return;
+    }
     touchStartRef.current = null;
     setDragging(false);
     if (dragX > SWIPE_TAP_TOLERANCE) suppressNextClickRef.current = true;
-    if (dragX >= SWIPE_THRESHOLD) onReply?.();
+    if (dragX >= SWIPE_THRESHOLD) {
+      logTouch(msg.id, isOwn, 'onReply-fired-dragXFallback', { dragX: Math.round(dragX) });
+      onReply?.();
+    } else {
+      logTouch(msg.id, isOwn, 'end-belowThreshold', { dragX: Math.round(dragX) });
+    }
     setDragX(0);
   }
 
@@ -389,6 +633,7 @@ export default function MessageBubble({
 
   return (
     <div
+      ref={rowRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -527,7 +772,7 @@ export default function MessageBubble({
                 </div>
               </button>
             )}
-            {msg.content && renderContent(msg.content, isOwn)}
+            {msg.content && renderContent(msg.content)}
           </div>
         )}
         {msg.attachments.length > 0 && (
