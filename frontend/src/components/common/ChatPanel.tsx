@@ -20,6 +20,7 @@ import { useChat } from '../../context/ChatContext';
 import type { Task } from '../../types';
 import TaskDetailPanel from './TaskDetailPanel';
 import MessageBubble, { formatTime } from './MessageBubble';
+import TouchDebugOverlay from './TouchDebugOverlay';
 import EmojiPicker from './EmojiPicker';
 import { useMessageEdit } from '../../hooks/useMessageEdit';
 import { useChatMessages } from '../../hooks/useChatMessages';
@@ -1832,6 +1833,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
               }
       }
     >
+      <TouchDebugOverlay />
       {/* Resize handles */}
       {!isExpanded && !isSidebar && (
         <>
