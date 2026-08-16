@@ -7,81 +7,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { MermaidBlock } from '../components/common/MermaidBlock';
+import { markdownComponents } from '../components/common/markdownComponents';
 import UserProfileModal from '../components/common/UserProfileModal';
-import StatusPill from '../components/common/StatusPill';
-import { isBeforeToday } from '../utils/dates';
+import ProjectHeader from '../components/common/ProjectHeader';
 import { api, displayName } from '../api/client';
 
 type PublicProduct = Awaited<ReturnType<typeof api.products.getAbout>>;
-
-const MD = {
-  h1: ({ children }: any) => <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>{children}</h1>,
-  h2: ({ children }: any) => <h2 style={{ fontSize: 16, fontWeight: 600, margin: '12px 0 6px' }}>{children}</h2>,
-  h3: ({ children }: any) => <h3 style={{ fontSize: 14, fontWeight: 600, margin: '10px 0 4px' }}>{children}</h3>,
-  p: ({ children }: any) => <p style={{ margin: '0 0 8px', lineHeight: 1.7 }}>{children}</p>,
-  a: ({ children, href }: any) => (
-    <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
-      {children}
-    </a>
-  ),
-  ul: ({ children }: any) => <ul style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ul>,
-  ol: ({ children }: any) => <ol style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ol>,
-  li: ({ children }: any) => <li style={{ marginBottom: 3, lineHeight: 1.6 }}>{children}</li>,
-  table: ({ children }: any) => (
-    <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>{children}</table>
-    </div>
-  ),
-  th: ({ children }: any) => (
-    <th
-      style={{
-        border: '1px solid var(--border)',
-        padding: '4px 8px',
-        background: 'var(--surface)',
-        fontWeight: 600,
-        textAlign: 'left',
-      }}
-    >
-      {children}
-    </th>
-  ),
-  td: ({ children }: any) => <td style={{ border: '1px solid var(--border)', padding: '4px 8px' }}>{children}</td>,
-  blockquote: ({ children }: any) => (
-    <blockquote style={{ borderLeft: '3px solid var(--brand)', paddingLeft: 10, margin: '0 0 8px', opacity: 0.8 }}>
-      {children}
-    </blockquote>
-  ),
-  pre: ({ children }: any) => <>{children}</>,
-  code: ({ children, className }: any) => {
-    if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
-    if (String(children).includes('\n'))
-      return (
-        <pre
-          style={{
-            background: 'var(--surface)',
-            borderRadius: 6,
-            padding: '8px 10px',
-            overflow: 'auto',
-            fontSize: 12,
-            margin: '0 0 8px',
-            whiteSpace: 'pre',
-          }}
-        >
-          <code className={className}>{children}</code>
-        </pre>
-      );
-    return (
-      <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>
-        {children}
-      </code>
-    );
-  },
-  img: ({ src, alt }: any) => (
-    <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: 6, margin: '4px 0' }} />
-  ),
-  hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />,
-};
 
 const ROLE_LABEL: Record<string, string> = { owner: 'Owner', co_owner: 'Co-owner', member: 'Member' };
 const ROLE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
@@ -136,48 +67,27 @@ export default function ProjectAboutPage() {
     );
   }
 
-  const deadline = new Date(product.deadline);
-  const isOverdue = isBeforeToday(deadline);
-  const deadlineStr = deadline.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
+  const owner = product.members.find((m) => m.role === 'owner');
 
   return (
     <div className="h-full overflow-auto" style={{ background: 'var(--bg)' }}>
-      <div className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-8">
-        {/* Hero */}
-        <div className="space-y-2">
-          <div className="flex items-start gap-4">
-            {product.emoji && <span className="text-5xl leading-none flex-shrink-0">{product.emoji}</span>}
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
-                {product.name}
-              </h1>
-            </div>
-          </div>
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-4">
+        {/* Shared header (ProjectHeader) - same component used on Settings and Analytics. This
+            is the public, no-membership variant, so unlike the in-app tabs this page has no
+            navbar chrome at all - owner and deadline genuinely need to live here. */}
+        <ProjectHeader
+          emoji={product.emoji}
+          name={product.name}
+          deadline={product.deadline}
+          status={product.status}
+          owner={owner?.user}
+        />
 
-          {/* A direct child of this space-y-2 wrapper, not nested inside the emoji-indented title
-              column - so it left-aligns with the tabs/box below instead of sitting pushed right
-              under the emoji. */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <StatusPill tone={isOverdue ? 'danger' : 'success'} size="pill">
-              {isOverdue ? 'Overdue · ' : 'Deadline · '}
-              {deadlineStr}
-            </StatusPill>
-            {product.status === 'completed' && (
-              <StatusPill tone="success" size="pill">
-                ✓ Completed
-              </StatusPill>
-            )}
-            {product.status === 'archived' && (
-              <StatusPill tone="neutral" size="pill">
-                📦 Archived
-              </StatusPill>
-            )}
-          </div>
-        </div>
-
-        {/* Tabs */}
+        {/* Tabs - width is intentionally fit-content (not a full-width flex row like the hero rows
+            above), so centering it means centering the fit-content BOX itself via mx-auto rather
+            than justify-content on its own children. */}
         <div
-          className="flex gap-1 p-1 rounded-xl"
+          className="flex gap-1 p-1 rounded-xl mx-auto"
           style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', width: 'fit-content' }}
         >
           {(['description', 'members'] as const).map((t) => (
@@ -201,7 +111,7 @@ export default function ProjectAboutPage() {
           <div className="rounded-xl p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
             {product.description ? (
               <div style={{ color: 'var(--text)', fontSize: 14 }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MD}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
                   {product.description}
                 </ReactMarkdown>
               </div>

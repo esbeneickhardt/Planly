@@ -1,3 +1,11 @@
+/**
+ * Small shared building blocks for the admin panel's settings pages (AdminEmail, AdminIpRules,
+ * etc.): `Toggle`, a labeled optimistic on/off switch that calls an async `onChange`, and
+ * `StatCard`, a plain label/value/sub tile for dashboards.
+ * `Toggle`'s `pendingRef` guards against two races while a save is in flight: it ignores a second
+ * click until the current one settles, and it stops the effect that syncs local state from the
+ * `value` prop from clobbering the optimistic UI with a not-yet-updated parent value.
+ */
 import { useState, useEffect, useRef } from 'react';
 import ToggleSwitch from '../../components/common/ToggleSwitch';
 

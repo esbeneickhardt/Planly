@@ -99,7 +99,7 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto">
       <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
         Tab access
       </h2>
