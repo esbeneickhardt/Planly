@@ -9,6 +9,7 @@
 - [Adding a New Frontend Page](#adding-a-new-frontend-page)
 - [Real-time Events](#real-time-events)
 - [TypeScript](#typescript)
+- [Importing from Trello](#importing-from-trello)
 - [Contributing](#contributing)
 
 ---
@@ -73,24 +74,16 @@ npm run dev
 
 ### Running tests
 
-**Unit tests** (no database required):
+**`npm test`** (`cd backend && npm test`) always runs `run-tests.sh`, which requires Docker and a running Postgres - there is no database-free path. The script builds a test image from the Alpine `builder` stage of `backend/Dockerfile` (the Prisma engine binary targets Alpine/musl, so tests must run in that container, not on the host), creates a `planly_test` database on the `db` service if it doesn't already exist, applies migrations, and then runs the full `vitest run` suite inside the container:
+
 ```bash
 cd backend && npm test
+# equivalent to: sh ../run-tests.sh
 ```
 
-**Integration tests** — run inside Docker so the Prisma Alpine binary is used:
-```bash
-# One-time: build the test image
-docker build -f backend/Dockerfile --target builder -t planly-backend-test backend/
+This requires the `db` service from `docker compose` to already be up (`docker compose up -d db` is enough - the backend/frontend containers don't need to be running) and a `DB_PASSWORD` set in `.env`, since `run-tests.sh` reads it to build the test connection string.
 
-# One-time: create the test database
-docker compose exec db createdb -U planly planly_test
-docker compose exec backend sh -c \
-  "DATABASE_URL=postgresql://planly:planly_dev@db:5432/planly_test npx prisma migrate deploy"
-
-# Run tests (stack must be up)
-./run-tests.sh
-```
+There's no separate "unit-only" script or config - `vitest.config.ts` has a single `include: ['src/**/*.test.ts']` pattern covering the whole suite, with no DB-free subset carved out, so `npm test` is the only documented way to run the backend tests.
 
 **E2E tests** (Playwright against the full Docker stack):
 ```bash
@@ -270,6 +263,18 @@ cd frontend && npx tsc --noEmit
 ```
 
 The CI should never merge code that doesn't pass both checks.
+
+---
+
+## Importing from Trello
+
+`scripts/import-trello.py` migrates a Trello board export into a new Planly project:
+
+```bash
+python3 scripts/import-trello.py <trello-export.json>
+```
+
+It reads a Trello board's JSON export (in Trello: **Menu → Print, export, and share → Export as JSON**), creates a new Planly project named after the board, turns each open Trello list into a milestone task, and imports each open card as a task linked to its list's milestone as a prerequisite - card descriptions carry over as task descriptions, and checklist items become subtasks. It talks to your instance over the normal REST API, authenticating with a [Personal Access Token](Access-Tokens.md); set `PLANLY_URL` and `PLANLY_TOKEN` as environment variables, or enter them interactively when prompted.
 
 ---
 

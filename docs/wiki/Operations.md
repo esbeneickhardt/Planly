@@ -86,7 +86,7 @@ docker compose up -d --force-recreate backend
 **To add a new schema change during development:**
 ```bash
 cd backend
-npm run db:migrate:dev -- --name describe_your_change
+npx prisma migrate dev --name describe_your_change
 # Commits the new file under prisma/migrations/ — include it in the PR
 ```
 
@@ -134,6 +134,16 @@ To enable PgBouncer: uncomment the `pgbouncer` service in `docker-compose.yml` a
 ---
 
 ## Backup and restore
+
+### Project data export (lightweight alternative)
+
+For a single project rather than the whole database, an owner or co-owner can download a self-contained JSON snapshot from **Settings → Project → Export project data**, or directly via:
+
+```
+GET /api/products/:productId/export
+```
+
+The file includes the project's tasks (with subtasks and dependencies), columns, sprints, color legend, canvas snapshots, and chat messages. It's useful for point-in-time archives, migrating a single project between instances, or handing data to a project owner who doesn't have server/database access - it is not a substitute for the full database backups below, which are what you restore from in an actual incident.
 
 ### Automated backups
 
@@ -190,7 +200,7 @@ If a point-in-time backup isn't available, a manual rollback is possible but req
 
 ## Checking audit logs
 
-Via the admin panel: Admin → Logs.
+Via the admin panel: Admin panel → **Audit Logs** tab.
 
 Via the API (requires admin session or admin-scoped PAT):
 ```bash
@@ -258,4 +268,4 @@ bash scripts/rotate-encryption-key.sh
 
 The script aborts without touching `.env` if re-encryption fails, so there is no window where DB values and the active key are out of sync.
 
-After it completes, verify SMTP still works (Admin → Email → Send test email) to confirm the re-encrypted password decrypts correctly.
+After it completes, verify SMTP still works (Admin panel → Email Settings → Send test) to confirm the re-encrypted password decrypts correctly.
