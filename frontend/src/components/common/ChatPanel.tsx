@@ -4,12 +4,6 @@
  * Pinned and dismissed task IDs are persisted to localStorage; reactions are applied optimistically.
  */
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import rehypeHighlight from 'rehype-highlight';
-import 'highlight.js/styles/github-dark.css';
-import { MermaidBlock } from './MermaidBlock';
 import { api, displayName } from '../../api/client';
 import type { Message, DirectMessage, MessageAttachment } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
@@ -19,9 +13,8 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { useChat } from '../../context/ChatContext';
 import type { Task } from '../../types';
 import TaskDetailPanel from './TaskDetailPanel';
-import MessageBubbleImpl, { formatTime } from './MessageBubble';
+import { formatTime } from './MessageBubble';
 import TouchDebugOverlay from './TouchDebugOverlay';
-import EmojiPicker from './EmojiPicker';
 import { useMessageEdit } from '../../hooks/useMessageEdit';
 import { useChatMessages } from '../../hooks/useChatMessages';
 import { useChatPeople } from '../../hooks/useChatPeople';
@@ -29,6 +22,11 @@ import { useChatGroups } from '../../hooks/useChatGroups';
 import { useChatProjects } from '../../hooks/useChatProjects';
 import Modal from './Modal';
 import ChatFilesTab from './ChatFilesTab';
+import ChatMessageList from './ChatMessageList';
+import ChatComposeBox, { type ChatComposeBoxProps, type ReplyingTo, type TeamMemberEntry } from './ChatComposeBox';
+import ChatPeopleTab from './ChatPeopleTab';
+import ChatGroupsTab, { groupTitle } from './ChatGroupsTab';
+import ChatProjectsTab from './ChatProjectsTab';
 
 interface Props {
   initialTask?: { id: string; name: string };
@@ -40,17 +38,7 @@ interface Props {
   isAdminChat?: boolean;
 }
 
-// Wrapped in React.memo here rather than inside MessageBubble.tsx itself (which is intentionally
-// frozen after its own touch-gesture stabilization) - see the messageCallbacksRef cache further
-// down for the other half of this fix. Without both halves together, this memo does nothing: a
-// memoized component still re-renders whenever any prop is a *new* value, and every callback prop
-// below used to be a fresh inline closure on every ChatPanel render (e.g. on every compose-box
-// keystroke), which is exactly what defeated any benefit memoizing would otherwise have had.
-const MessageBubble = React.memo(MessageBubbleImpl);
-
 type Tab = 'messages' | 'tasks' | 'search' | 'files' | 'people' | 'groups' | 'projects';
-
-const EDIT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 const PINS_KEY = (productId: string) => `planly_pinned_chats_${productId}`;
 const DISMISSED_KEY = (productId: string) => `planly_dismissed_chats_${productId}`;
@@ -75,32 +63,6 @@ function loadDismissed(productId: string): string[] {
 function saveDismissed(productId: string, ids: string[]) {
   localStorage.setItem(DISMISSED_KEY(productId), JSON.stringify(ids));
 }
-
-// ReactMarkdown `components` for the compose-box draft preview (mobile + desktop share this one
-// pane via markdownPreviewPane below). Defined at module scope, not inline in the component body -
-// nothing here is instance-specific (no theme/`isOwn`-style styling like MessageBubble.tsx's own
-// mdComponents needs), so a fresh object per render would only ever cost an unnecessary remount of
-// the preview's markdown tree with no upside. See MessageBubble.tsx's mdComponents for why a fresh
-// object here is a real bug (component-identity remount), not just a wasted allocation.
-const PREVIEW_MD_COMPONENTS = {
-  pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-  code: ({ className, children, ...props }: { className?: string; children?: React.ReactNode }) => {
-    if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
-    if (String(children).includes('\n'))
-      return (
-        <pre>
-          <code className={className} {...props}>
-            {children}
-          </code>
-        </pre>
-      );
-    return (
-      <code className={className} {...props}>
-        {children}
-      </code>
-    );
-  },
-};
 
 export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isAdminChat = false }: Props) {
   const { activeProduct, tasks } = useProduct();
@@ -288,14 +250,6 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
   const [mentionSearch, setMentionSearch] = useState<string | null>(null);
   const [mentionCursorStart, setMentionCursorStart] = useState<number>(0);
   const [mentionHighlight, setMentionHighlight] = useState(0);
-  type TeamMemberEntry = {
-    id: string;
-    username: string;
-    realName?: string | null;
-    avatarEmoji?: string | null;
-    isAdmin?: boolean;
-    role?: string;
-  };
   const [teamMembers, setTeamMembers] = useState<TeamMemberEntry[]>([]);
 
   // Pin/dismiss state for Tasks tab
@@ -307,12 +261,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
   const [scrollToMsgId, setScrollToMsgId] = useState<string | null>(null);
 
   // Reply state — shared across tabs
-  const [replyingTo, setReplyingTo] = useState<{
-    id: string;
-    content: string;
-    attachments: MessageAttachment[];
-    author: { username: string; realName: string | null; avatarEmoji: string | null };
-  } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<ReplyingTo | null>(null);
 
   const [dmUserSearch, setDmUserSearch] = useState('');
 
@@ -1033,7 +982,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
     }
   }
 
-  // Adapt a DirectMessage to the Message shape so messageList() can render it with full markdown/image support.
+  // Adapt a DirectMessage to the Message shape so ChatMessageList can render it with full markdown/image support.
   // Stable via useCallback (pure function of its argument, no closure deps) so the two useMemos below
   // can depend on it without recomputing every render - see their own comments for why that matters.
   const adaptDm = useCallback(
@@ -1058,9 +1007,9 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
 
   // Adapted once per actual `dmMessages`/`groupMessages` change, not on every ChatPanel render (e.g.
   // every compose-box keystroke) - `.map()` was previously called directly in the JSX below, which
-  // hands messageList() (and therefore each MessageBubble's `msg` prop) a brand-new array of
-  // brand-new objects every render, defeating the MessageBubble React.memo above regardless of how
-  // stable its other props are.
+  // hands ChatMessageList (and therefore each MessageBubble's `msg` prop) a brand-new array of
+  // brand-new objects every render, defeating ChatMessageList's own MessageBubble React.memo
+  // regardless of how stable its other props are.
   const dmMessagesAdapted = useMemo(() => dmMessages.map(adaptDm), [dmMessages, adaptDm]);
   const groupMessagesAdapted = useMemo(() => groupMessages.map(adaptDm), [groupMessages, adaptDm]);
 
@@ -1079,13 +1028,6 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
       setDraft('');
       setAttachments([]);
     });
-  }
-
-  // Display name for a group: its custom name, or a comma-joined list of participant names
-  function groupTitle(conv: { name: string | null; participants: { username: string; realName?: string | null }[] }) {
-    if (conv.name) return conv.name;
-    if (conv.participants.length === 0) return 'Group';
-    return conv.participants.map((p) => p.realName || p.username).join(', ');
   }
 
   // Shared roster for group-picking (New group + Add people): all users in admin scope, every
@@ -1121,696 +1063,122 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
     </button>
   );
 
-  // Rendered markdown preview of the current draft - shared by mobile and desktop's compose areas.
-  function markdownPreviewPane() {
-    return (
-      <div
-        className="min-h-[80px] max-h-40 overflow-y-auto px-3 py-2 rounded-lg mb-2 text-sm"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
-      >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkBreaks]}
-          rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
-          components={PREVIEW_MD_COMPONENTS}
-        >
-          {draft || '*Nothing to preview*'}
-        </ReactMarkdown>
-      </div>
-    );
+  // Shared prop bundle for ChatComposeBox - every prop here is already common to every thread
+  // ChatPanel can show (project/task/DM/group/admin-project), so this bundle is spread as-is at
+  // every call site with no per-tab overrides.
+  const composeBoxProps: ChatComposeBoxProps = {
+    isMobile,
+    chatWritable,
+    draft,
+    onDraftChange: handleDraftChange,
+    onKeyDown: handleDraftKeyDown,
+    onPaste: handlePaste,
+    textRef,
+    fileRef,
+    uploading,
+    sending,
+    onSend: send,
+    preview,
+    setPreview,
+    composeMultiline,
+    attachments,
+    setAttachments,
+    replyingTo,
+    setReplyingTo,
+    mentionSearch,
+    mentionCandidates,
+    mentionHighlight,
+    setMentionHighlight,
+    insertMention,
+    showComposePicker,
+    setShowComposePicker,
+    showMarkdownHelp,
+    setShowMarkdownHelp,
+    showMoreTools,
+    setShowMoreTools,
+    setDraft,
+  };
+
+  // Shared prop bundle for ChatMessageList - `messages` and `showLoadOlder` vary per call site, so
+  // they're passed separately at each <ChatMessageList /> below rather than folded in here.
+  const messageListProps = {
+    hasMoreOlder,
+    loadingOlder,
+    onLoadOlder: handleLoadOlder,
+    editingId,
+    editDraft,
+    setEditDraft,
+    onSaveEdit: saveEdit,
+    onCancelEdit: cancelEdit,
+    currentUserId: user?.id ?? null,
+    chatWritable,
+    isMobile,
+    reactionPickerFor,
+    setReactionPickerFor,
+    activeMessageId,
+    setActiveMessageId,
+    tab,
+    productId,
+    onStartEdit: startEdit,
+    onDelete: deleteMsg,
+    onReact: toggleReaction,
+    onReply: (msg: Message) => {
+      setReplyingTo(msg);
+      setTimeout(() => textRef.current?.focus(), 0);
+    },
+    onImageClick: setLightboxUrl,
+    onScrollToReply: setScrollToMsgId,
+    messageListRef,
+    bottomRef,
+    onScroll: onMessageListScroll,
+  };
+
+  // Resets the open DM thread and reloads the conversation list - passed to ChatPeopleTab's "Back".
+  function closeDmThread() {
+    setActiveConvId(null);
+    setActiveConvOther(null);
+    setDmMessages([]);
+    setDraft('');
+    setAttachments([]);
+    loadPeople();
   }
 
-  function composeArea() {
-    return (
-      // pb-4 (16px) used to be exactly double pt-2 (8px) here - fine on desktop where more rows
-      // (attachments, mention footer) usually sit between the last input row and this padding,
-      // but on mobile the compact row is always the very last thing in flow, so that doubled
-      // bottom padding read as a lopsided gap instead of the row sitting centered in its box.
-      <div
-        className={`px-4 flex-shrink-0 relative ${isMobile ? 'pt-2 pb-2' : 'pt-2 pb-4'}`}
-        style={{ borderTop: '1px solid var(--border)' }}
-      >
-        {/* Reply-to preview bar */}
-        {replyingTo && (
-          <div
-            className="flex items-center gap-2 mb-2 px-2.5 py-1.5 rounded-lg"
-            style={{ background: 'var(--surface-2)', borderLeft: '2px solid var(--brand)' }}
-          >
-            {(() => {
-              const img = replyingTo.attachments.find((a) => a.type?.startsWith('image/'));
-              return img ? (
-                <img
-                  src={img.thumbnailUrl ?? img.url}
-                  alt=""
-                  className="w-8 h-8 rounded object-cover flex-shrink-0"
-                />
-              ) : null;
-            })()}
-            <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--brand)' }}>
-              ↩ {displayName(replyingTo.author)}
-            </span>
-            <span className="text-[10px] flex-1 truncate" style={{ color: 'var(--text-3)' }}>
-              {replyingTo.content ? replyingTo.content.slice(0, 80) : replyingTo.attachments.length > 0 ? '📷 Photo' : ''}
-            </span>
-            <button
-              onClick={() => setReplyingTo(null)}
-              className="flex-shrink-0 text-[10px] px-1 rounded"
-              style={{ color: 'var(--text-3)' }}
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        {/* @ mention dropdown */}
-        {mentionSearch !== null && mentionCandidates.length > 0 && (
-          <div
-            className="absolute left-4 right-4 bottom-full mb-1 rounded-xl overflow-hidden shadow-xl z-10"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-          >
-            <div className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--border)' }}>
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>
-                Mention a member
-              </span>
-            </div>
-            {mentionCandidates.map((m, i) => (
-              <button
-                key={m.id}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  insertMention(m.username);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
-                style={{ background: i === mentionHighlight ? 'var(--surface-2)' : 'transparent' }}
-                onMouseEnter={() => setMentionHighlight(i)}
-              >
-                <span
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-                >
-                  {m.avatarEmoji ?? '👤'}
-                </span>
-                <div className="flex flex-col min-w-0">
-                  {m.realName?.trim() && (
-                    <span className="text-sm font-medium leading-tight" style={{ color: 'var(--text)' }}>
-                      {m.realName.trim()}
-                    </span>
-                  )}
-                  <span
-                    className={m.realName?.trim() ? 'text-xs leading-tight' : 'text-sm font-medium'}
-                    style={{ color: m.realName?.trim() ? 'var(--text-3)' : 'var(--text)' }}
-                  >
-                    @{m.username}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Compose emoji picker - fixed near the bottom of the viewport on mobile so it never
-            renders off-screen; anchored precisely above the toolbar at md: and up. */}
-        {showComposePicker && (
-          <div
-            data-emoji-picker
-            className="fixed left-2 right-2 bottom-4 md:absolute md:left-4 md:right-auto md:bottom-full md:mb-1 z-50 p-2 rounded-xl shadow-xl"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-          >
-            {/* onMouseDown+preventDefault here (not inside EmojiPicker itself) keeps the textarea
-                focused through the tap, same fix as the Send button - otherwise the click steals
-                focus first, closing the mobile keyboard, then the refocus below reopens it. */}
-            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- onMouseDown here only preventDefaults to keep the textarea focused through the tap; not a user-facing action, no keyboard equivalent applies */}
-            <div onMouseDown={(ev) => ev.preventDefault()}>
-              <EmojiPicker
-                onChange={(e) => {
-                  const ta = textRef.current;
-                  if (ta) {
-                    const start = ta.selectionStart ?? draft.length;
-                    const end = ta.selectionEnd ?? draft.length;
-                    const next = draft.slice(0, start) + e + draft.slice(end);
-                    setDraft(next);
-                    requestAnimationFrame(() => {
-                      ta.focus();
-                      ta.setSelectionRange(start + e.length, start + e.length);
-                    });
-                  } else {
-                    setDraft((d) => d + e);
-                  }
-                  setShowComposePicker(false);
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Markdown cheatsheet */}
-        {showMarkdownHelp && (
-          <div
-            className="absolute left-0 right-0 bottom-full mb-1 z-50 rounded-xl shadow-xl overflow-y-auto"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: 380 }}
-          >
-            <div
-              className="flex items-center justify-between px-4 py-2.5 sticky top-0"
-              style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
-            >
-              <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
-                Markdown reference
-              </span>
-              <button onClick={() => setShowMarkdownHelp(false)} className="text-xs" style={{ color: 'var(--text-3)' }}>
-                ✕
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              {(
-                [
-                  ['Headings', '# H1\n## H2\n### H3'],
-                  ['Bold / Italic / Strike', '**bold**   *italic*   ~~strike~~'],
-                  ['Inline code', '`code here`'],
-                  ['Code block', '```python\ndef hello():\n    return "world"\n```'],
-                  ['Link', '[link text](https://example.com)'],
-                  ['Image', '![alt text](https://example.com/img.png)'],
-                  ['Unordered list', '- Item one\n- Item two\n  - Nested'],
-                  ['Ordered list', '1. First\n2. Second\n3. Third'],
-                  ['Blockquote', '> This is a quote\n> spanning two lines'],
-                  ['Table', '| Name   | Value |\n|--------|-------|\n| Alpha  | 1     |\n| Beta   | 2     |'],
-                  ['Horizontal rule', '---'],
-                ] as [string, string][]
-              ).map(([label, syntax]) => (
-                <div key={label}>
-                  <p
-                    className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
-                    style={{ color: 'var(--text-3)' }}
-                  >
-                    {label}
-                  </p>
-                  {/* div, not <pre> - jsx-a11y disallows an interactive role on <pre>; the
-                      monospace/preformatted look comes entirely from the inline styles below */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    className="text-xs rounded-lg px-3 py-2 select-all cursor-pointer"
-                    style={{
-                      background: 'var(--surface-2)',
-                      color: 'var(--text-2)',
-                      fontFamily: 'monospace',
-                      whiteSpace: 'pre-wrap',
-                      lineHeight: 1.6,
-                    }}
-                    onClick={() => {
-                      const ta = textRef.current;
-                      if (!ta) return;
-                      const ins = '\n' + syntax;
-                      const pos = ta.selectionEnd ?? draft.length;
-                      setDraft((d) => d.slice(0, pos) + ins + d.slice(pos));
-                      setShowMarkdownHelp(false);
-                      requestAnimationFrame(() => {
-                        ta.focus();
-                        ta.setSelectionRange(pos + ins.length, pos + ins.length);
-                      });
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key !== 'Enter' && e.key !== ' ') return;
-                      e.preventDefault();
-                      const ta = textRef.current;
-                      if (!ta) return;
-                      const ins = '\n' + syntax;
-                      const pos = ta.selectionEnd ?? draft.length;
-                      setDraft((d) => d.slice(0, pos) + ins + d.slice(pos));
-                      setShowMarkdownHelp(false);
-                      requestAnimationFrame(() => {
-                        ta.focus();
-                        ta.setSelectionRange(pos + ins.length, pos + ins.length);
-                      });
-                    }}
-                    title="Click to insert"
-                  >
-                    {syntax}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {isMobile ? (
-          <>
-            {/* Attachment previews sit above the composer row on mobile (no separate row to put
-                them below, since the compact bar's Send is already inline). */}
-            {attachments.length > 0 && (
-              <div className="pb-2 flex gap-2 flex-wrap">
-                {attachments.map((att, i) => (
-                  <div key={i} className="relative">
-                    {att.type?.startsWith('image/') ? (
-                      <img
-                        src={att.thumbnailUrl ?? att.url}
-                        alt={att.name}
-                        className="h-14 w-14 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div
-                        className="h-14 px-3 flex items-center text-xs rounded-lg"
-                        style={{
-                          background: 'var(--surface-2)',
-                          border: '1px solid var(--border)',
-                          color: 'var(--text-2)',
-                        }}
-                      >
-                        📎 {att.name}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))}
-                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
-                      style={{ background: '#ef4444', color: 'white' }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Mobile compact bar - Messenger-style: one "+" tray replaces the whole desktop
-                toolbar row, a single-line textarea grows in place, Send sits at the end. Hidden
-                while previewing markdown (falls through to the shared preview pane below instead,
-                with its own Send row, same as desktop). */}
-            {!preview && (
-              // No trailing margin here - this row is always the last thing in flow in this branch
-              // (the container's own pb-4 already provides bottom spacing), so an mb-2 here was
-              // pure extra dead space stacking on top of that padding - "two boxes" worth of bottom
-              // spacing for what should have been one, pushing the row up off-center inside the
-              // bordered compose box.
-              <div className={`flex ${composeMultiline ? 'items-end' : 'items-center'} gap-2`}>
-                <div className="relative flex-shrink-0">
-                  <button
-                    onClick={() => setShowMoreTools((v) => !v)}
-                    aria-label="More options"
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-xl transition-colors flex-shrink-0"
-                    style={{
-                      background: showMoreTools ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                      color: showMoreTools ? 'var(--brand)' : 'var(--text-2)',
-                    }}
-                  >
-                    {showMoreTools ? '✕' : '+'}
-                  </button>
-                  {showMoreTools && (
-                    <>
-                      <button
-                        className="fixed inset-0 z-10"
-                        style={{ background: 'transparent' }}
-                        aria-label="Close more options"
-                        onClick={() => setShowMoreTools(false)}
-                      />
-                      <div
-                        className="absolute left-0 bottom-full mb-2 z-20 rounded-2xl shadow-xl p-3 grid grid-cols-4 gap-3 animate-dropdown-in"
-                        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 236 }}
-                      >
-                        {[
-                          {
-                            icon: uploading ? '⏳' : '📎',
-                            label: 'Attach',
-                            active: false,
-                            onClick: () => {
-                              fileRef.current?.click();
-                              setShowMoreTools(false);
-                            },
-                          },
-                          {
-                            icon: '😊',
-                            label: 'Emoji',
-                            active: showComposePicker,
-                            onClick: () => {
-                              setShowComposePicker((v) => !v);
-                              setShowMoreTools(false);
-                            },
-                            dataAttr: true,
-                          },
-                          {
-                            icon: 'ℹ',
-                            label: 'Markdown',
-                            active: showMarkdownHelp,
-                            onClick: () => {
-                              setShowMarkdownHelp((v) => !v);
-                              setShowMoreTools(false);
-                            },
-                          },
-                          {
-                            icon: '👁',
-                            label: preview ? 'Edit' : 'Preview',
-                            active: preview as boolean,
-                            onClick: () => {
-                              setPreview((v) => !v);
-                              setShowMoreTools(false);
-                            },
-                          },
-                        ].map((item) => (
-                          <button
-                            key={item.label}
-                            {...(item.dataAttr ? { 'data-emoji-picker': true } : {})}
-                            onClick={item.onClick}
-                            className="flex flex-col items-center gap-1"
-                          >
-                            <span
-                              className="w-11 h-11 rounded-full flex items-center justify-center text-lg transition-colors"
-                              style={{
-                                background: item.active ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                                color: item.active ? 'var(--brand)' : 'var(--text-2)',
-                              }}
-                            >
-                              {item.icon}
-                            </span>
-                            <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-                              {item.label}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-                <textarea
-                  ref={textRef}
-                  rows={1}
-                  value={draft}
-                  onChange={handleDraftChange}
-                  onPaste={handlePaste}
-                  onKeyDown={handleDraftKeyDown}
-                  readOnly={!chatWritable}
-                  placeholder={chatWritable ? 'Message…' : 'This project is read-only'}
-                  className="input text-sm flex-1 resize-none rounded-full py-2"
-                  style={{ maxHeight: 100, overflowY: 'auto', boxSizing: 'border-box', lineHeight: '20px' }}
-                />
-                <button
-                  onClick={send}
-                  onMouseDown={(e) => e.preventDefault()}
-                  disabled={sending || !chatWritable || (!draft.trim() && attachments.length === 0)}
-                  aria-label="Send"
-                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity disabled:opacity-40"
-                  style={{ background: 'var(--brand)', color: 'white' }}
-                >
-                  {sending ? '…' : '➤'}
-                </button>
-              </div>
-            )}
-
-            {preview && (
-              <>
-                {markdownPreviewPane()}
-                <div className="flex justify-between items-center">
-                  <button
-                    onClick={() => setPreview(false)}
-                    className="text-xs px-3 py-1.5 rounded-lg"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
-                  >
-                    ✎ Edit
-                  </button>
-                  <button
-                    onClick={send}
-                    onMouseDown={(e) => e.preventDefault()}
-                    disabled={sending || !chatWritable || (!draft.trim() && attachments.length === 0)}
-                    className="btn-primary text-xs px-4"
-                  >
-                    {sending ? '…' : 'Send'}
-                  </button>
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            {/* Desktop toolbar - order: 😊 Emoji | 📎 Attach | ℹ Markdown | Preview, all inline */}
-            <div className="flex items-center gap-1 mb-2">
-              <button
-                data-emoji-picker
-                onClick={() => setShowComposePicker((v) => !v)}
-                className="text-xs px-2 py-0.5 rounded-md transition-colors"
-                style={{
-                  background: showComposePicker ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                  color: showComposePicker ? 'var(--brand)' : 'var(--text-2)',
-                }}
-                title="Insert emoji"
-              >
-                😊
-              </button>
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading || !chatWritable}
-                className="text-xs px-2 py-0.5 rounded-md transition-colors"
-                style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
-              >
-                {uploading ? '⏳' : '📎'} Attach
-              </button>
-              <button
-                onClick={() => setShowMarkdownHelp((v) => !v)}
-                className="text-xs px-2 py-0.5 rounded-md transition-colors font-medium"
-                style={{
-                  background: showMarkdownHelp ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                  color: showMarkdownHelp ? 'var(--brand)' : 'var(--text-3)',
-                }}
-                title="Markdown reference"
-              >
-                ℹ Markdown
-              </button>
-              <button
-                onClick={() => setPreview((v) => !v)}
-                className="text-xs px-2 py-0.5 rounded-md transition-colors"
-                style={{
-                  background: preview ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                  color: preview ? 'var(--brand)' : 'var(--text-3)',
-                }}
-              >
-                {preview ? 'Edit' : 'Preview'}
-              </button>
-            </div>
-
-            {preview ? (
-              markdownPreviewPane()
-            ) : (
-              <textarea
-                ref={textRef}
-                rows={3}
-                value={draft}
-                onChange={handleDraftChange}
-                onPaste={handlePaste}
-                onKeyDown={handleDraftKeyDown}
-                readOnly={!chatWritable}
-                placeholder={chatWritable ? 'Write a message… type @ to mention · ⌘↵ send' : 'This project is read-only'}
-                className="input text-sm w-full resize-none mb-2"
-              />
-            )}
-
-            {attachments.length > 0 && (
-              <div className="pb-2 flex gap-2 flex-wrap">
-                {attachments.map((att, i) => (
-                  <div key={i} className="relative group/att">
-                    {att.type?.startsWith('image/') ? (
-                      <img
-                        src={att.thumbnailUrl ?? att.url}
-                        alt={att.name}
-                        className="h-14 w-14 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div
-                        className="h-14 px-3 flex items-center text-xs rounded-lg"
-                        style={{
-                          background: 'var(--surface-2)',
-                          border: '1px solid var(--border)',
-                          color: 'var(--text-2)',
-                        }}
-                      >
-                        📎 {att.name}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))}
-                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover/att:opacity-100"
-                      style={{ background: '#ef4444', color: 'white' }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex justify-between items-center">
-              <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-                @ mention · ```python · ⌘↵ send
-              </span>
-              <button
-                onClick={send}
-                onMouseDown={(e) => e.preventDefault()}
-                disabled={sending || !chatWritable || (!draft.trim() && attachments.length === 0)}
-                className="btn-primary text-xs px-4"
-              >
-                {sending ? '…' : 'Send'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    );
+  // Resets the open group thread and reloads the group list - passed to ChatGroupsTab's "Back".
+  function closeGroupThread() {
+    setActiveGroupId(null);
+    setGroupMessages([]);
+    setDraft('');
+    setAttachments([]);
+    loadGroups();
   }
 
-  // Stable per-message callback bundle for MessageBubble (wrapped in React.memo above) - the other
-  // half of that fix. Without this, every visible bubble would get brand-new onEdit/onDelete/onReact/
-  // etc. closures on every ChatPanel render (e.g. every keystroke in the compose box below), which
-  // would defeat the memo and re-render the entire visible message list on every keystroke anyway.
-  // Cached by message id and only regenerated when something an entry actually closes over changes
-  // (msg.content for edit; chatWritable/tab/productId for the writability + routing checks inside
-  // deleteMsg/toggleReaction) - anything else re-rendering ChatPanel reuses the same functions.
-  const messageCallbacksRef = useRef(
-    new Map<
-      string,
-      {
-        key: string;
-        onEdit: () => void;
-        onDelete: () => void;
-        onReact: (emoji: string) => void;
-        onToggleReactionPicker: () => void;
-        onToggleActions: () => void;
-        onReply: (() => void) | undefined;
-      }
-    >(),
-  );
-  function getMessageCallbacks(msg: Message) {
-    // JSON-encoded (not a manually-delimited template string) so a value containing the separator
-    // can't coincidentally collide with a different combination of values - same fingerprinting
-    // idiom used by useChatMessages.ts and the useChatPeople/useChatGroups/useChatProjects pollers.
-    const key = JSON.stringify([msg.content, chatWritable, tab, productId]);
-    const cached = messageCallbacksRef.current.get(msg.id);
-    if (cached && cached.key === key) return cached;
-    const entry = {
-      key,
-      onEdit: () => {
-        startEdit(msg.id, msg.content);
-        setActiveMessageId(null);
-      },
-      onDelete: () => {
-        deleteMsg(msg.id);
-        setActiveMessageId(null);
-      },
-      onReact: (emoji: string) => {
-        if (chatWritable) toggleReaction(msg.id, emoji);
-      },
-      onToggleReactionPicker: () => {
-        if (chatWritable) setReactionPickerFor((v) => (v === msg.id ? null : msg.id));
-      },
-      onToggleActions: () => {
-        if (chatWritable) setActiveMessageId((v) => (v === msg.id ? null : msg.id));
-      },
-      onReply: chatWritable
-        ? () => {
-            setReplyingTo(msg);
-            setActiveMessageId(null);
-            setTimeout(() => textRef.current?.focus(), 0);
-          }
-        : undefined,
-    };
-    messageCallbacksRef.current.set(msg.id, entry);
-    return entry;
+  // Resets the open admin-project thread (no reload - matches the original inline handler, which
+  // didn't refetch the project list on close either) - passed to ChatProjectsTab's "Back".
+  function closeProjectThread() {
+    setActiveProjectId(null);
+    setProjectMessages([]);
+    setDraft('');
+    setAttachments([]);
   }
 
-  // Renders a list of messages; role badges come directly from msg.postedAsRole stored at send time.
-  // `showLoadOlder` only applies to project-chat's own message list (the one backed by
-  // useChatMessages' pagination) - DM/group/admin-project views don't support it.
-  function messageList(msgs: Message[], showLoadOlder = false) {
-    return (
-      <div ref={messageListRef} onScroll={onMessageListScroll} className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5">
-        {showLoadOlder && msgs.length > 0 && (
-          <div className="flex justify-center pb-1">
-            {hasMoreOlder ? (
-              <button
-                onClick={handleLoadOlder}
-                disabled={loadingOlder}
-                className="text-xs px-3 py-1 rounded-lg"
-                style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
-              >
-                {loadingOlder ? 'Loading…' : 'Load earlier messages'}
-              </button>
-            ) : (
-              <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-                Beginning of conversation
-              </span>
-            )}
-          </div>
-        )}
-        {msgs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: 'var(--text-3)' }}>
-            <span className="text-3xl opacity-30">💬</span>
-            <p className="text-sm">No messages yet. Start the conversation!</p>
-          </div>
-        ) : (
-          msgs.map((msg) => {
-            const isOwn = msg.authorId === user?.id;
-            const isEditing = editingId === msg.id;
-            const authorRole = msg.postedAsRole ?? null;
-            return (
-              <div key={msg.id} id={`chat-msg-${msg.id}`}>
-                {isEditing ? (
-                  <div className="space-y-1.5">
-                    <textarea
-                      // eslint-disable-next-line jsx-a11y/no-autofocus -- edit field just revealed by clicking "Edit" on this message
-                      autoFocus
-                      value={editDraft}
-                      onChange={(e) => setEditDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveEdit(msg.id);
-                        if (e.key === 'Escape') cancelEdit();
-                      }}
-                      className="input text-sm w-full resize-none"
-                      rows={3}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => saveEdit(msg.id)}
-                        className="text-xs px-2 py-1 rounded-lg font-medium"
-                        style={{ background: 'var(--brand)', color: 'white' }}
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={cancelEdit}
-                        className="text-xs px-2 py-1 rounded-lg"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div data-emoji-picker>
-                    {(() => {
-                      const cb = getMessageCallbacks(msg);
-                      return (
-                        <MessageBubble
-                          msg={msg}
-                          isOwn={isOwn}
-                          onEdit={cb.onEdit}
-                          onDelete={cb.onDelete}
-                          onImageClick={setLightboxUrl}
-                          canEdit={chatWritable && Date.now() - new Date(msg.createdAt).getTime() < EDIT_TIMEOUT_MS}
-                          onReact={cb.onReact}
-                          currentUserId={user?.id ?? null}
-                          reactionPickerOpen={reactionPickerFor === msg.id}
-                          onToggleReactionPicker={cb.onToggleReactionPicker}
-                          actionsOpen={activeMessageId === msg.id}
-                          onToggleActions={cb.onToggleActions}
-                          onReply={cb.onReply}
-                          onScrollToReply={setScrollToMsgId}
-                          authorRole={authorRole}
-                          isMobile={isMobile}
-                          scrollContainerRef={messageListRef}
-                        />
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
-      </div>
-    );
+  function openProjectThread(id: string) {
+    setActiveProjectId(id);
+    loadProjectMessages(id);
+  }
+
+  function openNewGroupModal() {
+    setNewGroupSelected(new Set());
+    setNewGroupName('');
+    setNewGroupSearch('');
+    setShowNewGroupModal(true);
+  }
+
+  function openManageGroupModal() {
+    const conv = groupConversations.find((c) => c.id === activeGroupId);
+    setManageGroupName(conv?.name ?? '');
+    setAddPeopleSearch('');
+    setAddPeopleSelected(new Set());
+    setShowManageGroupModal(true);
   }
 
   const taskThreadCount = taskMessageCounts.size;
@@ -2143,8 +1511,8 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
           {/* ── Messages tab ── */}
           {tab === 'messages' && (
             <>
-              {messageList(displayMessages, true)}
-              {composeArea()}
+              <ChatMessageList messages={displayMessages} showLoadOlder {...messageListProps} />
+              <ChatComposeBox {...composeBoxProps} />
             </>
           )}
 
@@ -2214,8 +1582,8 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                     {openingTask ? '…' : 'Open task →'}
                   </button>
                 </div>
-                {messageList(displayMessages, true)}
-                {composeArea()}
+                <ChatMessageList messages={displayMessages} showLoadOlder {...messageListProps} />
+                <ChatComposeBox {...composeBoxProps} />
               </>
             ) : (
               <div className="flex flex-col flex-1 min-h-0">
@@ -2481,457 +1849,66 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
           )}
 
           {/* ── People/Users tab ── */}
-          {tab === 'people' &&
-            (activeConvId ? (
-              // DM thread — same visual identity as project/admin chat
-              <>
-                <div
-                  onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
-                  onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
-                  onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
-                  onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
-                  className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
-                >
-                  <button
-                    onClick={() => {
-                      setActiveConvId(null);
-                      setActiveConvOther(null);
-                      setDmMessages([]);
-                      setDraft('');
-                      setAttachments([]);
-                      loadPeople();
-                    }}
-                    aria-label="Back"
-                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                    style={{ color: 'var(--text-2)' }}
-                  >
-                    ‹
-                  </button>
-                  <span
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
-                    style={{ background: 'var(--surface-2)' }}
-                    aria-hidden="true"
-                  >
-                    {activeConvOther?.avatarEmoji ?? '👤'}
-                  </span>
-                  <p className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
-                    {(() => {
-                      if (activeConvOther) return displayName(activeConvOther);
-                      const conv = conversations.find((c) => c.id === activeConvId);
-                      return conv?.other ? displayName(conv.other) : 'Direct message';
-                    })()}
-                  </p>
-                  {isAdminChat &&
-                    activeConvId &&
-                    (() => {
-                      const conv = conversations.find((c) => c.id === activeConvId);
-                      const closed = conv?.closed ?? false;
-                      return (
-                        <button
-                          onClick={async () => {
-                            try {
-                              const r = await api.conversations.close(activeConvId);
-                              setConversations((prev) =>
-                                prev.map((c) => (c.id === activeConvId ? { ...c, closed: r.closed } : c)),
-                              );
-                            } catch {}
-                          }}
-                          className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                          style={{
-                            background: closed ? 'var(--surface-2)' : '#fee2e2',
-                            color: closed ? 'var(--text-2)' : '#dc2626',
-                          }}
-                          title={closed ? 'Reopen this chat' : 'Close this chat so the user cannot send more messages'}
-                        >
-                          {closed ? 'Reopen' : 'Close chat'}
-                        </button>
-                      );
-                    })()}
-                </div>
-                {dmLoading ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div
-                      className="w-5 h-5 border-2 rounded-full animate-spin"
-                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
-                    />
-                  </div>
-                ) : (
-                  messageList(dmMessagesAdapted)
-                )}
-                {(() => {
-                  const conv = conversations.find((c) => c.id === activeConvId);
-                  if (conv?.closed && !isAdminChat) {
-                    return (
-                      <div
-                        className="px-4 py-3 text-xs text-center flex-shrink-0"
-                        style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}
-                      >
-                        This conversation has been closed. Contact us to reopen.
-                      </div>
-                    );
-                  }
-                  return composeArea();
-                })()}
-              </>
-            ) : (
-              // People list — search input + recent conversations
-              <div className="flex flex-col flex-1 min-h-0">
-                <div className="px-4 pt-3 pb-2 flex-shrink-0 space-y-2">
-                  <input
-                    type="text"
-                    value={dmUserSearch}
-                    onChange={(e) => setDmUserSearch(e.target.value)}
-                    placeholder={isAdminChat ? 'Search users…' : 'Search members…'}
-                    className="input text-sm w-full"
-                  />
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  {/* Recent conversations — always shown when no search query */}
-                  {!dmUserSearch && conversations.length > 0 && (
-                    <div className="px-4 pb-2">
-                      <p
-                        className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
-                        style={{ color: 'var(--text-3)' }}
-                      >
-                        Recent
-                      </p>
-                      <div className="space-y-0.5">
-                        {conversations.map((conv) => (
-                          <button
-                            key={conv.id}
-                            onClick={() => openDm(conv.other?.id ?? '', conv.other)}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
-                            style={{ background: 'transparent' }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                          >
-                            <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold relative"
-                              style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-                            >
-                              {conv.other?.avatarEmoji ?? conv.other?.username[0]?.toUpperCase() ?? '?'}
-                              {conv.unread > 0 && (
-                                <span
-                                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
-                                >
-                                  {conv.unread}
-                                </span>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
-                                {conv.other ? displayName(conv.other) : 'Unknown'}
-                              </p>
-                              {conv.lastMessage && (
-                                <p className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
-                                  {conv.lastMessage.content}
-                                </p>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Search results */}
-                  {dmUserSearch &&
-                    (() => {
-                      const q = dmUserSearch.toLowerCase();
-                      // DMs never exclude a project team member from being messageable, regardless
-                      // of their platform-wide admin status.
-                      const roster = isAdminChat
-                        ? allUsers.filter((u) => u.id !== user?.id)
-                        : teamMembers.filter((m) => m.id !== user?.id);
-                      const filtered = roster.filter(
-                        (m) =>
-                          m.username.toLowerCase().includes(q) ||
-                          (m as { realName?: string | null }).realName?.toLowerCase().includes(q),
-                      );
-                      if (filtered.length === 0)
-                        return (
-                          <div
-                            className="flex flex-col items-center justify-center h-24 gap-1"
-                            style={{ color: 'var(--text-3)' }}
-                          >
-                            <p className="text-sm">No users found.</p>
-                          </div>
-                        );
-                      return (
-                        <div className="px-4 pb-3 space-y-0.5">
-                          {filtered.map((m) => (
-                            <button
-                              key={m.id}
-                              onClick={() => {
-                                setDmUserSearch('');
-                                openDm(m.id);
-                              }}
-                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
-                              style={{ background: 'transparent' }}
-                              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                            >
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold"
-                                style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
-                              >
-                                {m.avatarEmoji ?? m.username[0]?.toUpperCase()}
-                              </div>
-                              <p className="text-xs font-medium" style={{ color: 'var(--text)' }}>
-                                {m.username}
-                              </p>
-                            </button>
-                          ))}
-                        </div>
-                      );
-                    })()}
-
-                  {/* Empty state — no search and no conversations yet */}
-                  {!dmUserSearch && conversations.length === 0 && (
-                    <div
-                      className="flex flex-col items-center justify-center h-32 gap-2"
-                      style={{ color: 'var(--text-3)' }}
-                    >
-                      <span className="text-3xl opacity-30">💬</span>
-                      <p className="text-sm">Search for someone to message.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+          {tab === 'people' && (
+            <ChatPeopleTab
+              isAdminChat={isAdminChat}
+              isExpanded={isExpanded}
+              onExpandedTouchStart={handleExpandedTouchStart}
+              onExpandedTouchMove={handleExpandedTouchMove}
+              onExpandedTouchEnd={handleExpandedTouchEnd}
+              activeConvId={activeConvId}
+              activeConvOther={activeConvOther}
+              conversations={conversations}
+              setConversations={setConversations}
+              onBack={closeDmThread}
+              dmLoading={dmLoading}
+              messages={dmMessagesAdapted}
+              dmUserSearch={dmUserSearch}
+              setDmUserSearch={setDmUserSearch}
+              allUsers={allUsers}
+              teamMembers={teamMembers}
+              openDm={openDm}
+              composeBoxProps={composeBoxProps}
+              messageListProps={messageListProps}
+            />
+          )}
 
           {/* ── Groups tab ── */}
-          {tab === 'groups' &&
-            (activeGroupId ? (
-              // Group thread — same visual identity as DM/project chat
-              <>
-                <div
-                  onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
-                  onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
-                  onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
-                  onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
-                  className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
-                >
-                  <button
-                    onClick={() => {
-                      setActiveGroupId(null);
-                      setGroupMessages([]);
-                      setDraft('');
-                      setAttachments([]);
-                      loadGroups();
-                    }}
-                    aria-label="Back"
-                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                    style={{ color: 'var(--text-2)' }}
-                  >
-                    ‹
-                  </button>
-                  <span
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
-                    style={{ background: 'var(--surface-2)' }}
-                    aria-hidden="true"
-                  >
-                    👥
-                  </span>
-                  <p className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
-                    {(() => {
-                      const conv = groupConversations.find((c) => c.id === activeGroupId);
-                      return conv ? groupTitle(conv) : 'Group';
-                    })()}
-                  </p>
-                  <button
-                    onClick={() => {
-                      const conv = groupConversations.find((c) => c.id === activeGroupId);
-                      setManageGroupName(conv?.name ?? '');
-                      setAddPeopleSearch('');
-                      setAddPeopleSelected(new Set());
-                      setShowManageGroupModal(true);
-                    }}
-                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
-                    title="Manage group"
-                  >
-                    ⚙
-                  </button>
-                </div>
-                {groupLoading ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div
-                      className="w-5 h-5 border-2 rounded-full animate-spin"
-                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
-                    />
-                  </div>
-                ) : (
-                  messageList(groupMessagesAdapted)
-                )}
-                {(() => {
-                  const conv = groupConversations.find((c) => c.id === activeGroupId);
-                  if (conv?.closed) {
-                    return (
-                      <div
-                        className="px-4 py-3 text-xs text-center flex-shrink-0"
-                        style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}
-                      >
-                        This conversation has been closed.
-                      </div>
-                    );
-                  }
-                  return composeArea();
-                })()}
-              </>
-            ) : (
-              // Group list — "+ New group" button + existing groups
-              <div className="flex flex-col flex-1 min-h-0">
-                <div className="px-4 pt-3 pb-2 flex-shrink-0">
-                  <button
-                    onClick={() => {
-                      setNewGroupSelected(new Set());
-                      setNewGroupName('');
-                      setNewGroupSearch('');
-                      setShowNewGroupModal(true);
-                    }}
-                    className="btn-primary text-xs w-full justify-center flex"
-                  >
-                    + New group
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  {groupConversations.length > 0 ? (
-                    <div className="px-4 pb-3 space-y-0.5">
-                      {groupConversations.map((conv) => (
-                        <button
-                          key={conv.id}
-                          onClick={() => openGroup(conv.id)}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
-                          style={{ background: 'transparent' }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold relative"
-                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-                          >
-                            👥
-                            {conv.unread > 0 && (
-                              <span
-                                className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                                style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
-                              >
-                                {conv.unread}
-                              </span>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
-                              {groupTitle(conv)}
-                            </p>
-                            {conv.lastMessage && (
-                              <p className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
-                                {conv.lastMessage.content}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      className="flex flex-col items-center justify-center h-32 gap-2"
-                      style={{ color: 'var(--text-3)' }}
-                    >
-                      <span className="text-3xl opacity-30">👥</span>
-                      <p className="text-sm">Start a group to chat with several people at once.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+          {tab === 'groups' && (
+            <ChatGroupsTab
+              isExpanded={isExpanded}
+              onExpandedTouchStart={handleExpandedTouchStart}
+              onExpandedTouchMove={handleExpandedTouchMove}
+              onExpandedTouchEnd={handleExpandedTouchEnd}
+              groupConversations={groupConversations}
+              activeGroupId={activeGroupId}
+              onBack={closeGroupThread}
+              groupLoading={groupLoading}
+              messages={groupMessagesAdapted}
+              openGroup={openGroup}
+              onOpenManageGroup={openManageGroupModal}
+              onOpenNewGroup={openNewGroupModal}
+              composeBoxProps={composeBoxProps}
+              messageListProps={messageListProps}
+            />
+          )}
 
           {/* ── Admin Projects tab ── */}
-          {tab === 'projects' &&
-            isAdminChat &&
-            (activeProjectId ? (
-              // Project chat view
-              <>
-                <div
-                  onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
-                  onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
-                  onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
-                  onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
-                  className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
-                >
-                  <button
-                    onClick={() => {
-                      setActiveProjectId(null);
-                      setProjectMessages([]);
-                      setDraft('');
-                      setAttachments([]);
-                    }}
-                    aria-label="Back"
-                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                    style={{ color: 'var(--text-2)' }}
-                  >
-                    ‹
-                  </button>
-                  <span
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
-                    style={{ background: 'var(--surface-2)' }}
-                    aria-hidden="true"
-                  >
-                    {adminProjects.find((p) => p.id === activeProjectId)?.emoji ?? '📁'}
-                  </span>
-                  <p className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--text)' }}>
-                    {adminProjects.find((p) => p.id === activeProjectId)?.name ?? 'Project'}
-                  </p>
-                </div>
-                {messageList(projectMessages)}
-                {composeArea()}
-              </>
-            ) : (
-              // Projects list
-              <div className="flex-1 overflow-y-auto px-4 py-3">
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-wider mb-2"
-                  style={{ color: 'var(--text-3)' }}
-                >
-                  All projects
-                </p>
-                {adminProjects.length === 0 ? (
-                  <div
-                    className="flex flex-col items-center justify-center h-32 gap-2"
-                    style={{ color: 'var(--text-3)' }}
-                  >
-                    <span className="text-2xl opacity-30">📋</span>
-                    <p className="text-sm">No projects found.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-0.5">
-                    {adminProjects.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => {
-                          setActiveProjectId(p.id);
-                          loadProjectMessages(p.id);
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
-                        style={{ background: 'transparent' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <span className="text-lg w-8 text-center flex-shrink-0">{p.emoji ?? '📋'}</span>
-                        <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
-                          {p.name}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+          {tab === 'projects' && isAdminChat && (
+            <ChatProjectsTab
+              isExpanded={isExpanded}
+              onExpandedTouchStart={handleExpandedTouchStart}
+              onExpandedTouchMove={handleExpandedTouchMove}
+              onExpandedTouchEnd={handleExpandedTouchEnd}
+              adminProjects={adminProjects}
+              activeProjectId={activeProjectId}
+              onBack={closeProjectThread}
+              messages={projectMessages}
+              onOpenProject={openProjectThread}
+              composeBoxProps={composeBoxProps}
+              messageListProps={messageListProps}
+            />
+          )}
 
           <input
             ref={fileRef}
