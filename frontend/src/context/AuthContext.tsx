@@ -4,7 +4,7 @@
  * Listens for `planly:email-not-verified` and `planly:session-expired` window events to
  * force-logout without a user action (e.g. when another browser logs out and invalidates the session).
  */
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { api } from '../api/client';
 import { clearMembersCache } from '../hooks/useProductMembers';
 import type { User } from '../types';
@@ -50,22 +50,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Auth actions
-  async function login(identifier: string, password: string) {
+  // Auth actions - wrapped in useCallback (none close over anything but the stable `setUser`
+  // setter) so the memoized value below doesn't rebuild on every render.
+  const login = useCallback(async (identifier: string, password: string) => {
     const res = await api.auth.login(identifier, password);
     if ('requiresTOTP' in res && res.requiresTOTP) return res;
     // Fetch the full profile so server-config flags like announcementsEnabled are included
     const full = await api.auth.me();
     setUser(full);
-  }
+  }, []);
 
-  async function totpChallenge(mfaToken: string, code: string) {
+  const totpChallenge = useCallback(async (mfaToken: string, code: string) => {
     await api.auth.totpChallenge(mfaToken, code);
     const full = await api.auth.me();
     setUser(full);
-  }
+  }, []);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       await api.auth.logout();
     } catch {
@@ -73,18 +74,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     clearMembersCache();
     setUser(null);
-  }
+  }, []);
 
-  async function refreshUser() {
+  const refreshUser = useCallback(async () => {
     const u = await api.auth.me();
     setUser(u);
-  }
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, totpChallenge, logout, refreshUser }}>
-      {children}
-    </AuthContext.Provider>
+  // Memoized so consumers only re-render when `user`/`loading` actually change - every one of
+  // these action functions is now stable across renders (see above), so this effectively only
+  // changes on a real auth state change.
+  const value = useMemo(
+    () => ({ user, loading, login, totpChallenge, logout, refreshUser }),
+    [user, loading, login, totpChallenge, logout, refreshUser],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

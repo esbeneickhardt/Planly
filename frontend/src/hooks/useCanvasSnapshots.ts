@@ -1,9 +1,10 @@
 /**
- * useCanvasSnapshots - loads and saves task node positions for the Canvas view.
- *
- * Fetches the stored snapshot on mount and provides a save() function that
- * persists the current node positions. Debounces saves to avoid hammering the
- * API on every drag event - callers should call save() on drag-end.
+ * useCanvasSnapshots - manages named, sharable Canvas layout "snapshots" for the active product:
+ * create/update/delete/apply a snapshot capturing node positions, viewport, and active filters,
+ * plus the Share/Load modal visibility and snapshot-list search state. The snapshot list is
+ * fetched on demand when the Load modal opens, not on mount. Node-position autosave to the
+ * server is a separate concern handled by the `save` callback the caller passes in (CanvasView's
+ * `patchState` wrapper) - this hook only touches the persisted, named snapshot list.
  */
 import { useState } from 'react';
 import type { Node } from 'reactflow';

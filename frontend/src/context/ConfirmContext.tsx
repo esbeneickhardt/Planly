@@ -1,10 +1,14 @@
 /**
  * Provides an imperative `confirm(message)` API that returns a Promise<boolean>, replacing native dialogs.
- * The provider renders its own modal overlay so callers never need to manage confirm UI themselves.
+ * The provider renders its own confirm dialog through the shared `Modal` component (with its header bar
+ * suppressed via `hideHeader`, since Cancel/Confirm buttons already provide the only exit this dialog
+ * needs) so callers never need to manage confirm UI themselves, and get the same Escape-to-close, focus
+ * trap, and ARIA semantics every other modal in the app has.
  * `resolveRef` holds the current promise's resolve function so the modal buttons can settle it from JSX.
  */
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import Modal from '../components/common/Modal';
 
 interface PendingConfirm {
   message: string;
@@ -35,22 +39,23 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     setPending(null);
   }
 
+  // Memoized so consumers of useConfirm() (most of the app) only re-render if `confirm` itself
+  // changes - which, since it's already a stable useCallback, means never after mount.
+  const value = useMemo(() => ({ confirm }), [confirm]);
+
   return (
-    <ConfirmContext.Provider value={{ confirm }}>
+    <ConfirmContext.Provider value={value}>
       {children}
       {pending && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => answer(false)} />
-          <div
-            className="relative w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-          >
+        <Modal title="Confirm" onClose={() => answer(false)} hideHeader width="max-w-sm">
+          <div className="flex flex-col gap-4">
             <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
               {pending.message}
             </p>
             <div className="flex justify-end gap-2">
+              {/* No explicit autoFocus needed - Modal already focuses the dialog's first focusable
+                  element on mount, which this Cancel button is (see Modal.tsx's own focus-trap effect). */}
               <button
-                autoFocus
                 onClick={() => answer(false)}
                 className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
@@ -66,7 +71,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </ConfirmContext.Provider>
   );

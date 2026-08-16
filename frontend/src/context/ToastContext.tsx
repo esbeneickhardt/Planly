@@ -3,7 +3,7 @@
  * Toasts are removed after 4000 ms via setTimeout; IDs come from a module-level counter (not React state) to avoid re-renders.
  * Three types are supported: `error`, `success`, and `info`, each with distinct colours from CSS custom properties.
  */
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 type ToastType = 'error' | 'success' | 'info';
 
@@ -37,8 +37,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     info: { bg: 'var(--surface-2)', border: 'var(--border)', text: 'var(--text-2)' },
   };
 
+  // Memoized so consumers only re-render when `showToast` itself changes - which, since it's
+  // already a stable useCallback, means this object's identity never changes across the app's
+  // lifetime, so a toast being shown/dismissed (this provider's own `toasts` state) never
+  // propagates a re-render to unrelated context consumers.
+  const value = useMemo(() => ({ showToast }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {/* aria-live region so screen readers announce new toasts automatically */}
       <div
