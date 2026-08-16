@@ -559,7 +559,6 @@ model ServerConfig {
   announcementsEnabled     Boolean @default(false)
   announcementPostRole     String  @default("admin")
   requireMfa               Boolean @default(false)
-  adminIpRestrictionMode   String  @default("disabled")
   githubWebhookSecret      String?
   githubImportIssues       Boolean @default(false)
   githubImportPrs          Boolean @default(false)
