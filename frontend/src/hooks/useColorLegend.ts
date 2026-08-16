@@ -7,6 +7,7 @@
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../api/client';
+import { useDebouncedCallback } from './useDebouncedCallback';
 
 export const PRESET_COLORS = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#f97316'];
 const DEFAULT_NAMES: Record<string, string> = {
@@ -33,7 +34,6 @@ export function useColorLegend(productId: string) {
   const [legend, setLegend] = useState<ColorLegend>(DEFAULT_NAMES);
   const [enabledSet, setEnabledSet] = useState<Set<string>>(new Set(PRESET_COLORS));
   const [loaded, setLoaded] = useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stateRef = useRef({ legend: DEFAULT_NAMES, enabledSet: new Set<string>(PRESET_COLORS) });
 
   useEffect(() => {
@@ -57,17 +57,14 @@ export function useColorLegend(productId: string) {
   }, [productId]);
 
   // Debounced save: batches rapid changes (e.g. color picker drags) into a single API call after 600ms
-  function scheduleSave(leg: ColorLegend, ena: Set<string>) {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      const entries: LegendEntry[] = PRESET_COLORS.map((c) => ({
-        colorKey: c,
-        name: leg[c] ?? DEFAULT_NAMES[c] ?? c,
-        enabled: ena.has(c),
-      }));
-      api.colorLegend.update(productId, entries).catch(() => {});
-    }, 600);
-  }
+  const [scheduleSave] = useDebouncedCallback((leg: ColorLegend, ena: Set<string>) => {
+    const entries: LegendEntry[] = PRESET_COLORS.map((c) => ({
+      colorKey: c,
+      name: leg[c] ?? DEFAULT_NAMES[c] ?? c,
+      enabled: ena.has(c),
+    }));
+    api.colorLegend.update(productId, entries).catch(() => {});
+  }, 600);
 
   const update = useCallback(
     (color: string, name: string) => {
@@ -77,9 +74,8 @@ export function useColorLegend(productId: string) {
         scheduleSave(next, stateRef.current.enabledSet);
         return next;
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [productId],
+    [scheduleSave],
   );
 
   const toggleEnabled = useCallback(
@@ -92,9 +88,8 @@ export function useColorLegend(productId: string) {
         scheduleSave(stateRef.current.legend, next);
         return next;
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [productId],
+    [scheduleSave],
   );
 
   const enabledColors = PRESET_COLORS.filter((c) => enabledSet.has(c));
