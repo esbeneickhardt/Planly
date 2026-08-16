@@ -14,6 +14,7 @@ import { requireProductMember, requireTabWrite } from '../../utils/product-guard
 import { z } from 'zod';
 import { validate } from '../../utils/validate';
 import { TASK_INCLUDE, TASK_WHERE_ACTIVE } from './crud';
+import { handleNotFound, handleConflict } from '../../utils/prisma-errors';
 
 // Validates the prerequisite task ID when creating a dependency edge
 const addDependencySchema = z.object({ prerequisiteId: z.string() });
@@ -22,7 +23,8 @@ export async function dependencyRoutes(app: FastifyInstance) {
   // Add a prerequisite edge from taskId ← prerequisiteId, with cycle detection
   app.post('/api/products/:productId/tasks/:taskId/dependencies', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    // requireTabWrite already re-verifies membership internally (see product-guard.ts), so a
+    // preceding requireProductMember call would be pure overhead.
     if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
     const depBody = validate(addDependencySchema, req.body, reply);
     if (!depBody) return;
@@ -49,8 +51,8 @@ export async function dependencyRoutes(app: FastifyInstance) {
     try {
       await prisma.taskDependency.create({ data: { dependentId: taskId, prerequisiteId } });
       reply.status(201).send({ ok: true });
-    } catch {
-      reply.status(409).send({ error: 'Dependency already exists' });
+    } catch (e) {
+      handleConflict(e, reply, 'Dependency already exists');
     }
   });
 
@@ -64,15 +66,14 @@ export async function dependencyRoutes(app: FastifyInstance) {
         taskId: string;
         prerequisiteId: string;
       };
-      if (!(await requireProductMember(productId, req.user, reply))) return;
       if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
       try {
         await prisma.taskDependency.delete({
           where: { dependentId_prerequisiteId: { dependentId: taskId, prerequisiteId } },
         });
         reply.send({ ok: true });
-      } catch {
-        reply.status(404).send({ error: 'Not found' });
+      } catch (e) {
+        handleNotFound(e, reply);
       }
     },
   );

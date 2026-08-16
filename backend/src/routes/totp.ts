@@ -23,6 +23,7 @@ import prisma from '../db/client';
 import { requireAuth, invalidateCachedTokenVersion } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { config } from '../config/env';
+import { LOGIN_MAX_ATTEMPTS, lockDurationMinutes } from './auth';
 import { issueAuthCookie } from '../utils/auth-cookie';
 import { issueRefreshToken } from '../utils/refresh-tokens';
 import { decryptUserPii } from '../utils/crypto';
@@ -180,6 +181,13 @@ export async function totpRoutes(app: FastifyInstance) {
 
   // TOTP challenge: verifies the code after password-only login returned requiresTOTP.
   // On success issues the full session cookie.
+  //
+  // Rate-limited per-IP via ROUTE_RATE_LIMITS in src/index.ts (same order of magnitude as
+  // /api/auth/login), and additionally subject to the same progressive account lockout as
+  // password login: it reuses the User row's failedLoginAttempts/loginLockedUntil/loginLockCount
+  // fields, so repeated wrong codes lock the account just like repeated wrong passwords do. A
+  // successful password check (required to obtain mfaToken) always resets these counters first,
+  // so each login attempt starts with a fresh budget of LOGIN_MAX_ATTEMPTS code guesses.
   app.post('/api/auth/totp/challenge', async (req, reply) => {
     const body = validate(z.object({ mfaToken: z.string().min(1), code: z.string().min(6).max(10) }), req.body, reply);
     if (!body) return;
@@ -201,17 +209,77 @@ export async function totpRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'MFA not configured for this account' });
     }
 
+    // Same progressive lockout as password login (see src/routes/auth.ts) - blocks brute-forcing
+    // the 6-digit code once the account is locked from prior failed attempts.
+    if (user.loginLockedUntil && user.loginLockedUntil > new Date()) {
+      const remaining = Math.ceil((user.loginLockedUntil.getTime() - Date.now()) / 60000);
+      const hours = Math.floor(remaining / 60);
+      const mins = remaining % 60;
+      const timeStr = hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins} minute${mins === 1 ? '' : 's'}`;
+      return reply.status(429).send({ error: `Account temporarily locked. Try again in ${timeStr}.` });
+    }
+
     const codeOk = verifyCode(user.totpSecret, user.username, body.code);
     const backupOk = !codeOk && (await checkBackupCode(user.id, body.code));
 
     if (!codeOk && !backupOk) {
+      const attempts = user.failedLoginAttempts + 1;
+      const shouldLock = attempts >= LOGIN_MAX_ATTEMPTS;
+      const newLockCount = shouldLock ? user.loginLockCount + 1 : user.loginLockCount;
+      const lockMinutes = lockDurationMinutes(user.loginLockCount);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: attempts,
+          ...(shouldLock
+            ? { loginLockedUntil: new Date(Date.now() + lockMinutes * 60 * 1000), loginLockCount: newLockCount }
+            : {}),
+        },
+      });
+      await prisma.adminLog
+        .create({ data: { action: 'LOGIN_FAILED', targetName: user.username, metadata: { attempts, stage: 'totp' } } })
+        .catch(() => {});
+      if (shouldLock) {
+        await prisma.adminLog
+          .create({
+            data: {
+              action: 'LOGIN_LOCKED',
+              targetName: user.username,
+              metadata: { lockCount: newLockCount, lockMinutes, stage: 'totp' },
+            },
+          })
+          .catch(() => {});
+        sendSecurityAlert({
+          event: 'LOGIN_LOCKED',
+          account: user.username,
+          ip: req.ip,
+          lockout_count: newLockCount,
+          lockout_duration_minutes: lockMinutes,
+          failed_attempts: LOGIN_MAX_ATTEMPTS,
+          timestamp: new Date().toISOString(),
+        });
+        const hours = Math.floor(lockMinutes / 60);
+        const mins = lockMinutes % 60;
+        const timeStr =
+          hours > 0
+            ? `${hours} hour${hours === 1 ? '' : 's'}${mins > 0 ? ` ${mins} min` : ''}`
+            : `${lockMinutes} minutes`;
+        return reply.status(429).send({ error: `Too many failed attempts. Account locked for ${timeStr}.` });
+      }
       return reply.status(401).send({ error: 'Invalid code' });
     }
 
-    // Full authentication complete - increment tokenVersion and stamp lastLoginAt
+    // Full authentication complete - increment tokenVersion, stamp lastLoginAt, and clear
+    // any TOTP-challenge lockout bookkeeping accrued on prior attempts in this login
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
-      data: { tokenVersion: { increment: 1 }, lastLoginAt: new Date() },
+      data: {
+        tokenVersion: { increment: 1 },
+        lastLoginAt: new Date(),
+        failedLoginAttempts: 0,
+        loginLockedUntil: null,
+        loginLockCount: 0,
+      },
       select: { tokenVersion: true },
     });
     invalidateCachedTokenVersion(user.id);

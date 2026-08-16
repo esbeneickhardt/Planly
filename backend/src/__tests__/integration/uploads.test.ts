@@ -123,7 +123,9 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
       });
       expect(res.statusCode).toBe(200);
       const json = JSON.parse(res.body);
-      expect(json.url).toMatch(/^\/api\/uploads\/[a-f0-9]{24}\.png$/);
+      // generateFilename (storage.ts) uses a timestamp + sanitized-original-name scheme, not a
+      // hex object-id - see its own comment for the exact format.
+      expect(json.url).toMatch(/^\/api\/uploads\/\d{8}-\d{6}-\d{3}_photo\.png$/);
       expect(json.name).toBe('photo.png');
       expect(json.type).toBe('image/png');
       expect(mockStoreFile).toHaveBeenCalledOnce();
@@ -266,7 +268,10 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
       });
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.body).ok).toBe(true);
-      expect(mockDeleteFile).toHaveBeenCalledOnce();
+      // Called twice by design: the original file, then a best-effort attempt to also delete its
+      // derived thumbnail (silently ignored if none was generated) - see the DELETE handler in
+      // routes/messages.ts.
+      expect(mockDeleteFile).toHaveBeenCalledTimes(2);
     });
 
     it('returns 404 for a filename that does not exist in the DB', async () => {

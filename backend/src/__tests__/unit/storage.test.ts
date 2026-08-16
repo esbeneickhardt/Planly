@@ -204,7 +204,7 @@ describe('generateFilename', () => {
 
 // ── local disk storage ─────────────────────────────────────────────────────
 
-describe('local disk storage (no AWS_S3_BUCKET)', () => {
+describe('local disk storage (no S3_BUCKET)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -250,14 +250,14 @@ describe('local disk storage (no AWS_S3_BUCKET)', () => {
 
 // ── S3 storage mode ────────────────────────────────────────────────────────
 
-describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
+describe('S3 storage mode (S3_BUCKET set)', () => {
   const mockSend = vi.fn();
 
   beforeEach(() => {
     mockSend.mockReset();
     vi.resetModules();
-    process.env.AWS_S3_BUCKET = 'test-bucket';
-    process.env.AWS_S3_PREFIX = 'pfx';
+    process.env.S3_BUCKET = 'test-bucket';
+    process.env.S3_PREFIX = 'pfx';
     vi.doMock('@aws-sdk/client-s3', () => ({
       // All must be regular functions (not arrow) because storage.ts uses `new` on each
       S3Client: function MockS3Client(this: unknown) {
@@ -276,8 +276,8 @@ describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
   });
 
   afterEach(() => {
-    delete process.env.AWS_S3_BUCKET;
-    delete process.env.AWS_S3_PREFIX;
+    delete process.env.S3_BUCKET;
+    delete process.env.S3_PREFIX;
     vi.resetModules();
   });
 
@@ -339,9 +339,9 @@ describe('S3 storage mode (AWS_S3_BUCKET set)', () => {
     expect(cmd.Key).not.toContain('..');
   });
 
-  it('uses AWS_S3_PREFIX as the key prefix', async () => {
+  it('uses S3_PREFIX as the key prefix', async () => {
     mockSend.mockResolvedValueOnce({});
-    process.env.AWS_S3_PREFIX = 'custom-prefix';
+    process.env.S3_PREFIX = 'custom-prefix';
     vi.resetModules();
     vi.doMock('@aws-sdk/client-s3', () => ({
       S3Client: function MockS3Client(this: unknown) {

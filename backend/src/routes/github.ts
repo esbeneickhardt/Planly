@@ -52,6 +52,20 @@ export async function githubRoutes(app: FastifyInstance) {
   app.post('/api/github/config', { preHandler: requireAdmin }, async (req, reply) => {
     const body = validate(githubConfigSchema, req.body, reply);
     if (!body) return;
+
+    // Importing from a public, unauthenticated-by-default webhook endpoint without a signing
+    // secret would let anyone on the internet inject fake issues/PRs as tasks - never allow
+    // import to be enabled without a secret already configured (see /api/github/regenerate-secret
+    // above, the only endpoint that sets one).
+    const existing = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
+    const importingIssues = body.githubImportIssues ?? existing?.githubImportIssues ?? false;
+    const importingPrs = body.githubImportPrs ?? existing?.githubImportPrs ?? false;
+    if ((importingIssues || importingPrs) && !existing?.githubWebhookSecret) {
+      return reply.status(400).send({
+        error: 'Generate a webhook secret before enabling GitHub import (POST /api/github/regenerate-secret).',
+      });
+    }
+
     await prisma.serverConfig.upsert({
       where: { id: 'main' },
       create: { id: 'main', ...body },
@@ -82,12 +96,17 @@ export async function githubRoutes(app: FastifyInstance) {
       const config = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
       const secret = config?.githubWebhookSecret;
 
-      if (secret) {
-        const sig = req.headers['x-hub-signature-256'] as string | undefined;
-        const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody ?? Buffer.from(JSON.stringify(req.body));
-        if (!verifySignature(secret, rawBody, sig)) {
-          return reply.status(401).send({ error: 'Invalid signature' });
-        }
+      // Fail closed: refuse to process anything without a configured secret, rather than only
+      // verifying the signature "if present". POST /api/github/config now refuses to enable
+      // import without a secret already set, but this is the last line of defense against ever
+      // acting on an unverified payload (e.g. import was enabled before that check existed).
+      if (!secret) {
+        return reply.status(503).send({ error: 'GitHub webhook is not configured' });
+      }
+      const sig = req.headers['x-hub-signature-256'] as string | undefined;
+      const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody ?? Buffer.from(JSON.stringify(req.body));
+      if (!verifySignature(secret, rawBody, sig)) {
+        return reply.status(401).send({ error: 'Invalid signature' });
       }
 
       const event = req.headers['x-github-event'] as string | undefined;

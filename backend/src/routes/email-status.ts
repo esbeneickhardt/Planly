@@ -9,7 +9,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAuth, requireAdmin } from '../middleware/auth';
-import { getSmtpSettings, sendEmail } from '../utils/email';
+import { getSmtpSettings, sendEmail, invalidateSmtpCache } from '../utils/email';
 import { encryptValue } from '../utils/crypto';
 import { validate } from '../utils/validate';
 import prisma from '../db/client';
@@ -93,12 +93,14 @@ export async function emailStatusRoutes(app: FastifyInstance) {
         },
       });
     }
+    invalidateSmtpCache();
     reply.send({ ok: true });
   });
 
   // Clear saved SMTP config (revert to env vars)
   app.delete('/api/email-config', { preHandler: requireAdmin }, async (_req, reply) => {
     await prisma.smtpConfig.deleteMany({ where: { id: 'default' } });
+    invalidateSmtpCache();
     reply.send({ ok: true });
   });
 

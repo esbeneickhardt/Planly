@@ -9,7 +9,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireTabWrite } from '../utils/product-guard';
+import { requireTabRead, requireTabWrite } from '../utils/product-guard';
 import { handleNotFound } from '../utils/prisma-errors';
 import { validate } from '../utils/validate';
 
@@ -20,7 +20,7 @@ export async function connectionRoutes(app: FastifyInstance) {
   // List connected task IDs for a project's canvas
   app.get('/api/products/:productId/connections', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabRead(productId, req.user, ['canvas'], reply))) return;
     const conns = await prisma.productConnection.findMany({ where: { productId }, select: { taskId: true } });
     reply.send(conns.map((c) => c.taskId));
   });
@@ -28,7 +28,8 @@ export async function connectionRoutes(app: FastifyInstance) {
   // Add a canvas connection edge (idempotent upsert)
   app.post('/api/products/:productId/connections', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    // requireTabWrite already re-verifies membership internally (see product-guard.ts), so a
+    // preceding requireProductMember call would be pure overhead.
     if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
     const body = validate(createConnectionSchema, req.body, reply);
     if (!body) return;
@@ -46,7 +47,6 @@ export async function connectionRoutes(app: FastifyInstance) {
   // Remove a canvas connection edge
   app.delete('/api/products/:productId/connections/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
     try {
       await prisma.productConnection.delete({ where: { productId_taskId: { productId, taskId } } });

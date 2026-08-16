@@ -163,13 +163,18 @@ export async function generateThumbnail(buf: Buffer, mimeType: string): Promise<
 // File storage operations (S3 or local disk)
 
 export async function storeFile(buffer: Buffer, filename: string, mimeType: string): Promise<void> {
+  // Sanitize filename to prevent path traversal, same as deleteFile/getFileBuffer below. Not
+  // currently exploitable - the one call site (messages.ts's POST /api/upload) always derives
+  // the filename via generateFilename() rather than passing user input straight through - but
+  // sanitizing here too closes the gap for defense-in-depth against any future caller that doesn't.
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
   const s3 = await getS3();
   if (s3) {
     const { PutObjectCommand } = await import('@aws-sdk/client-s3');
     await s3.send(
       new PutObjectCommand({
         Bucket: S3_BUCKET,
-        Key: `${S3_PREFIX}/${filename}`,
+        Key: `${S3_PREFIX}/${safe}`,
         Body: buffer,
         ContentType: mimeType,
       }),
@@ -178,7 +183,7 @@ export async function storeFile(buffer: Buffer, filename: string, mimeType: stri
   }
   // Local disk fallback - ensure directory exists before writing
   await mkdir(config.uploadsDir, { recursive: true });
-  await writeFile(join(config.uploadsDir, filename), buffer);
+  await writeFile(join(config.uploadsDir, safe), buffer);
 }
 
 export async function deleteFile(filename: string): Promise<void> {
