@@ -1,3 +1,5 @@
+/** Confirmation modal offering to populate the account with example projects/tasks
+ * (`api.seed.examples()`) - shown to admins/owners from the no-projects welcome screen. */
 import { useState } from 'react';
 import Modal from './Modal';
 import { api } from '../../api/client';

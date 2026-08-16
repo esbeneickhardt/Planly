@@ -1,3 +1,6 @@
+/** Read-only reference modal explaining the canvas's node/edge visual language (status colours,
+ * milestone/product node styling, dependency vs in-progress-animated vs product-feed edges) and
+ * listing its drag/click/keyboard interactions. */
 import Modal from '../common/Modal';
 
 export default function LegendModal({ onClose }: { onClose: () => void }) {

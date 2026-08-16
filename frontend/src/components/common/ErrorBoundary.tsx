@@ -1,3 +1,5 @@
+/** Class-component error boundary (React has no hook equivalent) - catches render errors anywhere
+ * in its subtree and shows a full-screen fallback with a reload button instead of a blank/crashed app. */
 import { Component, ReactNode } from 'react';
 
 interface Props {

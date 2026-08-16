@@ -1,14 +1,13 @@
 /**
- * Root layout that wraps every authenticated page with TopBar, Sidebar, ChatPanel, and SearchModal.
+ * Root layout that wraps every authenticated page with TopBar, ChatPanel, and SearchModal.
  * Provides `ChatContext` so any component can call `openChat` to open the product or admin chat.
  * `adminMode` persists across navigation once activated; `PermissionGuard` redirects when the current tab becomes inaccessible.
  */
-import { ReactNode, useState, useEffect, useCallback } from 'react';
+import { ReactNode, useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from './TopBar';
 import SearchModal from './SearchModal';
 import AdminSearchModal from './AdminSearchModal';
-import ChatPanel from './ChatPanel';
 import PlanlyVisionModal, { shouldShowWelcome } from './PlanlyVisionModal';
 import NoProjectsWelcome from './NoProjectsWelcome';
 import { usePermission } from '../../context/PermissionContext';
@@ -17,6 +16,30 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ChatContext } from '../../context/ChatContext';
 import { ProfileModalsContext, type ProfileModalKey } from '../../context/ProfileModalsContext';
+
+// Lazy-loaded (not a static import) so ChatPanel's own import chain - which pulls in the `mermaid`
+// package via MermaidBlock.tsx for rendering ```mermaid code fences - doesn't ship in the main
+// bundle. AppLayout is part of the always-mounted app shell, but the panel itself is already only
+// ever rendered behind `showProductChat`/`showAdminChat` below, so this costs nothing extra when
+// chat is never opened and only defers the download to the moment it first is.
+const ChatPanel = lazy(() => import('./ChatPanel'));
+
+// Minimal, self-contained loading indicator for the lazy ChatPanel chunk - deliberately doesn't try
+// to mimic the panel's own floating position/size (that layout logic lives entirely inside
+// ChatPanel itself), just gives some feedback that the click registered while the chunk downloads.
+function ChatPanelFallback() {
+  return (
+    <div
+      className="fixed bottom-6 right-6 z-50 flex items-center justify-center rounded-full shadow-xl"
+      style={{ width: 56, height: 56, background: 'var(--surface)', border: '1px solid var(--border)' }}
+    >
+      <div
+        className="w-5 h-5 border-2 rounded-full animate-spin"
+        style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+      />
+    </div>
+  );
+}
 
 const TAB_ROUTES: { path: string; tab: string }[] = [
   { path: '/canvas', tab: 'canvas' },
@@ -83,6 +106,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     setChatScrollToMessageId(messageId);
     setShowProductChat(true);
   }, []);
+  // Stable so it can be reused directly as ChatContext's `openChat` in admin mode below, instead of
+  // a fresh inline arrow function on every render.
+  const toggleAdminChat = useCallback(() => setShowAdminChat((v) => !v), []);
   const { products, productsLoaded } = useProduct();
   const { user } = useAuth();
   const { mobileNavPosition } = useTheme();
@@ -133,34 +159,51 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }
 
+  // Memoized so consumers of each context (e.g. TopBar, SearchModal) don't re-render on every
+  // AppLayout render for unrelated reasons - only when a field they actually read changes.
+  const profileModalsValue = useMemo(
+    () => ({
+      showThemePicker,
+      setShowThemePicker,
+      showMemberships,
+      setShowMemberships,
+      showIntegrations,
+      setShowIntegrations,
+      showNotifPrefs,
+      setShowNotifPrefs,
+      showPrivacy,
+      setShowPrivacy,
+      showTotp,
+      setShowTotp,
+      showChangePassword,
+      setShowChangePassword,
+      openProfileModal,
+    }),
+    [
+      showThemePicker,
+      showMemberships,
+      showIntegrations,
+      showNotifPrefs,
+      showPrivacy,
+      showTotp,
+      showChangePassword,
+      openProfileModal,
+    ],
+  );
+
+  const chatContextValue = useMemo(
+    () => ({
+      openChat: activeAdminMode ? toggleAdminChat : openProductChat,
+      chatOpen: activeAdminMode ? showAdminChat : showProductChat,
+      chatTaskId: chatInitialTask?.id,
+      adminMode: activeAdminMode,
+    }),
+    [activeAdminMode, toggleAdminChat, openProductChat, showAdminChat, showProductChat, chatInitialTask],
+  );
+
   return (
-    <ProfileModalsContext.Provider
-      value={{
-        showThemePicker,
-        setShowThemePicker,
-        showMemberships,
-        setShowMemberships,
-        showIntegrations,
-        setShowIntegrations,
-        showNotifPrefs,
-        setShowNotifPrefs,
-        showPrivacy,
-        setShowPrivacy,
-        showTotp,
-        setShowTotp,
-        showChangePassword,
-        setShowChangePassword,
-        openProfileModal,
-      }}
-    >
-    <ChatContext.Provider
-      value={{
-        openChat: activeAdminMode ? () => setShowAdminChat((v) => !v) : openProductChat,
-        chatOpen: activeAdminMode ? showAdminChat : showProductChat,
-        chatTaskId: chatInitialTask?.id,
-        adminMode: activeAdminMode,
-      }}
-    >
+    <ProfileModalsContext.Provider value={profileModalsValue}>
+    <ChatContext.Provider value={chatContextValue}>
       <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
         {/* Skip navigation link - visually hidden until focused by keyboard */}
         <a
@@ -172,7 +215,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </a>
         <TopBar
           onOpenSearch={() => setShowSearch(true)}
-          onOpenChat={activeAdminMode ? () => setShowAdminChat((v) => !v) : () => openProductChat()}
+          onOpenChat={activeAdminMode ? toggleAdminChat : () => openProductChat()}
           onOpenVision={() => setShowVision(true)}
           chatOpen={activeAdminMode ? showAdminChat : showProductChat}
           chatIsAdmin={activeAdminMode}
@@ -193,18 +236,22 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           ) : (
             <SearchModal onClose={() => setShowSearch(false)} />
           ))}
-        {showProductChat && (
-          <ChatPanel
-            initialTask={chatInitialTask}
-            scrollToMessageId={chatScrollToMessageId}
-            onClose={() => {
-              setShowProductChat(false);
-              setChatInitialTask(undefined);
-              setChatScrollToMessageId(undefined);
-            }}
-          />
+        {(showProductChat || showAdminChat) && (
+          <Suspense fallback={<ChatPanelFallback />}>
+            {showProductChat && (
+              <ChatPanel
+                initialTask={chatInitialTask}
+                scrollToMessageId={chatScrollToMessageId}
+                onClose={() => {
+                  setShowProductChat(false);
+                  setChatInitialTask(undefined);
+                  setChatScrollToMessageId(undefined);
+                }}
+              />
+            )}
+            {showAdminChat && <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />}
+          </Suspense>
         )}
-        {showAdminChat && <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />}
         {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
       </div>
     </ChatContext.Provider>
