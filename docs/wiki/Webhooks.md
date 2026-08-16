@@ -43,9 +43,9 @@ The response includes a `secret` field. **Copy it now** - it's only shown at cre
 | Event | When it fires |
 |---|---|
 | `task.created` | A new task is created in the project |
-| `task.updated` | A task's fields are changed (name, description, priority, etc.) — anything other than status or assignee |
+| `task.updated` | A task's fields are changed (name, description, color, deadline, etc.) — anything other than status or owner |
 | `task.status_changed` | A task's status (column) is changed via a PATCH |
-| `task.assigned` | A task's assignee is changed via a PATCH |
+| `task.assigned` | A task's owner (`ownerId`) is changed via a PATCH |
 | `task.deleted` | A task is soft-deleted |
 | `subplan.created` | A sub-plan is created |
 | `subplan.updated` | A sub-plan is updated or ended |
@@ -78,7 +78,9 @@ Body:
 }
 ```
 
-### task.created / task.updated
+### task.created / task.updated / task.status_changed / task.assigned
+
+All four events share the exact same `payload` shape - the full task row plus its `owner`, `reviewer`, `creator`, `subtasks`, and dependency relations (only the top-level `event` name differs):
 
 ```json
 {
@@ -86,52 +88,41 @@ Body:
   "timestamp": "2026-07-07T14:23:00.000Z",
   "payload": {
     "id": "task-uuid",
-    "name": "Fix login bug",
-    "status": "In Progress",
-    "priority": "high",
-    "assigneeId": "user-uuid",
-    "assigneeUsername": "alice",
     "productId": "product-uuid",
-    "sprintId": null,
-    "dueDate": null,
+    "name": "Fix login bug",
+    "description": null,
+    "status": "todo",
+    "ownerId": "user-uuid-1",
+    "reviewerId": null,
+    "color": null,
+    "deadline": null,
+    "canvasX": null,
+    "canvasY": null,
+    "kanbanOrder": 0,
+    "milestoneOrder": 0,
+    "completedBy": null,
+    "completedAt": null,
+    "createdBy": "user-uuid-2",
+    "githubUrl": null,
     "createdAt": "2026-07-07T14:23:00.000Z",
-    "updatedAt": "2026-07-07T14:23:00.000Z"
+    "updatedAt": "2026-07-07T14:23:00.000Z",
+    "deletedAt": null,
+    "owner": { "id": "user-uuid-1", "username": "alice", "realName": "Alice Smith", "avatarEmoji": "🦊" },
+    "reviewer": null,
+    "creator": { "id": "user-uuid-2", "username": "bob", "realName": "Bob Jones" },
+    "subtasks": [],
+    "dependsOn": [],
+    "requiredBy": []
   }
 }
 ```
 
-### task.comment_added
-
-```json
-{
-  "event": "task.comment_added",
-  "timestamp": "...",
-  "payload": {
-    "taskId": "task-uuid",
-    "taskName": "Fix login bug",
-    "commentId": "comment-uuid",
-    "content": "I found the issue - the SSO callback URL was wrong.",
-    "authorId": "user-uuid",
-    "authorUsername": "alice"
-  }
-}
-```
-
-### member.added / member.removed
-
-```json
-{
-  "event": "member.added",
-  "timestamp": "...",
-  "payload": {
-    "teamId": "team-uuid",
-    "teamName": "Engineering",
-    "userId": "user-uuid",
-    "username": "bob",
-    "role": "member"
-  }
-}
-```
+Notes:
+- `status` is whichever Kanban column the task is in - the built-in columns use the slugs `todo`, `in_progress`, `blocked`, `done`, but custom columns get a generated slug (e.g. `col_a1b2c3d4e5f6`); don't assume the four defaults are the only possible values.
+- There is no `priority` field, no `assigneeId`/`assigneeUsername` (the relation is `ownerId` + a nested `owner` object), no scalar `sprintId` (sprint membership is a many-to-many join, not shown here), and no `dueDate` - the deadline field is called `deadline`.
+- `owner`, `reviewer`, and `creator` are `null` when unset, otherwise `{ id, username, realName, avatarEmoji }` (`creator` omits `avatarEmoji`).
+- `dependsOn` / `requiredBy` are arrays of `{ prerequisiteId }` / `{ dependentId }` - the task's dependency graph edges.
+- `task.deleted` is the one exception: its payload is just `{ "id": "...", "name": "..." }`, not the full task shape above.
 
 ---
 

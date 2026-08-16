@@ -138,7 +138,7 @@ These have sensible defaults for local development. Review them before going to 
 
 Without SMTP, emails (invites, password reset, @mention notifications) are printed to the container logs instead of sent. You can also configure this later inside the Admin UI without restarting.
 
-**Preferred: Admin UI:** Admin panel → **Email** → fill in credentials → **Save**. Credentials are stored encrypted in the database.
+**Preferred: Admin UI:** Admin panel → **Email Settings** → fill in credentials → **Save**. Credentials are stored encrypted in the database.
 
 **Alternative: environment variables** (requires restart when changed):
 
@@ -199,7 +199,7 @@ Common issuers:
 
 | Variable | Description |
 |---|---|
-| `SECURITY_ALERT_WEBHOOK_URL` | POST endpoint for high-severity security events: `LOGIN_LOCKED`, `ADMIN_GRANTED`, `ADMIN_REVOKED`, `CROWN_TRANSFERRED`, `TOTP_DISABLED`. Accepts Slack incoming webhooks, Discord webhooks, or any JSON HTTP endpoint. |
+| `SECURITY_ALERT_WEBHOOK_URL` | POST endpoint for high-severity security events: `LOGIN_LOCKED`, `ADMIN_GRANTED`, `ADMIN_REVOKED`, `CROWN_TRANSFERRED`, `TOTP_DISABLED`, `PASSWORD_RESET_BY_ADMIN`. Accepts Slack incoming webhooks, Discord webhooks, or any JSON HTTP endpoint. |
 
 ---
 
@@ -300,7 +300,7 @@ If you run Planly behind your own reverse proxy (Nginx, Caddy, etc.) instead of 
 2. Click **Register** and create an account using the same email as `ADMIN_EMAIL`.
 3. You will be logged in and land on the home screen.
 
-If you set `ADMIN_EMAIL`, a crown icon appears next to your username and an **Admin** link appears in the sidebar: this is the admin panel where you manage users, SMTP, announcements, and server configuration.
+If you set `ADMIN_EMAIL`, a shield icon button appears in the top bar (top-right, next to the notification bell) - click it to enter the admin panel, where you manage users, SMTP, announcements, and server configuration. Inside the admin panel's **Ownership** tab, the founding admin (the "crown" holder) is shown with a crown icon.
 
 > **No `ADMIN_EMAIL` set?** The first registered user does not automatically become admin. Set `ADMIN_EMAIL` in `.env`, restart the stack, and admin rights are granted on startup if the account already exists.
 
@@ -308,7 +308,7 @@ If you set `ADMIN_EMAIL`, a crown icon appears next to your username and an **Ad
 
 ## Step 5: Create a project and invite your team
 
-1. Click **New Project** in the sidebar (or load the example projects from the welcome screen).
+1. Click the project picker in the top bar (your active project's emoji and name, top-right) → **New project** (or load the example projects from the welcome screen).
 2. Give the project a name, icon, and deadline.
 3. Open the project → **Settings** → **Team** → **Invite** to add team members by email or shareable link.
 4. Use **Settings** → **Permissions** to control which views each role can access.
@@ -319,7 +319,7 @@ If you set `ADMIN_EMAIL`, a crown icon appears next to your username and an **Ad
 
 Send a test email to confirm delivery:
 
-Admin panel → **Email** → **Send test email**.
+Admin panel → **Email Settings** → **Send test**.
 
 If the test fails, check `SMTP_HOST`, `SMTP_PORT`, and `SMTP_PASS` in `.env` and confirm your provider allows SMTP access (some require app passwords or explicit SMTP enablement).
 
@@ -330,3 +330,4 @@ If the test fails, check `SMTP_HOST`, `SMTP_PORT`, and `SMTP_PASS` in `.env` and
 - [Administration](Administration.md): user management, announcements, audit log
 - [Access Tokens](Access-Tokens.md) + [API Reference](API-Reference.md): automate Planly with the REST API
 - [Webhooks](Webhooks.md): connect Planly to external services
+- [Development](Development.md): running the app outside Docker, architecture overview, contributing

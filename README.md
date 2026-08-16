@@ -58,11 +58,12 @@ Planly is built around a few strong opinions:
 
 ## Features
 
-- **Views** - Plan (canvas), Execute (kanban), Progress (gantt), Tasks (full task list)
-- **Collaboration** - real-time WebSocket updates, per-task comment threads with `@mentions`, project chat with file attachments
+- **Views** - Plan (canvas), Execute (kanban), Progress (gantt), Tasks (full task list), Analytics (throughput, status breakdown, cumulative completions, sprint velocity, per-person workload)
+- **Collaboration** - real-time WebSocket updates, per-task comment threads with `@mentions`, project chat with file attachments, plus 1:1 and group direct messages separate from project chat
 - **Access control** - role-based team permissions, tab-level overrides, invite links, access request workflow
 - **Security** - TOTP 2FA, SSO/OIDC (Google, Entra, Okta, Keycloak, any OIDC provider), IP allowlists, progressive account lockout, audit log
 - **API** - REST API, Personal Access Tokens, App Registrations, webhooks (HMAC-signed), iCal export
+- **GitHub integration** - inbound webhook receiver that imports opened issues/PRs as tasks and updates task status when a PR is merged or closed, with a rotatable HMAC secret (configure in Settings → Apps, admin-only)
 
 ## Documentation
 
@@ -87,6 +88,12 @@ Planly is built around a few strong opinions:
 | [Access Tokens](docs/wiki/Access-Tokens.md) | Personal Access Tokens and App Registrations |
 | [API Reference](docs/wiki/API-Reference.md) | Interactive API docs served at `/api/docs` in every Planly instance |
 | [Webhooks](docs/wiki/Webhooks.md) | Event catalog, payload format, HMAC signature verification |
+
+**Developing Planly**
+
+| | |
+|---|---|
+| [Development](docs/wiki/Development.md) | Local setup without Docker, architecture overview, migrations, contributing |
 
 ## Tech Stack
 
