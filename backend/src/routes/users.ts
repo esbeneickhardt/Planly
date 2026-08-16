@@ -1,17 +1,27 @@
 /**
- * User routes - profile management, email verification, notification preferences,
- * and self-deletion.
+ * User routes - registration, profile management (including public profile visibility),
+ * notification preferences, and self-deletion.
  *
- * Sensitive PII fields (realName, phone) are stored AES-256-GCM encrypted and
- * decrypted before being sent to the client. Self-deletion is audit-logged and
- * permanently removes the user from all teams.
+ * Registration (POST /api/users) creates the account, enforces the server's email
+ * allow/block-list rules, and - when the server requires email verification - sends the
+ * first verification link. The endpoints that actually verify or resend that link
+ * (POST /api/auth/verify-email, /resend-verification, /send-verification) live in
+ * password-reset.ts, not here.
+ *
+ * Sensitive PII fields (realName, phone) are stored AES-256-GCM encrypted and decrypted
+ * before being sent to the client. A user's project list is exposed on their public profile
+ * (GET /api/users/:id/profile) only when that user's showProjectsOnProfile setting is true
+ * (the default) or the caller is viewing their own profile; the response's `projectsVisible`
+ * flag tells the frontend whether an empty `projects` array means "no projects" or "hidden by
+ * privacy setting". Self-deletion is audit-logged and permanently removes the user from all
+ * teams.
  */
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { handleNotFound } from '../utils/prisma-errors';
+import { handleNotFound, handleConflict } from '../utils/prisma-errors';
 import { config } from '../config/env';
 import { sendEmail } from '../utils/email';
 import { getServerConfig } from '../utils/server-config';
@@ -35,6 +45,7 @@ const updateProfileSchema = z.object({
     .nullable()
     .optional(),
   acceptsInvites: z.boolean().optional(),
+  showProjectsOnProfile: z.boolean().optional(),
 });
 // Notification preferences are stored as a JSON blob; keys are preference names, values are booleans
 const updatePreferencesSchema = z.object({
@@ -54,6 +65,7 @@ const USER_SELF_SELECT = {
   emailVerified: true,
   notificationPreferences: true,
   acceptsInvites: true,
+  showProjectsOnProfile: true,
 };
 // Minimal public profile for team member search — no email, phone, or createdAt
 const USER_PUBLIC_SELECT = {
@@ -150,8 +162,8 @@ export async function userRoutes(app: FastifyInstance) {
           },
           select: USER_SELF_SELECT,
         });
-      } catch {
-        return reply.status(409).send({ error: 'Username or email already taken' });
+      } catch (e) {
+        return handleConflict(e, reply, 'Username or email already taken');
       }
 
       // Send verification email when verification is enforced (user must click link before logging in)
@@ -187,36 +199,48 @@ export async function userRoutes(app: FastifyInstance) {
     },
   );
 
-  // Public user profile — returns display info + projects shared with the requesting user
+  // Public user profile — display info, plus the target's own project list ONLY when the target
+  // has opted into showing it (showProjectsOnProfile, default on) or the caller is viewing their
+  // own profile. `projectsVisible` tells the frontend whether an empty `projects` array means "no
+  // projects" or "hidden by the user's own privacy setting", so the two aren't shown identically.
   app.get('/api/users/:id/profile', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
+    const isSelf = id === req.user.userId;
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, username: true, realName: true, avatarEmoji: true },
+      select: { id: true, username: true, realName: true, avatarEmoji: true, showProjectsOnProfile: true },
     });
     if (!user) return reply.status(404).send({ error: 'Not found' });
 
-    // Find all teams the target user belongs to
-    const targetMemberships = await prisma.teamMember.findMany({
-      where: { userId: id },
-      select: { teamId: true, role: true },
-    });
-    const targetTeamMap = Object.fromEntries(targetMemberships.map((m) => [m.teamId, m.role]));
+    const projectsVisible = isSelf || user.showProjectsOnProfile;
+    let projects: { id: string; name: string; emoji: string | null; role: string }[] = [];
+    if (projectsVisible) {
+      // Only the teams the target user belongs to - a caller with no relationship to the target
+      // still only sees the target's OWN membership list, never anything scoped to the caller.
+      const targetMemberships = await prisma.teamMember.findMany({
+        where: { userId: id },
+        select: { teamId: true, role: true },
+      });
+      const targetTeamMap = Object.fromEntries(targetMemberships.map((m) => [m.teamId, m.role]));
 
-    const products = await prisma.product.findMany({
-      where: { deletedAt: null, teamId: { in: Object.keys(targetTeamMap) } },
-      select: { id: true, name: true, emoji: true, ownerId: true, teamId: true },
-      orderBy: { createdAt: 'asc' },
-    });
+      const products = await prisma.product.findMany({
+        where: { deletedAt: null, teamId: { in: Object.keys(targetTeamMap) } },
+        select: { id: true, name: true, emoji: true, ownerId: true, teamId: true },
+        orderBy: { createdAt: 'asc' },
+      });
 
-    reply.send({
-      ...decryptUserPii(user),
-      projects: products.map((p) => ({
+      projects = products.map((p) => ({
         id: p.id,
         name: p.name,
         emoji: p.emoji,
         role: p.ownerId === id ? 'owner' : (targetTeamMap[p.teamId] ?? 'member'),
-      })),
+      }));
+    }
+
+    reply.send({
+      ...decryptUserPii({ id: user.id, username: user.username, realName: user.realName, avatarEmoji: user.avatarEmoji }),
+      projects,
+      projectsVisible,
     });
   });
 
@@ -238,7 +262,7 @@ export async function userRoutes(app: FastifyInstance) {
     if (id !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
     const profileBody = validate(updateProfileSchema, req.body, reply);
     if (!profileBody) return;
-    const { realName, phone, avatarEmoji, avatarUrl, acceptsInvites } = profileBody;
+    const { realName, phone, avatarEmoji, avatarUrl, acceptsInvites, showProjectsOnProfile } = profileBody;
     try {
       const user = await prisma.user.update({
         where: { id },
@@ -248,6 +272,7 @@ export async function userRoutes(app: FastifyInstance) {
           avatarEmoji,
           avatarUrl,
           acceptsInvites,
+          showProjectsOnProfile,
         },
         select: USER_SELF_SELECT,
       });

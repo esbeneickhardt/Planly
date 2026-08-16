@@ -1,3 +1,9 @@
+/**
+ * API reference routes - serves a self-contained HTML page documenting every endpoint.
+ *
+ * The page is a static template with inline CSS/JS; PLANLY_ORIGIN is replaced with the
+ * configured frontend origin at request time. Requires authentication to view.
+ */
 import { FastifyInstance } from 'fastify';
 import { config } from '../config/env';
 import { requireAuth } from '../middleware/auth';

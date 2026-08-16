@@ -23,11 +23,30 @@ export interface SmtpSettings {
   from: string;
 }
 
-/**
- * Resolves active SMTP settings. Database row (written by Admin UI) wins over env vars.
- * Returns null when neither source is configured.
- */
-export async function getSmtpSettings(): Promise<SmtpSettings | null> {
+type Transporter = ReturnType<typeof nodemailer.createTransport>;
+
+// 5-second in-memory TTL cache for resolved SMTP settings, plus a transporter built from them -
+// mirrors getServerConfig()'s cache pattern (server-config.ts). Without this, every sendEmail()
+// call re-hits the DB for config and constructs a brand new nodemailer transporter, even when
+// sending many emails in a short burst (e.g. the bulk verification-email send in
+// admin/config.ts). The transporter is rebuilt whenever the settings themselves refresh.
+interface SmtpCacheEntry {
+  settings: SmtpSettings | null;
+  transporter: Transporter | null;
+  expiresAt: number;
+}
+let _cache: SmtpCacheEntry | null = null;
+const SMTP_CACHE_TTL_MS = 5_000;
+
+/** Call after an admin writes or clears the SMTP config so a stale settings/transporter pair
+ * isn't reused past the change - mirrors invalidateServerConfigCache() in server-config.ts. */
+export function invalidateSmtpCache() {
+  _cache = null;
+}
+
+// Resolves active SMTP settings straight from the DB/env, with no caching - the private,
+// uncached implementation behind the public getSmtpSettings() below.
+async function resolveSmtpSettings(): Promise<SmtpSettings | null> {
   // Prefer DB row (admin-configured) over env vars
   try {
     const row = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
@@ -60,14 +79,36 @@ export async function getSmtpSettings(): Promise<SmtpSettings | null> {
   return null;
 }
 
+/**
+ * Resolves active SMTP settings. Database row (written by Admin UI) wins over env vars.
+ * Returns null when neither source is configured. Cached for SMTP_CACHE_TTL_MS so callers
+ * sending several emails in quick succession don't each re-hit the DB.
+ */
+export async function getSmtpSettings(): Promise<SmtpSettings | null> {
+  const now = Date.now();
+  if (_cache && now < _cache.expiresAt) return _cache.settings;
+  const settings = await resolveSmtpSettings();
+  _cache = { settings, transporter: null, expiresAt: now + SMTP_CACHE_TTL_MS };
+  return settings;
+}
+
 // Build a transporter from resolved SMTP settings
-function buildTransporter(s: SmtpSettings) {
+function buildTransporter(s: SmtpSettings): Transporter {
   return nodemailer.createTransport({
     host: s.host,
     port: s.port,
     secure: s.secure,
     auth: { user: s.user, pass: s.pass },
   });
+}
+
+// Returns the settings + a transporter built from them, reusing the cached transporter (if the
+// settings cache is still warm) instead of constructing a new one on every call.
+async function getTransporter(): Promise<{ transporter: Transporter; settings: SmtpSettings } | null> {
+  const settings = await getSmtpSettings(); // seeds/refreshes _cache as a side effect
+  if (!settings || !_cache) return null;
+  if (!_cache.transporter) _cache.transporter = buildTransporter(settings);
+  return { transporter: _cache.transporter, settings };
 }
 
 // Legacy sync flag - still usable for startup-time checks (env vars only).
@@ -82,15 +123,15 @@ export async function sendEmail({
   subject: string;
   html: string;
 }): Promise<boolean> {
-  // Resolve settings at send time so admin changes take effect without a restart
-  const settings = await getSmtpSettings();
-  if (!settings) {
+  // Resolve settings (and a reusable transporter) at send time so admin changes take effect
+  // within SMTP_CACHE_TTL_MS, without needing a restart.
+  const resolved = await getTransporter();
+  if (!resolved) {
     // Body intentionally omitted - it may contain password-reset tokens or other sensitive data.
     logger.info({ to, subject }, 'email skipped - no SMTP configured (body redacted)');
     return false;
   }
-  const transporter = buildTransporter(settings);
-  await transporter.sendMail({ from: settings.from, to, subject, html });
+  await resolved.transporter.sendMail({ from: resolved.settings.from, to, subject, html });
   return true;
 }
 

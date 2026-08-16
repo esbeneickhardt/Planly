@@ -32,6 +32,7 @@ import { appRegistrationRoutes } from '../../routes/app-registrations';
 import { permissionRoutes } from '../../routes/permissions';
 import { messageRoutes } from '../../routes/messages';
 import { conversationRoutes } from '../../routes/conversations';
+import { inviteRoutes } from '../../routes/invites';
 export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
   const app = Fastify({ logger: false });
 
@@ -60,6 +61,7 @@ export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
   await app.register(permissionRoutes);
   await app.register(messageRoutes);
   await app.register(conversationRoutes);
+  await app.register(inviteRoutes);
 
   await app.ready();
   return app;

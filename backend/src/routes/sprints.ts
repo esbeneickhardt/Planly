@@ -11,7 +11,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireTabRead, requireTabWrite } from '../utils/product-guard';
+import { requireTabRead, requireTabWrite } from '../utils/product-guard';
 import { handleNotFound } from '../utils/prisma-errors';
 import { validate } from '../utils/validate';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
@@ -55,7 +55,8 @@ export async function sprintRoutes(app: FastifyInstance) {
   // List all sprints for a project, ordered by start date
   app.get('/api/products/:productId/sprints', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    // requireTabRead already re-verifies membership internally (see product-guard.ts), so a
+    // preceding requireProductMember call would be pure overhead.
     if (!(await requireTabRead(productId, req.user, ['kanban', 'gantt'], reply))) return;
     const sprints = await prisma.sprint.findMany({
       where: { productId },

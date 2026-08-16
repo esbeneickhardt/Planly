@@ -12,7 +12,7 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireTabWrite } from '../utils/product-guard';
+import { requireTabRead, requireTabWrite } from '../utils/product-guard';
 import { handleNotFound } from '../utils/prisma-errors';
 import { validate } from '../utils/validate';
 
@@ -46,7 +46,7 @@ export async function columnRoutes(app: FastifyInstance) {
   // List columns for a project, seeding defaults if none exist yet
   app.get('/api/products/:productId/columns', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabRead(productId, req.user, ['kanban'], reply))) return;
     const columns = await ensureColumns(productId);
     reply.send(columns.sort((a, b) => a.order - b.order));
   });

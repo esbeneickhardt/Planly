@@ -16,10 +16,17 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'crypto'
 // HKDF (RFC 5869) derives a well-structured 256-bit key from the raw ENCRYPTION_KEY value.
 // Unlike a bare SHA-256 hash this adds domain separation (info string) and salt, making
 // the derived key robust regardless of the input's entropy or format.
+//
+// Memoized: ENCRYPTION_KEY is static for the process lifetime (key rotation is a separate
+// offline script - see the MIGRATION NOTE above - not a live env var change), so re-running
+// HKDF on every single encrypt/decrypt call is pure waste. Computed lazily on first use.
+let _cachedKey: Buffer | null = null;
 function getKey(): Buffer {
+  if (_cachedKey) return _cachedKey;
   const secret = process.env.ENCRYPTION_KEY;
   if (!secret) throw new Error('ENCRYPTION_KEY env var is required for encryption operations');
-  return Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), 'planly-v1', 'aes-256-gcm-key', 32));
+  _cachedKey = Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), 'planly-v1', 'aes-256-gcm-key', 32));
+  return _cachedKey;
 }
 
 // Encryption helpers

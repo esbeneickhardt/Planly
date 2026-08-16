@@ -97,6 +97,11 @@ export async function adminChatRoutes(app: FastifyInstance) {
     let postedAsRole: string | null = rawRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
+    // Admin chat has no product/team context to check a "Project Owner"/"Project Co-Owner" claim
+    // against (unlike project chat or a team-scoped announcement) - since there's nothing to
+    // verify the claim against, it can never be trusted here and is always rejected, the same
+    // treatment a failed Server Owner/Admin check gets above.
+    if (postedAsRole === 'Project Owner' || postedAsRole === 'Project Co-Owner') postedAsRole = null;
     const msg = await prisma.message.create({
       data: {
         isAdminChat: true,

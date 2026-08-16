@@ -279,6 +279,78 @@ export async function requireProductCoOwner(productId: string, userId: string, r
 }
 
 /**
+ * Boolean-returning variant of requireProductCoOwner that doesn't send a reply - for callers
+ * that need to fold the co-owner check into their own conditional rather than short-circuit
+ * the handler (e.g. bypassing the analyticsEnabled gate for owners/co-owners in activity.ts
+ * and analytics.ts). Returns false (rather than 404ing) if the product doesn't exist.
+ */
+export async function isProductCoOwner(productId: string, userId: string): Promise<boolean> {
+  const product = await prisma.product.findFirst({
+    where: { id: productId, deletedAt: null },
+    select: {
+      ownerId: true,
+      team: { select: { members: { where: { userId }, select: { role: true } } } },
+    },
+  });
+  if (!product) return false;
+  if (product.ownerId === userId) return true;
+  return product.team.members[0]?.role === 'co_owner';
+}
+
+/**
+ * Resolves whether `userId` can legitimately claim the "Project Owner" / "Project Co-Owner" chat
+ * role badges (the `postedAsRole` field on Message/Announcement/AnnouncementComment), to prevent
+ * spoofing - mirrors the existing "Server Owner"/"Server Admin" checks (isFoundingAdmin/isAdmin)
+ * that already guard those two badges at every postedAsRole call site.
+ *
+ * These two badges are only meaningful relative to a specific product or, failing that, a specific
+ * team (co-ownership is a TeamRole, granted per-team rather than per-product - see requireTabWrite's
+ * doc comment above). A call site with neither a productId nor a teamId in scope (e.g. the global
+ * admin chat, or a server-wide announcement) has nothing to verify the claim against, so both come
+ * back false and the caller should null out the claim exactly as it would for a failed admin check.
+ */
+export async function resolveProjectRoleClaims(
+  userId: string,
+  scope: { productId?: string; teamId?: string },
+): Promise<{ isProjectOwner: boolean; isProjectCoOwner: boolean }> {
+  let teamId = scope.teamId;
+  let isProjectOwner = false;
+
+  if (scope.productId) {
+    const product = await prisma.product.findFirst({
+      where: { id: scope.productId, deletedAt: null },
+      select: { ownerId: true, teamId: true },
+    });
+    isProjectOwner = product?.ownerId === userId;
+    teamId = product?.teamId;
+  } else if (scope.teamId) {
+    // No single product in scope (e.g. a team-wide announcement) - "owner" means owning at
+    // least one active product on that team.
+    const owned = await prisma.product.count({ where: { teamId: scope.teamId, ownerId: userId, deletedAt: null } });
+    isProjectOwner = owned > 0;
+  }
+
+  if (!teamId) return { isProjectOwner, isProjectCoOwner: false };
+  const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
+  return { isProjectOwner, isProjectCoOwner: member?.role === 'co_owner' };
+}
+
+/**
+ * For routes that don't have a productId in the URL path - so the global Bearer-token URL-regex
+ * scope check in middleware/auth.ts (which only matches `/api/products/:id` shapes) never runs -
+ * but still act on a specific product's resource (e.g. file uploads, or a WebSocket room join).
+ * Verifies a scoped PAT/App token isn't being used outside the project it's locked to. No-op
+ * (returns true) when the token isn't scoped. Sends 403 and returns false on mismatch.
+ */
+export function requireScopeMatch(productId: string, user: AuthPayload, reply: FastifyReply): boolean {
+  if (user.scopedProductId && user.scopedProductId !== productId) {
+    reply.status(403).send({ error: 'Token is not authorized for this project' });
+    return false;
+  }
+  return true;
+}
+
+/**
  * Deletes every ApiToken scoped to this exact project - both directly-scoped PATs and ones
  * issued under a project-scoped App Registration (both already store productId on the ApiToken
  * row itself, see api-tokens.ts/app-registrations.ts). Call this whenever a project transitions

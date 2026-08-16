@@ -1,6 +1,6 @@
 /**
- * Imports environment variables and validates their formats and if required
- * variables are set.
+ * Loads and validates required environment variables, exiting the process early if any
+ * are missing or malformed.
  *
  * This module is imported as the very first line of index.ts so the process exits
  * immediately with a clear error message if any required variable is missing or too

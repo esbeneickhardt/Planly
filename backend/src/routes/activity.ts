@@ -8,7 +8,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireProductMember, isProductCoOwner } from '../utils/product-guard';
 
 export async function activityRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/activity', { preHandler: requireAuth }, async (req, reply) => {
@@ -18,20 +18,11 @@ export async function activityRoutes(app: FastifyInstance) {
     // Verify the activity feed is accessible (same analytics-enabled gate as /analytics)
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      select: { analyticsEnabled: true, ownerId: true, teamId: true },
+      select: { analyticsEnabled: true },
     });
     if (!product) return reply.status(404).send({ error: 'Product not found' });
-    if (!product.analyticsEnabled) {
-      const isOwner = product.ownerId === req.user.userId;
-      if (!isOwner) {
-        const membership = await prisma.teamMember.findUnique({
-          where: { teamId_userId: { teamId: product.teamId, userId: req.user.userId } },
-          select: { role: true },
-        });
-        if (membership?.role !== 'co_owner') {
-          return reply.status(403).send({ error: 'Analytics is disabled for this project' });
-        }
-      }
+    if (!product.analyticsEnabled && !(await isProductCoOwner(productId, req.user.userId))) {
+      return reply.status(403).send({ error: 'Analytics is disabled for this project' });
     }
 
     // Paginated fetch ordered newest-first with cursor-based pagination

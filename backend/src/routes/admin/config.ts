@@ -13,6 +13,7 @@ import prisma from '../../db/client';
 import { getServerConfig, invalidateServerConfigCache } from '../../utils/server-config';
 import { getSmtpSettings, sendEmail, verifyEmailTemplate } from '../../utils/email';
 import { validate } from '../../utils/validate';
+import { handleConflict } from '../../utils/prisma-errors';
 
 // Validates an email pattern (full address or @domain) and its allow/deny type
 const addWhitelistSchema = z.object({ pattern: z.string().min(1), type: z.enum(['allow', 'deny']).optional() });
@@ -49,8 +50,8 @@ export async function adminConfigRoutes(app: FastifyInstance) {
     try {
       const entry = await prisma.emailWhitelist.create({ data: { pattern: p, type } });
       reply.status(201).send(entry);
-    } catch {
-      reply.status(409).send({ error: 'Pattern already exists' });
+    } catch (e) {
+      handleConflict(e, reply, 'Pattern already exists');
     }
   });
 
@@ -82,7 +83,6 @@ export async function adminConfigRoutes(app: FastifyInstance) {
       announcementPostRole,
       requireMfa,
     } = cfgBody;
-    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
 
     // Snapshot the config before the update so we can detect transitions (e.g. verification just turned on)
     const prevConfig = await getServerConfig();
@@ -113,7 +113,7 @@ export async function adminConfigRoutes(app: FastifyInstance) {
     await prisma.adminLog.create({
       data: {
         action: 'SERVER_CONFIG_UPDATED',
-        actorName: actor?.username,
+        actorName: req.user.username,
         metadata: {
           requireEmailVerification,
           requireWhitelist,

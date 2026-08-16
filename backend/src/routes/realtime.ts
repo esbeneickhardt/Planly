@@ -45,6 +45,8 @@ export async function realtimeRoutes(app: FastifyInstance) {
 
     // Authenticate
     let userId: string | null = null;
+    // Set only by the API-PAT path (#3) below, when that token is locked to a single project.
+    let patScopedProductId: string | undefined;
 
     // 1. Cookie JWT (preferred for browser clients)
     const cookieToken = req.cookies?.token;
@@ -81,10 +83,11 @@ export async function realtimeRoutes(app: FastifyInstance) {
         const tokenHash = createHash('sha256').update(queryToken).digest('hex');
         const apiToken = await prisma.apiToken.findUnique({
           where: { tokenHash },
-          select: { userId: true, expiresAt: true },
+          select: { userId: true, expiresAt: true, productId: true },
         });
         if (apiToken && (!apiToken.expiresAt || apiToken.expiresAt > new Date())) {
           userId = apiToken.userId;
+          patScopedProductId = apiToken.productId ?? undefined;
         }
       }
     }
@@ -93,6 +96,16 @@ export async function realtimeRoutes(app: FastifyInstance) {
     if (!userId) {
       ws.send(JSON.stringify({ event: 'error', data: 'Unauthorized' }));
       ws.close(1008, 'Unauthorized');
+      return;
+    }
+
+    // A PAT scoped to a different project must not be able to join this room, even if the
+    // underlying user is (also) a genuine member of it. The global URL-regex scope check in
+    // middleware/auth.ts only guards ordinary Bearer-authenticated HTTP requests - this WebSocket
+    // upgrade authenticates itself independently above and never goes through that check.
+    if (patScopedProductId && patScopedProductId !== productId) {
+      ws.send(JSON.stringify({ event: 'error', data: 'Token is not authorized for this project' }));
+      ws.close(1008, 'Forbidden');
       return;
     }
 
@@ -111,8 +124,8 @@ export async function realtimeRoutes(app: FastifyInstance) {
     }
 
     // Verify membership
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
+    const product = await prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
       select: { team: { select: { members: { where: { userId }, select: { userId: true } } } } },
     });
     if (!product || product.team.members.length === 0) {
