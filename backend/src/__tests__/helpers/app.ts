@@ -16,6 +16,7 @@ import { passwordResetRoutes } from '../../routes/password-reset';
 import { totpRoutes } from '../../routes/totp';
 import { userRoutes } from '../../routes/users';
 import { productRoutes } from '../../routes/products';
+import { accessRequestRoutes } from '../../routes/access-requests';
 import { taskRoutes } from '../../routes/tasks';
 import { teamRoutes } from '../../routes/teams';
 import { webhookRoutes } from '../../routes/webhooks';
@@ -46,6 +47,7 @@ export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
   await app.register(adminRoutes);
   await app.register(userRoutes);
   await app.register(productRoutes);
+  await app.register(accessRequestRoutes);
   await app.register(taskRoutes);
   await app.register(teamRoutes);
   await app.register(webhookRoutes);

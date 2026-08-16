@@ -1061,7 +1061,7 @@ function QuickTaskMenu({
   );
 }
 
-function BacklogRow({
+export function BacklogRow({
   task,
   selected,
   isOverdue,
