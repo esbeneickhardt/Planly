@@ -75,23 +75,26 @@ export default function ChangePasswordPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="change-pw-page-new">
               New password
             </label>
             <input
+              id="change-pw-page-new"
               type="password"
               className="input w-full"
               placeholder="At least 8 characters"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- first field on a freshly-loaded auth page
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="change-pw-page-confirm">
               Confirm password
             </label>
             <input
+              id="change-pw-page-confirm"
               type="password"
               className="input w-full"
               placeholder="Repeat your password"

@@ -251,6 +251,7 @@ export default function KanbanColumn({
             {editing ? (
               <input
                 ref={inputRef}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- field just revealed by double-clicking the column title to rename it
                 autoFocus
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -284,6 +285,7 @@ export default function KanbanColumn({
             </span>
 
             {/* Sort menu */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the column header's drag/rename handlers */}
             <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 onPointerDown={(e) => e.stopPropagation()}

@@ -90,6 +90,7 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
     <Modal title="Find projects" onClose={onClose} width="max-w-lg">
       <div className="space-y-4">
         <input
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- search field for a just-opened dedicated search modal
           autoFocus
           type="text"
           value={search}

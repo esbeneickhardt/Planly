@@ -83,10 +83,14 @@ export default function ResetPasswordPage() {
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
           >
             <div>
-              <label className="label">New password</label>
+              <label className="label" htmlFor="reset-pw-new">
+                New password
+              </label>
               <input
+                id="reset-pw-new"
                 type="password"
                 required
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field on a freshly-loaded auth page
                 autoFocus
                 minLength={8}
                 value={password}
@@ -96,8 +100,11 @@ export default function ResetPasswordPage() {
               />
             </div>
             <div>
-              <label className="label">Confirm password</label>
+              <label className="label" htmlFor="reset-pw-confirm">
+                Confirm password
+              </label>
               <input
+                id="reset-pw-confirm"
                 type="password"
                 required
                 minLength={8}

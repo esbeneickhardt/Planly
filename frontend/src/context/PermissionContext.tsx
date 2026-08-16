@@ -71,6 +71,9 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
     } finally {
       setPermissionsLoaded(true);
     }
+    // activeProduct/user: only `.id` of each drives this callback; object identity changes on
+    // every context re-render regardless of which product/user is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id, user?.id, productsLoaded]);
 
   // Re-fetch whenever product or user changes; reset loaded flag first to block stale UI

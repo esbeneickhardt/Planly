@@ -777,8 +777,11 @@ export default function TopBar({
           <form onSubmit={handleCreateProduct} className="space-y-4">
             <div className="flex gap-3">
               <div className="flex-shrink-0">
-                <label className="label">Icon</label>
+                <label className="label" htmlFor="topbar-new-product-icon">
+                  Icon
+                </label>
                 <button
+                  id="topbar-new-product-icon"
                   type="button"
                   onClick={() => setShowProductEmojiPicker((v) => !v)}
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors"
@@ -791,14 +794,18 @@ export default function TopBar({
                 </button>
               </div>
               <div className="flex-1">
-                <label className="label">Name</label>
+                <label className="label" htmlFor="topbar-new-product-name">
+                  Name
+                </label>
                 <input
+                  id="topbar-new-product-name"
                   type="text"
                   required
                   value={productForm.name}
                   onChange={setField('name')}
                   className="input"
                   placeholder="My Project"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                   autoFocus
                 />
               </div>
@@ -829,7 +836,9 @@ export default function TopBar({
               </div>
             )}
             <div>
-              <label className="label">Description</label>
+              {/* Not a real label - MarkdownEditor is a custom multi-control component (toolbar, textarea,
+                  preview toggle), not a single control htmlFor could target */}
+              <span className="label">Description</span>
               <Suspense
                 fallback={
                   <div
@@ -852,8 +861,11 @@ export default function TopBar({
               </Suspense>
             </div>
             <div>
-              <label className="label">Target deadline</label>
+              <label className="label" htmlFor="topbar-new-product-deadline">
+                Target deadline
+              </label>
               <input
+                id="topbar-new-product-deadline"
                 type="date"
                 required
                 value={productForm.deadline}

@@ -119,9 +119,14 @@ function AnnouncementForm({
               className="flex items-center gap-2 cursor-pointer select-none text-xs"
               style={{ color: 'var(--text-2)' }}
             >
+              <input
+                type="checkbox"
+                checked={pinned}
+                onChange={(e) => setPinned(e.target.checked)}
+                className="sr-only"
+              />
               <div
-                onClick={() => setPinned((p) => !p)}
-                className="w-7 h-4 rounded-full relative transition-colors flex-shrink-0 cursor-pointer"
+                className="w-7 h-4 rounded-full relative transition-colors flex-shrink-0"
                 style={{ background: pinned ? '#6366f1' : 'var(--border)' }}
               >
                 <div
@@ -136,9 +141,14 @@ function AnnouncementForm({
             className="flex items-center gap-2 cursor-pointer select-none text-xs"
             style={{ color: 'var(--text-2)' }}
           >
+            <input
+              type="checkbox"
+              checked={commentsEnabled}
+              onChange={(e) => setCommentsEnabled(e.target.checked)}
+              className="sr-only"
+            />
             <div
-              onClick={() => setCommentsEnabled((c) => !c)}
-              className="w-7 h-4 rounded-full relative transition-colors flex-shrink-0 cursor-pointer"
+              className="w-7 h-4 rounded-full relative transition-colors flex-shrink-0"
               style={{ background: commentsEnabled ? '#6366f1' : 'var(--border)' }}
             >
               <div

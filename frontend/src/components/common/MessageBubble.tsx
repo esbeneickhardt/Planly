@@ -684,7 +684,15 @@ export default function MessageBubble({
         </div>
       )}
       <div
+        role="button"
+        tabIndex={0}
         onClick={handleBubbleClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleBubbleClick();
+          }
+        }}
         className={`flex-1 min-w-0 ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative cursor-pointer ${hasReactions ? 'pb-3' : ''}`}
         style={{ touchAction: 'pan-y' }}
       >
@@ -839,6 +847,7 @@ export default function MessageBubble({
             overlay below instead (full-screen backdrop + centered quick-react row + bottom sheet),
             matching Messenger rather than a small anchored popover. */}
         {!isMobile && reactionPickerOpen && (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the bubble's own onClick toggling actions
           <div
             ref={pickerRef}
             onClick={(e) => e.stopPropagation()}
@@ -868,6 +877,7 @@ export default function MessageBubble({
             hover (group-hover) or click-toggled via actionsOpen. Mobile uses the long-press overlay
             below instead of this row entirely. */}
         {!isMobile && (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the bubble's own onClick toggling actions
           <div
             onClick={(e) => e.stopPropagation()}
             className={`absolute -top-2 flex gap-0.5 p-1 rounded-lg shadow-lg transition-opacity z-10 ${
@@ -937,6 +947,7 @@ export default function MessageBubble({
               aria-label="Close message menu"
               onClick={closeSheet}
             />
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- onClick here is a stopPropagation-only guard against the backdrop button's onClick={closeSheet}; onTouch* handlers are the frozen gesture state machine (not touched per instructions) */}
             <div
               onTouchStart={handleSheetTouchStart}
               onTouchMove={handleSheetTouchMove}

@@ -137,8 +137,11 @@ export default function SetupMfaPage() {
               </code>
             </details>
             <div>
-              <label className="label">Confirmation code</label>
+              <label className="label" htmlFor="setup-mfa-confirm-code">
+                Confirmation code
+              </label>
               <input
+                id="setup-mfa-confirm-code"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -147,6 +150,7 @@ export default function SetupMfaPage() {
                 className="input text-center text-2xl tracking-widest w-full"
                 placeholder="000000"
                 maxLength={6}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field on a freshly-loaded setup page
                 autoFocus
               />
             </div>
