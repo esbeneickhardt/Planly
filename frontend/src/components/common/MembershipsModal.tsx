@@ -1,3 +1,10 @@
+/**
+ * Modal listing the current user's project memberships and pending team invites, with actions
+ * to accept/decline an invite or leave a project. Leaving a project the user owns first loads
+ * the team's other members so ownership can be transferred to one of them before the user is
+ * removed; leaving as a non-owner just removes the membership. Also exposes deleting a project
+ * the user owns outright.
+ */
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useProduct } from '../../context/ProductContext';

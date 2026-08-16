@@ -3,7 +3,7 @@
  * Icons live in TopBarIcons.tsx; mobile menu, account dropdown, and project picker are each their own component.
  * `chatIsAdmin` drives visual state of the chat button; `onToggleAdmin` switches between product and admin mode.
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Tooltip from './Tooltip';
 import EmojiPicker from './EmojiPicker';
@@ -50,8 +50,13 @@ import {
 import TopBarMobileMenu from './TopBarMobileMenu';
 import TopBarAccountDropdown from './TopBarAccountDropdown';
 import TopBarProjectPicker from './TopBarProjectPicker';
-import MarkdownEditor from './MarkdownEditor';
 import type { MobileNavItem, AdminTab } from './TopBarMobileMenu';
+
+// Lazy-loaded rather than a static import: TopBar is part of the always-mounted app shell, but its
+// only use of MarkdownEditor is inside the "New project" modal's description field (gated behind
+// `showNewProduct` below) - a static import here would pull MarkdownEditor's own `mermaid` dependency
+// (via MermaidBlock.tsx) into the main bundle even though most sessions never open that modal.
+const MarkdownEditor = lazy(() => import('./MarkdownEditor'));
 
 // ── Admin tab definitions ──────────────────────────────────────────────────
 
@@ -242,7 +247,7 @@ export default function TopBar({
   const filteredNav: MobileNavItem[] = NAV.filter(({ tab }) => {
     if (!activeProduct) return false;
     if (tab === 'canvas') return false;
-    if (tab === 'analytics' && !(activeProduct as any).analyticsEnabled) return false;
+    if (tab === 'analytics' && !activeProduct.analyticsEnabled) return false;
     return canRead(tab);
   });
 
@@ -346,7 +351,7 @@ export default function TopBar({
             <>
               {NAV.filter(({ tab }) => {
                 if (!activeProduct) return false;
-                if (tab === 'analytics' && !(activeProduct as any).analyticsEnabled) return false;
+                if (tab === 'analytics' && !activeProduct.analyticsEnabled) return false;
                 return canRead(tab);
               }).map(({ to, label, Icon }) => {
                 const badge = label === 'Tasks' ? unassignedCount : label === 'Progress' ? overdueCount : 0;
@@ -825,12 +830,26 @@ export default function TopBar({
             )}
             <div>
               <label className="label">Description</label>
-              <MarkdownEditor
-                value={productForm.description}
-                onChange={(v) => setProductForm((prev) => ({ ...prev, description: v }))}
-                rows={4}
-                placeholder="What's the vision?"
-              />
+              <Suspense
+                fallback={
+                  <div
+                    className="rounded-lg flex items-center justify-center"
+                    style={{ height: 96, background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                  >
+                    <div
+                      className="w-4 h-4 border-2 rounded-full animate-spin"
+                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                    />
+                  </div>
+                }
+              >
+                <MarkdownEditor
+                  value={productForm.description}
+                  onChange={(v) => setProductForm((prev) => ({ ...prev, description: v }))}
+                  rows={4}
+                  placeholder="What's the vision?"
+                />
+              </Suspense>
             </div>
             <div>
               <label className="label">Target deadline</label>

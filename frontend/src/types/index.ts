@@ -33,6 +33,7 @@ export interface User {
   notificationPreferences?: Record<string, boolean>;
   announcementsEnabled?: boolean;
   acceptsInvites?: boolean;
+  showProjectsOnProfile?: boolean;
 }
 
 export interface TeamMember {
@@ -60,6 +61,7 @@ export interface Product {
   ownerId?: string | null;
   status: ProductStatus;
   analyticsEnabled: boolean;
+  discoverable: boolean;
   createdAt: string;
   team?: Team;
 }

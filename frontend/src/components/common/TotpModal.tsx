@@ -1,3 +1,9 @@
+/**
+ * Modal for managing two-factor authentication (TOTP) on the current user's account.
+ * Steps through status -> setup (QR code + manual secret) -> confirm (6-digit code) -> backup
+ * (one-time recovery codes shown once) when enabling, or status -> disable (code or backup code)
+ * when turning it off. Fetches the current enabled/disabled status on mount.
+ */
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import Modal from './Modal';

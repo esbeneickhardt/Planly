@@ -1,3 +1,8 @@
+/**
+ * Hover/focus tooltip that wraps its children in a positioning container - shows `content` after
+ * `delay` ms (default 350) so a quick mouse pass-through doesn't flash it, and hides immediately on
+ * mouseleave/blur. `side` picks which edge of the children it's anchored to (defaults to `top`).
+ */
 import { useState, useRef, type ReactNode } from 'react';
 
 interface Props {

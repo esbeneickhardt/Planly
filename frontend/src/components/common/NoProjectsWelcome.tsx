@@ -43,7 +43,6 @@ interface ProductForm {
   deadline: string;
 }
 
-/** First-use landing page rendered by AppLayout when no projects exist. */
 export default function NoProjectsWelcome() {
   const { user } = useAuth();
   const { createProduct, refreshProducts } = useProduct();

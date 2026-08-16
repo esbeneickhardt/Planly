@@ -1,3 +1,9 @@
+/**
+ * Per-user notification preferences modal - one toggle per notification type (task events,
+ * mentions, reactions, access requests, email digests, etc.), grouped with an "Email" divider
+ * for the SMTP-only settings. Each toggle saves immediately on click (optimistic, reverted on
+ * failure) rather than requiring a separate Save step - see `toggle` below.
+ */
 import { useState } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';

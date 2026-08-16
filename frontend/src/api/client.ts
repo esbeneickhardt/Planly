@@ -355,10 +355,18 @@ export const api = {
         realName: string | null;
         avatarEmoji: string | null;
         projects: { id: string; name: string; emoji?: string; role: string }[];
+        // False when the target has set showProjectsOnProfile to off (and this isn't their own
+        // profile) - lets the UI distinguish "hidden by privacy setting" from "genuinely no projects".
+        projectsVisible: boolean;
       }>(`/api/users/${id}/profile`),
     update: (
       id: string,
-      data: Partial<Pick<User, 'realName' | 'phone' | 'avatarEmoji' | 'avatarUrl'> & { acceptsInvites: boolean }>,
+      data: Partial<
+        Pick<User, 'realName' | 'phone' | 'avatarEmoji' | 'avatarUrl'> & {
+          acceptsInvites: boolean;
+          showProjectsOnProfile: boolean;
+        }
+      >,
     ) => request<User>(`/api/users/${id}`, { method: 'PATCH', body: json(data) }),
     updateNotificationPreferences: (id: string, preferences: Record<string, boolean>) =>
       request<{ notificationPreferences: Record<string, boolean> }>(`/api/users/${id}/notification-preferences`, {
@@ -404,7 +412,10 @@ export const api = {
     update: (
       id: string,
       data: Partial<
-        Pick<Product, 'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled' | 'status'>
+        Pick<
+          Product,
+          'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled' | 'discoverable' | 'status'
+        >
       >,
     ) => request<Product>(`/api/products/${id}`, { method: 'PATCH', body: json(data) }),
     delete: (id: string) => request<{ ok: boolean }>(`/api/products/${id}`, { method: 'DELETE' }),
@@ -934,7 +945,6 @@ export const api = {
         allowProjectCreation: boolean;
         announcementsEnabled: boolean;
         announcementPostRole: string;
-        ipRestrictionMode: string;
         requireMfa: boolean;
       }>('/api/admin/server-config'),
     updateServerConfig: (data: {

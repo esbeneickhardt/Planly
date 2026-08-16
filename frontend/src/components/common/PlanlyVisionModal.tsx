@@ -1,3 +1,10 @@
+/**
+ * First-run onboarding walkthrough explaining Planly's Plan/Execute/Progress phases and core
+ * vocabulary (milestone, final product, sub-plan, dependencies) to brand-new users.
+ * `shouldShowWelcome`/`markWelcomeSeen` are exported so AppLayout.tsx can decide whether to
+ * auto-open this modal (only for a user with zero products who hasn't dismissed it before,
+ * tracked via a `planly_seen_welcome_v1` localStorage flag) without importing the modal's own state.
+ */
 import { useState, useEffect, useCallback } from 'react';
 
 interface Props {
