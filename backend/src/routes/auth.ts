@@ -36,12 +36,14 @@ import { loginSchema } from '../schemas/auth';
 import { sendSecurityAlert } from '../utils/security-alert';
 import { decryptUserPii } from '../utils/crypto';
 
-// How many failed login attempts before lockout
-const LOGIN_MAX_ATTEMPTS = 5;
+// How many failed login attempts before lockout. Exported so the TOTP challenge endpoint
+// (src/routes/totp.ts) can mirror the same progressive-lockout policy for 6-digit code guesses.
+export const LOGIN_MAX_ATTEMPTS = 5;
 
 // Progressive lockout: each successive lockout is longer.
 // lockCount 0 → 15 min, 1 → 60 min, 2 → 1440 min (24h), 3+ → 10080 min (7 days / admin-unlock territory)
-function lockDurationMinutes(lockCount: number): number {
+// Exported for reuse by the TOTP challenge endpoint (see above).
+export function lockDurationMinutes(lockCount: number): number {
   const schedule = [15, 60, 1440, 10080];
   return schedule[Math.min(lockCount, schedule.length - 1)] ?? 10080;
 }
@@ -137,10 +139,11 @@ export async function authRoutes(app: FastifyInstance) {
             : `${lockMinutes} minutes`;
         return reply.status(429).send({ error: `Too many failed attempts. Account locked for ${timeStr}.` });
       }
-      const remaining = LOGIN_MAX_ATTEMPTS - attempts;
-      return reply.status(401).send({
-        error: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before lockout.`,
-      });
+      // Same message as the "no such user" / "no password set" branches above - varying the text
+      // based on which check failed (e.g. appending an "attempts remaining" count only when the
+      // account exists) would let an attacker enumerate valid identifiers from the response body
+      // alone, even though the status code is already identical (401) in both cases.
+      return reply.status(401).send({ error: 'Invalid credentials' });
     }
 
     // Email verification gate — only enforced when the server requires it

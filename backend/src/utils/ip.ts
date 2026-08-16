@@ -1,4 +1,7 @@
-// Pure IP utility helpers shared by the global user IP restriction hook and the requireAdmin middleware
+/**
+ * Pure IP utility helpers - CIDR matching and client-IP extraction, shared by the
+ * global user IP restriction hook and the requireAdmin middleware.
+ */
 import { isIPv4 } from 'net';
 import { config } from '../config/env';
 

@@ -30,6 +30,10 @@ const DEFAULT_ENABLED: Record<string, boolean> = {
  * Returns null (without error) if the user has disabled this notification type.
  *
  * @param data.type - Notification category key (must match a DEFAULT_ENABLED entry or defaults to enabled)
+ * @param data.prefs - Optional pre-fetched notificationPreferences for this user (the raw JSON
+ *   column value). Pass this when the caller already looked the user up for the same request
+ *   (e.g. a batch @mention loop over several recipients) to skip the internal fetch below.
+ *   Omit it (or pass undefined) to have this function fetch it itself, as before.
  */
 export async function createNotification(data: {
   userId: string;
@@ -39,23 +43,30 @@ export async function createNotification(data: {
   productId?: string;
   taskId?: string;
   metadata?: object;
+  prefs?: Record<string, boolean> | null;
 }) {
-  // Fetch the user's stored preferences (null-safe: a missing row means all defaults apply)
-  const user = await prisma.user
-    .findUnique({
-      where: { id: data.userId },
-      select: { notificationPreferences: true },
-    })
-    .catch(() => null);
+  const { prefs: providedPrefs, ...notificationData } = data;
+
+  // Use the caller-supplied preferences when given; otherwise fetch them ourselves (null-safe: a
+  // missing row means all defaults apply)
+  let prefs = providedPrefs;
+  if (prefs === undefined) {
+    const user = await prisma.user
+      .findUnique({
+        where: { id: data.userId },
+        select: { notificationPreferences: true },
+      })
+      .catch(() => null);
+    prefs = (user?.notificationPreferences as Record<string, boolean> | null) ?? {};
+  }
 
   // Merge stored preferences over defaults; unknown types default to enabled
-  const prefs = (user?.notificationPreferences as Record<string, boolean> | null) ?? {};
   const typeDefault = DEFAULT_ENABLED[data.type] ?? true;
-  const isEnabled = data.type in prefs ? prefs[data.type] : typeDefault;
+  const isEnabled = data.type in (prefs ?? {}) ? (prefs as Record<string, boolean>)[data.type] : typeDefault;
 
   if (!isEnabled) return null;
 
-  return prisma.notification.create({ data }).catch((err) => {
+  return prisma.notification.create({ data: notificationData }).catch((err) => {
     logger.warn({ err: (err as Error).message }, 'notification write failed');
   });
 }

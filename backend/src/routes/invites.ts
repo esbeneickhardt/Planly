@@ -21,27 +21,13 @@ import { config } from '../config/env';
 import { sendEmail, teamInviteEmail } from '../utils/email';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
+import { getTeamAdmin } from '../utils/team-guard';
 
 // Validates invite creation — email makes it targeted; maxUses caps redemptions for open links
 const createInviteSchema = z.object({
   email: z.string().email().optional(),
   maxUses: z.number().int().min(1).max(1000).optional(), // open invite use cap; null = unlimited
 });
-
-// Returns team info plus isAdmin/isMember flags for the given user, or null if the team doesn't exist
-async function getTeamAdmin(teamId: string, userId: string) {
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    include: {
-      members: { where: { userId } },
-      products: { where: { ownerId: userId }, select: { id: true } },
-    },
-  });
-  if (!team) return null;
-  const membership = team.members[0];
-  // Admin = co-owner of the team OR owner of any product in the team (mirrors teams.ts logic)
-  return { team, isAdmin: membership?.role === 'co_owner' || team.products.length > 0, isMember: !!membership };
-}
 
 export async function inviteRoutes(app: FastifyInstance) {
   // List invites for a team (admins only) - returns both link invites and pending user-targeted invites
@@ -186,26 +172,47 @@ export async function inviteRoutes(app: FastifyInstance) {
       }
     }
 
-    const newUseCount = invite.useCount + 1;
-    // Exhaust the invite when maxUses is set and we hit the limit
-    const isNowExhausted = invite.maxUses !== null && newUseCount >= invite.maxUses;
+    // Reserve a use of this invite before granting membership, so a rejected accept (cap already
+    // hit) never ends up adding the user to the team anyway.
+    if (invite.maxUses !== null) {
+      // Atomic conditional increment - only succeeds if useCount is still below the cap at the
+      // moment of the write. A plain "read useCount, check it in JS, then write useCount + 1"
+      // (the previous approach) races: two concurrent accepts landing when exactly one slot
+      // remains could both read the same stale useCount from the findUnique above, both decide
+      // the cap isn't hit yet, and both succeed - exceeding maxUses. useCount: { lt: maxUses }
+      // turns the check-and-increment into a single atomic DB operation instead.
+      const { count } = await prisma.teamInvite.updateMany({
+        where: { id: invite.id, useCount: { lt: invite.maxUses } },
+        data: { useCount: { increment: 1 } },
+      });
+      if (count === 0) {
+        return reply.status(400).send({ error: 'This invite has reached its maximum number of uses.' });
+      }
+      // This request's increment may have just hit the cap - mark the invite exhausted so the
+      // admin invite list and the public invite-info endpoint stop showing it as active. Safe if
+      // a concurrently-winning request does this too (idempotent - both just set the same flag).
+      await prisma.teamInvite.updateMany({
+        where: { id: invite.id, useCount: { gte: invite.maxUses }, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+    } else {
+      // Unlimited invite - no cap to race against, a plain increment is safe.
+      await prisma.teamInvite.update({ where: { id: invite.id }, data: { useCount: { increment: 1 } } });
+    }
 
-    // Add to team
+    // Add to team - only reached once this request's use of the invite is confirmed reserved above.
     await prisma.teamMember.upsert({
       where: { teamId_userId: { teamId: invite.teamId, userId: req.user.userId } },
       create: { teamId: invite.teamId, userId: req.user.userId },
       update: {},
     });
 
-    await prisma.teamInvite.update({
-      where: { id: invite.id },
-      data: { useCount: newUseCount, ...(isNowExhausted ? { usedAt: new Date() } : {}) },
-    });
-
     logAdminEvent('INVITE_ACCEPTED', {
       actorName: req.user.username,
       targetName: invite.team.name,
-      metadata: { inviteId: invite.id, teamId: invite.teamId, useCount: newUseCount, maxUses: invite.maxUses },
+      // Best-effort - under concurrent accepts the true count may have moved past this by the
+      // time this log line is written; it's informational only and never used for enforcement.
+      metadata: { inviteId: invite.id, teamId: invite.teamId, useCount: invite.useCount + 1, maxUses: invite.maxUses },
     });
 
     reply.send({ ok: true, teamId: invite.teamId, teamName: invite.team.name });

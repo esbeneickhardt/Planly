@@ -32,3 +32,15 @@ export async function logActivity(data: {
     logger.warn({ err: (err as Error).message }, 'activity write failed');
   });
 }
+
+/**
+ * Same as logActivity, but for recording many events in a single write (e.g. a bulk task
+ * update/delete looping over affected entities) instead of one `create` call per entity.
+ * Fire-and-forget safe, same as logActivity.
+ */
+export async function logActivityBatch(events: Parameters<typeof logActivity>[0][]) {
+  if (events.length === 0) return;
+  return prisma.activityEvent.createMany({ data: events }).catch((err) => {
+    logger.warn({ err: (err as Error).message, count: events.length }, 'activity batch write failed');
+  });
+}

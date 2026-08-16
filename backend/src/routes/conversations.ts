@@ -93,6 +93,24 @@ async function isRealAdmin(userId: string): Promise<boolean> {
   return !!user?.isAdmin;
 }
 
+// Returns unread DirectMessage counts per conversation for `userId`, scoped to `conversationIds` -
+// one SQL aggregate instead of one `directMessage.count()` (or worse, a full message fetch) per
+// conversation. "Unread" is relative to each conversation's own ConversationParticipant.lastReadAt
+// for this user, which a plain Prisma `groupBy` can't express (the cutoff varies per row), hence
+// the raw query.
+async function unreadCountsByConversation(userId: string, conversationIds: string[]): Promise<Map<string, number>> {
+  if (conversationIds.length === 0) return new Map();
+  const rows = await prisma.$queryRaw<{ conversationId: string; count: bigint }[]>`
+    SELECT dm."conversationId", COUNT(*) as count
+    FROM "DirectMessage" dm
+    JOIN "ConversationParticipant" cp ON cp."conversationId" = dm."conversationId" AND cp."userId" = ${userId}
+    WHERE dm."conversationId" = ANY(${conversationIds})
+      AND (cp."lastReadAt" IS NULL OR dm."createdAt" > cp."lastReadAt")
+    GROUP BY dm."conversationId"
+  `;
+  return new Map(rows.map((r) => [r.conversationId, Number(r.count)]));
+}
+
 export async function conversationRoutes(app: FastifyInstance) {
   // List conversations scoped to the requested context (?admin=true for admin chat, otherwise
   // ?productId= is required - non-admin chat is always scoped to one project, never global).
@@ -119,47 +137,46 @@ export async function conversationRoutes(app: FastifyInstance) {
       },
     });
 
-    const result = await Promise.all(
-      participations.map(async (p) => {
-        const others = p.conversation.participants.filter((x) => x.userId !== userId);
-        const other = others[0];
-        const lastMsg = p.conversation.messages[0] ?? null;
-        // Attribute the preview to whoever actually wrote it (could be the requesting user, or
-        // any participant in a group) - not always "the other person", which silently misattributes
-        // the message whenever the requesting user sent the last one.
-        const lastMsgAuthor = lastMsg
-          ? p.conversation.participants.find((x) => x.user.id === lastMsg.authorId)?.user
-          : null;
-        const unread = await prisma.directMessage.count({
-          where: {
-            conversationId: p.conversation.id,
-            ...(p.lastReadAt ? { createdAt: { gt: p.lastReadAt } } : {}),
-          },
-        });
-        return {
-          id: p.conversation.id,
-          closed: (p.conversation as { closed?: boolean }).closed ?? false,
-          isGroup: p.conversation.isGroup,
-          name: p.conversation.name,
-          other: other
-            ? { ...other.user, realName: other.user.realName ? safeDecryptValue(other.user.realName) : null }
-            : null,
-          participants: others.map((o) => ({
-            ...o.user,
-            realName: o.user.realName ? safeDecryptValue(o.user.realName) : null,
-          })),
-          lastMessage: lastMsg
-            ? decryptAuthor({
-                ...lastMsg,
-                author: lastMsgAuthor ?? { id: '', username: '', realName: null, avatarEmoji: null },
-              })
-            : null,
-          unread,
-          lastReadAt: p.lastReadAt,
-          updatedAt: lastMsg?.createdAt ?? p.conversation.createdAt,
-        };
-      }),
+    // One batched aggregate for every conversation's unread count instead of a directMessage.count()
+    // per conversation inside the map below.
+    const unreadByConv = await unreadCountsByConversation(
+      userId,
+      participations.map((p) => p.conversation.id),
     );
+
+    const result = participations.map((p) => {
+      const others = p.conversation.participants.filter((x) => x.userId !== userId);
+      const other = others[0];
+      const lastMsg = p.conversation.messages[0] ?? null;
+      // Attribute the preview to whoever actually wrote it (could be the requesting user, or
+      // any participant in a group) - not always "the other person", which silently misattributes
+      // the message whenever the requesting user sent the last one.
+      const lastMsgAuthor = lastMsg
+        ? p.conversation.participants.find((x) => x.user.id === lastMsg.authorId)?.user
+        : null;
+      return {
+        id: p.conversation.id,
+        closed: p.conversation.closed,
+        isGroup: p.conversation.isGroup,
+        name: p.conversation.name,
+        other: other
+          ? { ...other.user, realName: other.user.realName ? safeDecryptValue(other.user.realName) : null }
+          : null,
+        participants: others.map((o) => ({
+          ...o.user,
+          realName: o.user.realName ? safeDecryptValue(o.user.realName) : null,
+        })),
+        lastMessage: lastMsg
+          ? decryptAuthor({
+              ...lastMsg,
+              author: lastMsgAuthor ?? { id: '', username: '', realName: null, avatarEmoji: null },
+            })
+          : null,
+        unread: unreadByConv.get(p.conversation.id) ?? 0,
+        lastReadAt: p.lastReadAt,
+        updatedAt: lastMsg?.createdAt ?? p.conversation.createdAt,
+      };
+    });
 
     result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     reply.send({ conversations: result });
@@ -357,7 +374,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       include: { author: { select: AUTHOR_SELECT }, replyTo: { select: DM_REPLY_SELECT } },
       orderBy: { createdAt: 'asc' },
     });
-    reply.send({ messages: messages.map((m) => decryptAuthor(m as Parameters<typeof decryptAuthor>[0])) });
+    reply.send({ messages: messages.map((m) => decryptAuthor(m)) });
   });
 
   // Send a message and notify the other participant
@@ -377,13 +394,13 @@ export async function conversationRoutes(app: FastifyInstance) {
       where: { id },
       select: { closed: true, isGroup: true, name: true, productId: true },
     });
-    if ((conv as { closed?: boolean })?.closed) {
+    if (conv?.closed) {
       const actor = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
       if (!actor?.isAdmin) return reply.status(403).send({ error: 'This conversation has been closed.' });
     }
     // Project-scoped conversations respect the project's own lockdown rule; admin-chat
     // conversations have no productId and aren't affected by any project's status.
-    const convProductId = (conv as { productId?: string | null } | null)?.productId;
+    const convProductId = conv?.productId;
     if (convProductId && !(await requireProductWritable(convProductId, req.user, reply))) return;
 
     const msg = await prisma.directMessage.create({
@@ -400,9 +417,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       where: { conversationId: id, userId: { not: userId } },
       select: { userId: true, user: { select: { email: true, notificationPreferences: true } } },
     });
-    const groupContext = (conv as { isGroup?: boolean; name?: string | null })?.isGroup
-      ? ((conv as { name?: string | null }).name ?? 'group chat')
-      : undefined;
+    const groupContext = conv?.isGroup ? (conv.name ?? 'group chat') : undefined;
     for (const o of others) {
       createNotification({
         userId: o.userId,
@@ -457,9 +472,9 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const updated = await prisma.conversation.update({
       where: { id },
-      data: { closed: !(conv as { closed?: boolean }).closed },
+      data: { closed: !conv.closed },
     });
-    reply.send({ ok: true, closed: (updated as { closed?: boolean }).closed ?? false });
+    reply.send({ ok: true, closed: updated.closed });
   });
 
   // Total unread DM count across all conversations for a given scope
@@ -469,16 +484,19 @@ export async function conversationRoutes(app: FastifyInstance) {
     const isAdminChat = admin === 'true';
     if (!isAdminChat && !productId) return reply.status(400).send({ error: 'productId is required' });
     if (isAdminChat && !(await isRealAdmin(userId))) return reply.status(403).send({ error: 'Admin access required' });
+
+    // Resolve which conversations are in scope first (id only - no message content), then count
+    // unread messages for all of them in a single SQL aggregate instead of fetching every
+    // message's full content for every conversation just to count them in JS.
     const participations = await prisma.conversationParticipant.findMany({
       where: { userId, conversation: { isAdminChat, ...(isAdminChat ? {} : { productId }) } },
-      include: { conversation: { include: { messages: { orderBy: { createdAt: 'desc' } } } } },
+      select: { conversationId: true },
     });
-    let total = 0;
-    for (const p of participations) {
-      total += p.lastReadAt
-        ? p.conversation.messages.filter((m) => new Date(m.createdAt) > new Date(p.lastReadAt!)).length
-        : p.conversation.messages.length;
-    }
+    const unreadByConv = await unreadCountsByConversation(
+      userId,
+      participations.map((p) => p.conversationId),
+    );
+    const total = [...unreadByConv.values()].reduce((sum, n) => sum + n, 0);
     reply.send({ count: total });
   });
 }

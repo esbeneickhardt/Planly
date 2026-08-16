@@ -417,8 +417,13 @@ async function main() {
   // Expensive read endpoints (search, exports) use tighter limits to resist scraping.
   const loginRateMax = parseInt(process.env.RATE_LIMIT_LOGIN_MAX ?? '10', 10);
   const registerRateMax = parseInt(process.env.RATE_LIMIT_REGISTER_MAX ?? '10', 10);
+  // Same order of magnitude as login: the TOTP challenge is an unauthenticated, guessable
+  // 6-digit code with no rate limiting of its own otherwise (see totp.ts's progressive lockout
+  // for the complementary per-account defense).
+  const totpChallengeRateMax = parseInt(process.env.RATE_LIMIT_TOTP_MAX ?? '10', 10);
   const ROUTE_RATE_LIMITS: Record<string, { max: number; timeWindow: string }> = {
     '/api/auth/login': { max: loginRateMax, timeWindow: '1 minute' },
+    '/api/auth/totp/challenge': { max: totpChallengeRateMax, timeWindow: '1 minute' },
     '/api/auth/refresh-token': { max: 60, timeWindow: '1 minute' },
     '/api/auth/forgot-password': { max: 10, timeWindow: '1 minute' },
     '/api/auth/reset-password': { max: 10, timeWindow: '1 minute' },
@@ -535,20 +540,31 @@ async function main() {
       const softDeleteCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // soft-deleted tasks: 1 year
       const adminLogRetentionDays = parseInt(process.env.ADMIN_LOG_RETENTION_DAYS ?? '90', 10);
       const adminLogCutoff = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000); // audit log: configurable (default 90d)
-      const [notifResult, activityResult, taskResult, adminLogResult, ssoStateResult] = await Promise.all([
-        prisma.notification.deleteMany({ where: { createdAt: { lt: notifCutoff } } }),
-        prisma.activityEvent.deleteMany({ where: { createdAt: { lt: activityCutoff } } }),
-        prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }), // hard-delete tasks soft-deleted over a year ago
-        prisma.adminLog.deleteMany({ where: { createdAt: { lt: adminLogCutoff } } }),
-        prisma.ssoState.deleteMany({ where: { expiresAt: { lt: new Date() } } }), // OIDC flow nonces (short-lived, expire on their own)
-        prisma.wsTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }), // WebSocket auth tickets (short-lived, expire on their own)
-      ]);
+      const [notifResult, activityResult, taskResult, adminLogResult, ssoStateResult, wsTicketResult, refreshTokenResult] =
+        await Promise.all([
+          prisma.notification.deleteMany({ where: { createdAt: { lt: notifCutoff } } }),
+          prisma.activityEvent.deleteMany({ where: { createdAt: { lt: activityCutoff } } }),
+          prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }), // hard-delete tasks soft-deleted over a year ago
+          prisma.adminLog.deleteMany({ where: { createdAt: { lt: adminLogCutoff } } }),
+          prisma.ssoState.deleteMany({ where: { expiresAt: { lt: new Date() } } }), // OIDC flow nonces (short-lived, expire on their own)
+          prisma.wsTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }), // WebSocket auth tickets (short-lived, expire on their own)
+          // Refresh tokens (see utils/refresh-tokens.ts for the rotation model): safe to delete once
+          // either condition holds - expired (past its 30-day expiresAt, whether or not it was ever
+          // rotated), or already superseded by a later rotation (rotatedAt set - kept around only for
+          // reuse detection, which a token can no longer serve once its whole family has long since
+          // moved on). A currently-live token (rotatedAt null, not yet expired) is never touched.
+          prisma.refreshToken.deleteMany({
+            where: { OR: [{ expiresAt: { lt: new Date() } }, { rotatedAt: { not: null } }] },
+          }),
+        ]);
       if (
         notifResult.count > 0 ||
         activityResult.count > 0 ||
         taskResult.count > 0 ||
         adminLogResult.count > 0 ||
-        ssoStateResult.count > 0
+        ssoStateResult.count > 0 ||
+        wsTicketResult.count > 0 ||
+        refreshTokenResult.count > 0
       ) {
         app.log.info(
           {
@@ -557,6 +573,8 @@ async function main() {
             tasksHardDeleted: taskResult.count,
             adminLogsDeleted: adminLogResult.count,
             ssoStatesDeleted: ssoStateResult.count,
+            wsTicketsDeleted: wsTicketResult.count,
+            refreshTokensDeleted: refreshTokenResult.count,
           },
           'Retention cleanup completed',
         );

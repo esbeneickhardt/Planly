@@ -19,6 +19,7 @@ import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
 import { logAdminEvent } from '../utils/audit';
 import { createNotification } from '../utils/notifications';
 import { decryptUserPii } from '../utils/crypto';
+import { getTeamAdmin } from '../utils/team-guard';
 
 // Validates the userId for adding a member to a team
 const addMemberSchema = z.object({ userId: z.string() });
@@ -35,25 +36,6 @@ const MEMBER_INCLUDE = {
 // Decrypt realName for every member in a team before sending to the client
 function decryptTeam<T extends { members: { user: { realName: string | null } }[] }>(team: T): T {
   return { ...team, members: team.members.map((m) => ({ ...m, user: decryptUserPii(m.user) })) };
-}
-
-// Returns the team with isMember/isAdmin flags for the given user; null if the team doesn't exist
-async function getTeamAdmin(teamId: string, userId: string) {
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    include: {
-      members: { where: { userId } },
-      products: { where: { ownerId: userId }, select: { id: true } },
-    },
-  });
-  if (!team) return null;
-  const member = team.members[0];
-  return {
-    team,
-    isMember: !!member,
-    // Admin = co-owner of the team OR owner of any product in the team
-    isAdmin: member?.role === 'co_owner' || team.products.length > 0,
-  };
 }
 
 export async function teamRoutes(app: FastifyInstance) {

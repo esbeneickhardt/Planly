@@ -4,7 +4,9 @@
  * Projects are the main workspace unit. Each project belongs to exactly one team,
  * has its own set of tasks, views (Kanban, Backlog, Gantt, Canvas), columns, sprints,
  * webhooks, and per-user tab permissions. Soft-deleted projects (deletedAt set) are
- * hidden from all queries but remain in the database (no restore path exists today).
+ * hidden from all queries but remain in the database - an admin can restore one via
+ * POST /api/admin/products/:id/restore (see admin/stats.ts) or permanently remove it
+ * via DELETE /api/admin/products/:id.
  */
 
 import { FastifyInstance } from 'fastify';
@@ -13,9 +15,9 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
-import { decryptUserPii } from '../utils/crypto';
 import { revokeProjectTokens } from '../utils/product-guard';
 import { logAdminEvent } from '../utils/audit';
+import { handleNotFound } from '../utils/prisma-errors';
 
 // Validates strings as data format
 const validDate = z.string().refine((s) => !isNaN(new Date(s).getTime()), 'Invalid date');
@@ -37,6 +39,7 @@ const updateProductSchema = z.object({
   deadline: validDate.optional(),
   ownerId: z.string().optional(),
   analyticsEnabled: z.boolean().optional(),
+  discoverable: z.boolean().optional(),
   status: z.enum(['active', 'completed', 'archived']).optional(),
 });
 
@@ -78,7 +81,13 @@ export async function productRoutes(app: FastifyInstance) {
     reply.status(201).send(product);
   });
 
-  // Public project overview — available to any authenticated user, no membership required
+  // Public project overview — available to any authenticated user, no membership required.
+  // Because there's no membership check, the member list here must stay at the same PII level as
+  // the other no-membership-required project listing (GET /api/products/discover, in
+  // access-requests.ts): username/emoji only, never decrypted realName. Contrast with
+  // GET /api/products/:id below, which DOES require membership but still only selects
+  // {id, username, avatarEmoji} for the same reason - realName is only ever returned to callers
+  // with an explicit reason to see it (e.g. access-requests.ts's co-owner-only request list).
   app.get('/api/products/:id/about', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const product = await prisma.product.findUnique({
@@ -93,7 +102,7 @@ export async function productRoutes(app: FastifyInstance) {
         status: true,
         team: {
           select: {
-            members: { include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true } } } },
+            members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } },
           },
         },
       },
@@ -103,7 +112,7 @@ export async function productRoutes(app: FastifyInstance) {
       .map((m) => ({
         userId: m.userId,
         role: m.userId === product.ownerId ? 'owner' : m.role,
-        user: decryptUserPii(m.user),
+        user: m.user,
       }))
       .sort((a, b) =>
         a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : a.role === 'co_owner' ? -1 : b.role === 'co_owner' ? 1 : 0,
@@ -140,7 +149,7 @@ export async function productRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const body = validate(updateProductSchema, req.body, reply);
     if (!body) return;
-    const { name, emoji, description, deadline, ownerId, analyticsEnabled, status } = body;
+    const { name, emoji, description, deadline, ownerId, analyticsEnabled, discoverable, status } = body;
 
     // Verify the caller is a member and load their role
     const product = await prisma.product.findFirst({
@@ -163,7 +172,8 @@ export async function productRoutes(app: FastifyInstance) {
       description !== undefined ||
       deadline !== undefined ||
       ownerId !== undefined ||
-      analyticsEnabled !== undefined;
+      analyticsEnabled !== undefined ||
+      discoverable !== undefined;
     if (product.status === 'archived' && touchesNonStatusField) {
       return reply.status(403).send({ error: 'This project is archived - only its status can be changed.' });
     }
@@ -183,6 +193,9 @@ export async function productRoutes(app: FastifyInstance) {
     if (analyticsEnabled !== undefined && !isProductOwner) {
       return reply.status(403).send({ error: 'Only the owner can change analytics visibility' });
     }
+    if (discoverable !== undefined && !isProductOwner) {
+      return reply.status(403).send({ error: 'Only the owner can change project discoverability' });
+    }
     if (status !== undefined && !isProductOwner && !isCoOwner) {
       return reply.status(403).send({ error: 'Only the owner or co-owners can change project status' });
     }
@@ -201,6 +214,7 @@ export async function productRoutes(app: FastifyInstance) {
           ...(deadline ? { deadline: new Date(deadline) } : {}),
           ...(ownerId !== undefined ? { ownerId } : {}),
           ...(analyticsEnabled !== undefined ? { analyticsEnabled } : {}),
+          ...(discoverable !== undefined ? { discoverable } : {}),
           ...(status !== undefined ? { status } : {}),
         },
         include: { team: { select: { id: true, name: true } } },
@@ -219,8 +233,8 @@ export async function productRoutes(app: FastifyInstance) {
       }
 
       reply.send(updated);
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
+    } catch (e) {
+      handleNotFound(e, reply);
     }
   });
 
@@ -351,7 +365,8 @@ export async function productRoutes(app: FastifyInstance) {
     reply.status(201).send(full);
   });
 
-  // Soft-delete by setting deletedAt (owner only, cannot be undone via API)
+  // Soft-delete by setting deletedAt (owner only). Not reversible by the owner via this API, but
+  // an admin can restore it via POST /api/admin/products/:id/restore (see admin/stats.ts).
   app.delete('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });

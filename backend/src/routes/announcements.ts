@@ -14,6 +14,7 @@ import { getServerConfig } from '../utils/server-config';
 import { validate } from '../utils/validate';
 import { safeDecryptValue } from '../utils/crypto';
 import { broadcastAll } from '../realtime/manager';
+import { resolveProjectRoleClaims } from '../utils/product-guard';
 
 // Role badge values a poster can claim; each must be verified against actual permissions at write time
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
@@ -120,15 +121,14 @@ export async function announcementRoutes(app: FastifyInstance) {
     if (pinned && !isAdmin) return reply.status(403).send({ error: 'Only admins can pin announcements.' });
     if (pinned && teamId) return reply.status(400).send({ error: 'Team announcements cannot be pinned.' });
 
-    // Verify teamId belongs to requester if provided
-    if (teamId) {
-      const membership = await prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId, userId: req.user.userId } },
-      });
-      if (!membership) return reply.status(403).send({ error: 'Not a member of that team.' });
-    }
+    // Verify teamId belongs to requester if provided; reused below for the Project Co-Owner
+    // role-claim check so we don't look up the same team-membership row twice.
+    const teamMembership = teamId
+      ? await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId: req.user.userId } } })
+      : null;
+    if (teamId && !teamMembership) return reply.status(403).send({ error: 'Not a member of that team.' });
 
-    // Validate claimed role against user's actual admin permissions to prevent spoofing
+    // Validate claimed role against user's actual permissions to prevent spoofing
     const sender = await prisma.user.findUnique({
       where: { id: req.user.userId },
       select: { isAdmin: true, isFoundingAdmin: true },
@@ -136,6 +136,16 @@ export async function announcementRoutes(app: FastifyInstance) {
     let postedAsRole: string | null = rawRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
+    // Project Owner/Co-Owner are only meaningful relative to a specific team (co-ownership is a
+    // per-team TeamRole - see product-guard.ts's requireTabWrite doc comment) - a server-wide
+    // announcement (no teamId) has nothing to verify either claim against, so both are rejected.
+    if (postedAsRole === 'Project Co-Owner' && teamMembership?.role !== 'co_owner') postedAsRole = null;
+    if (postedAsRole === 'Project Owner') {
+      const ownsProduct = teamId
+        ? await prisma.product.count({ where: { teamId, ownerId: req.user.userId, deletedAt: null } })
+        : 0;
+      if (ownsProduct === 0) postedAsRole = null;
+    }
 
     const announcement = await prisma.announcement.create({
       data: {
@@ -224,7 +234,10 @@ export async function announcementRoutes(app: FastifyInstance) {
   // Post a comment (requires commentsEnabled on the announcement)
   app.post('/api/announcements/:id/comments', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const announcement = await prisma.announcement.findUnique({ where: { id }, select: { commentsEnabled: true } });
+    const announcement = await prisma.announcement.findUnique({
+      where: { id },
+      select: { commentsEnabled: true, teamId: true },
+    });
     if (!announcement) return reply.status(404).send({ error: 'Not found' });
     if (!announcement.commentsEnabled)
       return reply.status(403).send({ error: 'Comments are disabled on this announcement.' });
@@ -233,14 +246,22 @@ export async function announcementRoutes(app: FastifyInstance) {
     if (!body) return;
     const { content, postedAsRole: rawRole } = body;
 
-    // Validate server-level role claims against actual permissions
-    const sender = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      select: { isAdmin: true, isFoundingAdmin: true },
-    });
+    // Validate role claims against actual permissions
+    const [sender, roleClaims] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { isAdmin: true, isFoundingAdmin: true },
+      }),
+      // Project Owner/Co-Owner are only meaningful relative to the announcement's team, if any -
+      // see resolveProjectRoleClaims's doc comment for the no-team-in-scope (server-wide
+      // announcement) case, which always comes back false for both.
+      resolveProjectRoleClaims(req.user.userId, { teamId: announcement.teamId ?? undefined }),
+    ]);
     let postedAsRole: string | null = rawRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
+    if (postedAsRole === 'Project Owner' && !roleClaims.isProjectOwner) postedAsRole = null;
+    if (postedAsRole === 'Project Co-Owner' && !roleClaims.isProjectCoOwner) postedAsRole = null;
 
     const comment = await prisma.announcementComment.create({
       data: { announcementId: id, authorId: req.user.userId, content: content.trim(), postedAsRole },

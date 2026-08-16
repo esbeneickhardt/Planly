@@ -12,6 +12,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { decryptUserPii } from '../utils/crypto';
 import { createNotification } from '../utils/notifications';
+import { requireProductCoOwner } from '../utils/product-guard';
 import { validate } from '../utils/validate';
 
 // Optional freetext note the requester can attach to their access request
@@ -28,6 +29,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     const products = await prisma.product.findMany({
       where: {
         deletedAt: null,
+        discoverable: true,
         team: { members: { none: { userId: req.user.userId } } },
       },
       select: {
@@ -60,8 +62,8 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     if (!body) return;
     const { note } = body;
 
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
+    const product = await prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
       include: { team: { include: { members: { where: { role: 'co_owner' } } } } },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
@@ -146,14 +148,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
   // List access requests for a product (owner or co-owner only)
   app.get('/api/products/:productId/access-requests', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: { team: { include: { members: true } } },
-    });
-    if (!product) return reply.status(404).send({ error: 'Not found' });
-    const myMembership = product.team.members.find((m) => m.userId === req.user.userId);
-    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
-    if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
     const requests = await prisma.accessRequest.findMany({
       where: { productId, status: 'pending' },
       include: { user: { select: { id: true, username: true, avatarEmoji: true, realName: true } } },
@@ -168,14 +163,12 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     const actionBody = validate(reviewRequestSchema, req.body, reply);
     if (!actionBody) return;
     const { action } = actionBody;
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: { team: { include: { members: true } } },
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
+    const product = await prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+      select: { teamId: true, name: true },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    const myMembership = product.team.members.find((m) => m.userId === req.user.userId);
-    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
-    if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
     const accessReq = await prisma.accessRequest.findFirst({ where: { id: requestId, productId } });
     if (!accessReq) return reply.status(404).send({ error: 'Not found' });
 

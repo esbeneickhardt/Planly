@@ -63,7 +63,7 @@ export async function icalRoutes(app: FastifyInstance) {
 
     // Verify token owner is a member of the requested product
     const product = await prisma.product.findFirst({
-      where: { id: productId, team: { members: { some: { userId: apiToken.userId } } } },
+      where: { id: productId, deletedAt: null, team: { members: { some: { userId: apiToken.userId } } } },
       select: { id: true, name: true, deadline: true, createdAt: true },
     });
 
@@ -154,7 +154,7 @@ export async function icalRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
 
     const product = await prisma.product.findFirst({
-      where: { id: productId, team: { members: { some: { userId: req.user.userId } } } },
+      where: { id: productId, deletedAt: null, team: { members: { some: { userId: req.user.userId } } } },
       select: { id: true },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });

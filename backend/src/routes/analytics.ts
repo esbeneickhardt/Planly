@@ -8,31 +8,23 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireTabRead } from '../utils/product-guard';
+import { requireProductMember, requireTabRead, isProductCoOwner } from '../utils/product-guard';
 
 export async function analyticsRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/analytics', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    // requireTabRead already re-verifies membership internally (see product-guard.ts), so a
+    // preceding requireProductMember call would be pure overhead.
     if (!(await requireTabRead(productId, req.user, ['analytics'], reply))) return;
 
     // Verify analytics access — owners and co-owners can view even when disabled
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      select: { analyticsEnabled: true, ownerId: true, teamId: true },
+      select: { analyticsEnabled: true },
     });
     if (!product) return reply.status(404).send({ error: 'Product not found' });
-    if (!product.analyticsEnabled) {
-      const isOwner = product.ownerId === req.user.userId;
-      if (!isOwner) {
-        const membership = await prisma.teamMember.findUnique({
-          where: { teamId_userId: { teamId: product.teamId, userId: req.user.userId } },
-          select: { role: true },
-        });
-        if (membership?.role !== 'co_owner') {
-          return reply.status(403).send({ error: 'Analytics is disabled for this project' });
-        }
-      }
+    if (!product.analyticsEnabled && !(await isProductCoOwner(productId, req.user.userId))) {
+      return reply.status(403).send({ error: 'Analytics is disabled for this project' });
     }
 
     const now = new Date();
@@ -79,31 +71,28 @@ export async function analyticsRoutes(app: FastifyInstance) {
     });
     const statusBreakdown = statusGroups.map((g) => ({ status: g.status, count: g._count._all }));
 
-    // Sprint velocity: tasks completed per sprint
+    // Sprint velocity: tasks completed per sprint. Reuses cycleTimeTasks' completedAt timestamps
+    // (already fetched above for the cycle-time stat, and unbounded by the 90-day window that
+    // tasksByDay uses, so it covers sprints from any time) and buckets by date range in JS instead
+    // of a prisma.task.count() query per sprint.
     const sprints = await prisma.sprint.findMany({
       where: { productId },
       select: { id: true, name: true, startDate: true, endDate: true, color: true },
       orderBy: { startDate: 'asc' },
     });
-    const sprintVelocity = await Promise.all(
-      sprints.map(async (s) => {
-        const count = await prisma.task.count({
-          where: {
-            productId,
-            deletedAt: null,
-            completedAt: { gte: s.startDate, lte: s.endDate },
-          },
-        });
-        return {
-          sprintId: s.id,
-          name: s.name,
-          startDate: s.startDate,
-          endDate: s.endDate,
-          color: s.color,
-          completed: count,
-        };
-      }),
-    );
+    const sprintVelocity = sprints.map((s) => {
+      const completed = cycleTimeTasks.filter(
+        (t) => t.completedAt! >= s.startDate && t.completedAt! <= s.endDate,
+      ).length;
+      return {
+        sprintId: s.id,
+        name: s.name,
+        startDate: s.startDate,
+        endDate: s.endDate,
+        color: s.color,
+        completed,
+      };
+    });
 
     // Totals
     const [totalCompleted, totalActive] = await Promise.all([
