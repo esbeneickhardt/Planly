@@ -1,9 +1,16 @@
+/**
+ * Live on-screen trace of MessageBubble's touch handlers, opt-in via a `?touchdebug` query param
+ * (never shown otherwise). Added after several rounds of guessing at the mobile swipe-to-reply bug
+ * blind (no way to attach a real device debugger here) - this renders a live trace of what the
+ * touch handlers actually saw directly on the phone screen, so the next repro gives real facts
+ * instead of another theory.
+ * `logTouch` is called from MessageBubble.tsx to append to a shared `window.__touchDebug` log;
+ * `TouchDebugOverlay` polls that shared log rather than receiving it via props, since touch
+ * handlers live in many separate MessageBubble instances (one per message) while this overlay
+ * renders once, fixed, over the whole panel.
+ */
 import { useEffect, useState } from 'react';
 
-// Opt-in via a `?touchdebug` query param - never shown otherwise. Added after several rounds of
-// guessing at the mobile swipe-to-reply bug blind (no way to attach a real device debugger here) -
-// this renders a live trace of what MessageBubble's touch handlers actually saw, directly on the
-// phone screen, so the next repro gives us real facts instead of another theory.
 export const TOUCH_DEBUG = typeof window !== 'undefined' && /touchdebug/.test(window.location.search);
 
 type LogEntry = Record<string, unknown>;
@@ -17,9 +24,6 @@ export function logTouch(msgId: string, isOwn: boolean, phase: string, extra?: L
   if (w.__touchDebug.length > 40) w.__touchDebug.shift();
 }
 
-// Polls the shared log above rather than receiving it via props - touch handlers live in many
-// separate MessageBubble instances (one per message) and this overlay renders once, fixed, over
-// the whole panel.
 export default function TouchDebugOverlay() {
   const [lines, setLines] = useState<string[]>([]);
   useEffect(() => {

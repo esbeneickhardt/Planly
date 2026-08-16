@@ -63,7 +63,11 @@ export default function UserProfileModal({ userId, onClose }: Props) {
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
               Projects
             </p>
-            {profile.projects.length > 0 ? (
+            {!profile.projectsVisible ? (
+              <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+                This user has chosen to keep their projects private.
+              </p>
+            ) : profile.projects.length > 0 ? (
               <div className="space-y-1.5">
                 {profile.projects.map((p) => {
                   const style = ROLE_STYLE[p.role] ?? ROLE_STYLE['member']!;

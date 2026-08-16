@@ -1,3 +1,5 @@
+/** Single-step (no "type your username to confirm") account-deletion modal - warns that the action
+ * is permanent, then calls `logout()` on success since the session is no longer valid. */
 import { useState } from 'react';
 import Modal from './Modal';
 import type { User } from '../../types';

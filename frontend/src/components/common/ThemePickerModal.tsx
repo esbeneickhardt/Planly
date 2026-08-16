@@ -1,3 +1,5 @@
+/** Appearance modal: a grid of swatch buttons for each theme in `THEMES`, plus a mobile-only
+ * top/bottom nav-bar position toggle. Selecting a theme applies and closes immediately. */
 import Modal from './Modal';
 import { THEMES, useTheme, type MobileNavPosition } from '../../context/ThemeContext';
 

@@ -1,3 +1,9 @@
+/**
+ * Modal for managing the current user's developer integrations, in two tabs: "Access Tokens"
+ * to create/reveal-once/revoke personal API tokens (optionally read-only, with an expiry), and
+ * "My Permissions" to view the app-level permissions granted to this account (loaded lazily
+ * the first time that tab is opened).
+ */
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import { useConfirm } from '../../context/ConfirmContext';

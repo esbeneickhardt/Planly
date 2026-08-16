@@ -19,7 +19,7 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { useChat } from '../../context/ChatContext';
 import type { Task } from '../../types';
 import TaskDetailPanel from './TaskDetailPanel';
-import MessageBubble, { formatTime } from './MessageBubble';
+import MessageBubbleImpl, { formatTime } from './MessageBubble';
 import TouchDebugOverlay from './TouchDebugOverlay';
 import EmojiPicker from './EmojiPicker';
 import { useMessageEdit } from '../../hooks/useMessageEdit';
@@ -27,8 +27,8 @@ import { useChatMessages } from '../../hooks/useChatMessages';
 import { useChatPeople } from '../../hooks/useChatPeople';
 import { useChatGroups } from '../../hooks/useChatGroups';
 import { useChatProjects } from '../../hooks/useChatProjects';
-import PdfPreview from './PdfPreview';
 import Modal from './Modal';
+import ChatFilesTab from './ChatFilesTab';
 
 interface Props {
   initialTask?: { id: string; name: string };
@@ -39,6 +39,14 @@ interface Props {
   onClose: () => void;
   isAdminChat?: boolean;
 }
+
+// Wrapped in React.memo here rather than inside MessageBubble.tsx itself (which is intentionally
+// frozen after its own touch-gesture stabilization) - see the messageCallbacksRef cache further
+// down for the other half of this fix. Without both halves together, this memo does nothing: a
+// memoized component still re-renders whenever any prop is a *new* value, and every callback prop
+// below used to be a fresh inline closure on every ChatPanel render (e.g. on every compose-box
+// keystroke), which is exactly what defeated any benefit memoizing would otherwise have had.
+const MessageBubble = React.memo(MessageBubbleImpl);
 
 type Tab = 'messages' | 'tasks' | 'search' | 'files' | 'people' | 'groups' | 'projects';
 
@@ -67,6 +75,32 @@ function loadDismissed(productId: string): string[] {
 function saveDismissed(productId: string, ids: string[]) {
   localStorage.setItem(DISMISSED_KEY(productId), JSON.stringify(ids));
 }
+
+// ReactMarkdown `components` for the compose-box draft preview (mobile + desktop share this one
+// pane via markdownPreviewPane below). Defined at module scope, not inline in the component body -
+// nothing here is instance-specific (no theme/`isOwn`-style styling like MessageBubble.tsx's own
+// mdComponents needs), so a fresh object per render would only ever cost an unnecessary remount of
+// the preview's markdown tree with no upside. See MessageBubble.tsx's mdComponents for why a fresh
+// object here is a real bug (component-identity remount), not just a wasted allocation.
+const PREVIEW_MD_COMPONENTS = {
+  pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  code: ({ className, children, ...props }: { className?: string; children?: React.ReactNode }) => {
+    if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
+    if (String(children).includes('\n'))
+      return (
+        <pre>
+          <code className={className} {...props}>
+            {children}
+          </code>
+        </pre>
+      );
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  },
+};
 
 export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isAdminChat = false }: Props) {
   const { activeProduct, tasks } = useProduct();
@@ -999,9 +1033,11 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
     }
   }
 
-  // Adapt a DirectMessage to the Message shape so messageList() can render it with full markdown/image support
-  function adaptDm(dm: DirectMessage): Message {
-    return {
+  // Adapt a DirectMessage to the Message shape so messageList() can render it with full markdown/image support.
+  // Stable via useCallback (pure function of its argument, no closure deps) so the two useMemos below
+  // can depend on it without recomputing every render - see their own comments for why that matters.
+  const adaptDm = useCallback(
+    (dm: DirectMessage): Message => ({
       id: dm.id,
       content: dm.content,
       createdAt: dm.createdAt,
@@ -1016,8 +1052,17 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
       replyToId: dm.replyToId,
       replyTo: dm.replyTo ? { ...dm.replyTo, attachments: [] } : null,
       postedAsRole: null,
-    };
-  }
+    }),
+    [],
+  );
+
+  // Adapted once per actual `dmMessages`/`groupMessages` change, not on every ChatPanel render (e.g.
+  // every compose-box keystroke) - `.map()` was previously called directly in the JSX below, which
+  // hands messageList() (and therefore each MessageBubble's `msg` prop) a brand-new array of
+  // brand-new objects every render, defeating the MessageBubble React.memo above regardless of how
+  // stable its other props are.
+  const dmMessagesAdapted = useMemo(() => dmMessages.map(adaptDm), [dmMessages, adaptDm]);
+  const groupMessagesAdapted = useMemo(() => groupMessages.map(adaptDm), [groupMessages, adaptDm]);
 
   function openDm(
     userId: string,
@@ -1086,25 +1131,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkBreaks]}
           rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
-          components={{
-            pre: ({ children }: any) => <>{children}</>,
-            code: ({ className, children, ...props }: any) => {
-              if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
-              if (String(children).includes('\n'))
-                return (
-                  <pre>
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  </pre>
-                );
-              return (
-                <code className={className} {...props}>
-                  {children}
-                </code>
-              );
-            },
-          }}
+          components={PREVIEW_MD_COMPONENTS}
         >
           {draft || '*Nothing to preview*'}
         </ReactMarkdown>
@@ -1604,6 +1631,65 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
     );
   }
 
+  // Stable per-message callback bundle for MessageBubble (wrapped in React.memo above) - the other
+  // half of that fix. Without this, every visible bubble would get brand-new onEdit/onDelete/onReact/
+  // etc. closures on every ChatPanel render (e.g. every keystroke in the compose box below), which
+  // would defeat the memo and re-render the entire visible message list on every keystroke anyway.
+  // Cached by message id and only regenerated when something an entry actually closes over changes
+  // (msg.content for edit; chatWritable/tab/productId for the writability + routing checks inside
+  // deleteMsg/toggleReaction) - anything else re-rendering ChatPanel reuses the same functions.
+  const messageCallbacksRef = useRef(
+    new Map<
+      string,
+      {
+        key: string;
+        onEdit: () => void;
+        onDelete: () => void;
+        onReact: (emoji: string) => void;
+        onToggleReactionPicker: () => void;
+        onToggleActions: () => void;
+        onReply: (() => void) | undefined;
+      }
+    >(),
+  );
+  function getMessageCallbacks(msg: Message) {
+    // JSON-encoded (not a manually-delimited template string) so a value containing the separator
+    // can't coincidentally collide with a different combination of values - same fingerprinting
+    // idiom used by useChatMessages.ts and the useChatPeople/useChatGroups/useChatProjects pollers.
+    const key = JSON.stringify([msg.content, chatWritable, tab, productId]);
+    const cached = messageCallbacksRef.current.get(msg.id);
+    if (cached && cached.key === key) return cached;
+    const entry = {
+      key,
+      onEdit: () => {
+        startEdit(msg.id, msg.content);
+        setActiveMessageId(null);
+      },
+      onDelete: () => {
+        deleteMsg(msg.id);
+        setActiveMessageId(null);
+      },
+      onReact: (emoji: string) => {
+        if (chatWritable) toggleReaction(msg.id, emoji);
+      },
+      onToggleReactionPicker: () => {
+        if (chatWritable) setReactionPickerFor((v) => (v === msg.id ? null : msg.id));
+      },
+      onToggleActions: () => {
+        if (chatWritable) setActiveMessageId((v) => (v === msg.id ? null : msg.id));
+      },
+      onReply: chatWritable
+        ? () => {
+            setReplyingTo(msg);
+            setActiveMessageId(null);
+            setTimeout(() => textRef.current?.focus(), 0);
+          }
+        : undefined,
+    };
+    messageCallbacksRef.current.set(msg.id, entry);
+    return entry;
+  }
+
   // Renders a list of messages; role badges come directly from msg.postedAsRole stored at send time.
   // `showLoadOlder` only applies to project-chat's own message list (the one backed by
   // useChatMessages' pagination) - DM/group/admin-project views don't support it.
@@ -1672,41 +1758,30 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                   </div>
                 ) : (
                   <div data-emoji-picker>
-                    <MessageBubble
-                      msg={msg}
-                      isOwn={isOwn}
-                      onEdit={() => {
-                        startEdit(msg.id, msg.content);
-                        setActiveMessageId(null);
-                      }}
-                      onDelete={() => {
-                        deleteMsg(msg.id);
-                        setActiveMessageId(null);
-                      }}
-                      onImageClick={setLightboxUrl}
-                      canEdit={chatWritable && Date.now() - new Date(msg.createdAt).getTime() < EDIT_TIMEOUT_MS}
-                      onReact={(emoji) => chatWritable && toggleReaction(msg.id, emoji)}
-                      currentUserId={user?.id ?? null}
-                      reactionPickerOpen={reactionPickerFor === msg.id}
-                      onToggleReactionPicker={() =>
-                        chatWritable && setReactionPickerFor((v) => (v === msg.id ? null : msg.id))
-                      }
-                      actionsOpen={activeMessageId === msg.id}
-                      onToggleActions={() => chatWritable && setActiveMessageId((v) => (v === msg.id ? null : msg.id))}
-                      onReply={
-                        chatWritable
-                          ? () => {
-                              setReplyingTo(msg);
-                              setActiveMessageId(null);
-                              setTimeout(() => textRef.current?.focus(), 0);
-                            }
-                          : undefined
-                      }
-                      onScrollToReply={(id) => setScrollToMsgId(id)}
-                      authorRole={authorRole}
-                      isMobile={isMobile}
-                      scrollContainerRef={messageListRef}
-                    />
+                    {(() => {
+                      const cb = getMessageCallbacks(msg);
+                      return (
+                        <MessageBubble
+                          msg={msg}
+                          isOwn={isOwn}
+                          onEdit={cb.onEdit}
+                          onDelete={cb.onDelete}
+                          onImageClick={setLightboxUrl}
+                          canEdit={chatWritable && Date.now() - new Date(msg.createdAt).getTime() < EDIT_TIMEOUT_MS}
+                          onReact={cb.onReact}
+                          currentUserId={user?.id ?? null}
+                          reactionPickerOpen={reactionPickerFor === msg.id}
+                          onToggleReactionPicker={cb.onToggleReactionPicker}
+                          actionsOpen={activeMessageId === msg.id}
+                          onToggleActions={cb.onToggleActions}
+                          onReply={cb.onReply}
+                          onScrollToReply={setScrollToMsgId}
+                          authorRole={authorRole}
+                          isMobile={isMobile}
+                          scrollContainerRef={messageListRef}
+                        />
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -2376,149 +2451,12 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
 
           {/* ── Files tab ── */}
           {tab === 'files' && (
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              {allAttachments.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center h-32 gap-2"
-                  style={{ color: 'var(--text-3)' }}
-                >
-                  <span className="text-3xl opacity-30">📎</span>
-                  <p className="text-sm">No attachments yet.</p>
-                </div>
-              ) : (
-                (() => {
-                  const images = allAttachments.filter((x) => x.att.type?.startsWith('image/'));
-                  const docs = allAttachments.filter((x) => !x.att.type?.startsWith('image/'));
-                  return (
-                    <div className="space-y-4">
-                      {images.length > 0 && (
-                        <div>
-                          <p
-                            className="text-[10px] font-semibold uppercase tracking-wider mb-2"
-                            style={{ color: 'var(--text-3)' }}
-                          >
-                            Images ({images.length})
-                          </p>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {images.map(({ att, msg }, i) => (
-                              <div key={i} className="relative group/img aspect-square">
-                                <img
-                                  src={att.thumbnailUrl ?? att.url}
-                                  alt={att.name}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="w-full h-full object-cover rounded-lg cursor-zoom-in"
-                                  onClick={() => setLightboxUrl(att.url)}
-                                />
-                                <div
-                                  className="absolute inset-0 rounded-lg flex flex-col items-center justify-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none"
-                                  style={{ background: 'rgba(0,0,0,0.55)' }}
-                                >
-                                  <span
-                                    className="text-white text-[10px] px-2 py-1 rounded font-medium"
-                                    style={{ background: 'rgba(255,255,255,0.15)' }}
-                                  >
-                                    Click to view
-                                  </span>
-                                  <a
-                                    href={att.url}
-                                    download={att.name}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-white text-[10px] px-2 py-1 rounded font-medium pointer-events-auto"
-                                    style={{ background: 'rgba(255,255,255,0.15)' }}
-                                  >
-                                    Download
-                                  </a>
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteFile(att.url);
-                                  }}
-                                  disabled={deletingFile === att.url}
-                                  title="Delete file"
-                                  className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-auto"
-                                  style={{ background: 'rgba(239,68,68,0.9)', color: 'white' }}
-                                >
-                                  <svg
-                                    width="8"
-                                    height="8"
-                                    viewBox="0 0 10 10"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                  >
-                                    <line x1="2" y1="2" x2="8" y2="8" />
-                                    <line x1="8" y1="2" x2="2" y2="8" />
-                                  </svg>
-                                </button>
-                                <div className="absolute bottom-1 left-1 right-1 text-[9px] truncate text-white opacity-0 group-hover/img:opacity-70 px-1">
-                                  {formatTime(msg.createdAt)} · {displayName(msg.author)}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {docs.length > 0 && (
-                        <div>
-                          <p
-                            className="text-[10px] font-semibold uppercase tracking-wider mb-2"
-                            style={{ color: 'var(--text-3)' }}
-                          >
-                            Documents ({docs.length})
-                          </p>
-                          <div className="space-y-1.5">
-                            {docs.map(({ att, msg }, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center gap-3 px-3 py-2 rounded-lg group/doc"
-                                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-                              >
-                                <span className="text-lg flex-shrink-0">
-                                  {att.type === 'application/pdf' ? '📄' : '📁'}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
-                                    {att.name}
-                                  </p>
-                                  <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>
-                                    {displayName(msg.author)} · {formatTime(msg.createdAt)}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-1.5 opacity-0 group-hover/doc:opacity-100 transition-opacity flex-shrink-0">
-                                  {att.type === 'application/pdf' && <PdfPreview url={att.url} name={att.name} />}
-                                  <a
-                                    href={att.url}
-                                    download={att.name}
-                                    className="text-xs px-2 py-1 rounded-lg"
-                                    style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-                                  >
-                                    ↓
-                                  </a>
-                                  <button
-                                    onClick={() => handleDeleteFile(att.url)}
-                                    disabled={deletingFile === att.url}
-                                    title="Delete file"
-                                    className="text-xs px-2 py-1 rounded-lg transition-colors"
-                                    style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.2)')}
-                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
-                                  >
-                                    {deletingFile === att.url ? '…' : '🗑'}
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()
-              )}
-            </div>
+            <ChatFilesTab
+              attachments={allAttachments}
+              deletingFile={deletingFile}
+              onDeleteFile={handleDeleteFile}
+              onImageClick={setLightboxUrl}
+            />
           )}
 
           {/* ── People/Users tab ── */}
@@ -2598,7 +2536,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                     />
                   </div>
                 ) : (
-                  messageList(dmMessages.map(adaptDm))
+                  messageList(dmMessagesAdapted)
                 )}
                 {(() => {
                   const conv = conversations.find((c) => c.id === activeConvId);
@@ -2806,7 +2744,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                     />
                   </div>
                 ) : (
-                  messageList(groupMessages.map(adaptDm))
+                  messageList(groupMessagesAdapted)
                 )}
                 {(() => {
                   const conv = groupConversations.find((c) => c.id === activeGroupId);

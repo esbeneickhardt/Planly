@@ -15,6 +15,7 @@ import { api, displayName } from '../../api/client';
 import type { Task, Product } from '../../types';
 import type { SearchResults, Sprint } from '../../api/client';
 import TaskDetailPanel from './TaskDetailPanel';
+import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 
 type MsgResult = SearchResults['messages'][number];
 type TabFilter = 'all' | 'tasks' | 'messages' | 'settings' | 'projects';
@@ -221,38 +222,37 @@ export default function SearchModal({ onClose }: Props) {
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
+  // Server-backed search - 300ms debounce.
+  const [scheduleSearch, cancelSearch] = useDebouncedCallback(async (q: string, productId: string | undefined) => {
+    setSearching(true);
+    try {
+      // Always scope to active project; no cross-project fallback
+      const r = await api.search(q, productId);
+      setResults(r);
+    } catch {
+      setResults(null);
+    } finally {
+      setSearching(false);
+    }
+  }, 300);
+
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    // Unconditional, before the length check below - cancels a still-pending search from a
+    // previous (now stale) query, even on a run that itself doesn't schedule a new one.
+    cancelSearch();
     setHighlightIdx(-1);
     if (query.trim().length < 2) {
       setResults(null);
       return;
     }
-
-    debounceRef.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        // Always scope to active project; no cross-project fallback
-        const r = await api.search(query.trim(), activeProduct?.id);
-        setResults(r);
-      } catch {
-        setResults(null);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, activeProduct?.id]);
+    scheduleSearch(query.trim(), activeProduct?.id);
+  }, [query, activeProduct?.id, scheduleSearch, cancelSearch]);
 
   useEffect(() => {
     if (!activeProduct) {

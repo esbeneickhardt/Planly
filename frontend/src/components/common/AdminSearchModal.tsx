@@ -12,6 +12,7 @@ import type { Message } from '../../api/client';
 import { useChat } from '../../context/ChatContext';
 import { useProfileModals } from '../../context/ProfileModalsContext';
 import { ADMIN_TABS } from './TopBar';
+import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 
 interface AdminProject {
   id: string;
@@ -46,7 +47,6 @@ export default function AdminSearchModal({ onClose }: Props) {
   const [tab, setTab] = useState<TabFilter>('all');
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // Projects list is small and un-paginated - fetch once and filter client-side, same idiom
@@ -59,28 +59,30 @@ export default function AdminSearchModal({ onClose }: Props) {
       .catch(() => setProjects([]));
   }, []);
 
+  // Admin chat search - 300ms debounce.
+  const [scheduleSearch, cancelSearch] = useDebouncedCallback(async (q: string) => {
+    setSearchingChat(true);
+    try {
+      setChatResults(await api.adminChat.list(undefined, q));
+    } catch {
+      setChatResults([]);
+    } finally {
+      setSearchingChat(false);
+    }
+  }, 300);
+
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    // Unconditional, before the length check below - cancels a still-pending search from a
+    // previous (now stale) query, even on a run that itself doesn't schedule a new one.
+    cancelSearch();
     setHighlightIdx(-1);
     const q = query.trim();
     if (q.length < 2) {
       setChatResults([]);
       return;
     }
-    debounceRef.current = setTimeout(async () => {
-      setSearchingChat(true);
-      try {
-        setChatResults(await api.adminChat.list(undefined, q));
-      } catch {
-        setChatResults([]);
-      } finally {
-        setSearchingChat(false);
-      }
-    }, 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query]);
+    scheduleSearch(q);
+  }, [query, scheduleSearch, cancelSearch]);
 
   function goToTab(key: string) {
     navigate(`/admin?tab=${key}`);
