@@ -222,7 +222,10 @@ export default function AdminIpRules({ showToast }: Props) {
   }, [load]);
 
   return (
-    <div className="space-y-10 max-w-xl mx-auto">
+    // space-y-6 to match the vertical rhythm of the other narrow admin panels (Ownership, Email) -
+    // the divider between scopes below already carries its own paddingTop for extra separation, so
+    // this outer gap doesn't need to be wider on top of that.
+    <div className="space-y-6 max-w-xl mx-auto">
       <div>
         <h3 className="text-sm font-bold mb-4" style={{ color: 'var(--text)' }}>
           User access
