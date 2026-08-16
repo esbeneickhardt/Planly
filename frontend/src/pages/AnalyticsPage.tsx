@@ -314,6 +314,9 @@ export default function AnalyticsPage() {
     loadAnalytics(activeProduct.id);
     loadWorkload(activeProduct.id);
     loadActivity(activeProduct.id);
+    // activeProduct: only `.id` drives this effect; object identity changes on every context
+    // re-render regardless of which product is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id, loadAnalytics, loadWorkload, loadActivity]);
 
   if (!activeProduct) {

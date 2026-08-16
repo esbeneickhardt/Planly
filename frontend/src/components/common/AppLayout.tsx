@@ -61,7 +61,10 @@ function PermissionGuard({ children }: { children: ReactNode }) {
     if (canRead(current.tab)) return;
     const fallback = TAB_ROUTES.find((r) => canRead(r.tab));
     if (fallback) navigate(fallback.path, { replace: true });
-  }, [location.pathname, activeProduct?.id, canRead]);
+    // activeProduct: only `.id` drives this effect (object identity changes on every context
+    // re-render regardless of which product is active); navigate: stable function from react-router.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, activeProduct?.id, canRead, navigate]);
 
   return <>{children}</>;
 }
@@ -129,6 +132,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     if (products !== undefined && shouldShowWelcome(products.length === 0)) {
       setShowVision(true);
     }
+    // products: only `.length` (and the undefined/defined transition) drives this effect, not
+    // object identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products?.length]);
 
   // Keyboard shortcuts: Ctrl+K opens search; Escape closes it

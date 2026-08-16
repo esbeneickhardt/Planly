@@ -412,7 +412,15 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       <div
         className="fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-xl cursor-pointer"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxWidth: 280 }}
+        role="button"
+        tabIndex={0}
         onClick={() => setMinimized(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setMinimized(false);
+          }
+        }}
       >
         <span
           className="w-2 h-2 rounded-full flex-shrink-0"
@@ -449,7 +457,9 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
   const descField = (rows: number) => (
     <div>
-      <label className="label mb-1">Description</label>
+      {/* Not a real label - MarkdownEditor is a custom multi-control component (toolbar, textarea,
+          preview toggle), not a single control htmlFor could target */}
+      <span className="label mb-1">Description</span>
       <MarkdownEditor
         ref={descEditorRef}
         value={description}
@@ -466,8 +476,16 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="label">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="input" disabled={readOnly}>
+          <label className="label" htmlFor="task-detail-status">
+            Status
+          </label>
+          <select
+            id="task-detail-status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="input"
+            disabled={readOnly}
+          >
             {statusOptions.map((o) => (
               <option key={o.statusKey} value={o.statusKey}>
                 {o.label}
@@ -476,8 +494,16 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           </select>
         </div>
         <div>
-          <label className="label">Owner</label>
-          <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="input" disabled={readOnly}>
+          <label className="label" htmlFor="task-detail-owner">
+            Owner
+          </label>
+          <select
+            id="task-detail-owner"
+            value={ownerId}
+            onChange={(e) => setOwnerId(e.target.value)}
+            className="input"
+            disabled={readOnly}
+          >
             <option value="">Unassigned</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
@@ -488,8 +514,11 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           </select>
         </div>
         <div>
-          <label className="label">Reviewer</label>
+          <label className="label" htmlFor="task-detail-reviewer">
+            Reviewer
+          </label>
           <select
+            id="task-detail-reviewer"
             value={reviewerId}
             onChange={(e) => setReviewerId(e.target.value)}
             className="input"
@@ -508,7 +537,8 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
       {sprints.length > 0 && (
         <div>
-          <label className="label">Sub-plan</label>
+          {/* Not a real label - it's a heading for the sub-plan toggle group below, no single associated control */}
+          <span className="label">Sub-plan</span>
           <div className="flex flex-wrap gap-2">
             {sprints.map((s) => {
               const active = sprintIds.has(s.id);
@@ -545,13 +575,14 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       )}
 
       <div>
-        <label className="label">
+        <label className="label" htmlFor="task-detail-deadline">
           Deadline{' '}
           <span className="normal-case font-normal" style={{ color: 'var(--text-3)' }}>
             (makes this a Milestone)
           </span>
         </label>
         <input
+          id="task-detail-deadline"
           type="date"
           value={deadline}
           onChange={(e) => setDeadline(e.target.value)}
@@ -561,7 +592,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       </div>
 
       <div>
-        <label className="label">
+        <label className="label" htmlFor="task-detail-milestone">
           Feeds into milestone{' '}
           {!readOnly && !canEditMilestone && (
             <span className="normal-case font-normal" style={{ color: 'var(--text-3)' }}>
@@ -570,6 +601,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           )}
         </label>
         <select
+          id="task-detail-milestone"
           value={milestoneId}
           onChange={(e) => setMilestoneId(e.target.value)}
           className="input"
@@ -588,7 +620,8 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       </div>
 
       <div>
-        <label className="label">Color tag</label>
+        {/* Not a real label - it's a heading for the color swatch grid below, no single associated control */}
+        <span className="label">Color tag</span>
         <div className="flex items-center gap-2 flex-wrap">
           {enabledColors.map((c) => (
             <button
@@ -649,7 +682,8 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="label mb-0">Subtasks</label>
+          {/* Not a real label - it's a section heading for the subtask list below, no single associated control */}
+          <span className="label mb-0">Subtasks</span>
           {subtasks.length > 0 && (
             <span className="text-xs" style={{ color: 'var(--text-3)' }}>
               {subtasks.filter((s) => s.completed).length}/{subtasks.length} done
@@ -701,6 +735,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
                 style={{ borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none' }}
               >
                 <input
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- field just revealed by clicking "+ Add subtask"; focusing it is the expected next action
                   autoFocus
                   type="text"
                   value={newSubtaskName}
@@ -944,8 +979,11 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             {/* Left: name + description */}
             <div className="flex-1 md:overflow-y-auto px-4 py-4 md:px-8 md:py-6 space-y-5">
               <div>
-                <label className="label">Name</label>
+                <label className="label" htmlFor="task-detail-name-fs">
+                  Name
+                </label>
                 <input
+                  id="task-detail-name-fs"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -971,6 +1009,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   return (
     <>
       {isSidebar && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse-only backdrop dismiss; the panel's close button (closeBtn below) is the keyboard-accessible equivalent
         <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={handleClose} />
       )}
       <div
@@ -1086,8 +1125,11 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           <div>
-            <label className="label">Name</label>
+            <label className="label" htmlFor="task-detail-name">
+              Name
+            </label>
             <input
+              id="task-detail-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}

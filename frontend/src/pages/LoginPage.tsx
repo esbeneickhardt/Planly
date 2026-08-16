@@ -108,8 +108,11 @@ export default function LoginPage() {
           </div>
           <form onSubmit={handleTotpSubmit} className="card p-6 space-y-4">
             <div>
-              <label className="label">Authenticator code</label>
+              <label className="label" htmlFor="login-totp-code">
+                Authenticator code
+              </label>
               <input
+                id="login-totp-code"
                 ref={totpInputRef}
                 type="text"
                 inputMode="numeric"

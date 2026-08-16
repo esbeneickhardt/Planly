@@ -73,8 +73,11 @@ export default function ProfileModal({ user, onClose }: Props) {
         />
 
         <div>
-          <label className="label">Full name</label>
+          <label className="label" htmlFor="profile-full-name">
+            Full name
+          </label>
           <input
+            id="profile-full-name"
             type="text"
             value={profileForm.realName}
             onChange={(e) => setProfileForm((p) => ({ ...p, realName: e.target.value }))}
@@ -83,12 +86,16 @@ export default function ProfileModal({ user, onClose }: Props) {
           />
         </div>
         <div>
-          <label className="label">Username</label>
-          <input type="text" className="input opacity-50" value={user?.username ?? ''} disabled />
+          <label className="label" htmlFor="profile-username">
+            Username
+          </label>
+          <input id="profile-username" type="text" className="input opacity-50" value={user?.username ?? ''} disabled />
         </div>
         <div>
-          <label className="label">Email</label>
-          <input type="email" className="input opacity-50" value={user?.email ?? ''} disabled />
+          <label className="label" htmlFor="profile-email">
+            Email
+          </label>
+          <input id="profile-email" type="email" className="input opacity-50" value={user?.email ?? ''} disabled />
         </div>
         {error && (
           <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>

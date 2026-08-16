@@ -150,8 +150,11 @@ export default function NoProjectsWelcome() {
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="flex gap-3">
               <div className="flex-shrink-0">
-                <label className="label">Icon</label>
+                <label className="label" htmlFor="welcome-new-project-icon">
+                  Icon
+                </label>
                 <button
+                  id="welcome-new-project-icon"
                   type="button"
                   onClick={() => setShowEmojiPicker((v) => !v)}
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors"
@@ -164,14 +167,18 @@ export default function NoProjectsWelcome() {
                 </button>
               </div>
               <div className="flex-1">
-                <label className="label">Name</label>
+                <label className="label" htmlFor="welcome-new-project-name">
+                  Name
+                </label>
                 <input
+                  id="welcome-new-project-name"
                   type="text"
                   required
                   value={form.name}
                   onChange={setField('name')}
                   className="input"
                   placeholder="My Project"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                   autoFocus
                 />
               </div>
@@ -198,7 +205,9 @@ export default function NoProjectsWelcome() {
               </div>
             )}
             <div>
-              <label className="label">Description</label>
+              {/* Not a real label - MarkdownEditor is a custom multi-control component (toolbar, textarea,
+                  preview toggle), not a single control htmlFor could target */}
+              <span className="label">Description</span>
               <MarkdownEditor
                 value={form.description}
                 onChange={(v) => setForm((prev) => ({ ...prev, description: v }))}
@@ -207,8 +216,17 @@ export default function NoProjectsWelcome() {
               />
             </div>
             <div>
-              <label className="label">Target deadline</label>
-              <input type="date" required value={form.deadline} onChange={setField('deadline')} className="input" />
+              <label className="label" htmlFor="welcome-new-project-deadline">
+                Target deadline
+              </label>
+              <input
+                id="welcome-new-project-deadline"
+                type="date"
+                required
+                value={form.deadline}
+                onChange={setField('deadline')}
+                className="input"
+              />
             </div>
             {error && (
               <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">

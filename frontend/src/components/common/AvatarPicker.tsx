@@ -189,6 +189,11 @@ export default function AvatarPicker({ current, onChange }: Props) {
 
   useEffect(() => {
     if (cropImg) setOffset((o) => clamp(o.x, o.y, cropImg, scale));
+    // cropImg: intentionally omitted - handleFile already resets offset to {0,0} whenever a new
+    // image loads, so re-running this on cropImg change too would re-clamp against a stale offset
+    // mid-transition. scale: derived from zoom (already a dep) and cropImg, so it moves in lockstep
+    // with zoom; listing it would only add cropImg-triggered reruns, which is what we're avoiding.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -448,7 +453,8 @@ export default function AvatarPicker({ current, onChange }: Props) {
             </>
           ) : (
             <>
-              <div
+              <button
+                type="button"
                 className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-4xl cursor-pointer relative group"
                 style={{ background: 'var(--surface)', border: '2px dashed var(--border)' }}
                 onClick={() => fileRef.current?.click()}
@@ -464,7 +470,7 @@ export default function AvatarPicker({ current, onChange }: Props) {
                 >
                   {preview ? 'Change' : 'Upload'}
                 </div>
-              </div>
+              </button>
 
               <button
                 type="button"

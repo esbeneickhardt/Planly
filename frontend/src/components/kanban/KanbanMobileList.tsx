@@ -155,6 +155,7 @@ function QuickStatusMenu({
         aria-label="Close quick actions menu"
         onClick={onClose}
       />
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- onClick is a stopPropagation-only guard against the backdrop button's onClick={onClose}; onTouch* handlers are swipe-to-dismiss */}
       <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

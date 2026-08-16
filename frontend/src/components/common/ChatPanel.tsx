@@ -1237,6 +1237,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
             {/* onMouseDown+preventDefault here (not inside EmojiPicker itself) keeps the textarea
                 focused through the tap, same fix as the Send button - otherwise the click steals
                 focus first, closing the mobile keyboard, then the refocus below reopens it. */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- onMouseDown here only preventDefaults to keep the textarea focused through the tap; not a user-facing action, no keyboard equivalent applies */}
             <div onMouseDown={(ev) => ev.preventDefault()}>
               <EmojiPicker
                 onChange={(e) => {
@@ -1300,7 +1301,11 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                   >
                     {label}
                   </p>
-                  <pre
+                  {/* div, not <pre> - jsx-a11y disallows an interactive role on <pre>; the
+                      monospace/preformatted look comes entirely from the inline styles below */}
+                  <div
+                    role="button"
+                    tabIndex={0}
                     className="text-xs rounded-lg px-3 py-2 select-all cursor-pointer"
                     style={{
                       background: 'var(--surface-2)',
@@ -1321,10 +1326,24 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                         ta.setSelectionRange(pos + ins.length, pos + ins.length);
                       });
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      e.preventDefault();
+                      const ta = textRef.current;
+                      if (!ta) return;
+                      const ins = '\n' + syntax;
+                      const pos = ta.selectionEnd ?? draft.length;
+                      setDraft((d) => d.slice(0, pos) + ins + d.slice(pos));
+                      setShowMarkdownHelp(false);
+                      requestAnimationFrame(() => {
+                        ta.focus();
+                        ta.setSelectionRange(pos + ins.length, pos + ins.length);
+                      });
+                    }}
                     title="Click to insert"
                   >
                     {syntax}
-                  </pre>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1729,6 +1748,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                 {isEditing ? (
                   <div className="space-y-1.5">
                     <textarea
+                      // eslint-disable-next-line jsx-a11y/no-autofocus -- edit field just revealed by clicking "Edit" on this message
                       autoFocus
                       value={editDraft}
                       onChange={(e) => setEditDraft(e.target.value)}
@@ -2362,6 +2382,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
             <div className="flex flex-col flex-1 min-h-0">
               <div className="px-4 pt-3 pb-2 flex-shrink-0">
                 <input
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- search field for a just-opened dedicated search tab
                   autoFocus
                   type="text"
                   value={search}
@@ -2934,6 +2955,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
 
           {/* Lightbox */}
           {lightboxUrl && (
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse-only backdrop dismiss; the ✕ button below is the keyboard-accessible equivalent
             <div
               className="fixed inset-0 z-[200] flex items-center justify-center"
               style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}
@@ -2948,6 +2970,7 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
               >
                 ✕
               </button>
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- stopPropagation-only guard against the backdrop's dismiss-on-click */}
               <img
                 src={lightboxUrl}
                 alt=""
@@ -3098,9 +3121,12 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
                 >
                   <div className="space-y-4">
                     <div>
-                      <label className="label">Group name</label>
+                      <label className="label" htmlFor="chat-manage-group-name">
+                        Group name
+                      </label>
                       <div className="flex gap-2">
                         <input
+                          id="chat-manage-group-name"
                           type="text"
                           value={manageGroupName}
                           onChange={(e) => setManageGroupName(e.target.value)}

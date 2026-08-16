@@ -61,10 +61,14 @@ export default function ChangePasswordModal({ onClose }: Props) {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="label">Current password</label>
+              <label className="label" htmlFor="change-pw-current">
+                Current password
+              </label>
               <input
+                id="change-pw-current"
                 type="password"
                 required
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                 autoFocus
                 value={current}
                 onChange={(e) => setCurrent(e.target.value)}
@@ -73,8 +77,11 @@ export default function ChangePasswordModal({ onClose }: Props) {
               />
             </div>
             <div>
-              <label className="label">New password</label>
+              <label className="label" htmlFor="change-pw-next">
+                New password
+              </label>
               <input
+                id="change-pw-next"
                 type="password"
                 required
                 minLength={8}
@@ -85,8 +92,11 @@ export default function ChangePasswordModal({ onClose }: Props) {
               />
             </div>
             <div>
-              <label className="label">Confirm new password</label>
+              <label className="label" htmlFor="change-pw-confirm">
+                Confirm new password
+              </label>
               <input
+                id="change-pw-confirm"
                 type="password"
                 required
                 minLength={8}

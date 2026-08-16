@@ -72,7 +72,9 @@ export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, 
 
   return (
     <>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse-only backdrop dismiss; the header's close button is the keyboard-accessible equivalent */}
       <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.3)' }} onClick={onClose} />
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the backdrop's onClick */}
       <div
         className="fixed right-0 top-0 h-full z-50 flex flex-col shadow-2xl overflow-hidden"
         style={{ width: 640, background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}

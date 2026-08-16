@@ -120,6 +120,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
   const isLast = page === PAGES.length - 1;
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse-only backdrop dismiss (guarded to only fire on the backdrop itself); Escape (handled above) is the keyboard-accessible equivalent
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}

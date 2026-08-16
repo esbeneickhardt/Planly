@@ -208,9 +208,17 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
             {apps.map((app) => (
               <div key={app.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                 <div
+                  role="button"
+                  tabIndex={0}
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer"
                   style={{ background: selectedAppId === app.id ? 'var(--brand-subtle)' : 'var(--surface-2)' }}
                   onClick={() => setSelectedAppId(selectedAppId === app.id ? null : app.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedAppId(selectedAppId === app.id ? null : app.id);
+                    }
+                  }}
                 >
                   <span className="text-lg flex-shrink-0">🤖</span>
                   <div className="flex-1 min-w-0">

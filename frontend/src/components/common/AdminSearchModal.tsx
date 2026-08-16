@@ -279,11 +279,13 @@ export default function AdminSearchModal({ onClose }: Props) {
 
   return (
     <>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse-only backdrop dismiss; Escape (handled in handleKeyDown above) is the keyboard-accessible equivalent */}
       <div
         className="fixed inset-0 z-50"
         style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
         onClick={onClose}
       />
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the backdrop's onClick */}
       <div
         className="fixed left-1/2 top-[20%] z-50 w-full max-w-lg -translate-x-1/2 flex flex-col overflow-hidden rounded-2xl shadow-2xl"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '60vh' }}

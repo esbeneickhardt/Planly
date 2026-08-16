@@ -115,7 +115,11 @@ function SortableMilestoneCard({
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
       className="w-full text-left rounded-xl px-4 py-3 transition-colors bg-surface-2 border border-border"
     >
-      <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={onToggleExpand}>
+      <button
+        type="button"
+        className="w-full flex items-start justify-between gap-2 text-left cursor-pointer"
+        onClick={onToggleExpand}
+      >
         <p
           className="text-sm font-medium leading-tight min-w-0"
           style={{
@@ -143,9 +147,9 @@ function SortableMilestoneCard({
             ▸
           </span>
         </div>
-      </div>
+      </button>
       {!isDone && (
-        <div className="mt-2 cursor-pointer" onClick={onToggleExpand}>
+        <button type="button" className="w-full mt-2 text-left cursor-pointer" onClick={onToggleExpand}>
           <div className="h-1.5 rounded-full overflow-hidden bg-border">
             <div
               className="h-full rounded-full transition-all"
@@ -155,7 +159,7 @@ function SortableMilestoneCard({
           <p className="text-[11px] mt-1 text-token-3">
             {m.doneDependencies}/{m.totalDependencies} tasks done
           </p>
-        </div>
+        </button>
       )}
       {expanded && (
         <div className="mt-2.5 pt-2.5 space-y-0.5" style={{ borderTop: '1px solid var(--border)' }}>
@@ -377,7 +381,11 @@ export default function GanttMobileList({
                     className="w-full text-left rounded-xl px-4 py-3 transition-colors bg-surface-2 border border-border"
                     style={{ borderLeft: `3px solid ${s.color}` }}
                   >
-                    <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => toggleExpand(s.id)}>
+                    <button
+                      type="button"
+                      className="w-full flex items-start justify-between gap-2 text-left cursor-pointer"
+                      onClick={() => toggleExpand(s.id)}
+                    >
                       <p className="text-sm font-medium leading-tight truncate min-w-0" style={{ color: 'var(--text)' }}>
                         {s.name}
                       </p>
@@ -387,7 +395,7 @@ export default function GanttMobileList({
                       >
                         ▸
                       </span>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-1 mt-1.5">
                       <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
                         {new Date(s.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} –{' '}

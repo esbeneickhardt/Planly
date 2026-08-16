@@ -94,6 +94,9 @@ export default function SettingsPage() {
   const loadTeam = useCallback(async () => {
     if (!activeProduct) return;
     setTeam(await api.teams.get(activeProduct.teamId));
+    // activeProduct: only `.id` drives this callback (a product's teamId doesn't change while its
+    // id stays the same); object identity changes on every context re-render regardless.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
   useEffect(() => {

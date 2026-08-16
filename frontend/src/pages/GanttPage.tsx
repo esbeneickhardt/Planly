@@ -171,6 +171,9 @@ export default function GanttPage() {
       const stored = localStorage.getItem(`planly-gantt-hideDone-${activeProduct.id}`);
       setHideDone(stored === null ? true : stored === 'true');
     } catch {}
+    // activeProduct: only `.id` drives this effect; object identity changes on every context
+    // re-render regardless of which product is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
   // Sorted per the user's manually-dragged order if one exists, else soonest-first with done pushed
@@ -232,6 +235,9 @@ export default function GanttPage() {
     } catch {
       setSidebarWidth(224);
     }
+    // activeProduct: only `.id` drives this effect; object identity changes on every context
+    // re-render regardless of which product is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
   function handleSidebarResizeMove(e: MouseEvent) {
@@ -1194,6 +1200,7 @@ export default function GanttPage() {
       </div>
 
       {/* Drag handle to resize the name column - spans the full header+body height */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- mouse-only drag-to-resize handle; there's no discrete click action to give a keyboard equivalent for */}
       <div
         onMouseDown={handleSidebarResizeStart}
         className="absolute top-0 bottom-0 cursor-col-resize z-20"
@@ -1250,6 +1257,7 @@ function SortableMilestoneRow({
   const isDone = m.status === 'done';
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- `attributes` (spread below) already gives this row role="button"/tabIndex from dnd-kit's useSortable; adding our own Enter/Space handler for onClick would conflict with dnd-kit's own keyboard drag-and-drop, which uses those same keys to lift/drop the row
     <div
       ref={setNodeRef}
       {...attributes}

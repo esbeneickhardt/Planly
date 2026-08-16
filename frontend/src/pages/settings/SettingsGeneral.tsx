@@ -71,6 +71,11 @@ export default function SettingsGeneral({
     cancelScheduledSave();
     setSavingProj(false);
     setJustSavedProj(false);
+    // activeProduct.name/emoji/description intentionally omitted: this effect exists to reset the
+    // form when SWITCHING products (id change), not when the current product's fields update (e.g.
+    // this same save flow calling refreshProducts()). Including them would overwrite in-progress
+    // edits whenever the active product's data refreshes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct.id, cancelScheduledSave]);
 
   async function toggleAnalytics() {
