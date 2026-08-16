@@ -304,6 +304,8 @@ If you set `ADMIN_EMAIL`, a shield icon button appears in the top bar (top-right
 
 > **No `ADMIN_EMAIL` set?** The first registered user does not automatically become admin. Set `ADMIN_EMAIL` in `.env`, restart the stack, and admin rights are granted on startup if the account already exists.
 
+By default, other users can see the list of projects you belong to on your profile card. To hide it, click your avatar (top-right) → **Privacy**, and turn off **Show my projects on my profile**. This only affects what other users see on your profile - it does not change your own access to anything.
+
 ---
 
 ## Step 5: Create a project and invite your team
@@ -312,6 +314,12 @@ If you set `ADMIN_EMAIL`, a shield icon button appears in the top bar (top-right
 2. Give the project a name, icon, and deadline.
 3. Open the project → **Settings** → **Team** → **Invite** to add team members by email or shareable link.
 4. Use **Settings** → **Permissions** to control which views each role can access.
+
+The project picker groups your projects by status: active projects are listed first, and any completed or archived projects collapse into a **Completed & archived (N)** section below them so they don't clutter the list - click it to expand.
+
+By default, any team member can find your project via search and add themselves. To turn that off, open **Settings** → **General** → **Project search visibility** and toggle it to **Hidden from project search** (owner-only).
+
+On the **Tasks** (Backlog) view, click the status pill on any row to change a task's status directly from the table, without opening the task.
 
 ---
 
