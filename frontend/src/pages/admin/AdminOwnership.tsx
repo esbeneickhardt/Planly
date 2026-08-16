@@ -24,7 +24,7 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
   const otherAdmins = users.filter((u) => u.isAdmin && u.id !== currentUserId);
 
   return (
-    <div className="space-y-6 max-w-xl">
+    <div className="space-y-6 max-w-xl mx-auto">
       <div
         className="p-5 rounded-xl space-y-3"
         style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}

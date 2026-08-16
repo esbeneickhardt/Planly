@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { MermaidBlock } from '../components/common/MermaidBlock';
+import { markdownComponents } from '../components/common/markdownComponents';
 import { api, displayName } from '../api/client';
 import type { AnnItem, AnnComment } from '../api/client';
 import type { Team } from '../types';
@@ -19,78 +19,6 @@ import type { RealtimeEvent } from '../context/ProductContext';
 import { useChat } from '../context/ChatContext';
 import { useConfirm } from '../context/ConfirmContext';
 import MarkdownEditor from '../components/common/MarkdownEditor';
-
-// ── Markdown renderer ──────────────────────────────────────────────────────────
-
-const MD = {
-  h1: ({ children }: any) => <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>{children}</h1>,
-  h2: ({ children }: any) => <h2 style={{ fontSize: 16, fontWeight: 600, margin: '12px 0 6px' }}>{children}</h2>,
-  h3: ({ children }: any) => <h3 style={{ fontSize: 14, fontWeight: 600, margin: '10px 0 4px' }}>{children}</h3>,
-  p: ({ children }: any) => <p style={{ margin: '0 0 8px', lineHeight: 1.7 }}>{children}</p>,
-  a: ({ children, href }: any) => (
-    <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
-      {children}
-    </a>
-  ),
-  ul: ({ children }: any) => <ul style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ul>,
-  ol: ({ children }: any) => <ol style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ol>,
-  li: ({ children }: any) => <li style={{ marginBottom: 3, lineHeight: 1.6 }}>{children}</li>,
-  table: ({ children }: any) => (
-    <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>{children}</table>
-    </div>
-  ),
-  th: ({ children }: any) => (
-    <th
-      style={{
-        border: '1px solid var(--border)',
-        padding: '4px 8px',
-        background: 'var(--surface)',
-        fontWeight: 600,
-        textAlign: 'left',
-      }}
-    >
-      {children}
-    </th>
-  ),
-  td: ({ children }: any) => <td style={{ border: '1px solid var(--border)', padding: '4px 8px' }}>{children}</td>,
-  blockquote: ({ children }: any) => (
-    <blockquote style={{ borderLeft: '3px solid var(--brand)', paddingLeft: 10, margin: '0 0 8px', opacity: 0.8 }}>
-      {children}
-    </blockquote>
-  ),
-  // pre is always transparent — code renderer owns the block wrapper to avoid double-pre
-  pre: ({ children }: any) => <>{children}</>,
-  code: ({ children, className }: any) => {
-    if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
-    // react-markdown appends a trailing \n to all fenced code content; inline code never contains \n
-    if (String(children).includes('\n'))
-      return (
-        <pre
-          style={{
-            background: 'var(--surface)',
-            borderRadius: 6,
-            padding: '8px 10px',
-            overflow: 'auto',
-            fontSize: 12,
-            margin: '0 0 8px',
-            whiteSpace: 'pre',
-          }}
-        >
-          <code className={className}>{children}</code>
-        </pre>
-      );
-    return (
-      <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>
-        {children}
-      </code>
-    );
-  },
-  img: ({ src, alt }: any) => (
-    <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: 6, margin: '4px 0' }} />
-  ),
-  hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />,
-};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -519,7 +447,7 @@ function AnnouncementCard({
               !expanded && overflows ? 'linear-gradient(to bottom, black 60%, transparent 100%)' : undefined,
           }}
         >
-          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MD}>
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
             {ann.content}
           </ReactMarkdown>
         </div>

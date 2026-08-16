@@ -222,7 +222,7 @@ export default function AdminIpRules({ showToast }: Props) {
   }, [load]);
 
   return (
-    <div className="space-y-10 max-w-xl">
+    <div className="space-y-10 max-w-xl mx-auto">
       <div>
         <h3 className="text-sm font-bold mb-4" style={{ color: 'var(--text)' }}>
           User access

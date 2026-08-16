@@ -3,7 +3,7 @@
  * against a zoomable, pannable timeline.  View state (zoom, pan, hide-done) is managed by
  * useGanttDragZoom and persisted to localStorage; drag-resize handles write deadline/date changes back to the API on pointer-up.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -173,6 +173,28 @@ export default function GanttPage() {
     } catch {}
   }, [activeProduct?.id]);
 
+  // Sorted per the user's manually-dragged order if one exists, else soonest-first with done pushed
+  // down. Memoized (split from the hideDone filter below into its own memo so toggling "hide done"
+  // alone doesn't force a re-sort) since useGanttDragZoom's pan/zoom updates viewStart/viewEnd on
+  // every pointermove/wheel tick, re-rendering this page far more often than `milestones` changes.
+  const sortedMilestones = useMemo(() => orderMilestones(milestones), [milestones]);
+  const visibleMilestones = useMemo(
+    () => (hideDone ? sortedMilestones.filter((m) => m.status !== 'done') : sortedMilestones),
+    [sortedMilestones, hideDone],
+  );
+
+  // Adaptive time-axis markers, recomputed only when the visible window's actual timestamps change.
+  // Keyed on primitive ms timestamps, not the vs/ve Date objects themselves - vs/ve fall back to a
+  // `fullStart`/`fullEnd` that useGanttDragZoom receives as a *new* Date instance on every render
+  // (see the `new Date(activeProduct?.createdAt ...)` passed into that hook above), so keying on the
+  // objects directly would recompute on every render even when nothing about the visible range
+  // actually changed - defeating the memo for exactly the case (unzoomed, pointer-tick-driven
+  // re-renders) this fix is for. The memo rebuilds fresh Date objects from those primitives (rather
+  // than closing over vs/ve directly) so its dependency array can list exactly what it reads.
+  const vsTime = vs.getTime();
+  const veTime = ve.getTime();
+  const markers = useMemo(() => getTimeMarkers(new Date(vsTime), new Date(veTime)), [vsTime, veTime]);
+
   // Persists a full reordering by assigning sequential milestoneOrder values and syncing to the
   // backend, so Gantt and Kanban (and every other milestone list) share one order regardless of
   // which page the drag happened on.
@@ -301,10 +323,6 @@ export default function GanttPage() {
   const fullEnd = new Date(product?.deadline ?? activeProduct.deadline);
   const today = new Date();
 
-  // Sorted per the user's manually-dragged order if one exists, else soonest-first with done pushed down
-  const sortedMilestones = orderMilestones(milestones);
-  const visibleMilestones = hideDone ? sortedMilestones.filter((m) => m.status !== 'done') : sortedMilestones;
-
   function handleMilestoneDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -319,7 +337,6 @@ export default function GanttPage() {
   const doneCount = milestones.filter((m) => m.status === 'done').length;
 
   const todayPct = pct(today, vs, ve);
-  const markers = getTimeMarkers(vs, ve);
   const isFullView = vs.getTime() <= fullStart.getTime() && ve.getTime() >= fullEnd.getTime();
   const ROW_H = 52;
 
