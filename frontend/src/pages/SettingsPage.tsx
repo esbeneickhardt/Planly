@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, displayName } from '../api/client';
+import { api } from '../api/client';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import { useAuth } from '../context/AuthContext';
@@ -146,37 +146,16 @@ export default function SettingsPage() {
   }
 
   const members = team?.members ?? [];
-  const ownerMember = members.find((m) => m.userId === activeProduct.ownerId);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-6 pt-6 flex-shrink-0">
-        <h1 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text)' }}>
-          {activeProduct.emoji && <span className="mr-2">{activeProduct.emoji}</span>}
-          {activeProduct.name} - Settings
-        </h1>
-        {ownerMember && (
-          <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-            Owner:{' '}
-            <span style={{ color: 'var(--text-2)' }}>
-              {ownerMember.user.avatarEmoji} {displayName(ownerMember.user)}
-            </span>
-            {isOwner && (
-              <span
-                className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium"
-                style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-              >
-                You
-              </span>
-            )}
-          </p>
-        )}
-      </div>
-      {/* Tab strip in its own scrollable row so it can overflow on narrow screens. The full-width
-          divider is desktop-only - on mobile the active tab's own short colored underline is
-          enough, and a full-width line under it just doubled up and looked dated. */}
-      <div className="flex-shrink-0 overflow-x-auto no-scrollbar md:border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex px-6 min-w-max">
+      {/* No title/owner header here - the top navbar already shows the active project and that
+          "Settings" is the current tab, so repeating both here was redundant. Tab strip in its own
+          scrollable row so it can overflow on narrow screens. The full-width divider is desktop-only
+          - on mobile the active tab's own short colored underline is enough, and a full-width line
+          under it just doubled up and looked dated. */}
+      <div className="flex-shrink-0 overflow-x-auto no-scrollbar md:border-b pt-4" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex justify-center px-6 min-w-max max-w-4xl mx-auto">
           {PAGE_TABS.map(({ key, label, danger }) => (
             <button
               key={key}

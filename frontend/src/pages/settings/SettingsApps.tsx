@@ -111,7 +111,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
   }, [isAdmin]);
 
   return (
-    <div className="max-w-2xl space-y-10">
+    <div className="max-w-2xl mx-auto space-y-10">
       {/* ── App registrations ── */}
       <div>
         <div className="flex items-center justify-between mb-1">

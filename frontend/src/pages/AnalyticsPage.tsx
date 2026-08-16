@@ -401,18 +401,9 @@ export default function AnalyticsPage() {
 
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden" style={{ background: 'var(--bg)' }}>
+      {/* No title/project header here - the top navbar already shows the active project and that
+          "Analytics" is the current tab, so repeating both here was redundant. */}
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6 min-w-0">
-        {/* Header */}
-        <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>
-            Analytics
-          </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>
-            {activeProduct.emoji && <span className="mr-1">{activeProduct.emoji}</span>}
-            {activeProduct.name}
-          </p>
-        </div>
-
         {loading && (
           <div className="flex items-center justify-center py-16">
             <div

@@ -1,3 +1,10 @@
+/**
+ * Admin Projects table listing every active project with owner/member/task counts, plus a
+ * status selector to mark a project completed or archived (both read-only lockdowns that
+ * revoke scoped API tokens/app registrations, confirmed before applying) or revert it to
+ * active. A collapsible "Deleted projects" section lists soft-deleted projects with a
+ * one-click restore and a hard-delete flow gated behind typing the project's exact name.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import { isBeforeToday } from '../../utils/dates';

@@ -1,12 +1,21 @@
+/**
+ * Member-facing "About" tab for the active project: renders its Markdown description
+ * (with Mermaid diagram support) and lists its members with role badges. Requires the
+ * viewer to already have a membership in `activeProduct` from ProductContext.
+ *
+ * Not to be confused with `ProjectAboutPage.tsx`, the separate public overview page at
+ * /project/:productId/about that does NOT require membership and is reached from the
+ * Discover Projects modal - the two pages render similar content but serve different
+ * audiences and are not interchangeable.
+ */
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { MermaidBlock } from '../components/common/MermaidBlock';
+import { markdownComponents } from '../components/common/markdownComponents';
 import UserProfileModal from '../components/common/UserProfileModal';
-import StatusPill from '../components/common/StatusPill';
+import ProjectHeader from '../components/common/ProjectHeader';
 import EmptyState from '../components/common/EmptyState';
-import { isBeforeToday } from '../utils/dates';
 import { useProduct } from '../context/ProductContext';
 import { usePermission } from '../context/PermissionContext';
 import { useNavigate } from 'react-router-dom';
@@ -17,74 +26,6 @@ const ROLE_STYLE: Record<string, { bg: string; color: string; border: string }> 
   owner: { bg: 'var(--brand-subtle)', color: 'var(--brand)', border: 'var(--brand)' },
   co_owner: { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6', border: 'rgba(139,92,246,0.3)' },
   member: { bg: 'var(--surface)', color: 'var(--text-3)', border: 'var(--border)' },
-};
-
-const MD = {
-  h1: ({ children }: any) => <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>{children}</h1>,
-  h2: ({ children }: any) => <h2 style={{ fontSize: 16, fontWeight: 600, margin: '12px 0 6px' }}>{children}</h2>,
-  h3: ({ children }: any) => <h3 style={{ fontSize: 14, fontWeight: 600, margin: '10px 0 4px' }}>{children}</h3>,
-  p: ({ children }: any) => <p style={{ margin: '0 0 8px', lineHeight: 1.7 }}>{children}</p>,
-  a: ({ children, href }: any) => (
-    <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
-      {children}
-    </a>
-  ),
-  ul: ({ children }: any) => <ul style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ul>,
-  ol: ({ children }: any) => <ol style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ol>,
-  li: ({ children }: any) => <li style={{ marginBottom: 3, lineHeight: 1.6 }}>{children}</li>,
-  table: ({ children }: any) => (
-    <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>{children}</table>
-    </div>
-  ),
-  th: ({ children }: any) => (
-    <th
-      style={{
-        border: '1px solid var(--border)',
-        padding: '4px 8px',
-        background: 'var(--surface)',
-        fontWeight: 600,
-        textAlign: 'left',
-      }}
-    >
-      {children}
-    </th>
-  ),
-  td: ({ children }: any) => <td style={{ border: '1px solid var(--border)', padding: '4px 8px' }}>{children}</td>,
-  blockquote: ({ children }: any) => (
-    <blockquote style={{ borderLeft: '3px solid var(--brand)', paddingLeft: 10, margin: '0 0 8px', opacity: 0.8 }}>
-      {children}
-    </blockquote>
-  ),
-  pre: ({ children }: any) => <>{children}</>,
-  code: ({ children, className }: any) => {
-    if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
-    if (String(children).includes('\n'))
-      return (
-        <pre
-          style={{
-            background: 'var(--surface)',
-            borderRadius: 6,
-            padding: '8px 10px',
-            overflow: 'auto',
-            fontSize: 12,
-            margin: '0 0 8px',
-            whiteSpace: 'pre',
-          }}
-        >
-          <code className={className}>{children}</code>
-        </pre>
-      );
-    return (
-      <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>
-        {children}
-      </code>
-    );
-  },
-  img: ({ src, alt }: any) => (
-    <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: 6, margin: '4px 0' }} />
-  ),
-  hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />,
 };
 
 export default function AboutPage() {
@@ -112,48 +53,28 @@ export default function AboutPage() {
     );
   }
 
-  const deadline = new Date(activeProduct.deadline);
-  const isOverdue = isBeforeToday(deadline);
-  const deadlineStr = deadline.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
+  const owner = members.find((m) => m.role === 'owner');
 
   return (
     <div className="h-full overflow-auto" style={{ background: 'var(--bg)' }}>
-      <div className="max-w-2xl mx-auto px-4 md:px-6 py-5 md:py-10 space-y-4 md:space-y-8">
-        {/* Hero */}
-        <div className="space-y-2">
-          <div className="flex items-start gap-4">
-            {activeProduct.emoji && <span className="text-5xl leading-none flex-shrink-0">{activeProduct.emoji}</span>}
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
-                {activeProduct.name}
-              </h1>
-            </div>
-          </div>
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-5 md:py-10 space-y-4">
+        {/* Shared header (ProjectHeader) - same component used on Settings and Analytics so all
+            three pages present the same project identity block. The navbar already shows the
+            active project and tab, so this only needs to carry info that's NOT already visible
+            in the chrome: owner and deadline. */}
+        <ProjectHeader
+          emoji={activeProduct.emoji}
+          name={activeProduct.name}
+          deadline={activeProduct.deadline}
+          status={activeProduct.status}
+          owner={owner?.user}
+        />
 
-          {/* A direct child of this space-y-2 wrapper, not nested inside the emoji-indented title
-              column - so it left-aligns with the tabs/box below instead of sitting pushed right
-              under the emoji. */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <StatusPill tone={isOverdue ? 'danger' : 'success'} size="pill">
-              {isOverdue ? 'Overdue · ' : 'Deadline · '}
-              {deadlineStr}
-            </StatusPill>
-            {activeProduct.status === 'completed' && (
-              <StatusPill tone="success" size="pill">
-                ✓ Completed
-              </StatusPill>
-            )}
-            {activeProduct.status === 'archived' && (
-              <StatusPill tone="neutral" size="pill">
-                📦 Archived
-              </StatusPill>
-            )}
-          </div>
-        </div>
-
-        {/* Tabs */}
+        {/* Tabs - width is intentionally fit-content (not a full-width flex row like the hero rows
+            above), so centering it means centering the fit-content BOX itself via mx-auto rather
+            than justify-content on its own children. */}
         <div
-          className="flex gap-1 p-1 rounded-xl"
+          className="flex gap-1 p-1 rounded-xl mx-auto"
           style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', width: 'fit-content' }}
         >
           {(['description', 'members'] as const).map((t) => (
@@ -177,7 +98,7 @@ export default function AboutPage() {
           <div className="rounded-xl p-4 md:p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
             {activeProduct.description ? (
               <div style={{ color: 'var(--text)', fontSize: 14 }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MD}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
                   {activeProduct.description}
                 </ReactMarkdown>
               </div>

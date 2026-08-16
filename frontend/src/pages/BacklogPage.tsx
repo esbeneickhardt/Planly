@@ -3,7 +3,7 @@
  * Filtering and sorting are delegated to the useBacklogFilters hook; this page handles create,
  * bulk-move-to-todo, and bulk-delete mutations via the API, refreshing the shared ProductContext after each.
  */
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useProduct } from '../context/ProductContext';
 import { useTheme } from '../context/ThemeContext';
@@ -1095,6 +1095,49 @@ function BacklogRow({
   const [showQuickMenu, setShowQuickMenu] = useState(false);
   const longPress = useLongPress(() => setShowQuickMenu(true));
 
+  // Desktop-friendly status dropdown on the Status cell itself - the long-press bottom sheet above
+  // (on the task name) covers mobile, but a long-press isn't a natural desktop/mouse gesture, and
+  // opening the full TaskDetailPanel just to flip a status was overkill for the common case.
+  // `position: fixed`, measured from the trigger button's own on-screen position (same pattern as
+  // MessageBubble's reaction picker), rather than `position: absolute` anchored to the row - this
+  // table can be long enough that a row near the bottom would otherwise have its dropdown clipped
+  // by the scroll container instead of just opening upward.
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const statusBtnRef = useRef<HTMLButtonElement>(null);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+  const [statusMenuStyle, setStatusMenuStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  useLayoutEffect(() => {
+    if (!showStatusMenu) return;
+    const btn = statusBtnRef.current;
+    if (!btn) return;
+    const btnRect = btn.getBoundingClientRect();
+    const menuRect = statusMenuRef.current?.getBoundingClientRect();
+    const menuHeight = menuRect?.height ?? 220;
+    const menuWidth = menuRect?.width ?? 170;
+    const margin = 4;
+    let top = btnRect.bottom + margin;
+    if (top + menuHeight > window.innerHeight - margin) {
+      top = Math.max(margin, btnRect.top - menuHeight - margin);
+    }
+    const left = Math.max(margin, Math.min(btnRect.left, window.innerWidth - menuWidth - margin));
+    setStatusMenuStyle({ position: 'fixed', top, left, zIndex: 50 });
+  }, [showStatusMenu]);
+  useEffect(() => {
+    if (!showStatusMenu) return;
+    function onDown(e: MouseEvent) {
+      if (
+        statusMenuRef.current &&
+        !statusMenuRef.current.contains(e.target as Node) &&
+        statusBtnRef.current &&
+        !statusBtnRef.current.contains(e.target as Node)
+      ) {
+        setShowStatusMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showStatusMenu]);
+
   return (
     <tr
       style={{
@@ -1151,10 +1194,62 @@ function BacklogRow({
         </div>
       </td>
       <td className="px-4 py-3">
-        <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
-          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
-          <span style={{ color: 'var(--text-2)' }}>{STATUS_LABELS[task.status] ?? task.status}</span>
-        </span>
+        {onQuickStatusChange ? (
+          <>
+            <button
+              ref={statusBtnRef}
+              onClick={() => setShowStatusMenu((v) => !v)}
+              className="flex items-center gap-1.5 text-xs whitespace-nowrap px-2 py-1 -mx-2 -my-1 rounded-lg transition-colors"
+              style={{ color: 'var(--text-2)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+              <span>{STATUS_LABELS[task.status] ?? task.status}</span>
+              <span className="text-[9px]" style={{ color: 'var(--text-3)' }}>
+                ▾
+              </span>
+            </button>
+            {showStatusMenu && (
+              <div
+                ref={statusMenuRef}
+                className="rounded-xl shadow-xl overflow-hidden animate-dropdown-in"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 170, ...statusMenuStyle }}
+              >
+                {STATUS_TABS.filter((t) => t.key !== 'all').map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => {
+                      onQuickStatusChange(t.key);
+                      setShowStatusMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors"
+                    style={{
+                      color: t.key === task.status ? t.color : 'var(--text)',
+                      background: t.key === task.status ? `${t.color}14` : 'transparent',
+                      fontWeight: t.key === task.status ? 600 : 400,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (t.key !== task.status) e.currentTarget.style.background = 'var(--surface-2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (t.key !== task.status) e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.color }} />
+                    <span className="flex-1">{t.label}</span>
+                    {t.key === task.status && <span>✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+            <span style={{ color: 'var(--text-2)' }}>{STATUS_LABELS[task.status] ?? task.status}</span>
+          </span>
+        )}
       </td>
       <td className="px-4 py-3">
         {task.owner ? (
