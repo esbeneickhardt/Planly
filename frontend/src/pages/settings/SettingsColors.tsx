@@ -13,7 +13,7 @@ export default function SettingsColors({ productId }: Props) {
   const { legend, update: updateLegend, toggleEnabled, enabledColors } = useColorLegend(productId);
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-lg mx-auto">
       <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
         Color labels
       </h2>

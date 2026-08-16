@@ -190,7 +190,7 @@ export default function SettingsTeam({
   const totalRows = members.length + pendingInvites.length;
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="max-w-2xl mx-auto space-y-8">
       {/* Invite member */}
       <div>
         <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>

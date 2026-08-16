@@ -11,6 +11,7 @@ import type { Product, TeamMember, User } from '../../types';
 import EmojiPicker from '../../components/common/EmojiPicker';
 import MarkdownEditor, { type MarkdownEditorHandle } from '../../components/common/MarkdownEditor';
 import SaveStatus from '../../components/common/SaveStatus';
+import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 
 type ProjectFields = { name: string; emoji: string; description: string };
 
@@ -42,14 +43,24 @@ export default function SettingsGeneral({
   const [projDesc, setProjDesc] = useState(activeProduct.description ?? '');
   const [savingProj, setSavingProj] = useState(false);
   const [justSavedProj, setJustSavedProj] = useState(false);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const savedIndicatorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const descEditorRef = useRef<MarkdownEditorHandle>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [togglingAnalytics, setTogglingAnalytics] = useState(false);
+  const [togglingDiscoverable, setTogglingDiscoverable] = useState(false);
   const [transferTo, setTransferTo] = useState('');
   const [transferring, setTransferring] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+
+  // Debounced autosave (800ms after the last edit) - see scheduleSave's 4 call sites below.
+  // saveProjectDetails is defined further down; referencing it here is fine since this wrapper is
+  // only ever called later (after the full render), not during this render itself.
+  const [scheduleSave, cancelScheduledSave] = useDebouncedCallback(
+    (next: ProjectFields) => saveProjectDetails(next),
+    800,
+  );
+  // "Just saved" checkmark auto-hides after 2s - same debounce mechanics as the save itself, so a
+  // second save shortly after the first restarts the 2s window instead of stacking a duplicate hide.
+  const [scheduleHideIndicator] = useDebouncedCallback(() => setJustSavedProj(false), 2000);
 
   // Reset local form state when the active product changes so stale values don't leak across
   // products, and drop any pending debounced save from the product we just navigated away from.
@@ -57,18 +68,10 @@ export default function SettingsGeneral({
     setProjName(activeProduct.name);
     setProjEmoji(activeProduct.emoji ?? '');
     setProjDesc(activeProduct.description ?? '');
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    cancelScheduledSave();
     setSavingProj(false);
     setJustSavedProj(false);
-  }, [activeProduct.id]);
-
-  useEffect(
-    () => () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      if (savedIndicatorRef.current) clearTimeout(savedIndicatorRef.current);
-    },
-    [],
-  );
+  }, [activeProduct.id, cancelScheduledSave]);
 
   async function toggleAnalytics() {
     setTogglingAnalytics(true);
@@ -82,12 +85,21 @@ export default function SettingsGeneral({
     }
   }
 
+  async function toggleDiscoverable() {
+    setTogglingDiscoverable(true);
+    try {
+      await api.products.update(activeProduct.id, { discoverable: !activeProduct.discoverable });
+      await refreshProducts();
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setTogglingDiscoverable(false);
+    }
+  }
+
   async function saveProjectDetails(next: ProjectFields) {
     if (!next.name.trim()) return;
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
+    cancelScheduledSave();
     setSavingProj(true);
     try {
       await api.products.update(activeProduct.id, {
@@ -97,20 +109,12 @@ export default function SettingsGeneral({
       });
       await refreshProducts();
       setJustSavedProj(true);
-      if (savedIndicatorRef.current) clearTimeout(savedIndicatorRef.current);
-      savedIndicatorRef.current = setTimeout(() => setJustSavedProj(false), 2000);
+      scheduleHideIndicator();
     } catch (err) {
       showToast((err as Error).message, 'error');
     } finally {
       setSavingProj(false);
     }
-  }
-
-  // Only ever called from a user edit below (never on mount/product-switch), so this can't race
-  // the reset-on-product-change effect above.
-  function scheduleSave(next: ProjectFields) {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => saveProjectDetails(next), 800);
   }
 
   // Keep refs to the latest field values and save function so Cmd/Ctrl+Enter can flush a save
@@ -172,7 +176,7 @@ export default function SettingsGeneral({
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="max-w-2xl mx-auto space-y-8">
       {/* Project details */}
       {canManage && (
         <div>
@@ -275,6 +279,33 @@ export default function SettingsGeneral({
                 : activeProduct.analyticsEnabled
                   ? 'Analytics enabled (visible to all members)'
                   : 'Analytics disabled (hidden from team)'}
+            </button>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
+              Project search visibility
+            </h2>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
+              When on, other users can find this project in "Find projects" and request access. Turn it off to keep
+              this project invisible to search - existing members are unaffected either way.
+            </p>
+            <button
+              onClick={toggleDiscoverable}
+              disabled={togglingDiscoverable}
+              className="flex items-center gap-2 h-8 px-4 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: activeProduct.discoverable ? 'rgba(16,185,129,0.12)' : 'var(--surface-2)',
+                color: activeProduct.discoverable ? '#10b981' : 'var(--text-3)',
+                border: `1px solid ${activeProduct.discoverable ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
+              }}
+            >
+              <span>{activeProduct.discoverable ? '✓' : '○'}</span>
+              {togglingDiscoverable
+                ? 'Saving…'
+                : activeProduct.discoverable
+                  ? 'Visible in project search'
+                  : 'Hidden from project search'}
             </button>
           </div>
 

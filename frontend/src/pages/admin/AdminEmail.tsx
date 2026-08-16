@@ -73,7 +73,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
   }
 
   return (
-    <div className="space-y-6 max-w-xl">
+    <div className="space-y-6 max-w-xl mx-auto">
       {/* Status banner */}
       <div
         className="p-4 rounded-xl flex items-center gap-3 flex-wrap shadow-sm"

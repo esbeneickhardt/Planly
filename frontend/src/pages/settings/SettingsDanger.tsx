@@ -73,7 +73,7 @@ export default function SettingsDanger({
   }
 
   return (
-    <div className="max-w-lg space-y-4">
+    <div className="max-w-lg mx-auto space-y-4">
       <div
         className="p-4 rounded-xl"
         style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}
