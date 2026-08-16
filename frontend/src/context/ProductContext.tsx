@@ -3,11 +3,12 @@
  * `patchTaskPositions` updates canvas coordinates in the local cache without an API round-trip.
  * Subscribes to WebSocket task events via `useRealtimeUpdates` and resets tasks when the active product changes.
  */
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { api } from '../api/client';
 import type { Product, Task } from '../types';
 import { useAuth } from './AuthContext';
 import { useRealtimeUpdates } from '../hooks/useRealtimeUpdates';
+import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 
 export interface RealtimeEvent {
   event: string;
@@ -117,26 +118,12 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Debounced refreshTasks for API-sourced events (300ms): bulk imports collapse into one fetch.
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshTasksDebounced = useCallback(() => {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      refreshTasks();
-      debounceTimerRef.current = null;
-    }, 300);
-  }, [refreshTasks]);
+  const [refreshTasksDebounced] = useDebouncedCallback(refreshTasks, 300);
 
   // Debounced refreshTasks for browser-sourced events (80ms): fast enough to feel instant for a
   // single action, but collapses parallel bulk-update WS events into one fetch so the UI doesn't
   // freeze when the user bulk-assigns status/owner across many tasks at once.
-  const debounceQuickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshTasksQuick = useCallback(() => {
-    if (debounceQuickTimerRef.current) clearTimeout(debounceQuickTimerRef.current);
-    debounceQuickTimerRef.current = setTimeout(() => {
-      refreshTasks();
-      debounceQuickTimerRef.current = null;
-    }, 80);
-  }, [refreshTasks]);
+  const [refreshTasksQuick] = useDebouncedCallback(refreshTasks, 80);
 
   // Realtime: refresh task list on task events and on reconnect (to catch up on missed broadcasts).
   // Both paths are debounced — API events at 300ms (import floods), browser events at 80ms
@@ -179,58 +166,79 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     else setTasks([]);
   }, [activeProduct, refreshTasks]);
 
-  // Actions
-  function setActiveProduct(p: Product) {
-    if (activeProduct?.id === p.id) return;
-    localStorage.setItem(STORAGE_KEY, p.id);
-    setActiveProductState(p);
-    setTasks([]);
-    setTasksLoaded(false);
-  }
-
-  async function createProduct(data: { name: string; emoji?: string; description?: string; deadline: string }) {
-    const team = await api.teams.create({ name: `${data.name} Team` });
-    const product = await api.products.create({ ...data, teamId: team.id });
-    await refreshProducts();
-    localStorage.setItem(STORAGE_KEY, product.id);
-    setActiveProductState(product);
-    return product;
-  }
-
-  async function createTask(data: {
-    name: string;
-    description?: string;
-    ownerId?: string;
-    color?: string;
-    deadline?: string;
-  }) {
-    if (!activeProduct) throw new Error('No active product');
-    const task = await api.tasks.create(activeProduct.id, data);
-    await refreshTasks();
-    return task;
-  }
-
-  return (
-    <ProductContext.Provider
-      value={{
-        products,
-        activeProduct,
-        productsLoaded,
-        tasks,
-        tasksLoaded,
-        setActiveProduct,
-        refreshTasks,
-        refreshProducts,
-        createProduct,
-        createTask,
-        patchTaskPositions,
-        patchMilestoneOrder,
-        addRealtimeListener,
-      }}
-    >
-      {children}
-    </ProductContext.Provider>
+  // Actions - wrapped in useCallback (rather than plain function declarations) so the memoized
+  // value below only builds a new object when a field it actually contains has changed, not on
+  // every render (this context re-renders often: debounced WS task updates land via `tasks`).
+  const setActiveProduct = useCallback(
+    (p: Product) => {
+      if (activeProduct?.id === p.id) return;
+      localStorage.setItem(STORAGE_KEY, p.id);
+      setActiveProductState(p);
+      setTasks([]);
+      setTasksLoaded(false);
+    },
+    [activeProduct],
   );
+
+  const createProduct = useCallback(
+    async (data: { name: string; emoji?: string; description?: string; deadline: string }) => {
+      const team = await api.teams.create({ name: `${data.name} Team` });
+      const product = await api.products.create({ ...data, teamId: team.id });
+      await refreshProducts();
+      localStorage.setItem(STORAGE_KEY, product.id);
+      setActiveProductState(product);
+      return product;
+    },
+    [refreshProducts],
+  );
+
+  const createTask = useCallback(
+    async (data: { name: string; description?: string; ownerId?: string; color?: string; deadline?: string }) => {
+      if (!activeProduct) throw new Error('No active product');
+      const task = await api.tasks.create(activeProduct.id, data);
+      await refreshTasks();
+      return task;
+    },
+    [activeProduct, refreshTasks],
+  );
+
+  // Memoized so consumers only re-render when a field they actually read changes, instead of on
+  // every ProductProvider render - see file header. `products`/`tasks` are the fields most likely
+  // to actually change per render (WS-driven), everything else is comparatively stable.
+  const value = useMemo(
+    () => ({
+      products,
+      activeProduct,
+      productsLoaded,
+      tasks,
+      tasksLoaded,
+      setActiveProduct,
+      refreshTasks,
+      refreshProducts,
+      createProduct,
+      createTask,
+      patchTaskPositions,
+      patchMilestoneOrder,
+      addRealtimeListener,
+    }),
+    [
+      products,
+      activeProduct,
+      productsLoaded,
+      tasks,
+      tasksLoaded,
+      setActiveProduct,
+      refreshTasks,
+      refreshProducts,
+      createProduct,
+      createTask,
+      patchTaskPositions,
+      patchMilestoneOrder,
+      addRealtimeListener,
+    ],
+  );
+
+  return <ProductContext.Provider value={value}>{children}</ProductContext.Provider>;
 }
 
 export function useProduct() {

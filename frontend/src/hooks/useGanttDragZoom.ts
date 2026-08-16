@@ -1,9 +1,11 @@
 /**
  * Handles three interaction types on the Gantt timeline: pointer-drag pan, wheel zoom, and edge-handle resize.
  * `viewRef` is updated synchronously on every render and inside wheel/pointer callbacks so closures always read the latest view window.
- * `attachWheel` stamps a `_wheelAttached` flag on the element to prevent duplicate non-passive wheel listeners.
+ * `attachWheel` is a stable (useCallback) ref callback that wires up a real, non-passive `wheel`
+ * listener (React's synthetic onWheel can't preventDefault) exactly once per mounted element, and
+ * removes it via `wheelCleanupRef` when the element unmounts.
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 type ResizeType = 'milestone' | 'sprint' | 'sprint-start' | 'product';
 
@@ -72,70 +74,77 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
     setViewEnd(new Date(newEnd));
   }
 
-  // Wheel: horizontal scroll pans the view; vertical scroll zooms anchored to the mouse position
-  const attachWheel = (el: HTMLDivElement | null) => {
-    if (!el) return;
-    if ((el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached) return;
-    (el as HTMLDivElement & { _wheelAttached?: boolean })._wheelAttached = true;
-    el.addEventListener(
-      'wheel',
-      (e: WheelEvent) => {
-        e.preventDefault();
-        const { vs: v, ve: en, fullStart: fs, fullEnd: fe } = viewRef.current;
-        const rect = el.getBoundingClientRect();
-        const span = en.getTime() - v.getTime();
-        const maxSpan = fe.getTime() - fs.getTime();
+  // Wheel: horizontal scroll pans the view; vertical scroll zooms anchored to the mouse position.
+  // `attachWheel` is stabilized via useCallback (empty deps - the handler only ever reads from
+  // viewRef, never from render-scoped values) so React calls it with the element exactly once on
+  // mount and with `null` exactly once on unmount, instead of tearing down and reattaching on every
+  // render the way a fresh-every-render ref callback would. `wheelCleanupRef` remembers how to
+  // detach the specific listener that was attached, so the `null` branch can actually remove it -
+  // matching every other addEventListener site in this codebase (e.g. Modal.tsx's keydown listener).
+  const wheelCleanupRef = useRef<(() => void) | null>(null);
+  const attachWheel = useCallback((el: HTMLDivElement | null) => {
+    if (!el) {
+      wheelCleanupRef.current?.();
+      wheelCleanupRef.current = null;
+      return;
+    }
+    function handleWheel(e: WheelEvent) {
+      e.preventDefault();
+      const { vs: v, ve: en, fullStart: fs, fullEnd: fe } = viewRef.current;
+      const rect = el!.getBoundingClientRect();
+      const span = en.getTime() - v.getTime();
+      const maxSpan = fe.getTime() - fs.getTime();
 
-        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-          const deltaMs = (e.deltaX / rect.width) * span * 1.5;
-          let newStart = v.getTime() + deltaMs;
-          let newEnd = en.getTime() + deltaMs;
-          if (newStart < fs.getTime()) {
-            newStart = fs.getTime();
-            newEnd = fs.getTime() + span;
-          }
-          if (newEnd > fe.getTime()) {
-            newEnd = fe.getTime();
-            newStart = Math.max(fs.getTime(), fe.getTime() - span);
-          }
-          viewRef.current.vs = new Date(newStart);
-          viewRef.current.ve = new Date(newEnd);
-          setViewStart(new Date(newStart));
-          setViewEnd(new Date(newEnd));
-          return;
-        }
-
-        const mouseRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        const factor = e.deltaY > 0 ? 1.25 : 0.8;
-        const newSpan = span * factor;
-        const minSpan = 3 * 86_400_000;
-        if (newSpan < minSpan) return;
-        if (newSpan >= maxSpan) {
-          viewRef.current.vs = fs;
-          viewRef.current.ve = fe;
-          setViewStart(new Date(fs));
-          setViewEnd(new Date(fe));
-          return;
-        }
-        const anchor = v.getTime() + mouseRatio * span;
-        let newStart = anchor - mouseRatio * newSpan;
-        let newEnd = anchor + (1 - mouseRatio) * newSpan;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        const deltaMs = (e.deltaX / rect.width) * span * 1.5;
+        let newStart = v.getTime() + deltaMs;
+        let newEnd = en.getTime() + deltaMs;
         if (newStart < fs.getTime()) {
           newStart = fs.getTime();
-          newEnd = fs.getTime() + newSpan;
+          newEnd = fs.getTime() + span;
         }
         if (newEnd > fe.getTime()) {
           newEnd = fe.getTime();
-          newStart = Math.max(fs.getTime(), fe.getTime() - newSpan);
+          newStart = Math.max(fs.getTime(), fe.getTime() - span);
         }
         viewRef.current.vs = new Date(newStart);
         viewRef.current.ve = new Date(newEnd);
         setViewStart(new Date(newStart));
         setViewEnd(new Date(newEnd));
-      },
-      { passive: false },
-    );
-  };
+        return;
+      }
+
+      const mouseRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const factor = e.deltaY > 0 ? 1.25 : 0.8;
+      const newSpan = span * factor;
+      const minSpan = 3 * 86_400_000;
+      if (newSpan < minSpan) return;
+      if (newSpan >= maxSpan) {
+        viewRef.current.vs = fs;
+        viewRef.current.ve = fe;
+        setViewStart(new Date(fs));
+        setViewEnd(new Date(fe));
+        return;
+      }
+      const anchor = v.getTime() + mouseRatio * span;
+      let newStart = anchor - mouseRatio * newSpan;
+      let newEnd = anchor + (1 - mouseRatio) * newSpan;
+      if (newStart < fs.getTime()) {
+        newStart = fs.getTime();
+        newEnd = fs.getTime() + newSpan;
+      }
+      if (newEnd > fe.getTime()) {
+        newEnd = fe.getTime();
+        newStart = Math.max(fs.getTime(), fe.getTime() - newSpan);
+      }
+      viewRef.current.vs = new Date(newStart);
+      viewRef.current.ve = new Date(newEnd);
+      setViewStart(new Date(newStart));
+      setViewEnd(new Date(newEnd));
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    wheelCleanupRef.current = () => el.removeEventListener('wheel', handleWheel);
+  }, []);
 
   // Pointer handlers: distinguish resize (data-resize element) from pan (empty area)
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
