@@ -13,6 +13,7 @@ import { logAdminEvent } from '../../utils/audit';
 import prisma from '../../db/client';
 import { decryptMessageAuthor } from '../../utils/crypto';
 import { broadcast } from '../../realtime/manager';
+import { validate } from '../../utils/validate';
 
 // Author fields included in admin-proxied project chat messages
 const ADMIN_MSG_AUTHOR_SELECT = {
@@ -30,6 +31,8 @@ const adminMsgSendSchema = z.object({
   content: z.string().min(1).max(10000),
   postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
 });
+// Payload for the admin project-status override endpoint
+const productStatusSchema = z.object({ status: z.enum(['active', 'completed', 'archived']) });
 
 export async function adminStatsRoutes(app: FastifyInstance) {
   // List all active projects with owner details, member count, and task count for the admin dashboard
@@ -77,14 +80,8 @@ export async function adminStatsRoutes(app: FastifyInstance) {
   // project list is very often not a member of the project's own team at all.
   app.patch('/api/admin/products/:id/status', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const body = (() => {
-      try {
-        return z.object({ status: z.enum(['active', 'completed', 'archived']) }).parse(req.body);
-      } catch {
-        return null;
-      }
-    })();
-    if (!body) return reply.status(400).send({ error: 'Invalid body' });
+    const body = validate(productStatusSchema, req.body, reply);
+    if (!body) return;
     const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     await prisma.product.update({ where: { id }, data: { status: body.status } });
@@ -97,7 +94,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
         : 0;
 
     logAdminEvent('PRODUCT_STATUS_CHANGED', {
-      actorName: (req as any).user?.username,
+      actorName: req.user.username,
       targetName: product.name,
       metadata: { productId: id, status: body.status, revokedTokens: revoked },
     });
@@ -143,7 +140,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     if (!product.deletedAt) return reply.status(409).send({ error: 'Project is not deleted' });
     await prisma.product.update({ where: { id }, data: { deletedAt: null } });
     logAdminEvent('PRODUCT_RESTORED', {
-      actorName: (req as any).user?.username,
+      actorName: req.user.username,
       targetName: product.name,
       metadata: { productId: id },
     });
@@ -159,7 +156,7 @@ export async function adminStatsRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: 'Project must be soft-deleted before it can be permanently removed' });
     await prisma.product.delete({ where: { id } });
     logAdminEvent('PRODUCT_HARD_DELETED', {
-      actorName: (req as any).user?.username,
+      actorName: req.user.username,
       targetName: product.name,
       metadata: { productId: id },
     });
@@ -182,23 +179,29 @@ export async function adminStatsRoutes(app: FastifyInstance) {
   // Admin can post into any project chat
   app.post('/api/admin/products/:id/messages', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const body = (() => {
-      try {
-        return adminMsgSendSchema.parse(req.body);
-      } catch {
-        return null;
-      }
-    })();
-    if (!body) return reply.status(400).send({ error: 'Invalid body' });
+    const body = validate(adminMsgSendSchema, req.body, reply);
+    if (!body) return;
     const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    const sender = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      select: { isAdmin: true, isFoundingAdmin: true },
-    });
+    const [sender, coOwnerMembership] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { isAdmin: true, isFoundingAdmin: true },
+      }),
+      // Co-ownership is a team-level TeamRole (see product-guard.ts), so check it against the
+      // team that owns this specific project - needed for the Project Co-Owner claim below.
+      prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId: product.teamId, userId: req.user.userId } },
+      }),
+    ]);
     let postedAsRole: string | null = body.postedAsRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
+    // An admin proxy-posting into a project's chat can only claim Project Owner/Co-Owner if
+    // they genuinely hold that role on THIS specific project - being a server admin does not
+    // imply either.
+    if (postedAsRole === 'Project Owner' && product.ownerId !== req.user.userId) postedAsRole = null;
+    if (postedAsRole === 'Project Co-Owner' && coOwnerMembership?.role !== 'co_owner') postedAsRole = null;
     const msg = await prisma.message.create({
       data: {
         productId: id,

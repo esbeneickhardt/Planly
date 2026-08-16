@@ -8,10 +8,11 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../../db/client';
 import { requireAuth } from '../../middleware/auth';
-import { requireProductMember, requireTabWrite } from '../../utils/product-guard';
+import { requireTabWrite } from '../../utils/product-guard';
 import { z } from 'zod';
 import { validate } from '../../utils/validate';
 import { TASK_WHERE_ACTIVE } from './crud';
+import { handleNotFound } from '../../utils/prisma-errors';
 
 // Validates the subtask name on creation
 const createSubtaskSchema = z.object({ name: z.string().min(1).max(200) });
@@ -26,7 +27,8 @@ export async function subtaskRoutes(app: FastifyInstance) {
   // Add a subtask to a task; new subtask is appended at the end (order = current count)
   app.post('/api/products/:productId/tasks/:taskId/subtasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    // requireTabWrite already re-verifies membership internally (see product-guard.ts), so a
+    // preceding requireProductMember call would be pure overhead.
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
     const stBody = validate(createSubtaskSchema, req.body, reply);
     if (!stBody) return;
@@ -46,7 +48,6 @@ export async function subtaskRoutes(app: FastifyInstance) {
     { preHandler: requireAuth },
     async (req, reply) => {
       const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
-      if (!(await requireProductMember(productId, req.user, reply))) return;
       if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
       const updateStBody = validate(updateSubtaskSchema, req.body, reply);
       if (!updateStBody) return;
@@ -66,8 +67,8 @@ export async function subtaskRoutes(app: FastifyInstance) {
           data: { name: name?.trim(), completed, order, ...completedFields },
         });
         reply.send(subtask);
-      } catch {
-        reply.status(404).send({ error: 'Not found' });
+      } catch (e) {
+        handleNotFound(e, reply);
       }
     },
   );
@@ -78,13 +79,12 @@ export async function subtaskRoutes(app: FastifyInstance) {
     { preHandler: requireAuth },
     async (req, reply) => {
       const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
-      if (!(await requireProductMember(productId, req.user, reply))) return;
       if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
       try {
         await prisma.subtask.delete({ where: { id: subtaskId, taskId } });
         reply.send({ ok: true });
-      } catch {
-        reply.status(404).send({ error: 'Not found' });
+      } catch (e) {
+        handleNotFound(e, reply);
       }
     },
   );

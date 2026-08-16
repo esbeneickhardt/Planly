@@ -10,8 +10,12 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember } from '../utils/product-guard';
+import { requireTabRead, requireTabWrite } from '../utils/product-guard';
 import { validate } from '../utils/validate';
+
+// Canvas snapshots are governed by the 'canvas' tab, same as connections.ts (Canvas edges) -
+// see product-guard.ts's requireTabRead/requireTabWrite for the underlying permission model.
+const CANVAS_TAB = ['canvas'];
 
 // Rejects Infinity/NaN so canvas coordinates can be safely stored and rendered
 const finiteNumber = z.number().finite();
@@ -45,7 +49,9 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
   // List all canvas snapshots for a project
   app.get('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    // requireTabRead already re-verifies membership internally (see product-guard.ts), so a
+    // preceding requireProductMember call would be pure overhead - matches columns.ts's pattern.
+    if (!(await requireTabRead(productId, req.user, CANVAS_TAB, reply))) return;
     const snapshots = await prisma.canvasSnapshot.findMany({
       where: { productId },
       include: { user: { select: { id: true, username: true, avatarEmoji: true } } },
@@ -57,7 +63,16 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
   // Save a new canvas snapshot (positions + viewport)
   app.post('/api/products/:productId/canvas-snapshots', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    if (!(await requireTabWrite(productId, req.user, CANVAS_TAB, reply))) return;
+
+    // Enforce max snapshot limit per project (mirrors the per-project/per-user caps used
+    // elsewhere - webhooks: 20, API tokens: 25, subtasks: 500 per task).
+    const snapshotCount = await prisma.canvasSnapshot.count({ where: { productId } });
+    if (snapshotCount >= 50)
+      return reply
+        .status(400)
+        .send({ error: 'Maximum 50 canvas snapshots allowed per project. Delete an existing snapshot first.' });
+
     const body = validate(createSnapshotSchema, req.body, reply);
     if (!body) return;
     const { name, positions, viewport } = body;
@@ -75,7 +90,7 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     { preHandler: requireAuth },
     async (req, reply) => {
       const { productId, snapshotId } = req.params as { productId: string; snapshotId: string };
-      if (!(await requireProductMember(productId, req.user, reply))) return;
+      if (!(await requireTabWrite(productId, req.user, CANVAS_TAB, reply))) return;
       const snap = await prisma.canvasSnapshot.findFirst({ where: { id: snapshotId, productId } });
       if (!snap) return reply.status(404).send({ error: 'Not found' });
       if (snap.userId !== req.user.userId) return reply.status(403).send({ error: 'Not your snapshot' });
@@ -96,7 +111,7 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     { preHandler: requireAuth },
     async (req, reply) => {
       const { productId, snapshotId } = req.params as { productId: string; snapshotId: string };
-      if (!(await requireProductMember(productId, req.user, reply))) return;
+      if (!(await requireTabWrite(productId, req.user, CANVAS_TAB, reply))) return;
       const snap = await prisma.canvasSnapshot.findFirst({ where: { id: snapshotId, productId } });
       if (!snap) return reply.status(404).send({ error: 'Not found' });
       if (snap.userId !== req.user.userId) return reply.status(403).send({ error: 'Not your snapshot' });

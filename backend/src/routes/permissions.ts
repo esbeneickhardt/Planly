@@ -81,16 +81,15 @@ export async function permissionRoutes(app: FastifyInstance) {
     const updates = validate(permissionUpdateSchema, req.body, reply);
     if (!updates) return;
 
-    // Load product and verify the caller is owner or co-owner
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
+    // Verify the caller is owner or co-owner
+    if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
+
+    // Load product's team members to validate the target users below
+    const product = await prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
       include: { team: { include: { members: true } } },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    // product.team.members is already scoped to this product's team via the Prisma query above
-    const myMembership = product.team.members.find((m) => m.userId === req.user.userId);
-    const canManage = product.ownerId === req.user.userId || myMembership?.role === 'co_owner';
-    if (!canManage) return reply.status(403).send({ error: 'Forbidden' });
 
     // Reject any target user who is not a member of this project's team
     const memberUserIds = new Set(product.team.members.map((m) => m.userId));

@@ -1,17 +1,18 @@
 /**
  * Task CRUD routes - list, create, read, update, soft-delete, bulk reorder, and canvas position.
- * All mutations go through requireProductMember and requireTabWrite guards. Owner and reviewer
- * assignments are validated to be project members before writing. Status transitions to 'done'
- * automatically record completedBy/completedAt; reverting from 'done' clears those fields.
+ * All routes go through requireTabRead/requireTabWrite guards, which re-verify project membership
+ * internally (see product-guard.ts) - no separate membership check is needed on top. Owner and
+ * reviewer assignments are validated to be project members before writing. Status transitions to
+ * 'done' automatically record completedBy/completedAt; reverting from 'done' clears those fields.
  */
 
 import { FastifyInstance } from 'fastify';
 import prisma from '../../db/client';
 import { requireAuth } from '../../middleware/auth';
-import { requireProductMember, requireTabRead, requireTabWrite } from '../../utils/product-guard';
-import { dispatchWebhooks } from '../../utils/webhook-dispatch';
+import { requireTabRead, requireTabWrite } from '../../utils/product-guard';
+import { dispatchWebhooks, dispatchWebhooksBatch } from '../../utils/webhook-dispatch';
 import { createNotification } from '../../utils/notifications';
-import { logActivity } from '../../utils/activity';
+import { logActivity, logActivityBatch } from '../../utils/activity';
 import { logger } from '../../utils/logger';
 import { broadcast } from '../../realtime/manager';
 import { z } from 'zod';
@@ -62,7 +63,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // List all active tasks for a project, cursor-paginated by creation time (max 500 per page)
   app.get('/api/products/:productId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabRead(productId, req.user, ['kanban', 'backlog'], reply))) return;
 
     const { cursor, limit = '500' } = req.query as { cursor?: string; limit?: string };
@@ -80,7 +80,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // Bulk-update kanban sort positions in one transaction; must be registered before /:taskId to avoid route conflict
   app.patch('/api/products/:productId/tasks/reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
     const reorderBody = validate(reorderSchema, req.body, reply);
     if (!reorderBody) return;
@@ -97,7 +96,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // transaction. Must be registered before /:taskId to avoid route conflict.
   app.patch('/api/products/:productId/tasks/milestone-reorder', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'gantt'], reply))) return;
     const reorderBody = validate(milestoneReorderSchema, req.body, reply);
     if (!reorderBody) return;
@@ -120,7 +118,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // Must be registered before /:taskId to avoid route conflict.
   app.patch('/api/products/:productId/tasks/bulk-update', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
     const body = validate(bulkUpdateTaskSchema, req.body, reply);
     if (!body) return;
@@ -173,25 +170,32 @@ export async function taskCrudRoutes(app: FastifyInstance) {
       }),
     );
 
-    // Fire webhooks, activity log, and assignment notifications per task (fire-and-forget, non-blocking)
+    // Fire webhooks and log activity once for the whole batch (not once per task): dispatchWebhooksBatch
+    // fetches the webhook list a single time instead of re-querying it per task, and logActivityBatch
+    // writes every event in one createMany instead of one insert per task. Assignment notifications
+    // still go out per-task below since each can have a different recipient.
     const statusChanged = data.status !== undefined;
     const ownerChanged = data.ownerId !== undefined;
     const eventName = statusChanged ? 'task.status_changed' : ownerChanged ? 'task.assigned' : 'task.updated';
     const decryptedUpdated = updated.map(decryptTaskPii);
     const prevById = new Map(existing.map((t) => [t.id, t]));
-    decryptedUpdated.forEach((task) => {
-      const prev = prevById.get(task.id)!;
-      dispatchWebhooks(productId, eventName, task).catch((err) => {
-        logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
-      });
-      logActivity({
+
+    dispatchWebhooksBatch(productId, eventName, decryptedUpdated).catch((err) => {
+      logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
+    });
+    logActivityBatch(
+      decryptedUpdated.map((task) => ({
         productId,
         actorId: req.user.userId,
         action: eventName,
         entityType: 'task',
         entityId: task.id,
         entityName: task.name,
-      });
+      })),
+    );
+
+    decryptedUpdated.forEach((task) => {
+      const prev = prevById.get(task.id)!;
       if (data.ownerId && data.ownerId !== prev.ownerId && data.ownerId !== req.user.userId) {
         createNotification({
           userId: data.ownerId,
@@ -219,7 +223,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // Bulk soft-delete - one transaction, one broadcast. Must be registered before /:taskId.
   app.post('/api/products/:productId/tasks/bulk-delete', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
     const body = validate(bulkDeleteTaskSchema, req.body, reply);
     if (!body) return;
@@ -235,19 +238,25 @@ export async function taskCrudRoutes(app: FastifyInstance) {
       data: { deletedAt: new Date() },
     });
 
-    existing.forEach((task) => {
-      dispatchWebhooks(productId, 'task.deleted', { id: task.id, name: task.name }).catch((err) => {
-        logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
-      });
-      logActivity({
+    // Same batching as bulk-update above: one webhook-list fetch and one activity insert for the
+    // whole batch instead of one of each per task.
+    dispatchWebhooksBatch(
+      productId,
+      'task.deleted',
+      existing.map((task) => ({ id: task.id, name: task.name })),
+    ).catch((err) => {
+      logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
+    });
+    logActivityBatch(
+      existing.map((task) => ({
         productId,
         actorId: req.user.userId,
         action: 'task.deleted',
         entityType: 'task',
         entityId: task.id,
         entityName: task.name,
-      });
-    });
+      })),
+    );
 
     broadcast(productId, 'task.bulk_deleted', { ids: existing.map((t) => t.id) }, req.user.tokenVersion === undefined);
     reply.status(204).send();
@@ -256,7 +265,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // Create a task, then fire webhooks, broadcast, activity log, and assignment notifications
   app.post('/api/products/:productId/tasks', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
     const body = validate(createTaskSchema, req.body, reply);
     if (!body) return;
@@ -334,7 +342,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // Fetch a single task with full relations (owner, reviewer, subtasks, dependencies)
   app.get('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabRead(productId, req.user, ['kanban', 'backlog', 'canvas', 'gantt'], reply))) return;
     const task = await prisma.task.findFirst({
       where: { id: taskId, productId, ...TASK_WHERE_ACTIVE },
@@ -347,7 +354,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // Update task fields; handles completion timestamps, webhooks, broadcast, and assignment notifications
   app.patch('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
     const body = validate(updateTaskSchema, req.body, reply);
     if (!body) return;
@@ -439,7 +445,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // Soft-delete a task (sets deletedAt); returns 204 even if already deleted to keep clients idempotent
   app.delete('/api/products/:productId/tasks/:taskId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
     const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
     if (task) {
@@ -463,7 +468,6 @@ export async function taskCrudRoutes(app: FastifyInstance) {
   // Update a task's canvas (x, y) coordinates — separate from main PATCH to avoid triggering webhooks on drag
   app.patch('/api/products/:productId/tasks/:taskId/position', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
     if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
     const posBody = validate(positionSchema, req.body, reply);
     if (!posBody) return;

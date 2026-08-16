@@ -14,6 +14,7 @@ import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
+import { handleNotFound } from '../utils/prisma-errors';
 
 // Validates app registration creation; productId scopes the registration and all its tokens
 const createAppSchema = z.object({
@@ -107,8 +108,8 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
         select: APP_SELECT,
       });
       reply.send(registration);
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
+    } catch (e) {
+      handleNotFound(e, reply);
     }
   });
 
@@ -124,8 +125,8 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
       await prisma.appRegistration.delete({ where: { id: appId, ownerId: req.user.userId } });
       logAdminEvent('APP_DELETED', { actorName: req.user.username, targetName: existing.name, metadata: { appId } });
       reply.send({ ok: true });
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
+    } catch (e) {
+      handleNotFound(e, reply);
     }
   });
 
@@ -190,8 +191,8 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
         select: APP_SELECT,
       });
       reply.send(registration);
-    } catch {
-      reply.status(404).send({ error: 'Not found' });
+    } catch (e) {
+      handleNotFound(e, reply);
     }
   });
 

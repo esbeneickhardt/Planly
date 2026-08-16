@@ -12,7 +12,7 @@ import multipart from '@fastify/multipart';
 import prisma from '../db/client';
 import { config } from '../config/env';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireProductWritable } from '../utils/product-guard';
+import { requireProductMember, requireProductWritable, requireScopeMatch, resolveProjectRoleClaims } from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { broadcast } from '../realtime/manager';
 import {
@@ -67,12 +67,22 @@ const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
 export async function messageRoutes(app: FastifyInstance) {
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 5, fieldSize: 1024 } });
 
-  // Upload file - returns a URL that can be embedded in messages
+  // Upload file - returns a URL that can be embedded in messages. productId is optional at the
+  // type level because this endpoint also backs non-project uploads (e.g. AvatarPicker has no
+  // project context at all) - but whenever a productId IS supplied, the caller must actually be
+  // a member of that project. Without this, anyone could tag an upload with an arbitrary
+  // project's id regardless of membership.
   app.post(
     '/api/upload',
     { preHandler: requireAuth, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
     async (req, reply) => {
       const { productId } = req.query as { productId?: string };
+      if (productId) {
+        if (!(await requireProductMember(productId, req.user, reply))) return;
+        // A PAT/App token scoped to a different project must not be able to tag an upload with
+        // this productId even if the underlying user is (also) a genuine member of it.
+        if (!requireScopeMatch(productId, req.user, reply)) return;
+      }
       const data = await req.file();
       if (!data) return reply.status(400).send({ error: 'No file' });
 
@@ -128,13 +138,20 @@ export async function messageRoutes(app: FastifyInstance) {
     const { filename } = req.params as { filename: string };
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
 
-    // Check file ownership: if we have a record, enforce product membership
+    // Check file ownership: if we have a record, enforce product membership. New uploads always
+    // carry a productId now (see POST /api/upload above); a null productId here means either a
+    // non-project upload (e.g. an avatar) or a pre-existing untagged upload from before this
+    // check existed - closing that residual gap would require a data migration, so (per the
+    // audit) it's intentionally left out of scope here.
     const record = await prisma.fileUpload.findUnique({ where: { filename: safe } });
     if (record?.productId) {
       const isMember = await prisma.product.findFirst({
         where: { id: record.productId, team: { members: { some: { userId: req.user.userId } } } },
       });
       if (!isMember) return reply.status(403).send({ error: 'Forbidden' });
+      // A PAT/App token scoped to a different project must not be able to read this file even if
+      // the underlying user is (also) a genuine member of the project it actually belongs to.
+      if (!requireScopeMatch(record.productId, req.user, reply)) return;
     }
 
     try {
@@ -157,6 +174,8 @@ export async function messageRoutes(app: FastifyInstance) {
     if (record.uploaderId !== req.user.userId) {
       return reply.status(403).send({ error: 'Forbidden' });
     }
+    // Scoped-token confinement, same reasoning as the GET handler above.
+    if (record.productId && !requireScopeMatch(record.productId, req.user, reply)) return;
 
     try {
       await deleteFile(safe);
@@ -212,16 +231,21 @@ export async function messageRoutes(app: FastifyInstance) {
     const msgBody = validate(createMessageSchema, req.body, reply);
     if (!msgBody) return;
     const { content, taskId, replyToId, attachments, postedAsRole: rawRole } = msgBody;
-    // Member check and sender role lookup are independent — run in parallel to save one round trip
-    const [isMember, sender] = await Promise.all([
-      requireProductMember(productId, req.user, reply),
+    // requireProductWritable already re-verifies membership internally (product lookup + team
+    // membership row), so a preceding requireProductMember call here would be pure overhead - see
+    // product-guard.ts. Writability check, sender role lookup, and the project-role-claim lookup
+    // are independent of each other — run all three in parallel to save round trips.
+    const [isWritable, sender, roleClaims] = await Promise.all([
+      requireProductWritable(productId, req.user, reply),
       prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } }),
+      resolveProjectRoleClaims(req.user.userId, { productId }),
     ]);
-    if (!isMember) return;
-    if (!(await requireProductWritable(productId, req.user, reply))) return;
+    if (!isWritable) return;
     let postedAsRole: string | null = rawRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
     if (postedAsRole === 'Server Admin' && !sender?.isAdmin) postedAsRole = null;
+    if (postedAsRole === 'Project Owner' && !roleClaims.isProjectOwner) postedAsRole = null;
+    if (postedAsRole === 'Project Co-Owner' && !roleClaims.isProjectCoOwner) postedAsRole = null;
     const msg = await prisma.message.create({
       data: {
         productId,
@@ -266,29 +290,35 @@ export async function messageRoutes(app: FastifyInstance) {
           const taskName = msg.task?.name;
           const snippet = content.slice(0, 200);
           const appUrl = config.appUrl;
-          for (const u of users) {
-            const prefs = (u.notificationPreferences as Record<string, boolean> | null) ?? {};
-            // In-app notification (respects mention pref, default on)
-            await createNotification({
-              userId: u.id,
-              type: 'mention',
-              title: `${req.user.username} mentioned you${taskName ? ` in "${taskName}"` : ''}`,
-              body: snippet,
-              productId,
-              taskId: taskId ?? undefined,
-            });
-            // Email notification (off by default, opt-in via emailMentions pref)
-            if (prefs.emailMentions === true) {
-              const context = taskName ?? '';
-              sendEmail({
-                to: u.email,
-                subject: `@${req.user.username} mentioned you in Planly`,
-                html: mentionEmail(req.user.username, context, snippet, appUrl),
-              }).catch((err) => {
-                req.log.error({ err }, '[messages] mention email failed');
+          // Parallelize across mentioned users instead of a sequential for...await - each user's
+          // notification/email is independent of the others. Pass the notificationPreferences we
+          // already fetched above straight through so createNotification doesn't re-query them.
+          await Promise.all(
+            users.map(async (u) => {
+              const prefs = (u.notificationPreferences as Record<string, boolean> | null) ?? {};
+              // In-app notification (respects mention pref, default on)
+              await createNotification({
+                userId: u.id,
+                type: 'mention',
+                title: `${req.user.username} mentioned you${taskName ? ` in "${taskName}"` : ''}`,
+                body: snippet,
+                productId,
+                taskId: taskId ?? undefined,
+                prefs,
               });
-            }
-          }
+              // Email notification (off by default, opt-in via emailMentions pref)
+              if (prefs.emailMentions === true) {
+                const context = taskName ?? '';
+                sendEmail({
+                  to: u.email,
+                  subject: `@${req.user.username} mentioned you in Planly`,
+                  html: mentionEmail(req.user.username, context, snippet, appUrl),
+                }).catch((err) => {
+                  req.log.error({ err }, '[messages] mention email failed');
+                });
+              }
+            }),
+          );
         })
         .catch((err) => {
           req.log.error({ err }, '[messages] mention notification failed');
@@ -301,7 +331,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Edit own message content
   app.patch('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    // requireProductWritable re-verifies membership internally - see the create handler above.
     if (!(await requireProductWritable(productId, req.user, reply))) return;
     const editBody = validate(updateMessageSchema, req.body, reply);
     if (!editBody) return;
@@ -320,7 +350,7 @@ export async function messageRoutes(app: FastifyInstance) {
   // Delete own message
   app.delete('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, messageId } = req.params as { productId: string; messageId: string };
-    if (!(await requireProductMember(productId, req.user, reply))) return;
+    // requireProductWritable re-verifies membership internally - see the create handler above.
     if (!(await requireProductWritable(productId, req.user, reply))) return;
     const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
@@ -335,7 +365,7 @@ export async function messageRoutes(app: FastifyInstance) {
     { preHandler: requireAuth },
     async (req, reply) => {
       const { productId, messageId } = req.params as { productId: string; messageId: string };
-      if (!(await requireProductMember(productId, req.user, reply))) return;
+      // requireProductWritable re-verifies membership internally - see the create handler above.
       if (!(await requireProductWritable(productId, req.user, reply))) return;
       const rxnBody = validate(addReactionSchema, req.body, reply);
       if (!rxnBody) return;

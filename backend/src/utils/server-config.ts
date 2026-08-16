@@ -14,7 +14,6 @@ export interface ServerConfigValues {
   allowProjectCreation: boolean;
   announcementsEnabled: boolean;
   announcementPostRole: string;
-  ipRestrictionMode: string;
   requireMfa: boolean;
 }
 
@@ -34,7 +33,6 @@ export async function getServerConfig(): Promise<ServerConfigValues> {
     allowProjectCreation: row?.allowProjectCreation ?? true,
     announcementsEnabled: row?.announcementsEnabled ?? false,
     announcementPostRole: row?.announcementPostRole ?? 'admin',
-    ipRestrictionMode: row?.ipRestrictionMode ?? 'disabled',
     requireMfa: row?.requireMfa ?? false,
   };
   _cache = { value, expiresAt: now + 5_000 };

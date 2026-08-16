@@ -20,6 +20,7 @@ import prisma from '../db/client';
 import { requireAdmin } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { matchesCidr, getClientIp } from '../utils/ip';
+import { handleConflict } from '../utils/prisma-errors';
 
 export { matchesCidr, getClientIp };
 
@@ -61,17 +62,16 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
       const rule = await prisma.ipRestriction.create({
         data: { cidr: normalized, listType: body.listType, description: body.description?.trim() || null },
       });
-      const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
       await prisma.adminLog.create({
         data: {
           action: 'IP_RULE_ADDED',
-          actorName: actor?.username,
+          actorName: req.user.username,
           metadata: { cidr: normalized, listType: body.listType },
         },
       });
       reply.status(201).send(rule);
-    } catch {
-      reply.status(409).send({ error: 'That IP / CIDR is already in this list' });
+    } catch (e) {
+      handleConflict(e, reply, 'That IP / CIDR is already in this list');
     }
   });
 
@@ -80,11 +80,10 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     const rule = await prisma.ipRestriction.findUnique({ where: { id } });
     if (!rule) return reply.status(404).send({ error: 'Not found' });
     await prisma.ipRestriction.delete({ where: { id } });
-    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
     await prisma.adminLog.create({
       data: {
         action: 'IP_RULE_REMOVED',
-        actorName: actor?.username,
+        actorName: req.user.username,
         metadata: { cidr: rule.cidr, listType: rule.listType },
       },
     });
@@ -111,17 +110,16 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
       const rule = await prisma.adminIpRestriction.create({
         data: { cidr: normalized, listType: body.listType, description: body.description?.trim() || null },
       });
-      const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
       await prisma.adminLog.create({
         data: {
           action: 'ADMIN_IP_RULE_ADDED',
-          actorName: actor?.username,
+          actorName: req.user.username,
           metadata: { cidr: normalized, listType: body.listType },
         },
       });
       reply.status(201).send(rule);
-    } catch {
-      reply.status(409).send({ error: 'That IP / CIDR is already in this admin list' });
+    } catch (e) {
+      handleConflict(e, reply, 'That IP / CIDR is already in this admin list');
     }
   });
 
@@ -130,11 +128,10 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     const rule = await prisma.adminIpRestriction.findUnique({ where: { id } });
     if (!rule) return reply.status(404).send({ error: 'Not found' });
     await prisma.adminIpRestriction.delete({ where: { id } });
-    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
     await prisma.adminLog.create({
       data: {
         action: 'ADMIN_IP_RULE_REMOVED',
-        actorName: actor?.username,
+        actorName: req.user.username,
         metadata: { cidr: rule.cidr, listType: rule.listType },
       },
     });
