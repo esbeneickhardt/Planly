@@ -119,6 +119,15 @@ export interface SearchResults {
     product: { id: string; name: string; emoji: string | null };
     author: MinUser;
     task?: { id: string; name: string } | null;
+    /** Set instead of `task` for a DM/group chat result - `other` is null for groups (use
+     * `participants` + `groupTitle` for display), populated for a 1:1 DM. */
+    conversation?: {
+      id: string;
+      isGroup: boolean;
+      name: string | null;
+      other: MinUser | null;
+      participants: MinUser[];
+    } | null;
   }[];
 }
 

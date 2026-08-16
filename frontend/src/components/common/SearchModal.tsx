@@ -15,6 +15,7 @@ import { api, displayName } from '../../api/client';
 import type { Task, Product } from '../../types';
 import type { SearchResults, Sprint } from '../../api/client';
 import TaskDetailPanel from './TaskDetailPanel';
+import { groupTitle } from './ChatGroupsTab';
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 
 type MsgResult = SearchResults['messages'][number];
@@ -206,7 +207,7 @@ interface Props {
 
 export default function SearchModal({ onClose }: Props) {
   const { activeProduct, products, setActiveProduct, refreshTasks } = useProduct();
-  const { openChat } = useChat();
+  const { openChat, openConversationChat } = useChat();
   const { openProfileModal } = useProfileModals();
   const { canRead, canManage, canWrite } = usePermission();
   const { user } = useAuth();
@@ -466,7 +467,14 @@ export default function SearchModal({ onClose }: Props) {
       const p = products.find((x) => x.id === msg.product.id);
       if (p) setActiveProduct(p);
     }
-    openChat(msg.task?.id, msg.task?.name ?? undefined);
+    if (msg.conversation) {
+      openConversationChat(
+        { id: msg.conversation.id, isGroup: msg.conversation.isGroup, other: msg.conversation.other },
+        msg.id,
+      );
+    } else {
+      openChat(msg.task?.id, msg.task?.name ?? undefined, msg.id);
+    }
     onClose();
   }
 
@@ -874,6 +882,15 @@ export default function SearchModal({ onClose }: Props) {
                       <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
                         {displayName(msg.author)}
                         {msg.task && <span style={{ color: 'var(--text-3)' }}> · {msg.task.name}</span>}
+                        {msg.conversation && (
+                          <span style={{ color: 'var(--text-3)' }}>
+                            {' '}
+                            ·{' '}
+                            {msg.conversation.isGroup
+                              ? groupTitle(msg.conversation)
+                              : `DM with ${msg.conversation.other ? displayName(msg.conversation.other) : '…'}`}
+                          </span>
+                        )}
                       </p>
                       <p className="text-sm truncate mt-0.5" style={{ color: 'var(--text)' }}>
                         {msg.content}
