@@ -1,3 +1,9 @@
+/**
+ * Modal for browsing publicly discoverable projects the current user isn't a member of, with
+ * search over project/team name and a per-project request-access flow (optionally attaching a
+ * note). Tracks each project's request status (none/pending/etc.) so the button reflects
+ * whether a request is already in flight.
+ */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from './Modal';

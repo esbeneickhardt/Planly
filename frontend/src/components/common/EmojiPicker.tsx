@@ -1,3 +1,10 @@
+/**
+ * Categorized emoji grid with a swipeable (touch) or arrow-button (desktop) category pager.
+ * `EMOJI_CATEGORIES` is exported so `MarkdownEditor.tsx` can render the same category/emoji set
+ * in its own toolbar picker without duplicating the list.
+ * A vertical scroll/tap is distinguished from a horizontal category swipe via a direction lock,
+ * the same pattern used elsewhere in the app for touch gestures (e.g. MessageBubble.tsx's swipe-to-reply).
+ */
 import { useRef, useState } from 'react';
 
 export const EMOJI_CATEGORIES = [

@@ -28,6 +28,7 @@ import { usePermission } from '../../context/PermissionContext';
 import { useToast } from '../../context/ToastContext';
 import { api, displayName } from '../../api/client';
 import { useColorLegend } from '../../hooks/useColorLegend';
+import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 import type { Task } from '../../types';
 import TaskNode from './nodes/TaskNode';
 import ProductNode from './nodes/ProductNode';
@@ -511,8 +512,21 @@ function CanvasInner() {
   // filter) when creating or deleting a sub-plan, to land in/out of "add tasks to this sub-plan"
   // mode - see useCanvasSprints' handleCreateSprint/deleteSprint. Those callers call
   // suppressNextFilterRelayout() first so that mode switch doesn't masquerade as a filter change.
-  const filterRelayoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // `prod` is passed as an explicit argument (not closed over) specifically so the "did the active
+  // product change while we were waiting" check below compares against the product that was active
+  // when THIS relayout was scheduled, not whatever's active when the debounced call fires.
+  const [scheduleRelayout, cancelRelayout] = useDebouncedCallback((prod: NonNullable<typeof activeProduct>) => {
+    const currentProd = activeProductRef.current;
+    // Bail if the product changed (or hasn't finished initializing) during the wait, so a
+    // relayout meant for the old product/filters never lands on whatever's showing now.
+    if (!currentProd || currentProd.id !== prod.id || initializedRef.current !== currentProd.id) return;
+    relayoutGraph(currentProd, nodesRef.current, edgesRef.current, nodeHeightsRef.current);
+  }, 500);
   useEffect(() => {
+    // Unconditional, before the guards below - cancels a relayout still pending from a previous
+    // run of this effect even when this run's own guards end up skipping scheduling a new one
+    // (e.g. a suppressed programmatic filter change shouldn't let an earlier real one still land).
+    cancelRelayout();
     if (skipNextFilterRelayoutRef.current) {
       skipNextFilterRelayoutRef.current = false;
       return;
@@ -528,19 +542,9 @@ function CanvasInner() {
       filterEffectPrimedRef.current = true;
       return;
     }
-    if (filterRelayoutTimerRef.current) clearTimeout(filterRelayoutTimerRef.current);
-    filterRelayoutTimerRef.current = setTimeout(() => {
-      const currentProd = activeProductRef.current;
-      // Bail if the product changed (or hasn't finished initializing) during the wait, so a
-      // relayout meant for the old product/filters never lands on whatever's showing now.
-      if (!currentProd || currentProd.id !== prod.id || initializedRef.current !== currentProd.id) return;
-      relayoutGraph(currentProd, nodesRef.current, edgesRef.current, nodeHeightsRef.current);
-    }, 500);
-    return () => {
-      if (filterRelayoutTimerRef.current) clearTimeout(filterRelayoutTimerRef.current);
-    };
+    scheduleRelayout(prod);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, statusFilter, selectedSprintFilter, selectedMilestoneIds]);
+  }, [viewMode, statusFilter, selectedSprintFilter, selectedMilestoneIds, scheduleRelayout, cancelRelayout]);
 
   // ReactFlow callbacks
   const onPaneClick = useCallback(() => {

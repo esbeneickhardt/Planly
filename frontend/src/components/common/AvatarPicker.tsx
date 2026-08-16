@@ -1,3 +1,10 @@
+/**
+ * Avatar-selection widget with two tabs: pick an emoji, or upload and crop a photo.
+ * The photo path reads a JPEG's EXIF orientation tag by hand (no library) and bakes the
+ * rotation into pixel data before cropping, since browsers ignore EXIF orientation when
+ * drawing to a canvas. The crop step is a circular zoom/pan editor rendered over the raw
+ * image; on confirm it rasterizes the visible circle to a fixed-size JPEG and uploads it.
+ */
 import { useRef, useState, useEffect } from 'react';
 import { EMOJI_CATEGORIES } from './EmojiPicker';
 import { api } from '../../api/client';

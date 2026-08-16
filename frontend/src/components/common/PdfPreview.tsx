@@ -1,4 +1,11 @@
+/**
+ * "Preview" button for a PDF attachment - opens the PDF in a large in-app modal (native browser
+ * `<embed>` viewer) instead of navigating away or forcing a download. Routed through the shared
+ * `Modal` component so it gets Escape-to-close, a focus trap, and ARIA dialog semantics for free,
+ * same as every other modal in the app.
+ */
 import { useState } from 'react';
+import Modal from './Modal';
 
 interface Props {
   url: string;
@@ -20,50 +27,21 @@ export default function PdfPreview({ url, name }: Props) {
       </button>
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.75)' }}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="relative flex flex-col rounded-xl overflow-hidden"
-            style={{
-              width: '90vw',
-              height: '90vh',
-              maxWidth: 900,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-              style={{ borderBottom: '1px solid var(--border)' }}
-            >
-              <span className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
-                📄 {name}
-              </span>
-              <div className="flex items-center gap-2">
-                <a
-                  href={url}
-                  download={name}
-                  className="text-xs px-3 py-1.5 rounded-lg"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
-                >
-                  ↓ Download
-                </a>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-lg"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
-                >
-                  ×
-                </button>
-              </div>
+        <Modal title={`📄 ${name}`} onClose={() => setOpen(false)} width="max-w-4xl" mobileFullscreen>
+          <div className="flex flex-col gap-2" style={{ height: '70vh' }}>
+            <div className="flex justify-end flex-shrink-0">
+              <a
+                href={url}
+                download={name}
+                className="text-xs px-3 py-1.5 rounded-lg"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+              >
+                ↓ Download
+              </a>
             </div>
-            <embed src={url} type="application/pdf" className="flex-1 w-full" />
+            <embed src={url} type="application/pdf" className="flex-1 w-full rounded-lg" style={{ border: '1px solid var(--border)' }} />
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );
