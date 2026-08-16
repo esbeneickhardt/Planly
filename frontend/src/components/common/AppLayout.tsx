@@ -15,6 +15,7 @@ import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ChatContext } from '../../context/ChatContext';
+import type { MinUser } from '../../api/client';
 import { ProfileModalsContext, type ProfileModalKey } from '../../context/ProfileModalsContext';
 
 // Lazy-loaded (not a static import) so ChatPanel's own import chain - which pulls in the `mermaid`
@@ -79,6 +80,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   // it once that message's thread has loaded. Independent of chatInitialTask since the target
   // message might be in the general project channel (no task at all).
   const [chatScrollToMessageId, setChatScrollToMessageId] = useState<string | undefined>();
+  // Set when opening the chat panel directly onto a DM/group thread (e.g. a search result)
+  // instead of the general project channel - see openProductConversation below.
+  const [chatInitialConversation, setChatInitialConversation] = useState<
+    { id: string; isGroup: boolean; other?: MinUser | null } | undefined
+  >();
   const [showAdminChat, setShowAdminChat] = useState(false);
   const [showVision, setShowVision] = useState(false);
   // adminMode persists across navigation away from /admin
@@ -106,9 +112,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   const openProductChat = useCallback((taskId?: string, taskName?: string, messageId?: string) => {
     setChatInitialTask(taskId ? { id: taskId, name: taskName! } : undefined);
+    setChatInitialConversation(undefined);
     setChatScrollToMessageId(messageId);
     setShowProductChat(true);
   }, []);
+  const openProductConversation = useCallback(
+    (conv: { id: string; isGroup: boolean; other?: MinUser | null }, messageId?: string) => {
+      setChatInitialTask(undefined);
+      setChatInitialConversation(conv);
+      setChatScrollToMessageId(messageId);
+      setShowProductChat(true);
+    },
+    [],
+  );
   // Stable so it can be reused directly as ChatContext's `openChat` in admin mode below, instead of
   // a fresh inline arrow function on every render.
   const toggleAdminChat = useCallback(() => setShowAdminChat((v) => !v), []);
@@ -200,11 +216,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const chatContextValue = useMemo(
     () => ({
       openChat: activeAdminMode ? toggleAdminChat : openProductChat,
+      openConversationChat: activeAdminMode ? toggleAdminChat : openProductConversation,
       chatOpen: activeAdminMode ? showAdminChat : showProductChat,
       chatTaskId: chatInitialTask?.id,
       adminMode: activeAdminMode,
     }),
-    [activeAdminMode, toggleAdminChat, openProductChat, showAdminChat, showProductChat, chatInitialTask],
+    [
+      activeAdminMode,
+      toggleAdminChat,
+      openProductChat,
+      openProductConversation,
+      showAdminChat,
+      showProductChat,
+      chatInitialTask,
+    ],
   );
 
   return (
@@ -247,10 +272,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             {showProductChat && (
               <ChatPanel
                 initialTask={chatInitialTask}
+                initialConversation={chatInitialConversation}
                 scrollToMessageId={chatScrollToMessageId}
                 onClose={() => {
                   setShowProductChat(false);
                   setChatInitialTask(undefined);
+                  setChatInitialConversation(undefined);
                   setChatScrollToMessageId(undefined);
                 }}
               />

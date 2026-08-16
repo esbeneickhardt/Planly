@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { api, displayName } from '../../api/client';
-import type { Message, DirectMessage, MessageAttachment } from '../../api/client';
+import type { Message, DirectMessage, MessageAttachment, MinUser } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
@@ -30,9 +30,13 @@ import ChatProjectsTab from './ChatProjectsTab';
 
 interface Props {
   initialTask?: { id: string; name: string };
+  /** Opens directly onto a specific DM or group thread (e.g. a search result) instead of the
+   * general project channel - `other` is required for a DM (isGroup: false), unused for a group. */
+  initialConversation?: { id: string; isGroup: boolean; other?: MinUser | null };
   /** Scrolls to and briefly highlights this specific message once its thread has loaded - set
-   * when opening chat from a notification about one particular message (e.g. a reaction). Applies
-   * to the task thread when `initialTask` is also set, otherwise the general project channel. */
+   * when opening chat from a notification about one particular message (e.g. a reaction), or from
+   * a search result. Applies to whichever thread `initialTask`/`initialConversation` selects,
+   * otherwise the general project channel. */
   scrollToMessageId?: string;
   onClose: () => void;
   isAdminChat?: boolean;
@@ -64,7 +68,13 @@ function saveDismissed(productId: string, ids: string[]) {
   localStorage.setItem(DISMISSED_KEY(productId), JSON.stringify(ids));
 }
 
-export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isAdminChat = false }: Props) {
+export default function ChatPanel({
+  initialTask,
+  initialConversation,
+  scrollToMessageId,
+  onClose,
+  isAdminChat = false,
+}: Props) {
   const { activeProduct, tasks } = useProduct();
   const { user } = useAuth();
   const { confirm } = useConfirm();
@@ -356,12 +366,27 @@ export default function ChatPanel({ initialTask, scrollToMessageId, onClose, isA
     }
   }, [initialTask?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Opened from a notification about one specific message (e.g. a reaction) - land on the right
-  // thread and queue it up to scroll to. When initialTask is also set, the effect above already
-  // handles switching to that task's thread; otherwise the target is the general project channel.
+  // When opened onto a specific DM/group thread (e.g. a search result), jump directly there -
+  // openDm/openGroup do the same find-existing-conversation + load-messages work the People/Groups
+  // tabs themselves use when a user clicks a row, so this reuses the exact same, already-correct path.
+  useEffect(() => {
+    if (!initialConversation) return;
+    if (initialConversation.isGroup) {
+      setTab('groups');
+      openGroup(initialConversation.id);
+    } else if (initialConversation.other) {
+      setTab('people');
+      openDm(initialConversation.other.id, initialConversation.other);
+    }
+  }, [initialConversation?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Opened from a notification about one specific message (e.g. a reaction) or a search result -
+  // land on the right thread and queue it up to scroll to. When initialTask/initialConversation is
+  // also set, the effects above already handle switching to that thread; otherwise the target is
+  // the general project channel.
   useEffect(() => {
     if (!scrollToMessageId) return;
-    if (!initialTask) setTab('messages');
+    if (!initialTask && !initialConversation) setTab('messages');
     setScrollToMsgId(scrollToMessageId);
   }, [scrollToMessageId]); // eslint-disable-line react-hooks/exhaustive-deps
 
