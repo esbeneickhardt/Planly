@@ -3,7 +3,7 @@
  * Applies the theme by setting `data-theme` on `document.documentElement` and toggling the `dark` class.
  * `THEMES` defines 11 built-in themes with swatch colours used in the theme picker UI.
  */
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 
 export type ThemeId =
   | 'dark' // Midnight
@@ -145,11 +145,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const isDark = THEMES.find((t) => t.id === themeId)?.dark ?? true;
 
-  return (
-    <ThemeContext.Provider value={{ themeId, isDark, setTheme: setThemeId, mobileNavPosition, setMobileNavPosition }}>
-      {children}
-    </ThemeContext.Provider>
+  // Memoized so consumers only re-render when the theme or nav position actually changes.
+  // `setThemeId`/`setMobileNavPosition` are useState setters (referentially stable by React's own
+  // guarantee) but included in the deps array anyway for clarity/lint-completeness.
+  const value = useMemo(
+    () => ({ themeId, isDark, setTheme: setThemeId, mobileNavPosition, setMobileNavPosition }),
+    [themeId, isDark, mobileNavPosition, setMobileNavPosition],
   );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {
