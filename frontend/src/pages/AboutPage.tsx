@@ -42,6 +42,9 @@ export default function AboutPage() {
       .getAbout(activeProduct.id)
       .then((data) => setMembers(data.members))
       .catch(() => {});
+    // activeProduct: only `.id` drives this effect; object identity changes on every context
+    // re-render regardless of which product is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
   if (!activeProduct) {

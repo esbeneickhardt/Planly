@@ -920,8 +920,12 @@ export default function BacklogPage() {
         <Modal title="New task" onClose={() => setShowNewTask(false)} width="max-w-sm">
           <form onSubmit={handleCreateTask} className="space-y-4">
             <div>
-              <label className="label">Task name</label>
+              <label className="label" htmlFor="backlog-new-task-name">
+                Task name
+              </label>
               <input
+                id="backlog-new-task-name"
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                 autoFocus
                 required
                 type="text"
@@ -1011,6 +1015,7 @@ function QuickTaskMenu({
         aria-label="Close quick actions menu"
         onClick={onClose}
       />
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- onClick is a stopPropagation-only guard against the backdrop button's onClick={onClose}; onTouch* handlers are swipe-to-dismiss */}
       <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

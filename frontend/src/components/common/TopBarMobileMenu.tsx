@@ -2,6 +2,7 @@
  * Mobile navigation overlay — the hamburger menu shown on small screens.
  * TopBar passes pre-filtered nav items so canRead/analyticsEnabled logic stays in one place.
  */
+import { useEffect } from 'react';
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { CategoriesIcon } from './TopBarIcons';
 import type { Product } from '../../types';
@@ -68,7 +69,17 @@ export default function TopBarMobileMenu({
   const showAdminNav = isAdminPage || !!chatIsAdmin;
   const atBottom = mobileNavPosition === 'bottom';
 
+  // Keyboard-accessible equivalent of the backdrop click below
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const menuPanel = (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the backdrop's dismiss-on-click
     <div
       key="panel"
       className="flex-1 overflow-y-auto py-2"
@@ -266,6 +277,7 @@ export default function TopBarMobileMenu({
   const spacer = <div key="spacer" className="flex-1" style={{ background: 'rgba(0,0,0,0.5)' }} />;
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse-only backdrop dismiss; Escape (added above) is the keyboard-accessible equivalent
     <div
       className="lg:hidden fixed inset-0 z-50 flex flex-col"
       style={atBottom ? { bottom: 56 } : { top: 56 }}

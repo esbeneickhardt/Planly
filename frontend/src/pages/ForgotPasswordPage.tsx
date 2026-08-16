@@ -98,10 +98,14 @@ export default function ForgotPasswordPage() {
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
           >
             <div>
-              <label className="label">Email address</label>
+              <label className="label" htmlFor="forgot-pw-email">
+                Email address
+              </label>
               <input
+                id="forgot-pw-email"
                 type="email"
                 required
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field on a freshly-loaded auth page
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

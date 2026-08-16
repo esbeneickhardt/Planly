@@ -112,6 +112,9 @@ export default function KanbanBoard() {
     }
     const saved = localStorage.getItem(`planly-kanban-bg-${activeProduct.id}`);
     setBgImage(saved && KANBAN_BACKGROUNDS.some((b) => b.id === saved) ? saved : null);
+    // activeProduct: only `.id` drives this effect; object identity changes on every context
+    // re-render regardless of which product is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
   useEffect(() => {
@@ -146,6 +149,9 @@ export default function KanbanBoard() {
   useEffect(() => {
     if (!activeProduct) return;
     setMilestoneFilter(localStorage.getItem(`planly_kanban_milestone_${activeProduct.id}`));
+    // activeProduct: only `.id` drives this effect; object identity changes on every context
+    // re-render regardless of which product is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
   // Restore owner/color/status filters and mine-only per product - so leaving and returning to
@@ -168,6 +174,9 @@ export default function KanbanBoard() {
     setColorFilters(readSet(`planly_kanban_color_filters_${activeProduct.id}`));
     setStatusFilters(readSet(`planly_kanban_status_filters_${activeProduct.id}`));
     setMineOnly(localStorage.getItem(`planly_kanban_mine_only_${activeProduct.id}`) === '1');
+    // activeProduct: only `.id` drives this effect; object identity changes on every context
+    // re-render regardless of which product is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
   function persistOwnerFilters(next: Set<string>) {
@@ -996,6 +1005,7 @@ export default function KanbanBoard() {
               items={viewMode === 'milestone' ? orderedMilestoneIds : columns.map((c) => c.id)}
               strategy={horizontalListSortingStrategy}
             >
+              {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- click-drag-to-pan is a mouse-only enhancement layered on an already natively scrollable (and thus keyboard-scrollable) container; there's no discrete action to give a keyboard equivalent for */}
               <div
                 ref={boardRef}
                 className="flex-1 overflow-x-auto overflow-y-auto select-none"
@@ -1192,8 +1202,12 @@ export default function KanbanBoard() {
         <Modal title="New task" onClose={() => setShowNewTask(false)} width="max-w-sm">
           <form onSubmit={handleCreateTask} className="space-y-4">
             <div>
-              <label className="label">Task name</label>
+              <label className="label" htmlFor="kanban-new-task-name">
+                Task name
+              </label>
               <input
+                id="kanban-new-task-name"
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                 autoFocus
                 required
                 type="text"
@@ -1224,8 +1238,12 @@ export default function KanbanBoard() {
         <Modal title="Add column" onClose={() => setShowNewColumn(false)} width="max-w-sm">
           <form onSubmit={handleCreateColumn} className="space-y-4">
             <div>
-              <label className="label">Column name</label>
+              <label className="label" htmlFor="kanban-new-column-name">
+                Column name
+              </label>
               <input
+                id="kanban-new-column-name"
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                 autoFocus
                 required
                 type="text"

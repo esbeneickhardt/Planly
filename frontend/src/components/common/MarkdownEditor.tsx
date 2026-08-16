@@ -376,7 +376,11 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
                     >
                       {label}
                     </p>
-                    <pre
+                    {/* div, not <pre> - jsx-a11y disallows an interactive role on <pre>; the
+                        monospace/preformatted look comes entirely from the inline styles below */}
+                    <div
+                      role="button"
+                      tabIndex={0}
                       className="text-xs rounded-lg px-2.5 py-1.5 cursor-pointer hover:opacity-80"
                       style={{
                         background: 'var(--surface-2)',
@@ -390,9 +394,15 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
                         insertAtCursor((value.length > 0 ? '\n' : '') + syntax);
                         setShowHelp(false);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter' && e.key !== ' ') return;
+                        e.preventDefault();
+                        insertAtCursor((value.length > 0 ? '\n' : '') + syntax);
+                        setShowHelp(false);
+                      }}
                     >
                       {syntax}
-                    </pre>
+                    </div>
                   </div>
                 ))}
               </div>

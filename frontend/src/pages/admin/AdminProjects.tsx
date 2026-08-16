@@ -311,6 +311,7 @@ export default function AdminProjects({ showToast }: Props) {
                             </p>
                             <div className="flex gap-2">
                               <input
+                                // eslint-disable-next-line jsx-a11y/no-autofocus -- confirmation field just revealed by clicking "Delete permanently"
                                 autoFocus
                                 value={confirmInput}
                                 onChange={(e) => setConfirmInput(e.target.value)}

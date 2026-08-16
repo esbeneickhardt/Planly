@@ -155,10 +155,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 sm:col-span-1">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-host">
                   Host
                 </label>
                 <input
+                  id="admin-smtp-host"
                   className="input w-full text-sm"
                   placeholder="smtp.gmail.com"
                   value={smtpForm.host}
@@ -169,10 +170,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-port">
                   Port
                 </label>
                 <input
+                  id="admin-smtp-port"
                   className="input w-full text-sm"
                   type="number"
                   placeholder="587"
@@ -184,10 +186,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-user">
                   Username
                 </label>
                 <input
+                  id="admin-smtp-user"
                   className="input w-full text-sm"
                   placeholder="you@gmail.com"
                   value={smtpForm.user}
@@ -198,10 +201,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-pass">
                   Password
                 </label>
                 <input
+                  id="admin-smtp-pass"
                   className="input w-full text-sm"
                   type="password"
                   placeholder={emailStatus?.enabled ? '•••••••• (leave blank to keep current)' : 'App password'}
@@ -213,10 +217,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }}>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-from">
                   From address
                 </label>
                 <input
+                  id="admin-smtp-from"
                   className="input w-full text-sm"
                   placeholder="Planly <you@gmail.com>"
                   value={smtpForm.from}

@@ -48,7 +48,7 @@ export default function IntegrationsModal({ onClose }: Props) {
       .then(setPerms)
       .catch(() => {})
       .finally(() => setPermsLoading(false));
-  }, [tab]);
+  }, [tab, perms.length]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

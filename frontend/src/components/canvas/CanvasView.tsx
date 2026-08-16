@@ -280,11 +280,13 @@ function CanvasInner() {
     setSimpleMode(s.simpleMode ?? false);
     savedViewportRef.current = s.viewport ?? null;
     setFiltersReady(true);
+    // activeProduct: only `.id` drives this effect; object identity changes on every context
+    // re-render regardless of which product is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProduct?.id]);
 
   const onMoveEnd = useCallback((_: unknown, vp: { x: number; y: number; zoom: number }) => {
     save({ viewport: vp });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load sprints + product connections + column labels
@@ -339,7 +341,7 @@ function CanvasInner() {
       );
     }
     return base;
-  }, [tasks, viewMode, statusFilter, selectedSprintFilter, selectedMilestoneIds, sprints]);
+  }, [tasks, viewMode, statusFilter, selectedMilestoneIds]);
 
   // Estimated real render height per task, mirroring TaskNode's own conditional rows (status,
   // milestone deadline, and owner/reviewer are all hidden in simple mode; the subtask bar isn't) -
@@ -566,9 +568,8 @@ function CanvasInner() {
       const canvasY = Math.round((e.clientY - vp.y) / vp.zoom) - 40;
       setNewTaskPos({ x: canvasX, y: canvasY });
       setShowNewTask(true);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [canWriteCanvas],
+    [canWriteCanvas, getViewport],
   );
 
   const onConnect = useCallback(
@@ -909,7 +910,7 @@ function CanvasInner() {
       patchState(activeProduct.id, { positions: { ...curr, [node.id]: { x, y } } });
     },
     [activeProduct],
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
@@ -961,6 +962,14 @@ function CanvasInner() {
   return (
     <CanvasContext.Provider value={{ showSprintAura, simpleMode }}>
       <style>{`.react-flow__edge.selected .react-flow__edge-path { stroke: var(--brand) !important; stroke-width: 3px !important; } .react-flow__edge.selected .react-flow__edge-interaction { stroke: var(--brand) !important; }`}</style>
+      {/* This wrapper's onClick is a broad "any click inside the canvas area closes an open
+          context menu" backdrop-dismiss (belt-and-suspenders alongside ReactFlow's own
+          onPaneClick/onNodeClick, which already call setCtxMenu(null) for the pane/node cases).
+          It covers the whole canvas region, so making it a role="button"/tabIndex={0} element per
+          the usual click-events fix would insert one giant, semantically-invalid tab stop ahead of
+          every real node and control in the canvas - worse for keyboard/screen-reader users than
+          the warning itself. There's no discrete keyboard equivalent to add here. */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         style={{ width: '100%', height: '100%', position: 'relative' }}
         onClick={() => setCtxMenu(null)}
@@ -1042,6 +1051,7 @@ function CanvasInner() {
                     <span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showSprintPicker && (
+                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
                     <div
                       className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
                       style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 260 }}
@@ -1119,6 +1129,8 @@ function CanvasInner() {
                         return (
                           <div
                             key={s.id}
+                            role="button"
+                            tabIndex={0}
                             className="flex items-center gap-2 px-3 py-2.5 group transition-colors cursor-pointer"
                             style={{ background: isActive ? 'var(--brand-subtle)' : 'transparent' }}
                             onMouseEnter={(e) => {
@@ -1128,6 +1140,12 @@ function CanvasInner() {
                               e.currentTarget.style.background = isActive ? 'var(--brand-subtle)' : 'transparent';
                             }}
                             onClick={() => {
+                              setSprintFilterSave(isActive ? null : s.id);
+                              setShowSprintPicker(false);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key !== 'Enter' && e.key !== ' ') return;
+                              e.preventDefault();
                               setSprintFilterSave(isActive ? null : s.id);
                               setShowSprintPicker(false);
                             }}
@@ -1230,6 +1248,7 @@ function CanvasInner() {
                     <span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showFiltersDropdown && (
+                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
                     <div
                       className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
                       style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 220 }}
@@ -1402,6 +1421,7 @@ function CanvasInner() {
                     <span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showDisplayDropdown && (
+                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
                     <div
                       className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
                       style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }}
@@ -1484,6 +1504,7 @@ function CanvasInner() {
                     Layouts <span className="text-[10px] opacity-50">▾</span>
                   </button>
                   {showLayoutDropdown && (
+                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
                     <div
                       className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
                       style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }}
@@ -1904,6 +1925,7 @@ function CanvasInner() {
 
         {/* Context menu */}
         {ctxMenu && (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
           <div
             className="fixed rounded-xl shadow-xl z-50 py-1 overflow-hidden"
             style={{
@@ -2013,8 +2035,12 @@ function CanvasInner() {
           <Modal title="New task" onClose={() => setShowNewTask(false)} width="max-w-sm">
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div>
-                <label className="label">Task name</label>
+                <label className="label" htmlFor="canvas-new-task-name">
+                  Task name
+                </label>
                 <input
+                  id="canvas-new-task-name"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                   autoFocus
                   required
                   type="text"
@@ -2048,8 +2074,12 @@ function CanvasInner() {
           <Modal title="New sub-plan" onClose={() => setShowNewSprint(false)} width="max-w-sm">
             <form onSubmit={handleCreateSprint} className="space-y-4">
               <div>
-                <label className="label">Sub-plan name</label>
+                <label className="label" htmlFor="canvas-new-sprint-name">
+                  Sub-plan name
+                </label>
                 <input
+                  id="canvas-new-sprint-name"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                   autoFocus
                   required
                   type="text"
@@ -2060,7 +2090,8 @@ function CanvasInner() {
                 />
               </div>
               <div>
-                <label className="label">Colour</label>
+                {/* Not a real label - it's a heading for the color swatch grid below, no single associated control */}
+                <span className="label">Colour</span>
                 <div className="flex gap-2 flex-wrap mt-1">
                   {SPRINT_PALETTE.map((c) => (
                     <button
@@ -2082,8 +2113,11 @@ function CanvasInner() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Start date</label>
+                  <label className="label" htmlFor="canvas-new-sprint-start">
+                    Start date
+                  </label>
                   <input
+                    id="canvas-new-sprint-start"
                     required
                     type="date"
                     value={sprintForm.startDate}
@@ -2092,8 +2126,11 @@ function CanvasInner() {
                   />
                 </div>
                 <div>
-                  <label className="label">End date</label>
+                  <label className="label" htmlFor="canvas-new-sprint-end">
+                    End date
+                  </label>
                   <input
+                    id="canvas-new-sprint-end"
                     required
                     type="date"
                     value={sprintForm.endDate}
@@ -2118,8 +2155,12 @@ function CanvasInner() {
           <Modal title="Edit sub-plan" onClose={() => setEditingSprint(null)} width="max-w-sm">
             <form onSubmit={handleEditSprint} className="space-y-4">
               <div>
-                <label className="label">Sub-plan name</label>
+                <label className="label" htmlFor="canvas-edit-sprint-name">
+                  Sub-plan name
+                </label>
                 <input
+                  id="canvas-edit-sprint-name"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                   autoFocus
                   required
                   type="text"
@@ -2129,7 +2170,8 @@ function CanvasInner() {
                 />
               </div>
               <div>
-                <label className="label">Colour</label>
+                {/* Not a real label - it's a heading for the color swatch grid below, no single associated control */}
+                <span className="label">Colour</span>
                 <div className="flex gap-2 flex-wrap mt-1">
                   {SPRINT_PALETTE.map((c) => (
                     <button
@@ -2186,8 +2228,12 @@ function CanvasInner() {
                 Save the current node positions and zoom level so teammates can apply the same view.
               </p>
               <div>
-                <label className="label">Snapshot name</label>
+                <label className="label" htmlFor="canvas-snapshot-name">
+                  Snapshot name
+                </label>
                 <input
+                  id="canvas-snapshot-name"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
                   autoFocus
                   type="text"
                   value={snapshotName}
@@ -2230,6 +2276,7 @@ function CanvasInner() {
                 <>
                   {totalSnapshotCount > 5 && (
                     <input
+                      // eslint-disable-next-line jsx-a11y/no-autofocus -- search field in a freshly-opened modal
                       autoFocus
                       type="text"
                       value={snapshotSearch}

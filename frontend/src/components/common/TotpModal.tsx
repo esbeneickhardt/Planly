@@ -158,8 +158,11 @@ export default function TotpModal({ onClose }: Props) {
               </code>
             </details>
             <div>
-              <label className="label">Confirmation code</label>
+              <label className="label" htmlFor="totp-confirm-code">
+                Confirmation code
+              </label>
               <input
+                id="totp-confirm-code"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -168,6 +171,7 @@ export default function TotpModal({ onClose }: Props) {
                 className={inputCls}
                 placeholder="000000"
                 maxLength={6}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- only field on a freshly-shown step
                 autoFocus
               />
             </div>
@@ -243,8 +247,11 @@ export default function TotpModal({ onClose }: Props) {
               Enter your current authenticator code (or a backup code) to disable two-factor authentication.
             </p>
             <div>
-              <label className="label">Code</label>
+              <label className="label" htmlFor="totp-disable-code">
+                Code
+              </label>
               <input
+                id="totp-disable-code"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -252,6 +259,7 @@ export default function TotpModal({ onClose }: Props) {
                 onChange={(e) => setDisableCode(e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 10))}
                 className={inputCls}
                 placeholder="000000"
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- only field on a freshly-shown step
                 autoFocus
               />
             </div>

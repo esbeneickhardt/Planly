@@ -46,10 +46,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
       {/* Filter bar */}
       <div className="flex items-end gap-2 flex-wrap">
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>
+          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }} htmlFor="admin-logs-action">
             Action
           </label>
           <select
+            id="admin-logs-action"
             value={logAction}
             onChange={(e) => setLogAction(e.target.value)}
             className="text-sm px-2.5 py-1.5 rounded-lg"
@@ -64,10 +65,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>
+          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }} htmlFor="admin-logs-from">
             From
           </label>
           <input
+            id="admin-logs-from"
             type="date"
             value={logFrom}
             onChange={(e) => setLogFrom(e.target.value)}
@@ -76,10 +78,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>
+          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }} htmlFor="admin-logs-to">
             To
           </label>
           <input
+            id="admin-logs-to"
             type="date"
             value={logTo}
             onChange={(e) => setLogTo(e.target.value)}

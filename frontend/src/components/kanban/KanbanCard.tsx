@@ -153,6 +153,7 @@ function CardContent({
             </button>
             {showStatusMenu &&
               createPortal(
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the card's own click/drag handlers
                 <div
                   ref={dropdownRef}
                   onClick={(e) => e.stopPropagation()}
@@ -275,6 +276,7 @@ function CardContent({
           {addingSubtask ? (
             <div className="flex gap-1.5 mt-1">
               <input
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- field just revealed by clicking "add subtask"
                 autoFocus
                 type="text"
                 value={newName}

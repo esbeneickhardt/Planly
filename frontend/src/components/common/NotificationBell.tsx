@@ -482,6 +482,8 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                     return (
                       <div
                         key={n.id}
+                        role="button"
+                        tabIndex={0}
                         className={`group relative flex gap-3 px-4 py-3 transition-colors ${isActionable ? '' : 'cursor-pointer'}`}
                         style={{
                           background: n.read ? 'transparent' : 'var(--brand-subtle)',
@@ -492,6 +494,12 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                           (e.currentTarget.style.background = n.read ? 'transparent' : 'var(--brand-subtle)')
                         }
                         onClick={() => handleNotificationClick(n)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleNotificationClick(n);
+                          }
+                        }}
                       >
                         <div className="flex-shrink-0 mt-0.5">
                           <span className="text-base">{getIcon(n.type)}</span>
@@ -512,6 +520,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                             {formatRelative(n.createdAt)}
                           </p>
                           {isInvite && hasToken && (
+                            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the row's own onClick navigation
                             <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => handleAcceptInvite(n)}
@@ -535,6 +544,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                             </div>
                           )}
                           {isAccessRequest && hasRequestId && (
+                            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the row's own onClick navigation
                             <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => handleDecideAccessRequest(n, 'approve')}

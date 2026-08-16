@@ -40,14 +40,20 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                   <div className="grid grid-cols-3 gap-1.5">
                     {images.map(({ att, msg }, i) => (
                       <div key={i} className="relative group/img aspect-square">
-                        <img
-                          src={att.thumbnailUrl ?? att.url}
-                          alt={att.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover rounded-lg cursor-zoom-in"
+                        <button
+                          type="button"
+                          className="contents"
                           onClick={() => onImageClick(att.url)}
-                        />
+                          aria-label={`View ${att.name}`}
+                        >
+                          <img
+                            src={att.thumbnailUrl ?? att.url}
+                            alt={att.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover rounded-lg cursor-zoom-in"
+                          />
+                        </button>
                         <div
                           className="absolute inset-0 rounded-lg flex flex-col items-center justify-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none"
                           style={{ background: 'rgba(0,0,0,0.55)' }}
