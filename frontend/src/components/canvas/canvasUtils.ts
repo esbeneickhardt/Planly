@@ -4,6 +4,7 @@
  * Includes: shared types, localStorage helpers, graph construction, dagre layout, ancestor traversal.
  */
 import { createContext } from 'react';
+import type { CSSProperties } from 'react';
 import type { Node, Edge } from 'reactflow';
 import { MarkerType } from 'reactflow';
 import dagre from '@dagrejs/dagre';
@@ -52,8 +53,29 @@ export interface CanvasState {
   showSprintAura?: boolean;
   simpleMode?: boolean;
   productNodePosition?: { x: number; y: number };
-  // Per-user task positions — never shared across users; each user arranges their own canvas
+  // Per-user task positions - never shared across users; each user arranges their own canvas
   positions?: Record<string, { x: number; y: number }>;
+}
+
+// ─── Shared control-panel style helpers ───────────────────────────────────────
+// Used by CanvasControlPanel and its Filters/Display/Layouts dropdowns to render pill-style
+// toggle chips and the view-mode segmented control consistently.
+
+export function chip(active: boolean, accentColor?: string): CSSProperties {
+  return {
+    background: active ? (accentColor ? `${accentColor}20` : 'var(--brand-subtle)') : 'var(--surface)',
+    color: active ? (accentColor ?? 'var(--brand)') : 'var(--text-3)',
+    border: `1px solid ${active ? (accentColor ? `${accentColor}55` : 'var(--brand)') : 'var(--border)'}`,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  };
+}
+
+export function segBtn(viewMode: ViewMode, key: ViewMode): CSSProperties {
+  return {
+    background: viewMode === key ? 'var(--surface)' : 'transparent',
+    color: viewMode === key ? 'var(--text)' : 'var(--text-3)',
+    boxShadow: viewMode === key ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+  };
 }
 
 export interface CtxMenu {
@@ -151,7 +173,7 @@ export function buildGraph(
 
 // ─── Dagre auto-layout ────────────────────────────────────────────────────────
 // Sugiyama layered layout (left-to-right, ranked by dependency depth).
-// dagre returns centre coordinates; ReactFlow nodes are top-left anchored — subtract half the
+// dagre returns centre coordinates; ReactFlow nodes are top-left anchored - subtract half the
 // node's width/height to convert. `nodeHeights` lets callers pass a real per-task height estimate
 // instead of the flat default, so dagre doesn't reserve identical vertical space for every node
 // regardless of how much content it actually renders (e.g. simple-mode nodes are much shorter).
