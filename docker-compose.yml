@@ -9,7 +9,10 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: planly
     ports:
-      - "5432:5432"
+      # Bound to localhost only - lets a local DB GUI tool connect without exposing Postgres to
+      # the internet on hosts with no firewall (nothing else in this stack needs the host-side
+      # binding; the backend reaches this over the internal Docker network at db:5432).
+      - "127.0.0.1:5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:

@@ -280,9 +280,9 @@ It reads a Trello board's JSON export (in Trello: **Menu → Print, export, and 
 
 ## Contributing
 
-This project is source-available and maintained by a single author. Pull requests are not accepted.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for the current status of external contributions and how to report bugs or request features.
 
-You are welcome to fork the repository for your own use under the terms of the [Planly Community License](../../LICENSE). Run the TypeScript checks before building on the codebase:
+If you're forking the repository for your own use under the [Planly Community License](../../LICENSE), run the TypeScript checks before building on the codebase:
 
 ```bash
 cd backend && npx tsc --noEmit

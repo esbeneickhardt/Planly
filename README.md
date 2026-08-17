@@ -7,6 +7,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/esbeneickhardt/Planly/actions/workflows/test.yml"><img src="https://github.com/esbeneickhardt/Planly/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick Start</a> · <a href="docs/wiki/Getting-Started.md">Setup Guide</a> · <a href="docs/wiki/API-Reference.md">API Reference</a>
 </p>
 
@@ -28,8 +32,8 @@
 **Requirements:** Docker and Docker Compose v2.
 
 ```bash
-git clone https://github.com/EsbenEickhardt/planly.git
-cd planly
+git clone https://github.com/esbeneickhardt/Planly.git
+cd Planly
 cp .env.example .env
 # Edit .env - set DB_PASSWORD, JWT_SECRET, ENCRYPTION_KEY, ADMIN_EMAIL, UPLOADS_DIR
 # Generate secrets with: openssl rand -hex 32
@@ -110,3 +114,5 @@ Source-available under the [Planly Community License v1.1](LICENSE).
 **If you deploy a modified version as a hosted service** you must make your changes publicly available under the same license.
 
 Contributors grant a royalty-free patent license covering their contributions. For commercial licensing or other permissions, contact esbeneickhardt@gmail.com.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the current status of external contributions.
