@@ -37,7 +37,7 @@ export async function dependencyRoutes(app: FastifyInstance) {
     ]);
     if (!task || !prereq) return reply.status(404).send({ error: 'Task not found in this product' });
 
-    // Cycle detection via recursive CTE — rejects the edge if taskId is reachable from prerequisiteId
+    // Cycle detection via recursive CTE - rejects the edge if taskId is reachable from prerequisiteId
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       WITH RECURSIVE reachable AS (
         SELECT "prerequisiteId" AS id FROM "TaskDependency" WHERE "dependentId" = ${prerequisiteId}

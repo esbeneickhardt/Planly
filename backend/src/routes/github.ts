@@ -128,7 +128,7 @@ async function handleGithubEvent(
   payload: Record<string, unknown>,
   config: { githubImportIssues: boolean; githubImportPrs: boolean; githubDefaultProductId: string | null } | null,
 ) {
-  // Guard: no default project configured — nothing to import into
+  // Guard: no default project configured - nothing to import into
   if (!config?.githubDefaultProductId) return;
   const productId = config.githubDefaultProductId;
 

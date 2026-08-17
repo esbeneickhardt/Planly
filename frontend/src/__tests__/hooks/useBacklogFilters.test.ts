@@ -120,7 +120,7 @@ describe('useBacklogFilters', () => {
     expect(result.current.filteredTasks.map((t) => t.id)).toEqual(['t3']);
   });
 
-  // No results is a valid state, not an error — the list should be empty not undefined
+  // No results is a valid state, not an error - the list should be empty not undefined
   it('search with no match returns empty list', () => {
     const { result } = renderHook(() => useBacklogFilters(TASKS, 'user-1'));
     act(() => {

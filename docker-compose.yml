@@ -41,7 +41,7 @@ services:
 
       # ── Mandatory ─────────────────────────────────────────────────────────
       DATABASE_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
-      # Only set when using PgBouncer — points migrations directly at Postgres,
+      # Only set when using PgBouncer - points migrations directly at Postgres,
       # bypassing the pooler (prisma migrate deploy is incompatible with transaction mode).
       # DATABASE_DIRECT_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
       JWT_SECRET: ${JWT_SECRET}
@@ -98,7 +98,7 @@ services:
       SECURITY_ALERT_WEBHOOK_URL: ${SECURITY_ALERT_WEBHOOK_URL:-}
 
       # ── Observability ─────────────────────────────────────────────────────
-      # Required to access GET /api/metrics — omitting this blocks the endpoint entirely
+      # Required to access GET /api/metrics - omitting this blocks the endpoint entirely
       METRICS_SECRET: ${METRICS_SECRET:-}
       # trace / debug / info / warn / error / fatal (default: info)
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -194,7 +194,7 @@ services:
   #     retries: 5
 
   # ── PgBouncer (optional) ─────────────────────────────────────────────────
-  # Connection pooler — only needed when multiple backend replicas each maintain
+  # Connection pooler - only needed when multiple backend replicas each maintain
   # their own Prisma pool and the total connection count approaches PostgreSQL's
   # max_connections (default: 100). A single backend instance does not need this.
   #
@@ -203,7 +203,7 @@ services:
   #   2. In the backend environment above, change DATABASE_URL to point at PgBouncer:
   #        DATABASE_URL: postgresql://planly:${DB_PASSWORD}@pgbouncer:5432/planly?pgbouncer=true
   #      The ?pgbouncer=true flag disables Prisma features incompatible with transaction mode.
-  #   3. Add DATABASE_DIRECT_URL so migrations bypass PgBouncer (required — prisma migrate
+  #   3. Add DATABASE_DIRECT_URL so migrations bypass PgBouncer (required - prisma migrate
   #      deploy cannot run through a transaction-mode pooler):
   #        DATABASE_DIRECT_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
   #

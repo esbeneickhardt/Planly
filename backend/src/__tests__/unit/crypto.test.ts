@@ -37,7 +37,7 @@ describe('encryptValue / decryptValue', () => {
     expect(decryptValue('plaintext-password')).toBe('plaintext-password');
   });
 
-  // Tampered ciphertext must not crash the server — graceful fallback returns the raw string
+  // Tampered ciphertext must not crash the server - graceful fallback returns the raw string
   it('decryptValue returns the input when auth tag is tampered (falls back gracefully)', () => {
     const encrypted = encryptValue('secret');
     const parts = encrypted.split(':');
@@ -47,7 +47,7 @@ describe('encryptValue / decryptValue', () => {
     expect(decryptValue(tampered)).toBe(tampered);
   });
 
-  // Serialisation contract: iv:tag:ciphertext — must stay stable across deployments
+  // Serialisation contract: iv:tag:ciphertext - must stay stable across deployments
   it('encrypted value has the expected iv:tag:ciphertext format', () => {
     const encrypted = encryptValue('test');
     const parts = encrypted.split(':');

@@ -109,7 +109,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
       return;
     }
 
-    // Per-IP connection rate limit — rejects upgrade storms before any DB work
+    // Per-IP connection rate limit - rejects upgrade storms before any DB work
     if (!checkWsRateLimit(getClientIp(req as never))) {
       ws.send(JSON.stringify({ event: 'error', data: 'Too many connections from your IP' }));
       ws.close(1008, 'Rate limited');

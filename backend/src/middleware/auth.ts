@@ -193,7 +193,7 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
           .send({ error: 'Session expired, please log in again' });
         return false;
       }
-      // Verify the tokenVersion in the JWT matches the DB — catches password changes
+      // Verify the tokenVersion in the JWT matches the DB - catches password changes
       // and forced logouts which increment the DB value. The 10-second cache means
       // we hit the DB at most once per user per 10 s instead of on every request.
       const cached = getCachedTokenVersion(payload.userId);
@@ -264,7 +264,7 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
   if (!user?.isAdmin) return reply.status(403).send({ error: 'Admin access required' });
 
-  // Admin-scope IP restriction — exempt the IP restriction management routes so an admin
+  // Admin-scope IP restriction - exempt the IP restriction management routes so an admin
   // who misconfigures rules can always fix it without needing server console access
   if (req.url.startsWith('/api/admin/admin-ip-restrictions') || req.url.startsWith('/api/admin/ip-restrictions'))
     return;

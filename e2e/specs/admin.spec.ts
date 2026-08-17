@@ -140,7 +140,7 @@ test.describe('Admin Audit Logs tab', () => {
     await loginViaUI(page, email, password);
     await page.goto('/admin?tab=logs');
 
-    // Log entries should appear — data-testid is set on each entry div in AdminLogs.tsx
+    // Log entries should appear - data-testid is set on each entry div in AdminLogs.tsx
     await expect(
       page.locator('[data-testid="log-entry"]').first()
     ).toBeVisible({ timeout: 10_000 });

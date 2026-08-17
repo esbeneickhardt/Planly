@@ -19,7 +19,7 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-// Module-level counter — not state, so incrementing it doesn't cause a re-render
+// Module-level counter - not state, so incrementing it doesn't cause a re-render
 let nextId = 0;
 
 export function ToastProvider({ children }: { children: ReactNode }) {

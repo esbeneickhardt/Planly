@@ -293,7 +293,7 @@ export default function TopBar({
             onClick={() => navigate('/kanban')}
             className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 transition-opacity hover:opacity-80"
             title="Go to Kanban"
-            aria-label="Planly — go to Kanban"
+            aria-label="Planly - go to Kanban"
           >
             <img
               src="/icons/p.png"
@@ -393,7 +393,7 @@ export default function TopBar({
                 );
               })}
 
-              {/* Settings — only for owners/co-owners */}
+              {/* Settings - only for owners/co-owners */}
               {activeProduct && canManage && (
                 <NavLink
                   to="/settings"

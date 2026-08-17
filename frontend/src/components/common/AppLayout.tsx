@@ -135,7 +135,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   // Sync adminMode with the current route: activate on /admin; deactivate on non-admin pages
-  // Announcements is a neutral page — keep adminMode while navigating to/from it
+  // Announcements is a neutral page - keep adminMode while navigating to/from it
   const isAdminPage = location.pathname === '/admin';
   const isAdminNeutralPage = location.pathname === '/announcements';
   useEffect(() => {
@@ -173,11 +173,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     if (activeAdminMode) {
       setAdminMode(false);
       if (location.pathname === '/admin') navigate('/kanban');
-      // neutral pages (announcements, about, settings…) — stay put
+      // neutral pages (announcements, about, settings…) - stay put
     } else {
       setAdminMode(true);
       if (isProjectTab) navigate('/admin');
-      // neutral pages — stay put
+      // neutral pages - stay put
     }
   }
 

@@ -43,7 +43,7 @@ The response includes a `secret` field. **Copy it now** - it's only shown at cre
 | Event | When it fires |
 |---|---|
 | `task.created` | A new task is created in the project |
-| `task.updated` | A task's fields are changed (name, description, color, deadline, etc.) — anything other than status or owner |
+| `task.updated` | A task's fields are changed (name, description, color, deadline, etc.) - anything other than status or owner |
 | `task.status_changed` | A task's status (column) is changed via a PATCH |
 | `task.assigned` | A task's owner (`ownerId`) is changed via a PATCH |
 | `task.deleted` | A task is soft-deleted |

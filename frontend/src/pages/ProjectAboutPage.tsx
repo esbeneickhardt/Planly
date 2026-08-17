@@ -1,5 +1,5 @@
 /**
- * Public project overview page — accessible to any authenticated user via /project/:productId/about.
+ * Public project overview page - accessible to any authenticated user via /project/:productId/about.
  * Does not require project membership; used from the Discover Projects modal.
  */
 import { useState, useEffect } from 'react';

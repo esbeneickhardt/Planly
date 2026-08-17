@@ -1,6 +1,6 @@
 /**
  * Read-only detail modal for a single admin/owner, opened by clicking a row in AdminOwnership's
- * admin list — that list only shows icon/name/role inline to avoid overflowing on narrow screens,
+ * admin list - that list only shows icon/name/role inline to avoid overflowing on narrow screens,
  * so the rest of the account info (email, verification, login activity) lives here instead.
  */
 import { ReactNode } from 'react';

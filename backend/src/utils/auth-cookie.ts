@@ -10,14 +10,14 @@
  *                     browser never sends it to any other endpoint. Used to rotate the JWT
  *                     without requiring a full re-login.
  *
- * The refresh_token cookie is optional — pass undefined when re-issuing a JWT without
+ * The refresh_token cookie is optional - pass undefined when re-issuing a JWT without
  * minting a new refresh token (e.g. the /api/auth/refresh-token handler itself, which
  * sets both cookies in one call but wants precise control over the refresh value).
  */
 import type { FastifyReply } from 'fastify';
 import { randomBytes } from 'crypto';
 
-const JWT_MAX_AGE = 60 * 60; // 1 hour — short so stolen JWTs expire quickly
+const JWT_MAX_AGE = 60 * 60; // 1 hour - short so stolen JWTs expire quickly
 const RT_MAX_AGE = 60 * 60 * 24 * 30; // 30 days for refresh token
 
 function cookieSecure(): boolean {
@@ -35,7 +35,7 @@ export function issueAuthCookie(reply: FastifyReply, jwtToken: string, refreshTo
     maxAge: JWT_MAX_AGE,
     secure,
   });
-  // CSRF double-submit — readable by JS so the frontend can echo it as X-CSRF-Token
+  // CSRF double-submit - readable by JS so the frontend can echo it as X-CSRF-Token
   reply.setCookie('csrf', randomBytes(24).toString('base64url'), {
     httpOnly: false,
     sameSite: 'lax',

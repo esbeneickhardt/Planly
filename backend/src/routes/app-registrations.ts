@@ -24,7 +24,7 @@ const createAppSchema = z.object({
 });
 // Partial update for renaming or re-describing a registration
 const updateAppSchema = z.object({ name: z.string().optional(), description: z.string().optional() });
-// Per-tab permission levels for an app registration (all fields optional — absent means 'write')
+// Per-tab permission levels for an app registration (all fields optional - absent means 'write')
 const level = z.enum(['write', 'read', 'none']).optional();
 const permissionsSchema = z.object({
   kanban: level,
@@ -45,7 +45,7 @@ function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
-// Fields returned for app registration listings — never includes token hashes
+// Fields returned for app registration listings - never includes token hashes
 const APP_SELECT = {
   id: true,
   name: true,
@@ -55,7 +55,7 @@ const APP_SELECT = {
   permissions: true,
   createdAt: true,
 };
-// Fields returned for token listings under an app — never includes tokenHash
+// Fields returned for token listings under an app - never includes tokenHash
 const TOKEN_SELECT = { id: true, name: true, appId: true, lastUsedAt: true, expiresAt: true, createdAt: true };
 
 export async function appRegistrationRoutes(app: FastifyInstance) {

@@ -46,7 +46,7 @@ const attachmentItemSchema = z.object({
 });
 // Role badge values a sender can claim; verified against actual permissions at write time
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
-// Message creation payload — content OR at least one attachment required; up to 20 attachments per message
+// Message creation payload - content OR at least one attachment required; up to 20 attachments per message
 const createMessageSchema = z
   .object({
     content: z.string().max(10000),
@@ -59,7 +59,7 @@ const createMessageSchema = z
     message: 'Message must have content or at least one attachment',
     path: ['content'],
   });
-// Edit payload — content required and cannot be blank
+// Edit payload - content required and cannot be blank
 const updateMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 // Validates the emoji character(s) for a reaction toggle
 const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
@@ -234,7 +234,7 @@ export async function messageRoutes(app: FastifyInstance) {
     // requireProductWritable already re-verifies membership internally (product lookup + team
     // membership row), so a preceding requireProductMember call here would be pure overhead - see
     // product-guard.ts. Writability check, sender role lookup, and the project-role-claim lookup
-    // are independent of each other — run all three in parallel to save round trips.
+    // are independent of each other - run all three in parallel to save round trips.
     const [isWritable, sender, roleClaims] = await Promise.all([
       requireProductWritable(productId, req.user, reply),
       prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } }),
@@ -263,7 +263,7 @@ export async function messageRoutes(app: FastifyInstance) {
       req.log.warn({ err }, '[messages] Webhook dispatch failed');
     });
     broadcast(productId, 'message.created', decryptedMsg);
-    // message.created is intentionally not logged to the activity feed — chat volume would drown out task/sprint events
+    // message.created is intentionally not logged to the activity feed - chat volume would drown out task/sprint events
 
     // Create notifications and optional emails for @mentioned users (fire-and-forget).
     // "@all" is a standard-chat-style shortcut that notifies every project team member instead of

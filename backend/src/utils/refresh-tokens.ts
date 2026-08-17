@@ -1,12 +1,12 @@
 /**
- * Refresh token lifecycle — issue, rotate, and revoke long-lived refresh tokens.
+ * Refresh token lifecycle - issue, rotate, and revoke long-lived refresh tokens.
  *
  * Every login mints a new token family (randomUUID). All rotated successors share
  * that familyId. If a consumed token is ever presented again (reuse attack), the
  * entire family is deleted, forcing a fresh login.
  *
  * Token format: planly_rt_<48 hex chars>  (identified in logs, easy to grep)
- * Storage:      SHA-256 hash only — the raw value is never retrievable from the DB.
+ * Storage:      SHA-256 hash only - the raw value is never retrievable from the DB.
  * Lifetime:     30 days, renewed on each rotation.
  */
 import { createHash, randomBytes, randomUUID } from 'crypto';
@@ -47,7 +47,7 @@ export async function rotateRefreshToken(rawValue: string): Promise<{ raw: strin
   const existing = await prisma.refreshToken.findUnique({ where: { tokenHash } });
   if (!existing) return null;
 
-  // Reuse detection — token was already rotated; revoke every token in the family
+  // Reuse detection - token was already rotated; revoke every token in the family
   if (existing.rotatedAt !== null) {
     await prisma.refreshToken.deleteMany({ where: { familyId: existing.familyId } });
     return null;

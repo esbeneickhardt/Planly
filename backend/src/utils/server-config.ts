@@ -17,7 +17,7 @@ export interface ServerConfigValues {
   requireMfa: boolean;
 }
 
-// 5-second in-memory TTL cache — eliminates repeated DB hits on every authenticated request
+// 5-second in-memory TTL cache - eliminates repeated DB hits on every authenticated request
 // while keeping config changes visible within a few seconds
 let _cache: { value: ServerConfigValues; expiresAt: number } | null = null;
 

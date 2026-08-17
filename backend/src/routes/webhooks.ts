@@ -19,7 +19,7 @@ import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 import { validateWebhookUrl } from '../utils/webhook-url-guard';
 
-// Validates webhook creation — URL is validated for SSRF safety separately after schema validation
+// Validates webhook creation - URL is validated for SSRF safety separately after schema validation
 const createWebhookSchema = z.object({
   url: z.string().url('Invalid URL'),
   events: z.array(z.string()).min(1, 'events required'),

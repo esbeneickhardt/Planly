@@ -1,5 +1,5 @@
 /**
- * Account dropdown panel — rendered when the avatar button is clicked in the top bar.
+ * Account dropdown panel - rendered when the avatar button is clicked in the top bar.
  * The parent (TopBar) owns the isOpen state and the wrapping ref div.
  */
 interface Props {

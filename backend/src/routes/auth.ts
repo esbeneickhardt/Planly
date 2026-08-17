@@ -146,7 +146,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid credentials' });
     }
 
-    // Email verification gate — only enforced when the server requires it
+    // Email verification gate - only enforced when the server requires it
     const serverConfig = await getServerConfig();
     if (!user.emailVerified && serverConfig.requireEmailVerification) {
       return reply.status(403).send({
@@ -231,7 +231,7 @@ export async function authRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Refresh token rotation — no session JWT required; the refresh_token cookie is the credential.
+  // Refresh token rotation - no session JWT required; the refresh_token cookie is the credential.
   // Issues a new 1-hour JWT + a new 30-day refresh token in the same family.
   // If a consumed token is re-presented (stolen + reused), the entire family is revoked.
   app.post('/api/auth/refresh-token', async (req, reply) => {
@@ -240,7 +240,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const rotated = await rotateRefreshToken(rawRt);
     if (!rotated) {
-      // Reuse detected or token expired — clear cookies and force full re-login
+      // Reuse detected or token expired - clear cookies and force full re-login
       clearAuthCookies(reply);
       return reply.status(401).send({ error: 'Session expired, please log in again' });
     }

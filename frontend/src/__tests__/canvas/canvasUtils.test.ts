@@ -1,7 +1,7 @@
 /**
  * Unit tests for the pure canvas utilities: graph construction helpers,
  * dagre auto-layout, and ancestor traversal.
- * No React context required — all exports are plain functions.
+ * No React context required - all exports are plain functions.
  */
 import { describe, it, expect } from 'vitest';
 import { buildGraph, runAutoLayout, getAncestorIds } from '../../components/canvas/canvasUtils';
