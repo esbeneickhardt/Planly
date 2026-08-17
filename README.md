@@ -105,13 +105,11 @@ Fastify 5 + TypeScript · Prisma 5 · PostgreSQL 16 · React 18 + TailwindCSS ·
 
 ## License
 
-Source-available under the [Planly Community License v1.1](LICENSE).
+Licensed under the [Business Source License 1.1](LICENSE) - not OSI-approved open source today, but each release automatically converts to full [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) four years after its publication date, no action required.
 
-**You are free to:** use it, run it, study it, modify it for internal use, and contribute back.
+**You are free to:** use it, self-host it, modify it, and run it internally or commercially - with no time limit on any of that.
 
-**You may not:** sell it or offer paid hosted access to it · fork it into a competing product · use the code to train AI or ML models · impose further restrictions on recipients.
-
-**If you deploy a modified version as a hosted service** you must make your changes publicly available under the same license.
+**You may not (until the Change Date):** sell it or offer it as a paid hosted service to others · use it as the basis for a competing product · use the code to train AI or ML models.
 
 Contributors grant a royalty-free patent license covering their contributions. For commercial licensing or other permissions, contact esbeneickhardt@gmail.com.
 
