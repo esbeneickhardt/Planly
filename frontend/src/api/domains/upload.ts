@@ -1,3 +1,8 @@
+/**
+ * File uploads. `upload` posts FormData directly with `fetch` rather than through `request()`
+ * since it can't set a JSON Content-Type; `deleteUpload` removes a previously uploaded file.
+ */
+
 import { request, getCsrfToken } from '../httpClient';
 import type { MessageAttachment } from '../types';
 

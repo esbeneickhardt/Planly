@@ -1,3 +1,8 @@
+/**
+ * Access-request endpoints for private products: listing/deciding pending requests to join,
+ * submitting a request, and discovering public products via `discover()`.
+ */
+
 import { request, json } from '../httpClient';
 import type { Product } from '../../types';
 

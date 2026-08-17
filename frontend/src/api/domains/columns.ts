@@ -1,3 +1,7 @@
+/**
+ * Kanban column CRUD and reordering for a product's board.
+ */
+
 import { request, json } from '../httpClient';
 import type { KanbanColumn } from '../../types';
 

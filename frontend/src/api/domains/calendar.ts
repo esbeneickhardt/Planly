@@ -1,3 +1,8 @@
+/**
+ * Per-product calendar feed token management. `feedUrl` builds the public .ics subscription URL
+ * client-side rather than going through `request()` - it's meant to be copied/opened, not fetched.
+ */
+
 import { request, json } from '../httpClient';
 
 export const calendar = {

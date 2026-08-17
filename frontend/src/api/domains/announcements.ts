@@ -1,3 +1,7 @@
+/**
+ * Site announcements CRUD, plus a nested `comments` sub-resource for per-announcement comments.
+ */
+
 import { request, json } from '../httpClient';
 import type { AnnItem, AnnComment } from '../types';
 

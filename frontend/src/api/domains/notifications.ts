@@ -1,3 +1,8 @@
+/**
+ * User notifications: paginated list, several unread-count variants (overall, by task, by
+ * product, with type filters), mark-read, and delete.
+ */
+
 import { request, json } from '../httpClient';
 import type { Notification } from '../types';
 

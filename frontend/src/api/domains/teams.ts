@@ -1,3 +1,7 @@
+/**
+ * Team CRUD, membership management, and per-member role assignment (member vs co-owner).
+ */
+
 import { request, json } from '../httpClient';
 import type { Team } from '../../types';
 

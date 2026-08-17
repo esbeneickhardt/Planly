@@ -1,3 +1,7 @@
+/**
+ * CRUD for saved canvas view snapshots (node positions + viewport) on a product.
+ */
+
 import { request, json } from '../httpClient';
 import type { CanvasSnapshot, CanvasSnapshotViewport } from '../types';
 

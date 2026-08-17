@@ -1,3 +1,8 @@
+/**
+ * CRUD and reactions for the single site-wide admin chat channel - distinct from per-product
+ * `messages` and the 1:1/group `conversations` (which also has its own admin-chat mode).
+ */
+
 import { request, json } from '../httpClient';
 import type { Message } from '../types';
 

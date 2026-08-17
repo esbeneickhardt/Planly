@@ -1,3 +1,8 @@
+/**
+ * Registered integration apps: CRUD on the app registration itself, its own scoped API tokens
+ * (separate from the user's personal `apiTokens`), and its permission grants.
+ */
+
 import { request, json } from '../httpClient';
 import type { ApiToken, AppRegistration, AppPermissions } from '../types';
 

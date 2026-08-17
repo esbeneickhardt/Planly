@@ -1,3 +1,7 @@
+/**
+ * Per-product color legend entries: list and full replace.
+ */
+
 import { request, json } from '../httpClient';
 import type { ColorLegendEntryResult } from '../types';
 

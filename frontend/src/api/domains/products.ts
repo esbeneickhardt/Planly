@@ -1,3 +1,8 @@
+/**
+ * Product (project) CRUD, the lightweight `getAbout` summary used for member-facing info
+ * panels, and `duplicate`.
+ */
+
 import { request, json } from '../httpClient';
 import type { Product } from '../../types';
 

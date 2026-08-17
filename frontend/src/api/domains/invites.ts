@@ -1,3 +1,8 @@
+/**
+ * Team invites: creation/listing/revocation scoped to a team, plus token-based lookup
+ * (`getInfo`) and the invitee's own pending/accept/decline actions.
+ */
+
 import { request, json } from '../httpClient';
 import type { TeamInvite, PendingInvite, InviteInfo } from '../types';
 

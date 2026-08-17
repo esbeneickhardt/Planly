@@ -91,10 +91,10 @@ docker compose up -d      # stack must be running
 ./run-e2e.sh              # creates a temporary admin, runs the suite, cleans up
 ```
 
-**Manual testing** — for flows that can't be automated (drag-and-drop, real-time, TOTP with a real device):
+**Manual testing** - for flows that can't be automated (drag-and-drop, real-time, TOTP with a real device):
 
-- Smoke test (~30 min) — golden path with two browser windows
-- Integrations test (~15 min) — PATs, App Registrations, Webhooks, GitHub, iCal, TOTP via `curl`
+- Smoke test (~30 min) - golden path with two browser windows
+- Integrations test (~15 min) - PATs, App Registrations, Webhooks, GitHub, iCal, TOTP via `curl`
 
 ---
 
@@ -160,7 +160,7 @@ Planly uses Prisma Migrate. Migration files live in `prisma/migrations/` and mus
 ```bash
 cd backend
 
-# Create a new migration after editing schema.prisma (dev only — applies immediately)
+# Create a new migration after editing schema.prisma (dev only - applies immediately)
 npx prisma migrate dev --name add-my-feature
 
 # Apply pending migrations without creating new ones (what the backend runs on startup)
@@ -226,7 +226,7 @@ await app.register(myFeatureRoutes);
 
 1. Create `frontend/src/pages/MyPage.tsx`
 2. Add a route in `frontend/src/App.tsx` (or wherever the router is configured)
-3. Add API calls to `frontend/src/api/client.ts` using the typed `request<T>()` helper
+3. Add API calls to the relevant file under `frontend/src/api/domains/` (or create a new one) using the typed `request<T>()`/`json()` helpers from `frontend/src/api/httpClient.ts`
 
 ---
 
