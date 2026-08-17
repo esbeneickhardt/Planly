@@ -11,6 +11,7 @@ import { z } from 'zod';
 import prisma from '../db/client';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
+import { requireScopeMatch } from '../utils/product-guard';
 
 // Validates the array of notification IDs to mark as read (must have at least one)
 const markReadSchema = z.object({ ids: z.array(z.string()).min(1) });
@@ -35,16 +36,20 @@ function parseTypesParam(raw: string | undefined): string[] | undefined {
 
 export async function notificationRoutes(app: FastifyInstance) {
   // Get own notifications (newest first, unread first)
-  // Optional ?productId= scopes to a specific project (plus null-productId system notifications)
+  // Optional ?productId= scopes to a specific project (plus null-productId system notifications).
+  // A scoped PAT/App token can never see beyond its own project - scopedProductId overrides
+  // whatever ?productId= the caller passed rather than just validating it, since narrowing is
+  // always safe and this way there's no separate reject-branch to keep in sync.
   app.get('/api/notifications', { preHandler: requireAuth }, async (req, reply) => {
     const { limit = '30', cursor, productId } = req.query as { limit?: string; cursor?: string; productId?: string };
     const take = Math.min(parseInt(limit), 100);
+    const effectiveProductId = req.user.scopedProductId ?? productId;
 
     const notifications = await prisma.notification.findMany({
       where: {
         userId: req.user.userId,
         ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
-        ...(productId ? { OR: [{ productId }, { productId: null }] } : {}),
+        ...(effectiveProductId ? { OR: [{ productId: effectiveProductId }, { productId: null }] } : {}),
       },
       orderBy: [{ read: 'asc' }, { createdAt: 'desc' }],
       take,
@@ -66,13 +71,14 @@ export async function notificationRoutes(app: FastifyInstance) {
       types?: string;
       excludeTypes?: string;
     };
+    const effectiveProductId = req.user.scopedProductId ?? productId;
     const includeTypes = parseTypesParam(types);
     const omitTypes = parseTypesParam(excludeTypes);
     const count = await prisma.notification.count({
       where: {
         userId: req.user.userId,
         read: false,
-        ...(productId ? { OR: [{ productId }, { productId: null }] } : {}),
+        ...(effectiveProductId ? { OR: [{ productId: effectiveProductId }, { productId: null }] } : {}),
         ...(includeTypes ? { type: { in: includeTypes } } : {}),
         ...(omitTypes ? { type: { notIn: omitTypes } } : {}),
       },
@@ -92,6 +98,9 @@ export async function notificationRoutes(app: FastifyInstance) {
       where: {
         userId: req.user.userId,
         read: false,
+        // Scoped tokens only ever see their own project's bucket, never the per-project breakdown
+        // across the whole account.
+        ...(req.user.scopedProductId ? { productId: req.user.scopedProductId } : {}),
         ...(omitTypes ? { type: { notIn: omitTypes } } : {}),
       },
       _count: { _all: true },
@@ -111,6 +120,7 @@ export async function notificationRoutes(app: FastifyInstance) {
   app.get('/api/notifications/unread-by-task', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.query as { productId?: string };
     if (!productId) return reply.status(400).send({ error: 'productId is required' });
+    if (!requireScopeMatch(productId, req.user, reply)) return;
     const groups = await prisma.notification.groupBy({
       by: ['taskId'],
       where: { userId: req.user.userId, type: 'mention', read: false, productId },
@@ -125,14 +135,20 @@ export async function notificationRoutes(app: FastifyInstance) {
     reply.send({ general, byTask });
   });
 
-  // Mark specific notifications as read
+  // Mark specific notifications as read - the productId filter is a no-op for a regular session
+  // (scopedProductId is undefined) and silently excludes out-of-scope ids for a scoped token,
+  // rather than erroring - same "just narrow, don't reject" idiom as the GET routes above.
   app.patch('/api/notifications/read', { preHandler: requireAuth }, async (req, reply) => {
     const body = validate(markReadSchema, req.body, reply);
     if (!body) return;
     const { ids } = body;
 
     await prisma.notification.updateMany({
-      where: { id: { in: ids }, userId: req.user.userId },
+      where: {
+        id: { in: ids },
+        userId: req.user.userId,
+        ...(req.user.scopedProductId ? { productId: req.user.scopedProductId } : {}),
+      },
       data: { read: true },
     });
     reply.send({ ok: true });
@@ -140,7 +156,7 @@ export async function notificationRoutes(app: FastifyInstance) {
 
   // Mark all as read - optional body `{ types }` scopes this to specific notification types
   // (e.g. clearing just the message-related ones when the Chat panel is opened), omitted means
-  // all types, matching prior behavior
+  // all types, matching prior behavior. Scoped tokens only ever touch their own project's rows.
   app.post('/api/notifications/read-all', { preHandler: requireAuth }, async (req, reply) => {
     const body = validate(readAllSchema, req.body ?? {}, reply);
     if (!body) return;
@@ -148,6 +164,7 @@ export async function notificationRoutes(app: FastifyInstance) {
       where: {
         userId: req.user.userId,
         read: false,
+        ...(req.user.scopedProductId ? { productId: req.user.scopedProductId } : {}),
         ...(body.types ? { type: { in: body.types } } : {}),
         ...(body.excludeTypes ? { type: { notIn: body.excludeTypes } } : {}),
         ...(body.taskId !== undefined ? { taskId: body.taskId } : {}),
@@ -161,14 +178,24 @@ export async function notificationRoutes(app: FastifyInstance) {
   app.delete('/api/notifications/:notificationId', { preHandler: requireAuth }, async (req, reply) => {
     const { notificationId } = req.params as { notificationId: string };
     await prisma.notification.deleteMany({
-      where: { id: notificationId, userId: req.user.userId },
+      where: {
+        id: notificationId,
+        userId: req.user.userId,
+        ...(req.user.scopedProductId ? { productId: req.user.scopedProductId } : {}),
+      },
     });
     reply.send({ ok: true });
   });
 
-  // Delete all notifications for the current user
+  // Delete all notifications for the current user (or, for a scoped token, all of its own
+  // project's notifications only)
   app.delete('/api/notifications', { preHandler: requireAuth }, async (req, reply) => {
-    await prisma.notification.deleteMany({ where: { userId: req.user.userId } });
+    await prisma.notification.deleteMany({
+      where: {
+        userId: req.user.userId,
+        ...(req.user.scopedProductId ? { productId: req.user.scopedProductId } : {}),
+      },
+    });
     reply.send({ ok: true });
   });
 }

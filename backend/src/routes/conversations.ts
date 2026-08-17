@@ -11,10 +11,10 @@
  * currently selected project; admin-chat conversations are the one exception and stay global,
  * since server admins are allowed to contact anyone directly.
  */
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/client';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, type AuthPayload } from '../middleware/auth';
 import { requireProductWritable } from '../utils/product-guard';
 import { validate } from '../utils/validate';
 import { createNotification } from '../utils/notifications';
@@ -93,6 +93,19 @@ async function isRealAdmin(userId: string): Promise<boolean> {
   return !!user?.isAdmin;
 }
 
+// Rejects when a scoped PAT/App token tries to reach a conversation outside its own project - or
+// any admin-chat conversation at all, since those have no productId a scope could ever match.
+// Mirrors requireScopeMatch in product-guard.ts, but that helper takes an already-known productId;
+// here it's resolved from the conversation row first (null for admin-chat), hence a local variant.
+function requireConvScopeMatch(convProductId: string | null, user: AuthPayload, reply: FastifyReply): boolean {
+  if (!user.scopedProductId) return true;
+  if (convProductId !== user.scopedProductId) {
+    reply.status(403).send({ error: 'Token is not authorized for this conversation' });
+    return false;
+  }
+  return true;
+}
+
 // Returns unread DirectMessage counts per conversation for `userId`, scoped to `conversationIds` -
 // one SQL aggregate instead of one `directMessage.count()` (or worse, a full message fetch) per
 // conversation. "Unread" is relative to each conversation's own ConversationParticipant.lastReadAt
@@ -120,6 +133,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const isAdminChat = admin === 'true';
     if (!isAdminChat && !productId) return reply.status(400).send({ error: 'productId is required' });
     if (isAdminChat && !(await isRealAdmin(userId))) return reply.status(403).send({ error: 'Admin access required' });
+    if (!requireConvScopeMatch(isAdminChat ? null : (productId ?? null), req.user, reply)) return;
 
     const participations = await prisma.conversationParticipant.findMany({
       where: { userId, conversation: { isAdminChat, ...(isAdminChat ? {} : { productId }) } },
@@ -192,6 +206,7 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const other = await prisma.user.findUnique({ where: { id: participantId }, select: { id: true } });
     if (!other) return reply.status(404).send({ error: 'User not found' });
+    if (!requireConvScopeMatch(isAdminChat ? null : (productId ?? null), req.user, reply)) return;
 
     // Non-admin DMs are always scoped to a project - both the requester and the target must
     // actually be members of it, otherwise chat would let you reach people outside the project.
@@ -249,6 +264,7 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const users = await prisma.user.findMany({ where: { id: { in: participantIds } }, select: { id: true } });
     if (users.length !== participantIds.length) return reply.status(404).send({ error: 'One or more users not found' });
+    if (!requireConvScopeMatch(isAdminChat ? null : (productId ?? null), req.user, reply)) return;
 
     // Non-admin groups are always scoped to a project - the creator and every invited member
     // must actually belong to it.
@@ -287,8 +303,9 @@ export async function conversationRoutes(app: FastifyInstance) {
     });
     if (!participant) return reply.status(403).send({ error: 'Not a participant' });
 
-    const conv = await prisma.conversation.findUnique({ where: { id }, select: { isGroup: true } });
+    const conv = await prisma.conversation.findUnique({ where: { id }, select: { isGroup: true, productId: true } });
     if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
+    if (!requireConvScopeMatch(conv.productId, req.user, reply)) return;
 
     await prisma.conversation.update({ where: { id }, data: { name: body.name.trim() } });
     reply.send({ ok: true });
@@ -311,6 +328,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       select: { isGroup: true, productId: true, participants: { select: { userId: true } } },
     });
     if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
+    if (!requireConvScopeMatch(conv.productId, req.user, reply)) return;
 
     const existingIds = new Set(conv.participants.map((p) => p.userId));
     const toAdd = Array.from(new Set(body.userIds)).filter((uid) => !existingIds.has(uid));
@@ -346,9 +364,10 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const conv = await prisma.conversation.findUnique({
       where: { id },
-      select: { isGroup: true, participants: { select: { userId: true } } },
+      select: { isGroup: true, productId: true, participants: { select: { userId: true } } },
     });
     if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
+    if (!requireConvScopeMatch(conv.productId, req.user, reply)) return;
     if (!conv.participants.some((p) => p.userId === targetUserId))
       return reply.status(404).send({ error: 'Not a participant of this group' });
     if (conv.participants.length <= 2)
@@ -368,6 +387,12 @@ export async function conversationRoutes(app: FastifyInstance) {
       where: { conversationId_userId: { conversationId: id, userId } },
     });
     if (!participant) return reply.status(403).send({ error: 'Not a participant' });
+    // Only look up the conversation's own productId when a scoped token is asking - free for the
+    // much more common cookie-session case, which never needs this extra query.
+    if (req.user.scopedProductId) {
+      const conv = await prisma.conversation.findUnique({ where: { id }, select: { productId: true } });
+      if (!requireConvScopeMatch(conv?.productId ?? null, req.user, reply)) return;
+    }
 
     const messages = await prisma.directMessage.findMany({
       where: { conversationId: id },
@@ -398,6 +423,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       const actor = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
       if (!actor?.isAdmin) return reply.status(403).send({ error: 'This conversation has been closed.' });
     }
+    if (!requireConvScopeMatch(conv?.productId ?? null, req.user, reply)) return;
     // Project-scoped conversations respect the project's own lockdown rule; admin-chat
     // conversations have no productId and aren't affected by any project's status.
     const convProductId = conv?.productId;
@@ -452,6 +478,10 @@ export async function conversationRoutes(app: FastifyInstance) {
       where: { conversationId_userId: { conversationId: id, userId } },
     });
     if (!participant) return reply.status(403).send({ error: 'Not a participant' });
+    if (req.user.scopedProductId) {
+      const conv = await prisma.conversation.findUnique({ where: { id }, select: { productId: true } });
+      if (!requireConvScopeMatch(conv?.productId ?? null, req.user, reply)) return;
+    }
     await prisma.conversationParticipant.update({
       where: { conversationId_userId: { conversationId: id, userId } },
       data: { lastReadAt: new Date() },
@@ -463,6 +493,10 @@ export async function conversationRoutes(app: FastifyInstance) {
   app.patch('/api/conversations/:id/close', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user.userId;
     const { id } = req.params as { id: string };
+    // An admin moderation action, unrelated to any single project - a scoped token should never
+    // be able to perform it regardless of which project it's scoped to.
+    if (req.user.scopedProductId)
+      return reply.status(403).send({ error: 'This token is not authorized for admin actions' });
 
     const actor = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
     if (!actor?.isAdmin) return reply.status(403).send({ error: 'Admin access required' });
@@ -484,6 +518,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const isAdminChat = admin === 'true';
     if (!isAdminChat && !productId) return reply.status(400).send({ error: 'productId is required' });
     if (isAdminChat && !(await isRealAdmin(userId))) return reply.status(403).send({ error: 'Admin access required' });
+    if (!requireConvScopeMatch(isAdminChat ? null : (productId ?? null), req.user, reply)) return;
 
     // Resolve which conversations are in scope first (id only - no message content), then count
     // unread messages for all of them in a single SQL aggregate instead of fetching every
