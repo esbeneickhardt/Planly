@@ -3,9 +3,9 @@
  * Messages are polled every 5 s and paused while the browser tab is hidden.
  * Pinned and dismissed task IDs are persisted to localStorage; reactions are applied optimistically.
  */
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { api, displayName } from '../../api/client';
-import type { Message, DirectMessage, MessageAttachment, MinUser } from '../../api/client';
+import type { Message, DirectMessage, MinUser } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
@@ -20,13 +20,17 @@ import { useChatMessages } from '../../hooks/useChatMessages';
 import { useChatPeople } from '../../hooks/useChatPeople';
 import { useChatGroups } from '../../hooks/useChatGroups';
 import { useChatProjects } from '../../hooks/useChatProjects';
-import Modal from './Modal';
+import { useChatPanelLayout } from '../../hooks/useChatPanelLayout';
+import { useChatCompose, type Tab } from '../../hooks/useChatCompose';
 import ChatFilesTab from './ChatFilesTab';
 import ChatMessageList from './ChatMessageList';
-import ChatComposeBox, { type ChatComposeBoxProps, type ReplyingTo, type TeamMemberEntry } from './ChatComposeBox';
+import ChatComposeBox, { type ChatComposeBoxProps } from './ChatComposeBox';
 import ChatPeopleTab from './ChatPeopleTab';
-import ChatGroupsTab, { groupTitle } from './ChatGroupsTab';
+import ChatGroupsTab from './ChatGroupsTab';
 import ChatProjectsTab from './ChatProjectsTab';
+import ChatPanelHeader from './ChatPanelHeader';
+import ChatGroupModals from './ChatGroupModals';
+import ChatLightbox from './ChatLightbox';
 
 interface Props {
   initialTask?: { id: string; name: string };
@@ -41,8 +45,6 @@ interface Props {
   onClose: () => void;
   isAdminChat?: boolean;
 }
-
-type Tab = 'messages' | 'tasks' | 'search' | 'files' | 'people' | 'groups' | 'projects';
 
 const PINS_KEY = (productId: string) => `planly_pinned_chats_${productId}`;
 const DISMISSED_KEY = (productId: string) => `planly_dismissed_chats_${productId}`;
@@ -188,79 +190,35 @@ export default function ChatPanel({
       .catch(() => {});
   }, [tab, selectedTask, isAdminChat, activeProduct?.id]);
 
-  // Panel layout state: size + position persisted to localStorage; refs shadow state for pointer closures
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  // Swipe-down-to-dismiss while expanded (the layout mobile is always forced into below 768px) -
-  // the header's ✕ is a reach on a phone, so dragging down from the header closes the panel
-  // instead. Harmless on desktop's manually-toggled fullscreen too, since touch events simply
-  // never fire from mouse interaction there.
-  const [expandedDragY, setExpandedDragY] = useState(0);
-  const [expandedDragging, setExpandedDragging] = useState(false);
-  const expandedDragStartYRef = useRef<number | null>(null);
-  const [isSidebar, setIsSidebar] = useState(() => {
-    try {
-      return localStorage.getItem('planly-chat-sidebar') === 'true';
-    } catch {
-      return false;
-    }
-  });
-  const [panelWidth, setPanelWidth] = useState(() => {
-    try {
-      return parseInt(localStorage.getItem('planly-chat-width') ?? '380');
-    } catch {
-      return 380;
-    }
-  });
-  const [panelHeight, setPanelHeight] = useState(() => {
-    try {
-      return parseInt(localStorage.getItem('planly-chat-height') ?? '560');
-    } catch {
-      return 560;
-    }
-  });
-  const [chatPos, setChatPos] = useState<{ x: number; y: number }>(() => {
-    try {
-      const s = localStorage.getItem('planly-chat-pos');
-      if (s) return JSON.parse(s);
-    } catch {}
-    const w = parseInt(localStorage.getItem('planly-chat-width') ?? '380');
-    return { x: Math.max(8, window.innerWidth - w - 16), y: 64 };
-  });
+  // ── Layout hook: expand/minimize/sidebar/size/position + drag/resize handlers. The
+  // ref-shadowing pattern the handlers rely on to dodge stale closures in native `window` pointer
+  // listeners lives inside the hook - see its own header comment. ──
+  const {
+    isExpanded,
+    setIsExpanded,
+    isMinimized,
+    setIsMinimized,
+    expandedDragY,
+    expandedDragging,
+    isSidebar,
+    panelWidth,
+    panelHeight,
+    chatPos,
+    isMobile,
+    startResizeDir,
+    onHeaderDrag,
+    handleExpandedTouchStart,
+    handleExpandedTouchMove,
+    handleExpandedTouchEnd,
+  } = useChatPanelLayout({ onClose });
+
   const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
   // Which message's reply/edit/delete overlay is showing - tap-to-reveal on touch devices, since
   // the old opacity-0 group-hover approach never showed at all without a real :hover state.
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
-  const [showComposePicker, setShowComposePicker] = useState(false);
-  const [showMarkdownHelp, setShowMarkdownHelp] = useState(false);
-  // Mobile-only overflow menu for Emoji/Markdown/Preview - keeps the compose bar down to just
-  // Attach + textarea + Send on a phone, closer to Messenger's minimal bar.
-  const [showMoreTools, setShowMoreTools] = useState(false);
-  const panelWidthRef = useRef(panelWidth);
-  panelWidthRef.current = panelWidth;
-  const panelHeightRef = useRef(panelHeight);
-  panelHeightRef.current = panelHeight;
-  const chatPosRef = useRef(chatPos);
-  chatPosRef.current = chatPos;
-  const isSidebarRef = useRef(isSidebar);
-  isSidebarRef.current = isSidebar;
-  const headerDragRef = useRef<{ startX: number; startY: number; px: number; py: number } | null>(null);
 
-  // Compose state
-  const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
-  const [preview, setPreview] = useState(false);
-  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [deletingFile, setDeletingFile] = useState<string | null>(null);
-
-  // @ mention state
-  const [mentionSearch, setMentionSearch] = useState<string | null>(null);
-  const [mentionCursorStart, setMentionCursorStart] = useState<number>(0);
-  const [mentionHighlight, setMentionHighlight] = useState(0);
-  const [teamMembers, setTeamMembers] = useState<TeamMemberEntry[]>([]);
 
   // Pin/dismiss state for Tasks tab
   const [pinnedTaskIds, setPinnedTaskIds] = useState<string[]>([]);
@@ -269,9 +227,6 @@ export default function ChatPanel({
   const [taskSearch, setTaskSearch] = useState('');
 
   const [scrollToMsgId, setScrollToMsgId] = useState<string | null>(null);
-
-  // Reply state — shared across tabs
-  const [replyingTo, setReplyingTo] = useState<ReplyingTo | null>(null);
 
   const [dmUserSearch, setDmUserSearch] = useState('');
 
@@ -288,8 +243,6 @@ export default function ChatPanel({
   const [groupBusy, setGroupBusy] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const textRef = useRef<HTMLTextAreaElement>(null);
   // The scrollable message-list container - tracked so the auto-scroll-to-bottom effect below can
   // check whether the user is actually near the bottom (rather than yanking their view down every
   // time a poll tick delivers someone else's message while they're scrolled up reading history),
@@ -321,42 +274,59 @@ export default function ChatPanel({
     setAllMessages,
   });
 
-  // On small screens always use fullscreen mode; also re-check on resize. `isMobile` is tracked
-  // separately from `isExpanded` because the latter can also be true on desktop (manual fullscreen
-  // toggle) - the compose bar needs a real breakpoint signal to render only one textarea (mobile's
-  // compact single-row one, or desktop's toolbar+textarea), never both, so `textRef` always points
-  // at whichever one is actually visible.
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => {
-    function syncMobile() {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (mobile) setIsExpanded(true);
-    }
-    syncMobile();
-    window.addEventListener('resize', syncMobile);
-    return () => window.removeEventListener('resize', syncMobile);
-  }, []);
-
-  // Mobile's single-line compose textarea grows with the message (up to the same 100px cap it
-  // already had) instead of staying a fixed one-line height. "Multiline" (which switches the
-  // +/textarea/Send row from centered to bottom-anchored) is judged against THIS device's own
-  // actual empty-textarea height, captured once, rather than a hardcoded pixel guess - line-height
-  // and padding render slightly differently across browsers/fonts, and a static threshold could
-  // misfire and leave the row bottom-anchored (looking off-center) even for a single line.
-  const [composeMultiline, setComposeMultiline] = useState(false);
-  const singleLineHeightRef = useRef<number | null>(null);
-  useLayoutEffect(() => {
-    if (!isMobile) return;
-    const ta = textRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    const next = Math.min(ta.scrollHeight, 100);
-    ta.style.height = `${next}px`;
-    if (!draft) singleLineHeightRef.current = next;
-    const baseline = singleLineHeightRef.current ?? next;
-    setComposeMultiline(next > baseline + 4);
-  }, [draft, isMobile]);
+  // ── Compose hook: draft/attachments/@mention state + handlers, the send() dispatcher (routes to
+  // whichever thread is open), and file upload/paste/delete. ──
+  const {
+    draft,
+    setDraft,
+    sending,
+    preview,
+    setPreview,
+    attachments,
+    setAttachments,
+    uploading,
+    deletingFile,
+    mentionSearch,
+    mentionHighlight,
+    setMentionHighlight,
+    mentionCandidates,
+    teamMembers,
+    replyingTo,
+    setReplyingTo,
+    showComposePicker,
+    setShowComposePicker,
+    showMarkdownHelp,
+    setShowMarkdownHelp,
+    showMoreTools,
+    setShowMoreTools,
+    composeMultiline,
+    fileRef,
+    textRef,
+    handleDraftChange,
+    handleDraftKeyDown,
+    handlePaste,
+    insertMention,
+    send,
+    handleFileChange,
+    handleDeleteFile,
+  } = useChatCompose({
+    isAdminChat,
+    adminMode,
+    activeProduct,
+    user,
+    productId,
+    tab,
+    sendTaskId,
+    activeConvId,
+    activeGroupId,
+    activeProjectId,
+    isMobile,
+    confirm,
+    setAllMessages,
+    setDmMessages,
+    setGroupMessages,
+    setProjectMessages,
+  });
 
   // When opened from a task's chat button, jump directly to that task's thread
   useEffect(() => {
@@ -421,17 +391,6 @@ export default function ChatPanel({
     timer = setTimeout(tryScroll, 120);
     return () => clearTimeout(timer);
   }, [scrollToMsgId]);
-
-  // Load team members for @ mentions (not applicable in admin chat)
-  useEffect(() => {
-    if (isAdminChat) return;
-    const teamId = activeProduct?.teamId;
-    if (!teamId) return;
-    api.teams
-      .get(teamId)
-      .then((team) => setTeamMembers(team.members.map((m) => ({ ...m.user, role: m.role }))))
-      .catch(() => {});
-  }, [isAdminChat, activeProduct?.teamId]);
 
   // Load pins + dismissed from localStorage
   useEffect(() => {
@@ -631,214 +590,6 @@ export default function ChatPanel({
     return result;
   }, [displayMessages]);
 
-  // Filtered mention candidates. "@all" is a standard-chat-style shortcut (like Slack's @channel)
-  // that notifies every project team member - it's a synthetic entry alongside real members, not
-  // a real TeamMemberEntry, matching the same shape so the dropdown below needs no special-casing.
-  const mentionCandidates = useMemo(() => {
-    if (mentionSearch === null) return [];
-    const q = mentionSearch.toLowerCase();
-    const members = teamMembers
-      .filter(
-        (m) =>
-          m.id !== user?.id &&
-          (m.username.toLowerCase().startsWith(q) || m.realName?.trim().toLowerCase().startsWith(q)),
-      )
-      .slice(0, 6);
-    const allEntry: TeamMemberEntry = { id: '__all__', username: 'all', realName: 'Everyone', avatarEmoji: '📢' };
-    // Only offered in project chat, where the backend actually fans out notifications for it -
-    // admin chat has no team roster and no backend support for this shortcut.
-    return !isAdminChat && 'all'.startsWith(q) ? [allEntry, ...members] : members;
-  }, [mentionSearch, teamMembers, user?.id, isAdminChat]);
-
-  function handleDraftChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value;
-    setDraft(val);
-    const cursor = e.target.selectionStart ?? val.length;
-    const textBeforeCursor = val.slice(0, cursor);
-    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
-    if (mentionMatch) {
-      setMentionSearch(mentionMatch[1] ?? null);
-      setMentionCursorStart(cursor - mentionMatch[0].length);
-      setMentionHighlight(0);
-    } else {
-      setMentionSearch(null);
-    }
-  }
-
-  function insertMention(username: string) {
-    const before = draft.slice(0, mentionCursorStart);
-    const after = draft.slice(mentionCursorStart + 1 + (mentionSearch?.length ?? 0));
-    const newDraft = `${before}@${username} ${after}`;
-    setDraft(newDraft);
-    setMentionSearch(null);
-    setTimeout(() => {
-      if (textRef.current) {
-        const pos = before.length + username.length + 2;
-        textRef.current.focus();
-        textRef.current.setSelectionRange(pos, pos);
-      }
-    }, 0);
-  }
-
-  function handleDraftKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (mentionSearch !== null && mentionCandidates.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setMentionHighlight((h) => Math.min(h + 1, mentionCandidates.length - 1));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setMentionHighlight((h) => Math.max(h - 1, 0));
-        return;
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        insertMention(mentionCandidates[mentionHighlight]!.username);
-        return;
-      }
-      if (e.key === 'Escape') {
-        setMentionSearch(null);
-        return;
-      }
-    }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
-  }
-
-  // Compute the role badge to attach to a new message based on current mode and context
-  function computePostedAsRole(): string | null {
-    if (isAdminChat || adminMode) {
-      if (user?.isFoundingAdmin) return 'Server Owner';
-      if (user?.isAdmin) return 'Server Admin';
-    }
-    if (activeProduct?.ownerId === user?.id) return 'Project Owner';
-    const member = teamMembers.find((m) => m.id === user?.id);
-    if (member?.role === 'co_owner') return 'Project Co-Owner';
-    return null;
-  }
-
-  async function send() {
-    if (!draft.trim() && attachments.length === 0) return;
-
-    // Route to DM when a conversation is open in the People tab
-    if (tab === 'people' && activeConvId) {
-      if (!draft.trim()) return;
-      setSending(true);
-      try {
-        const msg = await api.conversations.send(activeConvId, draft.trim(), replyingTo?.id);
-        setDmMessages((prev) => [...prev, msg]);
-        setDraft('');
-        setAttachments([]);
-        setPreview(false);
-        setReplyingTo(null);
-        await api.conversations.markRead(activeConvId).catch(() => {});
-      } catch (err) {
-        alert((err as Error).message ?? 'Failed to send message');
-      } finally {
-        setSending(false);
-        setTimeout(() => textRef.current?.focus(), 0);
-      }
-      return;
-    }
-
-    // Route to a group thread when one is open in the Groups tab
-    if (tab === 'groups' && activeGroupId) {
-      if (!draft.trim()) return;
-      setSending(true);
-      try {
-        const msg = await api.conversations.send(activeGroupId, draft.trim(), replyingTo?.id);
-        setGroupMessages((prev) => [...prev, msg]);
-        setDraft('');
-        setAttachments([]);
-        setPreview(false);
-        setReplyingTo(null);
-        await api.conversations.markRead(activeGroupId).catch(() => {});
-      } catch (err) {
-        alert((err as Error).message ?? 'Failed to send message');
-      } finally {
-        setSending(false);
-        setTimeout(() => textRef.current?.focus(), 0);
-      }
-      return;
-    }
-
-    // Route to project chat when admin is viewing a project in the Projects tab
-    if (tab === 'projects' && activeProjectId) {
-      if (!draft.trim()) return;
-      setSending(true);
-      try {
-        const msg = await api.admin.postProjectMessage(activeProjectId, draft.trim(), computePostedAsRole());
-        setProjectMessages((prev) => [...prev, msg]);
-        setDraft('');
-        setAttachments([]);
-        setPreview(false);
-      } catch (err) {
-        alert((err as Error).message ?? 'Failed to send message');
-      } finally {
-        setSending(false);
-        setTimeout(() => textRef.current?.focus(), 0);
-      }
-      return;
-    }
-
-    if (!isAdminChat && !productId) return;
-    setSending(true);
-    try {
-      const postedAsRole = computePostedAsRole();
-      const msg = isAdminChat
-        ? await api.adminChat.create({ content: draft.trim(), replyToId: replyingTo?.id, attachments, postedAsRole })
-        : await api.messages.create(productId!, {
-            content: draft.trim(),
-            taskId: sendTaskId,
-            replyToId: replyingTo?.id,
-            attachments,
-            postedAsRole,
-          });
-      setAllMessages((prev) => [...prev, msg]);
-      setDraft('');
-      setAttachments([]);
-      setPreview(false);
-      setMentionSearch(null);
-      setReplyingTo(null);
-    } catch (err) {
-      alert((err as Error).message ?? 'Failed to send message');
-    } finally {
-      setSending(false);
-      setTimeout(() => textRef.current?.focus(), 0);
-    }
-  }
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    setUploading(true);
-    try {
-      const uploaded = await Promise.all(files.map((f) => api.upload(f)));
-      setAttachments((prev) => [...prev, ...uploaded]);
-    } catch (err) {
-      alert((err as Error).message ?? 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  }
-
-  async function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const imageItems = Array.from(e.clipboardData.items).filter((i) => i.type.startsWith('image/'));
-    if (!imageItems.length) return;
-    e.preventDefault();
-    setUploading(true);
-    try {
-      const files = imageItems.map((i) => i.getAsFile()).filter(Boolean) as File[];
-      const uploaded = await Promise.all(files.map((f) => api.upload(f)));
-      setAttachments((prev) => [...prev, ...uploaded]);
-    } catch (err) {
-      alert((err as Error).message ?? 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  }
-
   async function deleteMsg(id: string) {
     if (tab === 'people' || tab === 'groups' || tab === 'projects') return;
     if (!(await confirm('Delete this message?'))) return;
@@ -850,103 +601,6 @@ export default function ChatPanel({
     }
     setAllMessages((prev) => prev.filter((m) => m.id !== id));
   }
-
-  const startResizeDir = useCallback((e: React.PointerEvent, dir: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const sx = chatPosRef.current.x,
-      sy = chatPosRef.current.y;
-    const sw = panelWidthRef.current,
-      sh = panelHeightRef.current;
-    const startX = e.clientX,
-      startY = e.clientY;
-    function onMove(ev: PointerEvent) {
-      const dx = ev.clientX - startX,
-        dy = ev.clientY - startY;
-      let newW = sw,
-        newH = sh,
-        newX = sx,
-        newY = sy;
-      if (dir.includes('e')) newW = Math.max(300, Math.min(1200, sw + dx));
-      if (dir.includes('w')) {
-        newW = Math.max(300, Math.min(1200, sw - dx));
-        if (!isSidebarRef.current) newX = sx + sw - newW;
-      }
-      if (dir.includes('s')) newH = Math.max(200, Math.min(window.innerHeight - 40, sh + dy));
-      if (dir.includes('n')) {
-        newH = Math.max(200, Math.min(window.innerHeight - 40, sh - dy));
-        newY = sy + sh - newH;
-      }
-      newX = Math.max(0, Math.min(window.innerWidth - newW, newX));
-      newY = Math.max(0, newY);
-      setPanelWidth(newW);
-      panelWidthRef.current = newW;
-      setPanelHeight(newH);
-      panelHeightRef.current = newH;
-      if (!isSidebarRef.current) setChatPos({ x: newX, y: newY });
-    }
-    function onUp() {
-      try {
-        localStorage.setItem('planly-chat-width', String(panelWidthRef.current));
-        localStorage.setItem('planly-chat-height', String(panelHeightRef.current));
-        localStorage.setItem('planly-chat-pos', JSON.stringify(chatPosRef.current));
-      } catch {}
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }, []);
-
-  const onHeaderDrag = useCallback((e: React.PointerEvent) => {
-    if ((e.target as Element).closest('button')) return;
-    e.preventDefault();
-    const startPX = isSidebarRef.current ? window.innerWidth - panelWidthRef.current : chatPosRef.current.x;
-    const startPY = isSidebarRef.current ? 0 : chatPosRef.current.y;
-    headerDragRef.current = { startX: e.clientX, startY: e.clientY, px: startPX, py: startPY };
-    function onMove(ev: PointerEvent) {
-      if (!headerDragRef.current) return;
-      const x = Math.max(
-        0,
-        Math.min(
-          window.innerWidth - panelWidthRef.current,
-          headerDragRef.current.px + (ev.clientX - headerDragRef.current.startX),
-        ),
-      );
-      const y = Math.max(
-        0,
-        Math.min(window.innerHeight - 56, headerDragRef.current.py + (ev.clientY - headerDragRef.current.startY)),
-      );
-      // Undock from sidebar if dragged away from right edge
-      if (isSidebarRef.current && x + panelWidthRef.current < window.innerWidth - 40) {
-        setIsSidebar(false);
-        isSidebarRef.current = false;
-        try {
-          localStorage.setItem('planly-chat-sidebar', 'false');
-        } catch {}
-      }
-      setChatPos({ x, y });
-    }
-    function onUp() {
-      // Snap to sidebar if released near right edge
-      const pos = chatPosRef.current;
-      if (!isSidebarRef.current && pos.x + panelWidthRef.current >= window.innerWidth - 40) {
-        setIsSidebar(true);
-        isSidebarRef.current = true;
-        try {
-          localStorage.setItem('planly-chat-sidebar', 'true');
-        } catch {}
-      }
-      try {
-        localStorage.setItem('planly-chat-pos', JSON.stringify(chatPosRef.current));
-      } catch {}
-      headerDragRef.current = null;
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }, []);
 
   async function toggleReaction(messageId: string, emoji: string) {
     if (tab === 'people' || tab === 'groups' || tab === 'projects') return;
@@ -985,27 +639,7 @@ export default function ChatPanel({
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [reactionPickerFor, showComposePicker]);
-
-  async function handleDeleteFile(url: string) {
-    if (!(await confirm('Delete this file? It will no longer be accessible from chat messages.'))) return;
-    const filename = url.split('/').pop() ?? '';
-    setDeletingFile(url);
-    try {
-      await api.deleteUpload(filename);
-      // Remove from messages in local state so Files tab updates immediately
-      setAllMessages((prev) =>
-        prev.map((m) => ({
-          ...m,
-          attachments: m.attachments.filter((a) => a.url !== url),
-        })),
-      );
-    } catch {
-      /* file may already be gone */
-    } finally {
-      setDeletingFile(null);
-    }
-  }
+  }, [reactionPickerFor, showComposePicker, setShowComposePicker]);
 
   // Adapt a DirectMessage to the Message shape so ChatMessageList can render it with full markdown/image support.
   // Stable via useCallback (pure function of its argument, no closure deps) so the two useMemos below
@@ -1062,31 +696,6 @@ export default function ChatPanel({
   function groupRoster(): { id: string; username: string; realName?: string | null; avatarEmoji?: string | null }[] {
     return isAdminChat ? allUsers.filter((u) => u.id !== user?.id) : teamMembers.filter((m) => m.id !== user?.id);
   }
-
-  const tabBtn = (t: Tab, label: string, badge?: number) => (
-    <button
-      onClick={() => {
-        setTab(t);
-        if (t !== 'tasks') setSelectedTask(null);
-        if (t !== 'search') setSearch('');
-      }}
-      className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
-      style={{
-        background: tab === t ? 'var(--brand-subtle)' : 'transparent',
-        color: tab === t ? 'var(--brand)' : 'var(--text-3)',
-      }}
-    >
-      {label}
-      {!!badge && badge > 0 && tab !== t && (
-        <span
-          className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-          style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
-        >
-          {badge > 99 ? '99+' : badge}
-        </span>
-      )}
-    </button>
-  );
 
   // Shared prop bundle for ChatComposeBox - every prop here is already common to every thread
   // ChatPanel can show (project/task/DM/group/admin-project), so this bundle is spread as-is at
@@ -1208,81 +817,6 @@ export default function ChatPanel({
 
   const taskThreadCount = taskMessageCounts.size;
 
-  const ExpandIcon = () => (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 13 13"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="8,1 12,1 12,5" />
-      <polyline points="5,12 1,12 1,8" />
-      <line x1="12" y1="1" x2="7" y2="6" />
-      <line x1="1" y1="12" x2="6" y2="7" />
-    </svg>
-  );
-  const CollapseIcon = () => (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 13 13"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="12,8 12,12 8,12" />
-      <polyline points="1,5 1,1 5,1" />
-      <line x1="7" y1="7" x2="12" y2="12" />
-      <line x1="1" y1="1" x2="6" y2="6" />
-    </svg>
-  );
-
-  const headerBtn = (title: string, onClick: () => void, icon: React.ReactNode) => (
-    <button
-      title={title}
-      onClick={onClick}
-      className="w-7 h-7 flex items-center justify-center rounded-lg text-sm flex-shrink-0"
-      style={{ color: 'var(--text-3)' }}
-      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
-      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-    >
-      {icon}
-    </button>
-  );
-
-  const EXPANDED_DRAG_CLOSE_THRESHOLD = 100;
-  const EXPANDED_DRAG_MAX = 300;
-
-  function handleExpandedTouchStart(e: React.TouchEvent) {
-    if (!isExpanded) return;
-    const t = e.touches[0];
-    if (!t) return;
-    expandedDragStartYRef.current = t.clientY;
-    setExpandedDragging(true);
-  }
-
-  function handleExpandedTouchMove(e: React.TouchEvent) {
-    if (expandedDragStartYRef.current === null) return;
-    const t = e.touches[0];
-    if (!t) return;
-    const dy = t.clientY - expandedDragStartYRef.current;
-    setExpandedDragY(Math.max(0, Math.min(dy, EXPANDED_DRAG_MAX)));
-  }
-
-  function handleExpandedTouchEnd() {
-    if (expandedDragStartYRef.current === null) return;
-    expandedDragStartYRef.current = null;
-    setExpandedDragging(false);
-    if (expandedDragY >= EXPANDED_DRAG_CLOSE_THRESHOLD) onClose();
-    setExpandedDragY(0);
-  }
-
   return (
     <div
       className="fixed flex flex-col"
@@ -1374,165 +908,39 @@ export default function ChatPanel({
           style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }}
         />
       )}
-      {/* Header - drag handle (desktop float-panel drag) or swipe-down-to-dismiss (expanded); also
-          doubles as the grab handle itself (no separate bar needed - one less stacked row). Hidden
-          on mobile while a sub-thread's own compact header is showing (see inSubThread above). */}
-      <div
-        onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
-        onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
-        onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
-        onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
-        className="hidden md:flex items-center justify-between px-4 py-3 flex-shrink-0 select-none"
-        style={{
-          borderBottom: isMinimized ? 'none' : '1px solid var(--border)',
-          cursor: isExpanded ? 'default' : 'grab',
-          touchAction: isExpanded ? 'none' : undefined,
-        }}
-        onPointerDown={isExpanded ? undefined : onHeaderDrag}
-      >
-        <div className="min-w-0">
-          {!isAdminChat && tab === 'tasks' && selectedTask && !isMinimized ? (
-            <div className="flex items-center gap-1 min-w-0">
-              <button
-                onClick={() => {
-                  setTab('messages');
-                  setSelectedTask(null);
-                }}
-                className="text-xs font-medium flex-shrink-0 transition-colors"
-                style={{ color: 'var(--brand)' }}
-              >
-                💬 Project chat
-              </button>
-              <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
-                ›
-              </span>
-              <span className="text-xs truncate" style={{ color: 'var(--text-2)' }}>
-                {selectedTask.name}
-              </span>
-            </div>
-          ) : (
-            // Hidden on mobile - the tab bar directly below already shows which section is
-            // selected, so this title would just repeat it; desktop keeps it as window chrome.
-            <h2 className="hidden md:block text-sm font-semibold" style={{ color: 'var(--text)' }}>
-              💬 {isAdminChat ? 'Admin chat' : 'Project chat'}
-            </h2>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          {!isExpanded &&
-            headerBtn(isMinimized ? 'Restore' : 'Minimise', () => setIsMinimized((v) => !v), isMinimized ? '▲' : '−')}
-          {window.innerWidth >= 768 &&
-            headerBtn(
-              isExpanded ? 'Exit fullscreen' : 'Fullscreen',
-              () => {
-                setIsExpanded((v) => !v);
-                setIsMinimized(false);
-              },
-              isExpanded ? <CollapseIcon /> : <ExpandIcon />,
-            )}
-          {headerBtn('Close', onClose, '✕')}
-        </div>
-      </div>
+      <ChatPanelHeader
+        isAdminChat={isAdminChat}
+        tab={tab}
+        setTab={setTab}
+        selectedTask={selectedTask}
+        setSelectedTask={setSelectedTask}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+        isExpanded={isExpanded}
+        setIsExpanded={setIsExpanded}
+        onClose={onClose}
+        inSubThread={inSubThread}
+        unreadByTask={unreadByTask}
+        tasksUnread={tasksUnread}
+        taskThreadCount={taskThreadCount}
+        totalDmUnread={totalDmUnread}
+        totalGroupUnread={totalGroupUnread}
+        activeConvId={activeConvId}
+        activeGroupId={activeGroupId}
+        setSearch={setSearch}
+        setActiveProjectId={setActiveProjectId}
+        setProjectMessages={setProjectMessages}
+        loadAdminProjects={loadAdminProjects}
+        loadPeople={loadPeople}
+        loadGroups={loadGroups}
+        onExpandedTouchStart={handleExpandedTouchStart}
+        onExpandedTouchMove={handleExpandedTouchMove}
+        onExpandedTouchEnd={handleExpandedTouchEnd}
+        onHeaderDrag={onHeaderDrag}
+      />
 
       {!isMinimized && (
         <>
-          {/* Tabs - the top-most row on mobile (the panel header above is desktop-only there),
-              so it also carries the swipe-down-to-dismiss handlers and a mobile-only close button.
-              Hidden entirely on mobile while a sub-thread's own header is showing instead. */}
-          <div
-            onTouchStart={isExpanded ? handleExpandedTouchStart : undefined}
-            onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
-            onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
-            onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
-            className={`${inSubThread ? 'hidden md:flex' : 'flex'} items-center gap-1 px-3 py-2 flex-shrink-0`}
-            style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
-          >
-            {/* pt-1.5 gives the unread badges (positioned -top-0.5 on each tab button, i.e.
-                slightly overlapping the button's top-right corner) room to render - without it,
-                this row's own overflow-x-auto forces overflow-y to 'auto' too (browsers coerce a
-                'visible' cross-axis to 'auto' whenever the other axis isn't 'visible'), which was
-                clipping the badges' top edge since they had zero slack above the buttons. */}
-            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto pt-1.5" style={{ scrollbarWidth: 'none' }}>
-              {tabBtn('messages', isAdminChat ? 'Admin' : 'Project', unreadByTask.general)}
-              {isAdminChat && (
-              <button
-                onClick={() => {
-                  setTab('projects');
-                  setSelectedTask(null);
-                  setSearch('');
-                  setActiveProjectId(null);
-                  setProjectMessages([]);
-                  loadAdminProjects();
-                }}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0"
-                style={{
-                  background: tab === 'projects' ? 'var(--brand-subtle)' : 'transparent',
-                  color: tab === 'projects' ? 'var(--brand)' : 'var(--text-3)',
-                }}
-              >
-                Projects
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setTab('people');
-                setSelectedTask(null);
-                setSearch('');
-                if (!activeConvId) loadPeople();
-              }}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
-              style={{
-                background: tab === 'people' ? 'var(--brand-subtle)' : 'transparent',
-                color: tab === 'people' ? 'var(--brand)' : 'var(--text-3)',
-              }}
-            >
-              Users
-              {totalDmUnread > 0 && tab !== 'people' && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
-                >
-                  {totalDmUnread > 99 ? '99+' : totalDmUnread}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => {
-                setTab('groups');
-                setSelectedTask(null);
-                setSearch('');
-                if (!activeGroupId) loadGroups();
-              }}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
-              style={{
-                background: tab === 'groups' ? 'var(--brand-subtle)' : 'transparent',
-                color: tab === 'groups' ? 'var(--brand)' : 'var(--text-3)',
-              }}
-            >
-              Groups
-              {totalGroupUnread > 0 && tab !== 'groups' && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
-                >
-                  {totalGroupUnread > 99 ? '99+' : totalGroupUnread}
-                </span>
-              )}
-            </button>
-              {!isAdminChat && tabBtn('tasks', `Tasks${taskThreadCount > 0 ? ` (${taskThreadCount})` : ''}`, tasksUnread)}
-              {tabBtn('files', 'Files')}
-              {tabBtn('search', 'Search')}
-            </div>
-            <button
-              onClick={onClose}
-              aria-label="Close chat"
-              className="md:hidden flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm ml-1"
-              style={{ color: 'var(--text-3)' }}
-            >
-              ✕
-            </button>
-          </div>
-
           {/* ── Messages tab ── */}
           {tab === 'messages' && (
             <>
@@ -1956,349 +1364,40 @@ export default function ChatPanel({
           )}
 
           {/* Lightbox */}
-          {lightboxUrl && (
-            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse-only backdrop dismiss; the ✕ button below is the keyboard-accessible equivalent
-            <div
-              className="fixed inset-0 z-[200] flex items-center justify-center"
-              style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}
-              onClick={() => setLightboxUrl(null)}
-            >
-              <button
-                onClick={() => setLightboxUrl(null)}
-                className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-white text-xl font-bold transition-colors"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.3)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-              >
-                ✕
-              </button>
-              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- stopPropagation-only guard against the backdrop's dismiss-on-click */}
-              <img
-                src={lightboxUrl}
-                alt=""
-                className="max-w-[90vw] max-h-[90vh] rounded-xl object-contain shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              />
-              <a
-                href={lightboxUrl}
-                download
-                onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-6 text-white text-sm px-4 py-2 rounded-xl font-medium transition-colors"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-              >
-                ↓ Download
-              </a>
-            </div>
-          )}
+          {lightboxUrl && <ChatLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
 
-          {/* New group creation */}
-          {showNewGroupModal && (
-            <Modal
-              title="New group"
-              onClose={() => setShowNewGroupModal(false)}
-              width="max-w-sm"
-              mobileFullscreen
-            >
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Group name (optional)"
-                  className="input text-sm w-full"
-                />
-                <input
-                  type="text"
-                  value={newGroupSearch}
-                  onChange={(e) => setNewGroupSearch(e.target.value)}
-                  placeholder={isAdminChat ? 'Search users…' : 'Search members…'}
-                  className="input text-sm w-full"
-                />
-                {groupRoster().length > 0 && (
-                  <button
-                    onClick={() => {
-                      const visible = groupRoster().filter((m) => {
-                        const q = newGroupSearch.toLowerCase().trim();
-                        if (!q) return true;
-                        return m.username.toLowerCase().includes(q) || (m.realName ?? '').toLowerCase().includes(q);
-                      });
-                      const allSelected = visible.every((m) => newGroupSelected.has(m.id));
-                      setNewGroupSelected(allSelected ? new Set() : new Set(visible.map((m) => m.id)));
-                    }}
-                    className="text-xs font-medium"
-                    style={{ color: 'var(--brand)' }}
-                  >
-                    {groupRoster().every((m) => newGroupSelected.has(m.id)) ? 'Deselect all' : 'Select all'}
-                  </button>
-                )}
-                <div className="max-h-64 overflow-y-auto space-y-0.5">
-                  {groupRoster()
-                    .filter((m) => {
-                      const q = newGroupSearch.toLowerCase().trim();
-                      if (!q) return true;
-                      return m.username.toLowerCase().includes(q) || (m.realName ?? '').toLowerCase().includes(q);
-                    })
-                    .map((m) => {
-                      const checked = newGroupSelected.has(m.id);
-                      return (
-                        <label
-                          key={m.id}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors"
-                          style={{ background: checked ? 'var(--brand-subtle)' : 'transparent' }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() =>
-                              setNewGroupSelected((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(m.id)) next.delete(m.id);
-                                else next.add(m.id);
-                                return next;
-                              })
-                            }
-                            style={{ accentColor: 'var(--brand)' }}
-                          />
-                          <div
-                            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
-                            style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
-                          >
-                            {m.avatarEmoji ?? m.username[0]?.toUpperCase()}
-                          </div>
-                          <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
-                            {m.realName || m.username}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  {groupRoster().length === 0 && (
-                    <p className="text-xs text-center py-4" style={{ color: 'var(--text-3)' }}>
-                      No one else to add.
-                    </p>
-                  )}
-                </div>
-                <div
-                  className="flex items-center justify-between gap-2 pt-2"
-                  style={{ borderTop: '1px solid var(--border)' }}
-                >
-                  <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-                    {newGroupSelected.size} selected
-                  </span>
-                  <button
-                    disabled={newGroupSelected.size < 2 || creatingGroup}
-                    onClick={async () => {
-                      setCreatingGroup(true);
-                      try {
-                        await createGroup(Array.from(newGroupSelected), newGroupName.trim() || undefined);
-                        setShowNewGroupModal(false);
-                      } catch (err) {
-                        alert((err as Error).message ?? 'Failed to create group');
-                      } finally {
-                        setCreatingGroup(false);
-                      }
-                    }}
-                    className="btn-primary text-xs px-4"
-                  >
-                    {creatingGroup ? '…' : 'Create'}
-                  </button>
-                </div>
-              </div>
-            </Modal>
-          )}
-
-          {/* Manage group: rename, add/remove participants, leave */}
-          {showManageGroupModal &&
-            activeGroupId &&
-            (() => {
-              const conv = groupConversations.find((c) => c.id === activeGroupId);
-              if (!conv) return null;
-              return (
-                <Modal
-                  title="Manage group"
-                  onClose={() => setShowManageGroupModal(false)}
-                  width="max-w-sm"
-                  mobileFullscreen
-                >
-                  <div className="space-y-4">
-                    <div>
-                      <label className="label" htmlFor="chat-manage-group-name">
-                        Group name
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          id="chat-manage-group-name"
-                          type="text"
-                          value={manageGroupName}
-                          onChange={(e) => setManageGroupName(e.target.value)}
-                          placeholder={groupTitle(conv)}
-                          className="input text-sm flex-1"
-                        />
-                        <button
-                          disabled={!manageGroupName.trim() || groupBusy}
-                          onClick={async () => {
-                            setGroupBusy(true);
-                            try {
-                              await renameGroup(activeGroupId, manageGroupName.trim());
-                            } catch (err) {
-                              alert((err as Error).message ?? 'Failed to rename');
-                            } finally {
-                              setGroupBusy(false);
-                            }
-                          }}
-                          className="btn-secondary text-xs px-3 flex-shrink-0"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
-                        Participants
-                      </p>
-                      <div className="space-y-1">
-                        {conv.participants.map((p) => (
-                          <div
-                            key={p.id}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-                            style={{ background: 'var(--surface-2)' }}
-                          >
-                            <span className="text-xs flex-1 min-w-0 truncate" style={{ color: 'var(--text)' }}>
-                              {displayName(p)}
-                            </span>
-                            <button
-                              disabled={groupBusy}
-                              onClick={async () => {
-                                setGroupBusy(true);
-                                try {
-                                  await removeGroupParticipant(activeGroupId, p.id, user?.id ?? '');
-                                } catch (err) {
-                                  alert((err as Error).message ?? 'Failed to remove');
-                                } finally {
-                                  setGroupBusy(false);
-                                }
-                              }}
-                              className="text-xs opacity-60 hover:opacity-100 flex-shrink-0"
-                              style={{ color: '#ef4444' }}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
-                          Add people
-                        </p>
-                        {(() => {
-                          const addable = groupRoster().filter((m) => !conv.participants.some((p) => p.id === m.id));
-                          if (addable.length === 0) return null;
-                          const allSelected = addable.every((m) => addPeopleSelected.has(m.id));
-                          return (
-                            <button
-                              onClick={() =>
-                                setAddPeopleSelected(allSelected ? new Set() : new Set(addable.map((m) => m.id)))
-                              }
-                              className="text-xs font-medium"
-                              style={{ color: 'var(--brand)' }}
-                            >
-                              {allSelected ? 'Deselect all' : 'Select all'}
-                            </button>
-                          );
-                        })()}
-                      </div>
-                      <input
-                        type="text"
-                        value={addPeopleSearch}
-                        onChange={(e) => setAddPeopleSearch(e.target.value)}
-                        placeholder="Search…"
-                        className="input text-sm w-full mb-2"
-                      />
-                      <div className="max-h-40 overflow-y-auto space-y-0.5">
-                        {groupRoster()
-                          .filter((m) => !conv.participants.some((p) => p.id === m.id))
-                          .filter((m) => {
-                            const q = addPeopleSearch.toLowerCase().trim();
-                            if (!q) return true;
-                            return (
-                              m.username.toLowerCase().includes(q) || (m.realName ?? '').toLowerCase().includes(q)
-                            );
-                          })
-                          .map((m) => {
-                            const checked = addPeopleSelected.has(m.id);
-                            return (
-                              <label
-                                key={m.id}
-                                className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
-                                style={{ background: checked ? 'var(--brand-subtle)' : 'transparent' }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() =>
-                                    setAddPeopleSelected((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(m.id)) next.delete(m.id);
-                                      else next.add(m.id);
-                                      return next;
-                                    })
-                                  }
-                                  style={{ accentColor: 'var(--brand)' }}
-                                />
-                                <span className="text-xs" style={{ color: 'var(--text)' }}>
-                                  {m.realName || m.username}
-                                </span>
-                              </label>
-                            );
-                          })}
-                      </div>
-                      <button
-                        disabled={addPeopleSelected.size === 0 || groupBusy}
-                        onClick={async () => {
-                          setGroupBusy(true);
-                          try {
-                            await addGroupParticipants(activeGroupId, Array.from(addPeopleSelected));
-                            setAddPeopleSelected(new Set());
-                            setAddPeopleSearch('');
-                          } catch (err) {
-                            alert((err as Error).message ?? 'Failed to add');
-                          } finally {
-                            setGroupBusy(false);
-                          }
-                        }}
-                        className="btn-primary text-xs px-4 mt-2"
-                      >
-                        Add selected
-                      </button>
-                    </div>
-
-                    <button
-                      disabled={groupBusy}
-                      onClick={async () => {
-                        if (!(await confirm('Leave this group?'))) return;
-                        setGroupBusy(true);
-                        try {
-                          await removeGroupParticipant(activeGroupId, user?.id ?? '', user?.id ?? '');
-                          setShowManageGroupModal(false);
-                        } catch (err) {
-                          alert((err as Error).message ?? 'Failed to leave');
-                        } finally {
-                          setGroupBusy(false);
-                        }
-                      }}
-                      className="btn-danger w-full justify-center flex text-sm"
-                    >
-                      Leave group
-                    </button>
-                  </div>
-                </Modal>
-              );
-            })()}
+          <ChatGroupModals
+            isAdminChat={isAdminChat}
+            groupRoster={groupRoster}
+            showNewGroupModal={showNewGroupModal}
+            onCloseNewGroupModal={() => setShowNewGroupModal(false)}
+            newGroupName={newGroupName}
+            setNewGroupName={setNewGroupName}
+            newGroupSearch={newGroupSearch}
+            setNewGroupSearch={setNewGroupSearch}
+            newGroupSelected={newGroupSelected}
+            setNewGroupSelected={setNewGroupSelected}
+            creatingGroup={creatingGroup}
+            setCreatingGroup={setCreatingGroup}
+            createGroup={createGroup}
+            showManageGroupModal={showManageGroupModal}
+            onCloseManageGroupModal={() => setShowManageGroupModal(false)}
+            activeGroupId={activeGroupId}
+            groupConversations={groupConversations}
+            manageGroupName={manageGroupName}
+            setManageGroupName={setManageGroupName}
+            groupBusy={groupBusy}
+            setGroupBusy={setGroupBusy}
+            renameGroup={renameGroup}
+            removeGroupParticipant={removeGroupParticipant}
+            addGroupParticipants={addGroupParticipants}
+            addPeopleSearch={addPeopleSearch}
+            setAddPeopleSearch={setAddPeopleSearch}
+            addPeopleSelected={addPeopleSelected}
+            setAddPeopleSelected={setAddPeopleSelected}
+            currentUserId={user?.id ?? ''}
+            confirm={confirm}
+          />
         </>
       )}
     </div>
