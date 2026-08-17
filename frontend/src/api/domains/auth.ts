@@ -1,3 +1,8 @@
+/**
+ * Core authentication endpoints: login/logout/session (`me`), password reset and change,
+ * email verification, SSO config, and the TOTP/MFA setup-confirm-challenge flow.
+ */
+
 import { request, json } from '../httpClient';
 import type { User } from '../../types';
 

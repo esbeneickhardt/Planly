@@ -1,3 +1,8 @@
+/**
+ * Outbound email settings, split into two exports: `emailStatus` (enabled flag/from-address/test
+ * send) and `emailConfig` (SMTP connection settings CRUD).
+ */
+
 import { request, json } from '../httpClient';
 
 export const emailStatus = {

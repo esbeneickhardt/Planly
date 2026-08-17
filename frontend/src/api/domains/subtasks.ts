@@ -1,3 +1,7 @@
+/**
+ * Subtask CRUD scoped to a single task.
+ */
+
 import { request, json } from '../httpClient';
 import type { Subtask } from '../../types';
 

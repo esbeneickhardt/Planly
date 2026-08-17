@@ -1,3 +1,9 @@
+/**
+ * Direct-message and group conversations: listing, creation (1:1 and group), messages, read
+ * state, and participant management. The `adminChat` flag switches these same endpoints between
+ * a product's DMs and the admin-chat DM roster - it's unrelated to the `adminChat.ts` channel.
+ */
+
 import { request, json } from '../httpClient';
 import type { ConversationSummary, DirectMessage } from '../types';
 

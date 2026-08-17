@@ -1,3 +1,8 @@
+/**
+ * Per-product chat messages, optionally scoped to a task via `taskId`. Mirrors `adminChat.ts`'s
+ * shape but for project-level channels rather than the site-wide admin channel.
+ */
+
 import { request, json } from '../httpClient';
 import type { Message } from '../types';
 

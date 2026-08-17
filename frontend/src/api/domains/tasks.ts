@@ -1,3 +1,8 @@
+/**
+ * Core task CRUD, board/milestone reordering, bulk update/delete, and prerequisite dependency
+ * edges (`addDependency`/`removeDependency`).
+ */
+
 import { request, json } from '../httpClient';
 import type { Task, Status } from '../../types';
 

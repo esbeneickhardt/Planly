@@ -1,3 +1,7 @@
+/**
+ * Sprint CRUD for a product, plus adding/removing tasks from a sprint's task list.
+ */
+
 import { request, json } from '../httpClient';
 import type { Sprint } from '../types';
 

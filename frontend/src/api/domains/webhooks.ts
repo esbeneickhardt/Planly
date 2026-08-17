@@ -1,3 +1,7 @@
+/**
+ * Per-product outgoing webhooks: CRUD, secret rotation, and delivery history.
+ */
+
 import { request, json } from '../httpClient';
 import type { Webhook, WebhookDelivery } from '../types';
 

@@ -1,3 +1,7 @@
+/**
+ * Global search across tasks/messages/etc, optionally scoped to a single product.
+ */
+
 import { request } from '../httpClient';
 import type { SearchResults } from '../types';
 
