@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick Start</a> · <a href="docs/wiki/Getting-Started.md">Setup Guide</a> · <a href="docs/wiki/API-Reference.md">API Reference</a>
+  <a href="#quick-start">Quick Start</a> · <a href="docs/wiki/Getting-Started.md">Setup Guide</a> · <a href="docs/wiki/API-Reference.md">API Reference</a> · <a href="ROADMAP.md">Roadmap</a>
 </p>
 
 <div align="center">
