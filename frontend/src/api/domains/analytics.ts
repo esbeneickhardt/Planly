@@ -1,3 +1,8 @@
+/**
+ * Per-product analytics: summary stats/velocity (`get`), the paginated activity feed
+ * (`activity`), and workload breakdown (`workload`).
+ */
+
 import { request } from '../httpClient';
 
 export const analytics = {

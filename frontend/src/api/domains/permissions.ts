@@ -1,3 +1,7 @@
+/**
+ * Per-product, per-tab permission levels: list and full replace.
+ */
+
 import { request, json } from '../httpClient';
 
 export const permissions = {

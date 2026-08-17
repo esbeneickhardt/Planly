@@ -1,3 +1,8 @@
+/**
+ * Freeform task-to-task connector lines shown on a product's canvas view - separate from
+ * `tasks.addDependency`'s prerequisite edges.
+ */
+
 import { request, json } from '../httpClient';
 
 export const connections = {

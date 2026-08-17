@@ -1,3 +1,7 @@
+/**
+ * GitHub integration config: webhook URL/secret and import settings (issues/PRs, default product).
+ */
+
 import { request, json } from '../httpClient';
 
 export const github = {

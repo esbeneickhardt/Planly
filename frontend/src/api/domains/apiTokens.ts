@@ -1,3 +1,7 @@
+/**
+ * Personal API token (PAT) management for the current user.
+ */
+
 import { request, json } from '../httpClient';
 import type { ApiToken } from '../types';
 

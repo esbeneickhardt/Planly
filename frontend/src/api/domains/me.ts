@@ -1,3 +1,7 @@
+/**
+ * The current user's per-product permission grants across every product they belong to.
+ */
+
 import { request } from '../httpClient';
 
 export const me = {

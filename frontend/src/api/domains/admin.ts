@@ -1,3 +1,10 @@
+/**
+ * Site-admin panel endpoints: user management (promote/demote/lock/reset), the site
+ * allow/deny whitelist, server config, audit logs (list/export/prune), and project moderation
+ * (list/status/restore/hard-delete). `ipRestrictions` and `adminIpRestrictions` are two distinct
+ * rule sets - general site access vs. the admin panel itself - each with parallel CRUD endpoints.
+ */
+
 import { request, json } from '../httpClient';
 import type { Message } from '../types';
 

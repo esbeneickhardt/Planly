@@ -1,3 +1,8 @@
+/**
+ * User account CRUD, the public-facing `getProfile` view (respects the target's privacy
+ * setting), and notification preference updates.
+ */
+
 import { request, json } from '../httpClient';
 import type { User } from '../../types';
 
