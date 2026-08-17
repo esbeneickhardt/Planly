@@ -5,19 +5,8 @@
  */
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  DndContext,
-  DragEndEvent,
-  DragStartEvent,
-  DragOverlay,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  pointerWithin,
-  MeasuringStrategy,
-} from '@dnd-kit/core';
-import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { DndContext, DragOverlay, pointerWithin, MeasuringStrategy } from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Task, KanbanColumn as KanbanColumnType } from '../../types';
 import { api } from '../../api/client';
 import { useProduct } from '../../context/ProductContext';
@@ -26,6 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useColorLegend, PRESET_COLORS } from '../../hooks/useColorLegend';
 import { useProductMembers } from '../../hooks/useProductMembers';
 import { useSprints } from '../../hooks/useSprints';
+import { useKanbanDnd } from '../../hooks/useKanbanDnd';
 import { computePrimaryMilestones, assignMilestoneColors } from '../../utils/milestones';
 import { KANBAN_BACKGROUNDS } from '../../constants/kanbanBackgrounds';
 import KanbanColumn, { UNASSIGNED_CLUSTER } from './KanbanColumn';
@@ -35,9 +25,9 @@ import KanbanCard from './KanbanCard';
 import KanbanMobileList from './KanbanMobileList';
 import KanbanFiltersBar from './KanbanFiltersBar';
 import KanbanCompactList from './KanbanCompactList';
+import KanbanModals from './KanbanModals';
 import type { MilestoneOption } from './KanbanMilestoneFilter';
 import TaskDetailPanel from '../common/TaskDetailPanel';
-import Modal from '../common/Modal';
 
 const FILTER_COLORS = PRESET_COLORS;
 
@@ -51,9 +41,6 @@ export default function KanbanBoard() {
   // State: columns, dnd active items, modals, task/column forms
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [activeColumn, setActiveColumn] = useState<KanbanColumnType | null>(null);
-  const [activeMilestoneHeader, setActiveMilestoneHeader] = useState<MilestoneOption | null>(null);
   const [toast, setToast] = useState('');
   const [showNewTask, setShowNewTask] = useState(false);
   const [showNewColumn, setShowNewColumn] = useState(false);
@@ -288,11 +275,6 @@ export default function KanbanBoard() {
     }
   }, [dndBoardKey]);
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
-  );
-
   useEffect(() => {
     if (!activeProduct) return;
     lastInitializedProductId.current = null;
@@ -395,6 +377,33 @@ export default function KanbanBoard() {
     () => orderedMilestoneIds.map((id) => milestoneMeta.get(id)).filter((m): m is MilestoneOption => !!m),
     [orderedMilestoneIds, milestoneMeta],
   );
+
+  // dnd-kit wiring for all three drag types (milestone-header reorder, column reorder, task drag)
+  // - see useKanbanDnd's own header comment for why they share one hook/DndContext.
+  const {
+    sensors,
+    activeTask,
+    activeColumn,
+    activeMilestoneHeader,
+    onDragStart,
+    handleDragEnd,
+  } = useKanbanDnd({
+    activeProduct,
+    tasks,
+    columns,
+    setColumns,
+    readOnly,
+    viewMode,
+    orderedMilestoneIds,
+    milestoneMeta,
+    primaryMilestones,
+    collapsedStatusesInMilestoneView,
+    toggleStatusCollapsed,
+    loadColumns,
+    refreshTasks,
+    saveMilestoneOrder,
+    showToast,
+  });
 
   // Restore the saved per-milestone collapse state whenever grouping is turned on or the product
   // changes, so it survives a reload (e.g. mobile pull-to-refresh) instead of resetting. Only when
@@ -562,175 +571,6 @@ export default function KanbanBoard() {
   function onBoardMouseUp() {
     isPanning.current = false;
     if (boardRef.current) boardRef.current.style.cursor = '';
-  }
-
-  // DnD handlers: `pointerWithin` collision detects both column drops and task-on-task drops
-  function onDragStart(event: DragStartEvent) {
-    const type = event.active.data.current?.type;
-    if (type === 'column') {
-      setActiveColumn(columns.find((c) => c.id === event.active.id) ?? null);
-    } else if (type === 'milestone-header') {
-      const milestoneId = event.active.data.current?.milestoneId as string;
-      setActiveMilestoneHeader(milestoneMeta.get(milestoneId) ?? null);
-    } else {
-      setActiveTask(tasks.find((t) => t.id === event.active.id) ?? null);
-    }
-  }
-
-  async function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    setActiveTask(null);
-    setActiveColumn(null);
-    setActiveMilestoneHeader(null);
-    if (!over || !activeProduct) return;
-
-    const activeType = active.data.current?.type;
-
-    // ── Milestone header reorder (shared across all columns/milestone-columns; a display
-    // preference, so it isn't gated behind write permission the way task/column mutations below
-    // are). Must check the OVER type too: in milestone-columns mode, status-section drop zones
-    // also carry a milestoneId in their data (so cross-milestone task drops can be detected below),
-    // so a header dropped on a status section must not be mistaken for another header/column. ──
-    if (activeType === 'milestone-header') {
-      if (over.data.current?.type !== 'milestone-header') return;
-      const activeMilestoneId = active.data.current?.milestoneId as string;
-      const overMilestoneId = over.data.current?.milestoneId as string | undefined;
-      if (!overMilestoneId || activeMilestoneId === overMilestoneId) return;
-      const oldIdx = orderedMilestoneIds.indexOf(activeMilestoneId);
-      const newIdx = orderedMilestoneIds.indexOf(overMilestoneId);
-      if (oldIdx === -1 || newIdx === -1) return;
-      saveMilestoneOrder(arrayMove(orderedMilestoneIds, oldIdx, newIdx));
-      return;
-    }
-
-    if (readOnly) return;
-
-    // ── Column reorder (status-columns mode only) ──
-    if (activeType === 'column') {
-      const fromId = active.id as string;
-      const toId = over.id as string;
-      if (fromId === toId) return;
-      const oldIdx = columns.findIndex((c) => c.id === fromId);
-      const newIdx = columns.findIndex((c) => c.id === toId);
-      if (oldIdx === -1 || newIdx === -1) return;
-      const reordered = arrayMove(columns, oldIdx, newIdx);
-      setColumns(reordered); // optimistic
-      try {
-        await api.columns.reorder(
-          activeProduct.id,
-          reordered.map((c, i) => ({ id: c.id, order: i })),
-        );
-      } catch {
-        await loadColumns(); // rollback
-      }
-      return;
-    }
-
-    // ── Task drag ──
-    const taskId = active.id as string;
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-
-    const overId = over.id as string;
-    const overTask = tasks.find((t) => t.id === overId);
-    const overData = over.data.current as { type?: string; statusKey?: string; milestoneId?: string } | undefined;
-    const overColumn = columns.find((c) => c.statusKey === overId);
-
-    const targetStatusKey = overData?.statusKey ?? overColumn?.statusKey ?? overTask?.status ?? null;
-    if (!targetStatusKey) return;
-
-    // Milestone reassignment: only in milestone-columns mode, and never for a task that is itself
-    // a milestone (it defines its own column - it can only move between status sections within
-    // it, never into another milestone's column, so its scope always resolves to its own id).
-    let currentMilestoneId: string | undefined;
-    let targetMilestoneId: string | undefined;
-    if (viewMode === 'milestone') {
-      if (task.deadline) {
-        currentMilestoneId = task.id;
-        targetMilestoneId = task.id;
-      } else {
-        currentMilestoneId = primaryMilestones.get(task.id)?.id ?? UNASSIGNED_CLUSTER;
-        targetMilestoneId =
-          overData?.milestoneId ??
-          (overTask ? (primaryMilestones.get(overTask.id)?.id ?? UNASSIGNED_CLUSTER) : undefined);
-      }
-    }
-    const milestoneChanged =
-      viewMode === 'milestone' && !task.deadline && !!targetMilestoneId && targetMilestoneId !== currentMilestoneId;
-
-    const statusChanged = task.status !== targetStatusKey;
-    if (statusChanged && !task.ownerId && targetStatusKey === 'todo') {
-      showToast('Assign an owner before moving to To Do.');
-      return;
-    }
-
-    if (milestoneChanged && targetMilestoneId) {
-      // Reuses TaskDetailPanel's own milestone-switch logic: find the task's current DIRECT
-      // milestone edge (single-hop, not the transitive primaryMilestones lookup) and swap it for a
-      // direct edge to the new milestone.
-      const milestoneTaskIds = new Set(tasks.filter((t) => !!t.deadline).map((t) => t.id));
-      const directPrevId = task.requiredBy.find((r) => milestoneTaskIds.has(r.dependentId))?.dependentId ?? null;
-      try {
-        await Promise.all([
-          directPrevId ? api.tasks.removeDependency(activeProduct.id, directPrevId, task.id) : null,
-          targetMilestoneId !== UNASSIGNED_CLUSTER
-            ? api.tasks.addDependency(activeProduct.id, targetMilestoneId, task.id)
-            : null,
-        ]);
-        // A drop into a collapsed status section would otherwise vanish from view
-        if (collapsedStatusesInMilestoneView.has(targetStatusKey)) toggleStatusCollapsed(targetStatusKey);
-      } catch (err) {
-        showToast((err as Error).message ?? 'Could not move task to that milestone');
-        return;
-      }
-    }
-
-    // Build the new ordered list for the target column - scoped to (status, milestone) when in
-    // milestone-columns mode, so reordering only considers this milestone-column's own cards.
-    const scopeMilestoneId = viewMode === 'milestone' ? (targetMilestoneId ?? currentMilestoneId) : undefined;
-    const taskMilestoneKey = (t: Task) => (t.deadline ? t.id : (primaryMilestones.get(t.id)?.id ?? UNASSIGNED_CLUSTER));
-    const inScope = (t: Task) => scopeMilestoneId === undefined || taskMilestoneKey(t) === scopeMilestoneId;
-
-    const listChanged = statusChanged || milestoneChanged;
-    const sorted = (s: string) =>
-      tasks.filter((t) => t.status === s && t.id !== taskId && inScope(t)).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
-
-    let newColumnTasks: Task[];
-    if (overTask && overTask.id !== taskId) {
-      // Dropped on a specific task
-      const peers = sorted(targetStatusKey);
-      const insertAt = peers.findIndex((t) => t.id === overTask.id);
-      if (!listChanged) {
-        // Same-column reorder: insert AFTER the target when moving down, BEFORE when moving up.
-        // Without this, dragging the top card onto a lower card inserts it before the target —
-        // which produces no visible change when there are only two tasks (e.g. [A,B] → [A,B]).
-        const col = tasks.filter((t) => t.status === task.status && inScope(t)).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
-        const movingDown = col.findIndex((t) => t.id === taskId) < col.findIndex((t) => t.id === overTask.id);
-        peers.splice(movingDown ? insertAt + 1 : insertAt, 0, task);
-      } else {
-        // Cross-column: insert at the target's position (before it)
-        peers.splice(insertAt === -1 ? peers.length : insertAt, 0, task);
-      }
-      newColumnTasks = peers;
-    } else {
-      // Dropped on the column/section droppable itself (not a specific task) - append at end
-      const peers = sorted(targetStatusKey);
-      peers.push(task);
-      newColumnTasks = peers;
-    }
-
-    try {
-      if (statusChanged) {
-        await api.tasks.update(activeProduct.id, taskId, { status: targetStatusKey });
-      }
-      await api.tasks.reorder(
-        activeProduct.id,
-        newColumnTasks.map((t, i) => ({ taskId: t.id, order: i })),
-      );
-      await refreshTasks();
-    } catch (err) {
-      showToast((err as Error).message);
-    }
   }
 
   // Mobile "+ New task" FAB: unlike the desktop name-only quick-add, this creates a stub task
@@ -1197,121 +1037,25 @@ export default function KanbanBoard() {
         />
       )}
 
-      {/* New task modal */}
-      {showNewTask && (
-        <Modal title="New task" onClose={() => setShowNewTask(false)} width="max-w-sm">
-          <form onSubmit={handleCreateTask} className="space-y-4">
-            <div>
-              <label className="label" htmlFor="kanban-new-task-name">
-                Task name
-              </label>
-              <input
-                id="kanban-new-task-name"
-                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
-                autoFocus
-                required
-                type="text"
-                value={newTaskName}
-                onChange={(e) => setNewTaskName(e.target.value)}
-                className="input"
-                placeholder="What needs to be done?"
-              />
-            </div>
-            <div className="flex gap-3">
-              <button type="submit" disabled={creating} className="btn-primary flex-1 flex justify-center">
-                {creating ? (
-                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Create task'
-                )}
-              </button>
-              <button type="button" onClick={() => setShowNewTask(false)} className="btn-secondary">
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* New column modal */}
-      {showNewColumn && (
-        <Modal title="Add column" onClose={() => setShowNewColumn(false)} width="max-w-sm">
-          <form onSubmit={handleCreateColumn} className="space-y-4">
-            <div>
-              <label className="label" htmlFor="kanban-new-column-name">
-                Column name
-              </label>
-              <input
-                id="kanban-new-column-name"
-                // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
-                autoFocus
-                required
-                type="text"
-                value={newColLabel}
-                onChange={(e) => setNewColLabel(e.target.value)}
-                className="input"
-                placeholder="e.g. Review, Testing…"
-              />
-            </div>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-              Added before the completion column. Tasks can be dragged into it.
-            </p>
-            <div className="flex gap-3">
-              <button type="submit" disabled={creating} className="btn-primary flex-1 flex justify-center">
-                {creating ? (
-                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Add column'
-                )}
-              </button>
-              <button type="button" onClick={() => setShowNewColumn(false)} className="btn-secondary">
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* Delete column confirmation modal */}
-
-      {pendingDeleteCol && (
-        <Modal title="Delete column" onClose={() => setPendingDeleteCol(null)} width="max-w-sm">
-          <div className="space-y-4">
-            <div
-              className="flex items-center gap-3 p-3 rounded-lg"
-              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
-            >
-              <span className="text-lg">⚠️</span>
-              <p className="text-sm" style={{ color: 'var(--text)' }}>
-                Delete <strong>"{pendingDeleteCol.label}"</strong>?
-                {pendingTaskCount > 0
-                  ? ` ${pendingTaskCount} task${pendingTaskCount !== 1 ? 's' : ''} will be moved to To Do.`
-                  : ' The column is empty.'}
-              </p>
-            </div>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-              This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleDeleteColumn}
-                disabled={deleting}
-                className="flex-1 py-2 rounded-lg text-sm font-medium flex justify-center transition-colors"
-                style={{ background: '#ef4444', color: 'white' }}
-              >
-                {deleting ? (
-                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Delete column'
-                )}
-              </button>
-              <button type="button" onClick={() => setPendingDeleteCol(null)} className="btn-secondary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <KanbanModals
+        showNewTask={showNewTask}
+        onCloseNewTask={() => setShowNewTask(false)}
+        newTaskName={newTaskName}
+        onNewTaskNameChange={setNewTaskName}
+        onSubmitNewTask={handleCreateTask}
+        creatingTask={creating}
+        showNewColumn={showNewColumn}
+        onCloseNewColumn={() => setShowNewColumn(false)}
+        newColLabel={newColLabel}
+        onNewColLabelChange={setNewColLabel}
+        onSubmitNewColumn={handleCreateColumn}
+        creatingColumn={creating}
+        pendingDeleteCol={pendingDeleteCol}
+        onCancelDeleteColumn={() => setPendingDeleteCol(null)}
+        onConfirmDeleteColumn={handleDeleteColumn}
+        pendingTaskCount={pendingTaskCount}
+        deletingColumn={deleting}
+      />
     </div>
   );
 }
