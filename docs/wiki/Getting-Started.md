@@ -37,8 +37,8 @@ This guide walks you from zero to a running Planly instance. Follow the steps in
 ## Step 1: Clone the repository
 
 ```bash
-git clone https://github.com/EsbenEickhardt/planly.git
-cd planly
+git clone https://github.com/esbeneickhardt/Planly.git
+cd Planly
 ```
 
 ---
