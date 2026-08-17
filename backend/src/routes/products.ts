@@ -45,9 +45,16 @@ const updateProductSchema = z.object({
 
 export async function productRoutes(app: FastifyInstance) {
   // List all non-deleted projects visible to the authenticated user
+  // Doesn't have a :productId in its URL, so it's outside the global scoped-token check in
+  // middleware/auth.ts - a scoped token gets back only its own project here (0 or 1 rows), never
+  // the full list of every project the underlying user belongs to.
   app.get('/api/products', { preHandler: requireAuth }, async (req, reply) => {
     const products = await prisma.product.findMany({
-      where: { team: { members: { some: { userId: req.user.userId } } }, deletedAt: null },
+      where: {
+        team: { members: { some: { userId: req.user.userId } } },
+        deletedAt: null,
+        ...(req.user.scopedProductId ? { id: req.user.scopedProductId } : {}),
+      },
       include: { team: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'asc' },
     });
@@ -56,6 +63,10 @@ export async function productRoutes(app: FastifyInstance) {
 
   // Creating a product
   app.post('/api/products', { preHandler: requireAuth }, async (req, reply) => {
+    // A scoped token is bounded to operate within its one existing project - creating a brand new,
+    // unrelated project isn't something scope can narrow, so it's rejected outright rather than
+    // silently narrowed like the read routes above.
+    if (req.user.scopedProductId) return reply.status(403).send({ error: 'This token is not authorized to create projects' });
     const body = validate(createProductSchema, req.body, reply);
     if (!body) return;
     const { name, emoji, description, deadline, teamId } = body;

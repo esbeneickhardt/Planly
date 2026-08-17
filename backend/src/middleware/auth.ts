@@ -238,6 +238,22 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   await enforceEmailVerification(req, reply);
 }
 
+// Same as requireAuth, but rejects Bearer/PAT authentication entirely - only a real cookie login
+// session may proceed. `tokenVersion` is only ever set on the cookie-auth path (see AuthPayload
+// above), so its absence means this request came in via a Bearer token. Use this on
+// credential-management routes (PATs, App Registrations): letting a token authenticate there
+// would let it list/mint/revoke other tokens on the same account - including unscoped ones - which
+// is a privilege-escalation path regardless of that token's own declared scope.
+export async function requireInteractiveAuth(req: FastifyRequest, reply: FastifyReply) {
+  const ok = await validateToken(req, reply);
+  if (!ok) return;
+  if (req.user.tokenVersion === undefined) {
+    reply.status(403).send({ error: 'This action requires an interactive login session, not an API token' });
+    return;
+  }
+  await enforceEmailVerification(req, reply);
+}
+
 // Same as requireAuth plus an isAdmin check; also enforces admin-scoped IP restrictions.
 export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   const ok = await validateToken(req, reply);

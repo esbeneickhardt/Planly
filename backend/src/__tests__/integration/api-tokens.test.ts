@@ -1,7 +1,8 @@
 /**
  * Integration tests for Personal Access Token (PAT) management routes.
  * Covers listing, creating, and revoking tokens via /api/auth/tokens.
- * Token auth (Bearer header) and scoping are tested separately in pat-scoped.test.ts.
+ * Token auth (Bearer header) and scoping are tested separately in
+ * access-control/pat-scoped.test.ts and access-control/pat-scoped-account-routes.test.ts.
  * Set TEST_DATABASE_URL to run locally.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';

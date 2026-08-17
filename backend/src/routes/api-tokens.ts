@@ -11,7 +11,7 @@ import { FastifyInstance } from 'fastify';
 import { createHash, randomBytes } from 'crypto';
 import { z } from 'zod';
 import prisma from '../db/client';
-import { requireAuth } from '../middleware/auth';
+import { requireInteractiveAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 
@@ -42,7 +42,7 @@ const TOKEN_SELECT = {
 
 export async function apiTokenRoutes(app: FastifyInstance) {
   // List the current user's tokens (never exposes the raw token)
-  app.get('/api/auth/tokens', { preHandler: requireAuth }, async (req, reply) => {
+  app.get('/api/auth/tokens', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const tokens = await prisma.apiToken.findMany({
       where: { userId: req.user.userId },
       select: TOKEN_SELECT,
@@ -52,7 +52,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
   });
 
   // Create a new token - the raw token value is returned exactly once
-  app.post('/api/auth/tokens', { preHandler: requireAuth }, async (req, reply) => {
+  app.post('/api/auth/tokens', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const body = validate(createTokenSchema, req.body, reply);
     if (!body) return;
     const { name, expiresAt, productId, readOnly } = body;
@@ -97,7 +97,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
   });
 
   // Revoke a token
-  app.delete('/api/auth/tokens/:tokenId', { preHandler: requireAuth }, async (req, reply) => {
+  app.delete('/api/auth/tokens/:tokenId', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const { tokenId } = req.params as { tokenId: string };
     const deleted = await prisma.apiToken.findFirst({
       where: { id: tokenId, userId: req.user.userId },

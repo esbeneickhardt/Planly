@@ -11,7 +11,7 @@ import { FastifyInstance } from 'fastify';
 import { createHash, randomBytes } from 'crypto';
 import { z } from 'zod';
 import prisma from '../db/client';
-import { requireAuth } from '../middleware/auth';
+import { requireInteractiveAuth } from '../middleware/auth';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
 import { handleNotFound } from '../utils/prisma-errors';
@@ -60,7 +60,7 @@ const TOKEN_SELECT = { id: true, name: true, appId: true, lastUsedAt: true, expi
 
 export async function appRegistrationRoutes(app: FastifyInstance) {
   // List the current user's app registrations
-  app.get('/api/apps', { preHandler: requireAuth }, async (req, reply) => {
+  app.get('/api/apps', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const apps = await prisma.appRegistration.findMany({
       where: { ownerId: req.user.userId },
       select: APP_SELECT,
@@ -70,7 +70,7 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   });
 
   // Create a new app registration
-  app.post('/api/apps', { preHandler: requireAuth }, async (req, reply) => {
+  app.post('/api/apps', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const body = validate(createAppSchema, req.body, reply);
     if (!body) return;
     const { name, description, productId } = body;
@@ -96,7 +96,7 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   });
 
   // Update app registration metadata
-  app.patch('/api/apps/:appId', { preHandler: requireAuth }, async (req, reply) => {
+  app.patch('/api/apps/:appId', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
     const body = validate(updateAppSchema, req.body, reply);
     if (!body) return;
@@ -114,7 +114,7 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   });
 
   // Delete an app registration and all its tokens
-  app.delete('/api/apps/:appId', { preHandler: requireAuth }, async (req, reply) => {
+  app.delete('/api/apps/:appId', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
     try {
       const existing = await prisma.appRegistration.findUnique({
@@ -131,7 +131,7 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   });
 
   // List tokens for an app
-  app.get('/api/apps/:appId/tokens', { preHandler: requireAuth }, async (req, reply) => {
+  app.get('/api/apps/:appId/tokens', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
     const appExists = await prisma.appRegistration.findUnique({ where: { id: appId, ownerId: req.user.userId } });
     if (!appExists) return reply.status(404).send({ error: 'Not found' });
@@ -144,7 +144,7 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   });
 
   // Create a token for an app - acts as the owning user's identity, inherits app's product scope
-  app.post('/api/apps/:appId/tokens', { preHandler: requireAuth }, async (req, reply) => {
+  app.post('/api/apps/:appId/tokens', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
     const appExists = await prisma.appRegistration.findUnique({
       where: { id: appId, ownerId: req.user.userId },
@@ -180,7 +180,7 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   });
 
   // Update per-tab permissions for an app registration
-  app.patch('/api/apps/:appId/permissions', { preHandler: requireAuth }, async (req, reply) => {
+  app.patch('/api/apps/:appId/permissions', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
     const body = validate(permissionsSchema, req.body, reply);
     if (!body) return;
@@ -197,7 +197,7 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   });
 
   // Revoke a specific app token
-  app.delete('/api/apps/:appId/tokens/:tokenId', { preHandler: requireAuth }, async (req, reply) => {
+  app.delete('/api/apps/:appId/tokens/:tokenId', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const { appId, tokenId } = req.params as { appId: string; tokenId: string };
     const existing = await prisma.apiToken.findFirst({
       where: { id: tokenId, appId, userId: req.user.userId },
