@@ -52,7 +52,7 @@ const updatePreferencesSchema = z.object({
   preferences: z.record(z.string().max(100), z.boolean()),
 });
 
-// Full self-profile fields returned for the authenticated user — never exposes passwordHash
+// Full self-profile fields returned for the authenticated user - never exposes passwordHash
 const USER_SELF_SELECT = {
   id: true,
   username: true,
@@ -67,7 +67,7 @@ const USER_SELF_SELECT = {
   acceptsInvites: true,
   showProjectsOnProfile: true,
 };
-// Minimal public profile for team member search — no email, phone, or createdAt
+// Minimal public profile for team member search - no email, phone, or createdAt
 const USER_PUBLIC_SELECT = {
   id: true,
   username: true,
@@ -84,6 +84,11 @@ export async function userRoutes(app: FastifyInstance) {
     const take = Math.min(parseInt(limit) || 200, 500);
     const users = await prisma.user.findMany({
       select: USER_PUBLIC_SELECT,
+      // A scoped token only ever needs its own project's teammates (e.g. an @mention picker),
+      // not a directory of every account on the server.
+      where: req.user.scopedProductId
+        ? { teams: { some: { team: { products: { some: { id: req.user.scopedProductId } } } } } }
+        : undefined,
       orderBy: { username: 'asc' },
       take,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -199,7 +204,7 @@ export async function userRoutes(app: FastifyInstance) {
     },
   );
 
-  // Public user profile — display info, plus the target's own project list ONLY when the target
+  // Public user profile - display info, plus the target's own project list ONLY when the target
   // has opted into showing it (showProjectsOnProfile, default on) or the caller is viewing their
   // own profile. `projectsVisible` tells the frontend whether an empty `projects` array means "no
   // projects" or "hidden by the user's own privacy setting", so the two aren't shown identically.

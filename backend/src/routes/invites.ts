@@ -21,9 +21,9 @@ import { config } from '../config/env';
 import { sendEmail, teamInviteEmail } from '../utils/email';
 import { validate } from '../utils/validate';
 import { logAdminEvent } from '../utils/audit';
-import { getTeamAdmin } from '../utils/team-guard';
+import { getTeamAdmin, requireTeamScopeMatch } from '../utils/team-guard';
 
-// Validates invite creation — email makes it targeted; maxUses caps redemptions for open links
+// Validates invite creation - email makes it targeted; maxUses caps redemptions for open links
 const createInviteSchema = z.object({
   email: z.string().email().optional(),
   maxUses: z.number().int().min(1).max(1000).optional(), // open invite use cap; null = unlimited
@@ -33,6 +33,7 @@ export async function inviteRoutes(app: FastifyInstance) {
   // List invites for a team (admins only) - returns both link invites and pending user-targeted invites
   app.get('/api/teams/:teamId/invites', { preHandler: requireAuth }, async (req, reply) => {
     const { teamId } = req.params as { teamId: string };
+    if (!(await requireTeamScopeMatch(teamId, req.user, reply))) return;
     const ctx = await getTeamAdmin(teamId, req.user.userId);
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
     if (!ctx.isAdmin) return reply.status(403).send({ error: 'Forbidden' });
@@ -62,6 +63,7 @@ export async function inviteRoutes(app: FastifyInstance) {
     if (!body) return;
     const { email, maxUses } = body;
 
+    if (!(await requireTeamScopeMatch(teamId, req.user, reply))) return;
     const ctx = await getTeamAdmin(teamId, req.user.userId);
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
     if (!ctx.isAdmin) return reply.status(403).send({ error: 'Forbidden' });
@@ -103,6 +105,7 @@ export async function inviteRoutes(app: FastifyInstance) {
   // Revoke invite (admins only)
   app.delete('/api/teams/:teamId/invites/:inviteId', { preHandler: requireAuth }, async (req, reply) => {
     const { teamId, inviteId } = req.params as { teamId: string; inviteId: string };
+    if (!(await requireTeamScopeMatch(teamId, req.user, reply))) return;
     const ctx = await getTeamAdmin(teamId, req.user.userId);
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
     if (!ctx.isAdmin) return reply.status(403).send({ error: 'Forbidden' });
