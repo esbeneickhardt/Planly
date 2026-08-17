@@ -111,6 +111,6 @@ Licensed under the [Business Source License 1.1](LICENSE) - not OSI-approved ope
 
 **You may not (until the Change Date):** sell it or offer it as a paid hosted service to others · use it as the basis for a competing product · use the code to train AI or ML models.
 
-Contributors grant a royalty-free patent license covering their contributions. For commercial licensing or other permissions, contact esbeneickhardt@gmail.com.
+Contributors grant a royalty-free patent license covering their contributions. For commercial licensing or other permissions, open a [GitHub Issue](https://github.com/esbeneickhardt/Planly/issues).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the current status of external contributions.

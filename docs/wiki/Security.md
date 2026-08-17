@@ -247,7 +247,7 @@ Every response includes an `X-Request-Id` header. If the client sends `X-Request
 
 ## Responsible Disclosure
 
-Found a security issue? Please email **esbeneickhardt@gmail.com** rather than opening a public GitHub issue. Include:
+Found a security issue? Please use GitHub's [private vulnerability reporting](https://github.com/esbeneickhardt/Planly/security/advisories/new) rather than opening a public GitHub issue. Include:
 
 - Description of the vulnerability
 - Steps to reproduce
