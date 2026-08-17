@@ -31,6 +31,8 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
   let teamId: string;
   let productAId: string;
   let productBId: string;
+  let otherTeamId: string;
+  let otherTeamMemberId: string;
   let scopedToken: string;
   let appRegId: string;
   let dmConversationId: string;
@@ -45,6 +47,17 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
     productAId = productA.id;
     const productB = await createTestProduct(ownerId, teamId);
     productBId = productB.id;
+
+    // A completely separate team (own product) the same owner also administers - a token scoped to
+    // productA must never reach this one, even though the underlying user has full admin rights on it.
+    const otherMember = await createTestUser({
+      username: `pat_other_member_${suffix}`,
+      email: `pat_other_member_${suffix}@example.com`,
+    });
+    otherTeamMemberId = otherMember.id;
+    const otherTeam = await createTestTeam(ownerId, [otherTeamMemberId]);
+    otherTeamId = otherTeam.id;
+    await createTestProduct(ownerId, otherTeamId);
 
     const { raw } = await createTestApiToken(ownerId, { productId: productAId, name: 'scoped-to-A' });
     scopedToken = raw;
@@ -72,9 +85,9 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
     await prisma.conversation.deleteMany({ where: { id: dmConversationId } });
     await prisma.apiToken.deleteMany({ where: { userId: ownerId } });
     await prisma.appRegistration.deleteMany({ where: { id: appRegId } });
-    await prisma.product.deleteMany({ where: { id: { in: [productAId, productBId] } } });
-    await prisma.team.deleteMany({ where: { id: teamId } });
-    await prisma.user.deleteMany({ where: { id: ownerId } });
+    await prisma.product.deleteMany({ where: { teamId: { in: [teamId, otherTeamId] } } });
+    await prisma.team.deleteMany({ where: { id: { in: [teamId, otherTeamId] } } });
+    await prisma.user.deleteMany({ where: { id: { in: [ownerId, otherTeamMemberId] } } });
     await app.close();
     await prisma.$disconnect();
   });
@@ -171,14 +184,113 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  // Sanity check: the scope enforcement above isn't blocking everything - the token still works
-  // normally for the one project it's actually scoped to.
-  it('a scoped PAT can still access its own project normally', async () => {
+  // CRITICAL regression: team management has no :productId in its URL, so it was invisible to
+  // both the global scope regex AND the first round of route-level fixes - a scoped token could
+  // reach ANY team the underlying user administers, including deleting one outright.
+  it('a scoped PAT only sees its own team when listing teams', async () => {
     const res = await app.inject({
+      method: 'GET',
+      url: '/api/teams',
+      headers: { authorization: `Bearer ${scopedToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const teams = JSON.parse(res.body);
+    expect(teams.map((t: { id: string }) => t.id)).toEqual([teamId]);
+  });
+
+  it('a scoped PAT cannot view, rename, or delete an unrelated team', async () => {
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/api/teams/${otherTeamId}`,
+      headers: { authorization: `Bearer ${scopedToken}` },
+    });
+    expect(getRes.statusCode).toBe(403);
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/teams/${otherTeamId}`,
+      headers: { authorization: `Bearer ${scopedToken}` },
+      payload: { name: 'renamed by scoped token' },
+    });
+    expect(patchRes.statusCode).toBe(403);
+
+    const deleteRes = await app.inject({
+      method: 'DELETE',
+      url: `/api/teams/${otherTeamId}`,
+      headers: { authorization: `Bearer ${scopedToken}` },
+    });
+    expect(deleteRes.statusCode).toBe(403);
+  });
+
+  it('a scoped PAT cannot manage members or invites on an unrelated team', async () => {
+    const inviteRes = await app.inject({
+      method: 'POST',
+      url: `/api/teams/${otherTeamId}/members`,
+      headers: { authorization: `Bearer ${scopedToken}` },
+      payload: { userId: otherTeamMemberId },
+    });
+    expect(inviteRes.statusCode).toBe(403);
+
+    const removeRes = await app.inject({
+      method: 'DELETE',
+      url: `/api/teams/${otherTeamId}/members/${otherTeamMemberId}`,
+      headers: { authorization: `Bearer ${scopedToken}` },
+    });
+    expect(removeRes.statusCode).toBe(403);
+
+    const roleRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/teams/${otherTeamId}/members/${otherTeamMemberId}/role`,
+      headers: { authorization: `Bearer ${scopedToken}` },
+      payload: { role: 'co_owner' },
+    });
+    expect(roleRes.statusCode).toBe(403);
+
+    const inviteLinkRes = await app.inject({
+      method: 'POST',
+      url: `/api/teams/${otherTeamId}/invites`,
+      headers: { authorization: `Bearer ${scopedToken}` },
+      payload: {},
+    });
+    expect(inviteLinkRes.statusCode).toBe(403);
+  });
+
+  it('a scoped PAT cannot create a new team', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/teams',
+      headers: { authorization: `Bearer ${scopedToken}` },
+      payload: { name: 'escape team' },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('a scoped PAT only sees its own project\'s teammates when listing users', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/users',
+      headers: { authorization: `Bearer ${scopedToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const { users } = JSON.parse(res.body);
+    expect(users.some((u: { id: string }) => u.id === otherTeamMemberId)).toBe(false);
+  });
+
+  // Sanity check: the scope enforcement above isn't blocking everything - the token still works
+  // normally for the one project (and its own team) it's actually scoped to.
+  it('a scoped PAT can still access its own project and team normally', async () => {
+    const productRes = await app.inject({
       method: 'GET',
       url: `/api/products/${productAId}`,
       headers: { authorization: `Bearer ${scopedToken}` },
     });
-    expect(res.statusCode).toBe(200);
+    expect(productRes.statusCode).toBe(200);
+
+    const teamRes = await app.inject({
+      method: 'GET',
+      url: `/api/teams/${teamId}`,
+      headers: { authorization: `Bearer ${scopedToken}` },
+    });
+    expect(teamRes.statusCode).toBe(200);
   });
 });
