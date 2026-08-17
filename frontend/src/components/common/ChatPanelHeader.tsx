@@ -118,7 +118,7 @@ export default function ChatPanelHeader({
         if (t !== 'tasks') setSelectedTask(null);
         if (t !== 'search') setSearch('');
       }}
-      className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
+      className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
       style={{
         background: tab === t ? 'var(--brand-subtle)' : 'transparent',
         color: tab === t ? 'var(--brand)' : 'var(--text-3)',
@@ -242,7 +242,7 @@ export default function ChatPanelHeader({
                   setProjectMessages([]);
                   loadAdminProjects();
                 }}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+                className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0"
                 style={{
                   background: tab === 'projects' ? 'var(--brand-subtle)' : 'transparent',
                   color: tab === 'projects' ? 'var(--brand)' : 'var(--text-3)',
@@ -258,7 +258,7 @@ export default function ChatPanelHeader({
                 setSearch('');
                 if (!activeConvId) loadPeople();
               }}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
+              className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
               style={{
                 background: tab === 'people' ? 'var(--brand-subtle)' : 'transparent',
                 color: tab === 'people' ? 'var(--brand)' : 'var(--text-3)',
@@ -281,7 +281,7 @@ export default function ChatPanelHeader({
                 setSearch('');
                 if (!activeGroupId) loadGroups();
               }}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
+              className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
               style={{
                 background: tab === 'groups' ? 'var(--brand-subtle)' : 'transparent',
                 color: tab === 'groups' ? 'var(--brand)' : 'var(--text-3)',
