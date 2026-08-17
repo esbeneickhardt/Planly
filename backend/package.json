@@ -32,6 +32,7 @@
     "nodemailer": "^9.0.1",
     "openid-client": "^6.8.4",
     "otpauth": "^9.5.1",
+    "prisma": "^5.22.0",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.3",
     "zod": "^4.4.3"
@@ -47,7 +48,6 @@
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10.6.0",
     "prettier": "^3.9.6",
-    "prisma": "^5.22.0",
     "tsx": "^4.15.7",
     "typescript": "^5.4.5",
     "typescript-eslint": "^8.62.1",
