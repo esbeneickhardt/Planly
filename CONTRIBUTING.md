@@ -13,4 +13,4 @@ That's a "not yet," not a permanent "no." As adoption grows, opening up to contr
 
 ## Questions
 
-For anything not covered above, including commercial licensing questions, reach out to esbeneickhardt@gmail.com.
+For anything not covered above, including commercial licensing questions, open a [GitHub Issue](https://github.com/esbeneickhardt/Planly/issues).
