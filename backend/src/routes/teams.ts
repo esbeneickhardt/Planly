@@ -19,7 +19,7 @@ import { createTeamSchema, updateTeamSchema } from '../schemas/teams';
 import { logAdminEvent } from '../utils/audit';
 import { createNotification } from '../utils/notifications';
 import { decryptUserPii } from '../utils/crypto';
-import { getTeamAdmin } from '../utils/team-guard';
+import { getTeamAdmin, requireTeamScopeMatch } from '../utils/team-guard';
 
 // Validates the userId for adding a member to a team
 const addMemberSchema = z.object({ userId: z.string() });
@@ -39,10 +39,15 @@ function decryptTeam<T extends { members: { user: { realName: string | null } }[
 }
 
 export async function teamRoutes(app: FastifyInstance) {
-  // List all teams the requesting user belongs to
+  // List all teams the requesting user belongs to. Doesn't have a :teamId in its URL, so a
+  // scoped token narrows to only the team containing its own project rather than seeing every
+  // team (and every member's decrypted PII) the underlying user belongs to.
   app.get('/api/teams', { preHandler: requireAuth }, async (req, reply) => {
     const teams = await prisma.team.findMany({
-      where: { members: { some: { userId: req.user.userId } } },
+      where: {
+        members: { some: { userId: req.user.userId } },
+        ...(req.user.scopedProductId ? { products: { some: { id: req.user.scopedProductId } } } : {}),
+      },
       include: MEMBER_INCLUDE,
     });
     reply.send(teams.map(decryptTeam));
@@ -52,6 +57,9 @@ export async function teamRoutes(app: FastifyInstance) {
   // be added at creation time (by design: joining a team must be their own choice, via the
   // invite-and-accept flow below, never a side effect of someone else creating a project).
   app.post('/api/teams', { preHandler: requireAuth }, async (req, reply) => {
+    // A scoped token is bounded to its one existing project - creating a brand new, unrelated
+    // team isn't something scope can narrow, so it's rejected outright (mirrors POST /api/products).
+    if (req.user.scopedProductId) return reply.status(403).send({ error: 'This token is not authorized to create teams' });
     const body = validate(createTeamSchema, req.body, reply);
     if (!body) return;
     const { name } = body;
@@ -69,6 +77,7 @@ export async function teamRoutes(app: FastifyInstance) {
   // Get a single team (requester must be a member)
   app.get('/api/teams/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
+    if (!(await requireTeamScopeMatch(id, req.user, reply))) return;
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isMember) return reply.status(403).send({ error: 'Forbidden' });
@@ -79,6 +88,7 @@ export async function teamRoutes(app: FastifyInstance) {
   // Rename the team (co-owners and product owners only)
   app.patch('/api/teams/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
+    if (!(await requireTeamScopeMatch(id, req.user, reply))) return;
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isAdmin) return reply.status(403).send({ error: 'Only team admins can rename the team' });
@@ -96,6 +106,7 @@ export async function teamRoutes(app: FastifyInstance) {
   // Invite a user to the team (admin only) - creates a pending invite the user must accept
   app.post('/api/teams/:id/members', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
+    if (!(await requireTeamScopeMatch(id, req.user, reply))) return;
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isAdmin) return reply.status(403).send({ error: 'Only team admins can invite members' });
@@ -132,7 +143,7 @@ export async function teamRoutes(app: FastifyInstance) {
     const product = await prisma.product.findFirst({ where: { teamId: id }, select: { id: true, name: true } });
     const projectName = product?.name ?? status.team.name;
 
-    // productId intentionally omitted — invite notifications must show regardless of which project
+    // productId intentionally omitted - invite notifications must show regardless of which project
     // the recipient currently has open (backend filter always includes productId: null notifications)
     await createNotification({
       userId,
@@ -156,9 +167,10 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.status(201).send({ pending: true, inviteId: invite.id });
   });
 
-  // Remove a member from a team — admins can remove anyone; members can only remove themselves
+  // Remove a member from a team - admins can remove anyone; members can only remove themselves
   app.delete('/api/teams/:id/members/:userId', { preHandler: requireAuth }, async (req, reply) => {
     const { id, userId } = req.params as { id: string; userId: string };
+    if (!(await requireTeamScopeMatch(id, req.user, reply))) return;
     // Allow self-removal OR admin action
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
@@ -186,9 +198,10 @@ export async function teamRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Change a member's role — only product owners (not co-owners) can promote/demote
+  // Change a member's role - only product owners (not co-owners) can promote/demote
   app.patch('/api/teams/:id/members/:userId/role', { preHandler: requireAuth }, async (req, reply) => {
     const { id: teamId, userId } = req.params as { id: string; userId: string };
+    if (!(await requireTeamScopeMatch(teamId, req.user, reply))) return;
     const roleBody = validate(updateRoleSchema, req.body, reply);
     if (!roleBody) return;
     const { role } = roleBody;
@@ -217,6 +230,7 @@ export async function teamRoutes(app: FastifyInstance) {
   // Delete the team and all its data (admin only)
   app.delete('/api/teams/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
+    if (!(await requireTeamScopeMatch(id, req.user, reply))) return;
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isAdmin) return reply.status(403).send({ error: 'Only team admins can delete the team' });
