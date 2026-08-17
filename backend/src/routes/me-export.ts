@@ -57,35 +57,76 @@ export async function meExportRoutes(app: FastifyInstance) {
         }),
         prisma.message.findMany({
           where: { authorId: userId },
-          select: { id: true, content: true, createdAt: true, productId: true, taskId: true },
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            productId: true,
+            taskId: true,
+          },
           orderBy: { createdAt: 'desc' },
         }),
         prisma.notification.findMany({
           where: { userId },
-          select: { id: true, type: true, title: true, body: true, read: true, createdAt: true },
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            body: true,
+            read: true,
+            createdAt: true,
+          },
           orderBy: { createdAt: 'desc' },
         }),
         prisma.apiToken.findMany({
           where: { userId },
-          select: { id: true, name: true, createdAt: true, expiresAt: true, lastUsedAt: true, productId: true },
+          select: {
+            id: true,
+            name: true,
+            createdAt: true,
+            expiresAt: true,
+            lastUsedAt: true,
+            productId: true,
+          },
         }),
         prisma.announcement.findMany({
           where: { authorId: userId },
-          select: { id: true, title: true, content: true, createdAt: true, pinned: true },
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            createdAt: true,
+            pinned: true,
+          },
           orderBy: { createdAt: 'desc' },
         }),
         prisma.announcementComment.findMany({
           where: { authorId: userId },
-          select: { id: true, content: true, createdAt: true, announcementId: true },
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            announcementId: true,
+          },
           orderBy: { createdAt: 'desc' },
         }),
         prisma.accessRequest.findMany({
           where: { userId },
-          select: { id: true, productId: true, status: true, note: true, createdAt: true },
+          select: {
+            id: true,
+            productId: true,
+            status: true,
+            note: true,
+            createdAt: true,
+          },
         }),
         prisma.teamMember.findMany({
           where: { userId },
-          select: { teamId: true, role: true, team: { select: { id: true, name: true } } },
+          select: {
+            teamId: true,
+            role: true,
+            team: { select: { id: true, name: true } },
+          },
         }),
       ]);
 

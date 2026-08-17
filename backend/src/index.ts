@@ -94,15 +94,25 @@ import jwt from 'jsonwebtoken';
 async function ensureAdminAccount() {
   if (!config.admin.email) return;
   const adminEmail = config.admin.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
+  const existing = await prisma.user.findUnique({
+    where: { email: adminEmail },
+  });
 
   if (existing) {
     // ADMIN_EMAIL guarantees admin access only - never touch isFoundingAdmin on an existing account.
     // The founding-admin seat belongs to whoever holds it in the DB (managed via Transfer Ownership).
     if (!existing.isAdmin) {
-      await prisma.user.update({ where: { email: adminEmail }, data: { isAdmin: true } });
+      await prisma.user.update({
+        where: { email: adminEmail },
+        data: { isAdmin: true },
+      });
       process.stdout.write(
-        JSON.stringify({ level: 30, time: Date.now(), msg: 'admin flag restored', email: adminEmail }) + '\n',
+        JSON.stringify({
+          level: 30,
+          time: Date.now(),
+          msg: 'admin flag restored',
+          email: adminEmail,
+        }) + '\n',
       );
     }
     return;
@@ -169,8 +179,12 @@ async function emergencyRecrown() {
   const target = await prisma.user.findUnique({ where: { email } });
   if (!target) {
     process.stderr.write(
-      JSON.stringify({ level: 50, time: Date.now(), msg: 'RECROWN_EMAIL set but user not found - skipping', email }) +
-        '\n',
+      JSON.stringify({
+        level: 50,
+        time: Date.now(),
+        msg: 'RECROWN_EMAIL set but user not found - skipping',
+        email,
+      }) + '\n',
     );
     return;
   }
@@ -178,8 +192,14 @@ async function emergencyRecrown() {
   // Atomically strip the existing crown and grant it to the target so there is
   // never a moment with zero founding admins; also writes an audit trail entry
   await prisma.$transaction([
-    prisma.user.updateMany({ where: { isFoundingAdmin: true }, data: { isFoundingAdmin: false } }),
-    prisma.user.update({ where: { email }, data: { isAdmin: true, isFoundingAdmin: true } }),
+    prisma.user.updateMany({
+      where: { isFoundingAdmin: true },
+      data: { isFoundingAdmin: false },
+    }),
+    prisma.user.update({
+      where: { email },
+      data: { isAdmin: true, isFoundingAdmin: true },
+    }),
     prisma.adminLog.create({
       data: {
         action: 'CROWN_TRANSFERRED',
@@ -199,7 +219,14 @@ async function emergencyRecrown() {
     '╚══════════════════════════════════════════╝',
   ];
   rcrownLines.forEach((line) =>
-    process.stdout.write(JSON.stringify({ level: 30, time: Date.now(), msg: line, event: 'recrown' }) + '\n'),
+    process.stdout.write(
+      JSON.stringify({
+        level: 30,
+        time: Date.now(),
+        msg: line,
+        event: 'recrown',
+      }) + '\n',
+    ),
   );
 }
 
@@ -221,7 +248,11 @@ async function main() {
       serializers: {
         req(req) {
           const safeUrl = req.url.replace(/([?&])token=[^&]*/g, '$1token=[redacted]');
-          return { method: req.method, url: safeUrl, remoteAddress: req.socket?.remoteAddress };
+          return {
+            method: req.method,
+            url: safeUrl,
+            remoteAddress: req.socket?.remoteAddress,
+          };
         },
       },
     },
@@ -358,9 +389,14 @@ async function main() {
     const cookieToken = req.cookies?.token;
     if (cookieToken) {
       try {
-        const payload = jwt.verify(cookieToken, config.jwtSecret, { algorithms: ['HS256'] }) as { userId?: string };
+        const payload = jwt.verify(cookieToken, config.jwtSecret, {
+          algorithms: ['HS256'],
+        }) as { userId?: string };
         if (payload.userId) {
-          const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { isAdmin: true } });
+          const user = await prisma.user.findUnique({
+            where: { id: payload.userId },
+            select: { isAdmin: true },
+          });
           if (user?.isAdmin) return;
         }
       } catch {
@@ -369,19 +405,29 @@ async function main() {
     }
 
     const [allowlist, blocklist] = await Promise.all([
-      prisma.ipRestriction.findMany({ where: { listType: 'allowlist' }, select: { cidr: true } }),
-      prisma.ipRestriction.findMany({ where: { listType: 'blocklist' }, select: { cidr: true } }),
+      prisma.ipRestriction.findMany({
+        where: { listType: 'allowlist' },
+        select: { cidr: true },
+      }),
+      prisma.ipRestriction.findMany({
+        where: { listType: 'blocklist' },
+        select: { cidr: true },
+      }),
     ]);
 
     // Blocklist takes precedence over allowlist
     if (blocklist.some((r) => matchesCidr(ip, r.cidr))) {
-      return reply.status(403).send({ error: 'Access denied: your IP address has been blocked.', code: 'IP_BLOCKED' });
+      return reply.status(403).send({
+        error: 'Access denied: your IP address has been blocked.',
+        code: 'IP_BLOCKED',
+      });
     }
     // If an allowlist exists, the IP must be on it
     if (allowlist.length > 0 && !allowlist.some((r) => matchesCidr(ip, r.cidr))) {
-      return reply
-        .status(403)
-        .send({ error: 'Access denied: your IP address is not on the allowlist.', code: 'IP_BLOCKED' });
+      return reply.status(403).send({
+        error: 'Access denied: your IP address is not on the allowlist.',
+        code: 'IP_BLOCKED',
+      });
     }
   });
 
@@ -423,7 +469,10 @@ async function main() {
   const totpChallengeRateMax = parseInt(process.env.RATE_LIMIT_TOTP_MAX ?? '10', 10);
   const ROUTE_RATE_LIMITS: Record<string, { max: number; timeWindow: string }> = {
     '/api/auth/login': { max: loginRateMax, timeWindow: '1 minute' },
-    '/api/auth/totp/challenge': { max: totpChallengeRateMax, timeWindow: '1 minute' },
+    '/api/auth/totp/challenge': {
+      max: totpChallengeRateMax,
+      timeWindow: '1 minute',
+    },
     '/api/auth/refresh-token': { max: 60, timeWindow: '1 minute' },
     '/api/auth/forgot-password': { max: 10, timeWindow: '1 minute' },
     '/api/auth/reset-password': { max: 10, timeWindow: '1 minute' },
@@ -439,7 +488,9 @@ async function main() {
     if (!route.url) return;
     const limit = ROUTE_RATE_LIMITS[route.url];
     if (!limit) return;
-    type RouteWithConfig = typeof route & { config?: { rateLimit?: { max: number; timeWindow: string } } };
+    type RouteWithConfig = typeof route & {
+      config?: { rateLimit?: { max: number; timeWindow: string } };
+    };
     (route as RouteWithConfig).config = { rateLimit: limit };
   });
 
@@ -540,23 +591,44 @@ async function main() {
       const softDeleteCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // soft-deleted tasks: 1 year
       const adminLogRetentionDays = parseInt(process.env.ADMIN_LOG_RETENTION_DAYS ?? '90', 10);
       const adminLogCutoff = new Date(Date.now() - adminLogRetentionDays * 24 * 60 * 60 * 1000); // audit log: configurable (default 90d)
-      const [notifResult, activityResult, taskResult, adminLogResult, ssoStateResult, wsTicketResult, refreshTokenResult] =
-        await Promise.all([
-          prisma.notification.deleteMany({ where: { createdAt: { lt: notifCutoff } } }),
-          prisma.activityEvent.deleteMany({ where: { createdAt: { lt: activityCutoff } } }),
-          prisma.task.deleteMany({ where: { deletedAt: { lt: softDeleteCutoff } } }), // hard-delete tasks soft-deleted over a year ago
-          prisma.adminLog.deleteMany({ where: { createdAt: { lt: adminLogCutoff } } }),
-          prisma.ssoState.deleteMany({ where: { expiresAt: { lt: new Date() } } }), // OIDC flow nonces (short-lived, expire on their own)
-          prisma.wsTicket.deleteMany({ where: { expiresAt: { lt: new Date() } } }), // WebSocket auth tickets (short-lived, expire on their own)
-          // Refresh tokens (see utils/refresh-tokens.ts for the rotation model): safe to delete once
-          // either condition holds - expired (past its 30-day expiresAt, whether or not it was ever
-          // rotated), or already superseded by a later rotation (rotatedAt set - kept around only for
-          // reuse detection, which a token can no longer serve once its whole family has long since
-          // moved on). A currently-live token (rotatedAt null, not yet expired) is never touched.
-          prisma.refreshToken.deleteMany({
-            where: { OR: [{ expiresAt: { lt: new Date() } }, { rotatedAt: { not: null } }] },
-          }),
-        ]);
+      const [
+        notifResult,
+        activityResult,
+        taskResult,
+        adminLogResult,
+        ssoStateResult,
+        wsTicketResult,
+        refreshTokenResult,
+      ] = await Promise.all([
+        prisma.notification.deleteMany({
+          where: { createdAt: { lt: notifCutoff } },
+        }),
+        prisma.activityEvent.deleteMany({
+          where: { createdAt: { lt: activityCutoff } },
+        }),
+        prisma.task.deleteMany({
+          where: { deletedAt: { lt: softDeleteCutoff } },
+        }), // hard-delete tasks soft-deleted over a year ago
+        prisma.adminLog.deleteMany({
+          where: { createdAt: { lt: adminLogCutoff } },
+        }),
+        prisma.ssoState.deleteMany({
+          where: { expiresAt: { lt: new Date() } },
+        }), // OIDC flow nonces (short-lived, expire on their own)
+        prisma.wsTicket.deleteMany({
+          where: { expiresAt: { lt: new Date() } },
+        }), // WebSocket auth tickets (short-lived, expire on their own)
+        // Refresh tokens (see utils/refresh-tokens.ts for the rotation model): safe to delete once
+        // either condition holds - expired (past its 30-day expiresAt, whether or not it was ever
+        // rotated), or already superseded by a later rotation (rotatedAt set - kept around only for
+        // reuse detection, which a token can no longer serve once its whole family has long since
+        // moved on). A currently-live token (rotatedAt null, not yet expired) is never touched.
+        prisma.refreshToken.deleteMany({
+          where: {
+            OR: [{ expiresAt: { lt: new Date() } }, { rotatedAt: { not: null } }],
+          },
+        }),
+      ]);
       if (
         notifResult.count > 0 ||
         activityResult.count > 0 ||

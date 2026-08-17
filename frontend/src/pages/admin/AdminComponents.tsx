@@ -45,7 +45,10 @@ export function Toggle({
     <button
       onClick={handleClick}
       className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors w-full"
-      style={{ background: 'var(--surface-2)', border: `1px solid ${checked ? 'var(--brand)' : 'var(--border)'}` }}
+      style={{
+        background: 'var(--surface-2)',
+        border: `1px solid ${checked ? 'var(--brand)' : 'var(--border)'}`,
+      }}
     >
       <ToggleSwitch checked={checked} />
       <div>
@@ -64,7 +67,10 @@ export function StatCard({ label, value, sub }: { label: string; value: number |
   return (
     <div
       className="p-5 rounded-xl flex flex-col gap-1"
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+      style={{
+        background: 'var(--surface-2)',
+        border: '1px solid var(--border)',
+      }}
     >
       <p className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
         {value}

@@ -156,7 +156,11 @@ export default function BacklogPage() {
         children,
       }))
       .filter((s) => s.milestone)
-      .sort((a, b) => a.milestone!.milestoneOrder - b.milestone!.milestoneOrder || a.milestone!.name.localeCompare(b.milestone!.name));
+      .sort(
+        (a, b) =>
+          a.milestone!.milestoneOrder - b.milestone!.milestoneOrder ||
+          a.milestone!.name.localeCompare(b.milestone!.name),
+      );
     return { sections, ungrouped };
   }, [groupByMilestone, sortedFilteredTasks, tasks, primaryMilestones]);
 
@@ -189,7 +193,9 @@ export default function BacklogPage() {
   }
   async function handleQuickStatusChange(task: Task, status: string) {
     if (!activeProduct) return;
-    await api.tasks.update(activeProduct.id, task.id, { status: status as Task['status'] });
+    await api.tasks.update(activeProduct.id, task.id, {
+      status: status as Task['status'],
+    });
     await refreshTasks();
   }
   async function handleDeleteTask(task: Task) {
@@ -236,7 +242,11 @@ export default function BacklogPage() {
             {overdueCount > 0 && (
               <div
                 className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg"
-                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}
+                style={{
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.2)',
+                  color: '#ef4444',
+                }}
               >
                 ⏰ {overdueCount} overdue
               </div>
@@ -274,11 +284,18 @@ export default function BacklogPage() {
             {showFiltersMenu && (
               <div
                 className="fixed left-2 right-2 top-14 md:absolute md:left-0 md:right-auto md:top-full md:mt-1 md:w-64 rounded-xl shadow-xl z-40 p-3 space-y-3 overflow-y-auto animate-dropdown-in"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '70vh' }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  maxHeight: '70vh',
+                }}
               >
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                    <span
+                      className="text-[10px] font-semibold uppercase tracking-widest"
+                      style={{ color: 'var(--text-3)' }}
+                    >
                       Status
                     </span>
                     {statusFilters.size > 0 && (
@@ -351,7 +368,11 @@ export default function BacklogPage() {
             {showViewMenu && (
               <div
                 className="fixed left-2 right-2 top-14 md:absolute md:left-0 md:right-auto md:top-full md:mt-1 md:w-56 rounded-xl shadow-xl z-40 p-2 space-y-1 overflow-y-auto animate-dropdown-in"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '70vh' }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  maxHeight: '70vh',
+                }}
               >
                 <button
                   onClick={() => setGroupByMilestone(!groupByMilestone)}

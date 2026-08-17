@@ -32,8 +32,16 @@ describe.skipIf(!HAS_DB)('RBAC integration', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const owner = await createTestUser({ email: ownerEmail, username: `owner_${suffix}`, password: 'pass123' });
-    const member = await createTestUser({ email: memberEmail, username: `member_${suffix}`, password: 'pass123' });
+    const owner = await createTestUser({
+      email: ownerEmail,
+      username: `owner_${suffix}`,
+      password: 'pass123',
+    });
+    const member = await createTestUser({
+      email: memberEmail,
+      username: `member_${suffix}`,
+      password: 'pass123',
+    });
 
     const team = await createTestTeam(owner.id, [member.id]);
     const product = await createTestProduct(owner.id, team.id);
@@ -45,7 +53,9 @@ describe.skipIf(!HAS_DB)('RBAC integration', () => {
 
   afterAll(async () => {
     await prisma.product.deleteMany({ where: { id: productId } });
-    await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, memberEmail] } } });
+    await prisma.user.deleteMany({
+      where: { email: { in: [ownerEmail, memberEmail] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });

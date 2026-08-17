@@ -40,7 +40,12 @@ vi.mock('../../context/PermissionContext', () => ({
 
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'u1', username: 'testuser', isAdmin: false, announcementsEnabled: true },
+    user: {
+      id: 'u1',
+      username: 'testuser',
+      isAdmin: false,
+      announcementsEnabled: true,
+    },
   }),
 }));
 
@@ -53,7 +58,9 @@ vi.mock('../../api/client', () => ({
   displayName: (u: { username: string }) => u.username,
 }));
 
-vi.mock('./TaskDetailPanel', () => ({ default: () => <div>TaskDetailPanel</div> }));
+vi.mock('./TaskDetailPanel', () => ({
+  default: () => <div>TaskDetailPanel</div>,
+}));
 
 import SearchModal from '../../components/common/SearchModal';
 

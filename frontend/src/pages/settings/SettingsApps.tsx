@@ -123,7 +123,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium flex-shrink-0 transition-colors text-[var(--text-2)] border-[var(--border)] hover:text-[var(--brand)] hover:border-[var(--brand)]"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
           >
             API docs ↗
           </a>
@@ -166,7 +169,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
         {revealedToken && (
           <div
             className="p-4 rounded-xl mb-4"
-            style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}
+            style={{
+              background: 'rgba(16,185,129,0.08)',
+              border: '1px solid rgba(16,185,129,0.3)',
+            }}
           >
             <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>
               Copy this token now - it will not be shown again.
@@ -174,7 +180,11 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
             <div className="flex items-center gap-2">
               <code
                 className="flex-1 text-xs break-all px-3 py-2 rounded-lg"
-                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 {revealedToken}
               </code>
@@ -211,7 +221,9 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                   role="button"
                   tabIndex={0}
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer"
-                  style={{ background: selectedAppId === app.id ? 'var(--brand-subtle)' : 'var(--surface-2)' }}
+                  style={{
+                    background: selectedAppId === app.id ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                  }}
                   onClick={() => setSelectedAppId(selectedAppId === app.id ? null : app.id)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -234,7 +246,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                   </span>
                   <button
                     className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0"
-                    style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+                    style={{
+                      color: '#ef4444',
+                      border: '1px solid rgba(239,68,68,0.25)',
+                    }}
                     onClick={async (e) => {
                       e.stopPropagation();
                       if (!(await confirm(`Delete app "${app.name}" and all its tokens?`))) return;
@@ -254,7 +269,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 {selectedAppId === app.id && (
                   <div
                     className="px-4 pb-4 pt-2 space-y-4"
-                    style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}
+                    style={{
+                      borderTop: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                    }}
                   >
                     <AppPermissionsEditor
                       app={app}
@@ -312,7 +330,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                             </div>
                             <button
                               className="text-[10px] px-2 py-0.5 rounded flex-shrink-0"
-                              style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+                              style={{
+                                color: '#ef4444',
+                                border: '1px solid rgba(239,68,68,0.25)',
+                              }}
                               onClick={async () => {
                                 if (!(await confirm(`Revoke "${t.name}"?`))) return;
                                 try {
@@ -339,7 +360,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
 
         <div
           className="mt-6 p-4 rounded-xl"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
         >
           <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-2)' }}>
             Using app tokens
@@ -350,7 +374,11 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
           </p>
           <code
             className="block text-xs px-3 py-2 rounded-lg"
-            style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+            }}
           >
             Authorization: Bearer planly_…
           </code>
@@ -370,7 +398,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
         {calendarUrl ? (
           <div
             className="p-4 rounded-xl space-y-3"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
           >
             <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               Your calendar URL
@@ -378,7 +409,11 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
             <div className="flex items-center gap-2">
               <code
                 className="flex-1 text-[11px] break-all px-3 py-2 rounded-lg"
-                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 {calendarUrl}
               </code>
@@ -421,7 +456,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
               </button>
               <button
                 className="text-xs px-3 py-1.5 rounded-lg transition-colors"
-                style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+                style={{
+                  color: '#ef4444',
+                  border: '1px solid rgba(239,68,68,0.25)',
+                }}
                 onClick={async () => {
                   if (!(await confirm('Revoke calendar URL? Your calendar app will stop syncing.'))) return;
                   try {
@@ -481,7 +519,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
           {/* Webhook URL */}
           <div
             className="p-4 rounded-xl mb-4 space-y-2"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
           >
             <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               Webhook URL
@@ -489,7 +530,11 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
             <div className="flex items-center gap-2">
               <code
                 className="flex-1 text-[11px] break-all px-3 py-2 rounded-lg"
-                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 {githubConfig.webhookUrl || `${window.location.origin}/api/github/webhook`}
               </code>
@@ -516,7 +561,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
           {revealedWebhookSecret && (
             <div
               className="p-4 rounded-xl mb-4"
-              style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}
+              style={{
+                background: 'rgba(16,185,129,0.08)',
+                border: '1px solid rgba(16,185,129,0.3)',
+              }}
             >
               <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>
                 Copy this secret now - it will not be shown again. Paste it into your GitHub webhook settings.
@@ -524,7 +572,11 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
               <div className="flex items-center gap-2">
                 <code
                   className="flex-1 text-xs break-all px-3 py-2 rounded-lg"
-                  style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                  style={{
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                  }}
                 >
                   {revealedWebhookSecret}
                 </code>
@@ -577,7 +629,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
           {/* Import settings */}
           <div
             className="p-4 rounded-xl space-y-3"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
           >
             <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               Import settings
@@ -591,7 +646,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                   const checked = e.target.checked;
                   setGithubConfig((c) => (c ? { ...c, githubImportIssues: checked } : c));
                   saveGithubImportSettings(
-                    { githubImportIssues: checked, githubImportPrs: githubConfig.githubImportPrs },
+                    {
+                      githubImportIssues: checked,
+                      githubImportPrs: githubConfig.githubImportPrs,
+                    },
                     () => setGithubConfig((c) => (c ? { ...c, githubImportIssues: !checked } : c)),
                   );
                 }}
@@ -609,7 +667,10 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                   const checked = e.target.checked;
                   setGithubConfig((c) => (c ? { ...c, githubImportPrs: checked } : c));
                   saveGithubImportSettings(
-                    { githubImportIssues: githubConfig.githubImportIssues, githubImportPrs: checked },
+                    {
+                      githubImportIssues: githubConfig.githubImportIssues,
+                      githubImportPrs: checked,
+                    },
                     () => setGithubConfig((c) => (c ? { ...c, githubImportPrs: !checked } : c)),
                   );
                 }}

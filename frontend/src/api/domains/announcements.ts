@@ -19,9 +19,24 @@ export const announcements = {
     teamId?: string;
     commentsEnabled?: boolean;
     postedAsRole?: string | null;
-  }) => request<AnnItem>('/api/announcements', { method: 'POST', body: json(data) }),
-  update: (id: string, data: { title?: string; content?: string; pinned?: boolean; commentsEnabled?: boolean }) =>
-    request<AnnItem>(`/api/announcements/${id}`, { method: 'PATCH', body: json(data) }),
+  }) =>
+    request<AnnItem>('/api/announcements', {
+      method: 'POST',
+      body: json(data),
+    }),
+  update: (
+    id: string,
+    data: {
+      title?: string;
+      content?: string;
+      pinned?: boolean;
+      commentsEnabled?: boolean;
+    },
+  ) =>
+    request<AnnItem>(`/api/announcements/${id}`, {
+      method: 'PATCH',
+      body: json(data),
+    }),
   delete: (id: string) => request<{ ok: boolean }>(`/api/announcements/${id}`, { method: 'DELETE' }),
   comments: {
     list: (annId: string) =>

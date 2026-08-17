@@ -63,7 +63,11 @@ export async function icalRoutes(app: FastifyInstance) {
 
     // Verify token owner is a member of the requested product
     const product = await prisma.product.findFirst({
-      where: { id: productId, deletedAt: null, team: { members: { some: { userId: apiToken.userId } } } },
+      where: {
+        id: productId,
+        deletedAt: null,
+        team: { members: { some: { userId: apiToken.userId } } },
+      },
       select: { id: true, name: true, deadline: true, createdAt: true },
     });
 
@@ -75,7 +79,13 @@ export async function icalRoutes(app: FastifyInstance) {
     const [tasks, sprints] = await Promise.all([
       prisma.task.findMany({
         where: { productId, deadline: { not: null }, deletedAt: null },
-        select: { id: true, name: true, deadline: true, status: true, description: true },
+        select: {
+          id: true,
+          name: true,
+          deadline: true,
+          status: true,
+          description: true,
+        },
         orderBy: { deadline: 'asc' },
       }),
       prisma.sprint.findMany({
@@ -154,7 +164,11 @@ export async function icalRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
 
     const product = await prisma.product.findFirst({
-      where: { id: productId, deletedAt: null, team: { members: { some: { userId: req.user.userId } } } },
+      where: {
+        id: productId,
+        deletedAt: null,
+        team: { members: { some: { userId: req.user.userId } } },
+      },
       select: { id: true },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
@@ -165,7 +179,9 @@ export async function icalRoutes(app: FastifyInstance) {
       select: { id: true },
     });
     if (existing.length > 0) {
-      await prisma.apiToken.deleteMany({ where: { id: { in: existing.map((t) => t.id) } } });
+      await prisma.apiToken.deleteMany({
+        where: { id: { in: existing.map((t) => t.id) } },
+      });
     }
 
     // Create a new hashed token and return the raw value (shown once)

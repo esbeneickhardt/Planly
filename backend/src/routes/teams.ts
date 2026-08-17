@@ -29,13 +29,26 @@ const updateRoleSchema = z.object({ role: z.enum(['member', 'co_owner']) });
 // Prisma include shape that returns all team members with their public profile fields
 const MEMBER_INCLUDE = {
   members: {
-    include: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true, isAdmin: true } } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          realName: true,
+          avatarEmoji: true,
+          isAdmin: true,
+        },
+      },
+    },
   },
 };
 
 // Decrypt realName for every member in a team before sending to the client
 function decryptTeam<T extends { members: { user: { realName: string | null } }[] }>(team: T): T {
-  return { ...team, members: team.members.map((m) => ({ ...m, user: decryptUserPii(m.user) })) };
+  return {
+    ...team,
+    members: team.members.map((m) => ({ ...m, user: decryptUserPii(m.user) })),
+  };
 }
 
 export async function teamRoutes(app: FastifyInstance) {
@@ -59,7 +72,8 @@ export async function teamRoutes(app: FastifyInstance) {
   app.post('/api/teams', { preHandler: requireAuth }, async (req, reply) => {
     // A scoped token is bounded to its one existing project - creating a brand new, unrelated
     // team isn't something scope can narrow, so it's rejected outright (mirrors POST /api/products).
-    if (req.user.scopedProductId) return reply.status(403).send({ error: 'This token is not authorized to create teams' });
+    if (req.user.scopedProductId)
+      return reply.status(403).send({ error: 'This token is not authorized to create teams' });
     const body = validate(createTeamSchema, req.body, reply);
     if (!body) return;
     const { name } = body;
@@ -81,7 +95,10 @@ export async function teamRoutes(app: FastifyInstance) {
     const status = await getTeamAdmin(id, req.user.userId);
     if (!status) return reply.status(404).send({ error: 'Not found' });
     if (!status.isMember) return reply.status(403).send({ error: 'Forbidden' });
-    const team = await prisma.team.findUnique({ where: { id }, include: MEMBER_INCLUDE });
+    const team = await prisma.team.findUnique({
+      where: { id },
+      include: MEMBER_INCLUDE,
+    });
     reply.send(team ? decryptTeam(team) : null);
   });
 
@@ -96,7 +113,11 @@ export async function teamRoutes(app: FastifyInstance) {
     if (!body) return;
     const { name } = body;
     try {
-      const team = await prisma.team.update({ where: { id }, data: { name }, include: MEMBER_INCLUDE });
+      const team = await prisma.team.update({
+        where: { id },
+        data: { name },
+        include: MEMBER_INCLUDE,
+      });
       reply.send(decryptTeam(team));
     } catch (e) {
       handleNotFound(e, reply);
@@ -123,12 +144,19 @@ export async function teamRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: 'This user is not accepting project invitations' });
 
     // Prevent duplicate membership
-    const existing = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: id, userId } } });
+    const existing = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId: id, userId } },
+    });
     if (existing) return reply.status(409).send({ error: 'User is already a member' });
 
     // Prevent duplicate pending invite
     const existingInvite = await prisma.teamInvite.findFirst({
-      where: { teamId: id, toUserId: userId, usedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        teamId: id,
+        toUserId: userId,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
     });
     if (existingInvite) return reply.status(409).send({ error: 'An invitation is already pending for this user' });
 
@@ -136,11 +164,21 @@ export async function teamRoutes(app: FastifyInstance) {
     const token = randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const invite = await prisma.teamInvite.create({
-      data: { teamId: id, toUserId: userId, email: target.email, token, expiresAt, maxUses: 1 },
+      data: {
+        teamId: id,
+        toUserId: userId,
+        email: target.email,
+        token,
+        expiresAt,
+        maxUses: 1,
+      },
     });
 
     // Find the project name for the notification body
-    const product = await prisma.product.findFirst({ where: { teamId: id }, select: { id: true, name: true } });
+    const product = await prisma.product.findFirst({
+      where: { teamId: id },
+      select: { id: true, name: true },
+    });
     const projectName = product?.name ?? status.team.name;
 
     // productId intentionally omitted - invite notifications must show regardless of which project
@@ -178,8 +216,13 @@ export async function teamRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: 'Only team admins can remove other members' });
     }
     try {
-      const removed = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
-      await prisma.teamMember.delete({ where: { teamId_userId: { teamId: id, userId } } });
+      const removed = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { username: true },
+      });
+      await prisma.teamMember.delete({
+        where: { teamId_userId: { teamId: id, userId } },
+      });
       logAdminEvent('TEAM_MEMBER_REMOVED', {
         actorName: req.user.username,
         targetName: removed?.username,
@@ -200,17 +243,29 @@ export async function teamRoutes(app: FastifyInstance) {
 
   // Change a member's role - only product owners (not co-owners) can promote/demote
   app.patch('/api/teams/:id/members/:userId/role', { preHandler: requireAuth }, async (req, reply) => {
-    const { id: teamId, userId } = req.params as { id: string; userId: string };
+    const { id: teamId, userId } = req.params as {
+      id: string;
+      userId: string;
+    };
     if (!(await requireTeamScopeMatch(teamId, req.user, reply))) return;
     const roleBody = validate(updateRoleSchema, req.body, reply);
     if (!roleBody) return;
     const { role } = roleBody;
-    const team = await prisma.team.findUnique({ where: { id: teamId }, include: { products: true } });
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: { products: true },
+    });
     if (!team) return reply.status(404).send({ error: 'Not found' });
     const isOwner = team.products.some((p) => p.ownerId === req.user.userId);
     if (!isOwner) return reply.status(403).send({ error: 'Only the product owner can change roles' });
-    const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
-    await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role } });
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+    await prisma.teamMember.update({
+      where: { teamId_userId: { teamId, userId } },
+      data: { role },
+    });
     const projectName = team.products[0]?.name ?? team.name;
     const roleLabel = role === 'co_owner' ? 'co-owner' : 'member';
     await createNotification({

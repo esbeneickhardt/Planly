@@ -34,7 +34,10 @@ describe.skipIf(!HAS_DB)('Color legend routes smoke', () => {
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { identifier: `legend_owner_${suffix}@example.com`, password: 'test-password-123' },
+      payload: {
+        identifier: `legend_owner_${suffix}@example.com`,
+        password: 'test-password-123',
+      },
     });
     cookie = loginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
   });

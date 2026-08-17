@@ -104,7 +104,11 @@ export default function MembershipsModal({ onClose }: Props) {
     try {
       const team = await api.teams.get(p.teamId);
       const others = team.members.map((m) => m.user).filter((u) => u.id !== user.id);
-      setOwnerAction({ productId: p.id, members: others, transferTo: others[0]?.id ?? '' });
+      setOwnerAction({
+        productId: p.id,
+        members: others,
+        transferTo: others[0]?.id ?? '',
+      });
     } catch {
       setErrorMsg('Could not load team members.');
     } finally {
@@ -161,7 +165,10 @@ export default function MembershipsModal({ onClose }: Props) {
               <div
                 key={inv.id}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                style={{ background: 'var(--surface-2)', border: '1px solid rgba(234,179,8,0.3)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid rgba(234,179,8,0.3)',
+                }}
               >
                 <span className="text-xl flex-shrink-0">{inv.projectEmoji ?? '🎯'}</span>
                 <div className="flex-1 min-w-0">
@@ -184,7 +191,11 @@ export default function MembershipsModal({ onClose }: Props) {
                     onClick={() => handleDeclineInvite(inv)}
                     disabled={inviteActionId === inv.id}
                     className="text-xs px-3 py-1 rounded-lg transition-colors"
-                    style={{ color: 'var(--text-3)', border: '1px solid var(--border)', background: 'transparent' }}
+                    style={{
+                      color: 'var(--text-3)',
+                      border: '1px solid var(--border)',
+                      background: 'transparent',
+                    }}
                   >
                     Decline
                   </button>
@@ -202,7 +213,11 @@ export default function MembershipsModal({ onClose }: Props) {
       {errorMsg && (
         <div
           className="mb-3 text-sm px-3 py-2 rounded-lg"
-          style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+          style={{
+            background: 'rgba(239,68,68,0.1)',
+            color: '#ef4444',
+            border: '1px solid rgba(239,68,68,0.2)',
+          }}
         >
           {errorMsg}
         </div>
@@ -283,7 +298,10 @@ export default function MembershipsModal({ onClose }: Props) {
                     {ownerAction.members.length > 0 ? (
                       <div
                         className="rounded-lg p-3 space-y-2"
-                        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                        style={{
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                        }}
                       >
                         <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
                           Transfer ownership &amp; leave
@@ -328,7 +346,10 @@ export default function MembershipsModal({ onClose }: Props) {
                     {/* Delete */}
                     <div
                       className="rounded-lg p-3 space-y-2"
-                      style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}
+                      style={{
+                        background: 'rgba(239,68,68,0.05)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                      }}
                     >
                       <p className="text-xs font-semibold" style={{ color: '#ef4444' }}>
                         Delete project

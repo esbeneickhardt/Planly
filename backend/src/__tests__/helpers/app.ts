@@ -38,9 +38,16 @@ import { notificationRoutes } from '../../routes/notifications';
 export async function buildTestApp(opts: { rateLimitMax?: number } = {}) {
   const app = Fastify({ logger: false });
 
-  await app.register(cors, { origin: 'http://localhost:5173', credentials: true });
+  await app.register(cors, {
+    origin: 'http://localhost:5173',
+    credentials: true,
+  });
   await app.register(cookie);
-  await app.register(rateLimit, { global: true, max: opts.rateLimitMax ?? 10000, timeWindow: '1 minute' });
+  await app.register(rateLimit, {
+    global: true,
+    max: opts.rateLimitMax ?? 10000,
+    timeWindow: '1 minute',
+  });
 
   await app.register(authRoutes);
   await app.register(passwordResetRoutes);

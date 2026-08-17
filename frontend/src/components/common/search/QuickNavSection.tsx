@@ -26,9 +26,13 @@ export default function QuickNavSection({ items, highlightIdx, nextIdx, onGoToVi
             data-idx={i}
             onClick={() => onGoToView(item.path)}
             className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-            style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+            style={{
+              background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+            }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
+            }
           >
             <span className="text-sm" style={{ color: 'var(--text)' }}>
               {item.label}

@@ -29,8 +29,20 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 const TASKS: Task[] = [
-  makeTask({ id: 't1', name: 'Alpha', status: 'backlog', ownerId: 'user-1', createdAt: '2024-01-01T00:00:00Z' }),
-  makeTask({ id: 't2', name: 'Beta', status: 'todo', ownerId: 'user-2', createdAt: '2024-01-02T00:00:00Z' }),
+  makeTask({
+    id: 't1',
+    name: 'Alpha',
+    status: 'backlog',
+    ownerId: 'user-1',
+    createdAt: '2024-01-01T00:00:00Z',
+  }),
+  makeTask({
+    id: 't2',
+    name: 'Beta',
+    status: 'todo',
+    ownerId: 'user-2',
+    createdAt: '2024-01-02T00:00:00Z',
+  }),
   makeTask({
     id: 't3',
     name: 'Gamma',
@@ -39,8 +51,20 @@ const TASKS: Task[] = [
     createdAt: '2024-01-03T00:00:00Z',
     deadline: '2020-01-01' /* overdue */,
   }),
-  makeTask({ id: 't4', name: 'Delta', status: 'done', ownerId: undefined, createdAt: '2024-01-04T00:00:00Z' }),
-  makeTask({ id: 't5', name: 'Epsilon', status: 'blocked', ownerId: undefined, createdAt: '2024-01-05T00:00:00Z' }),
+  makeTask({
+    id: 't4',
+    name: 'Delta',
+    status: 'done',
+    ownerId: undefined,
+    createdAt: '2024-01-04T00:00:00Z',
+  }),
+  makeTask({
+    id: 't5',
+    name: 'Epsilon',
+    status: 'blocked',
+    ownerId: undefined,
+    createdAt: '2024-01-05T00:00:00Z',
+  }),
 ];
 
 describe('useBacklogFilters', () => {

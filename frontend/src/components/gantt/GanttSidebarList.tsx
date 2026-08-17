@@ -5,12 +5,7 @@
  * its own DndContext (sensors/onDragEnd are still wired by GanttPage, which shares the same
  * `handleMilestoneDragEnd`/order-persistence with GanttMobileList's card list).
  */
-import {
-  DndContext,
-  DragEndEvent,
-  closestCenter,
-  useSensors,
-} from '@dnd-kit/core';
+import { DndContext, DragEndEvent, closestCenter, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { displayName } from '../../api/client';
@@ -60,7 +55,11 @@ export default function GanttSidebarList({
   return (
     <div
       className="flex-shrink-0 sticky left-0 z-10"
-      style={{ width: sidebarWidth, borderRight: '1px solid var(--border)', background: 'var(--surface)' }}
+      style={{
+        width: sidebarWidth,
+        borderRight: '1px solid var(--border)',
+        background: 'var(--surface)',
+      }}
     >
       {ganttView === 'sprints' &&
         sprints.map((s) => {
@@ -96,8 +95,15 @@ export default function GanttSidebarList({
               </div>
               <div className="flex items-center gap-1 mt-0.5">
                 <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-                  {new Date(s.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} –{' '}
-                  {new Date(s.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                  {new Date(s.startDate).toLocaleDateString('en', {
+                    month: 'short',
+                    day: 'numeric',
+                  })}{' '}
+                  –{' '}
+                  {new Date(s.endDate).toLocaleDateString('en', {
+                    month: 'short',
+                    day: 'numeric',
+                  })}
                 </span>
                 <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
                   ·
@@ -115,8 +121,8 @@ export default function GanttSidebarList({
             No sub-plans yet
           </p>
           <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
-            Create sprints in the <strong style={{ color: 'var(--text-2)' }}>Plan</strong> view to see them plotted
-            as windows on the timeline.
+            Create sprints in the <strong style={{ color: 'var(--text-2)' }}>Plan</strong> view to see them plotted as
+            windows on the timeline.
           </p>
         </div>
       )}
@@ -253,7 +259,10 @@ function SortableMilestoneRow({
       {isDone && (
         <div className="flex items-center gap-1 mt-0.5">
           <span className="text-[11px]" style={{ color: '#10b981' }}>
-            {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+            {new Date(m.deadline).toLocaleDateString('en', {
+              month: 'short',
+              day: 'numeric',
+            })}
           </span>
         </div>
       )}

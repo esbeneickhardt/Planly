@@ -90,12 +90,30 @@ function CanvasInner() {
   const [columnLabelMap, setColumnLabelMap] = useState<Map<string, string>>(new Map());
 
   // Undo stack for accidental canvas deletions (last 10 ops)
-  type DeletedSnapshot = { name: string; description: string | null; status: string; ownerId: string | null; color: string | null; deadline: string | null; position: { x: number; y: number } }[];
+  type DeletedSnapshot = {
+    name: string;
+    description: string | null;
+    status: string;
+    ownerId: string | null;
+    color: string | null;
+    deadline: string | null;
+    position: { x: number; y: number };
+  }[];
   const [undoStack, setUndoStack] = useState<DeletedSnapshot[]>([]);
   // IDs of task nodes currently selected via Shift-click multi-select
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   // Members cached for the bulk-assign dropdowns
-  const [canvasMembers, setCanvasMembers] = useState<{ userId: string; user: { id: string; username: string; realName: string | null; avatarEmoji: string | null } }[]>([]);
+  const [canvasMembers, setCanvasMembers] = useState<
+    {
+      userId: string;
+      user: {
+        id: string;
+        username: string;
+        realName: string | null;
+        avatarEmoji: string | null;
+      };
+    }[]
+  >([]);
   const [showBulkOwner, setShowBulkOwner] = useState(false);
   const [showBulkReviewer, setShowBulkReviewer] = useState(false);
   const [showBulkStatus, setShowBulkStatus] = useState(false);
@@ -113,7 +131,10 @@ function CanvasInner() {
   const activeProductRef = useRef(activeProduct);
   activeProductRef.current = activeProduct;
   // Always-current ref so onNodeClick never reads stale sprint state from a closure
-  const sprintClickRef = useRef<{ filter: string | null; toggle: (id: string) => Promise<void> }>({
+  const sprintClickRef = useRef<{
+    filter: string | null;
+    toggle: (id: string) => Promise<void>;
+  }>({
     filter: null,
     toggle: async () => {},
   });
@@ -187,7 +208,11 @@ function CanvasInner() {
   });
 
   // Bundles the three filter setters so a saved layout can restore all of them in one call
-  function setFiltersSave(f: { statusFilter: string | null; selectedSprintFilter: string | null; selectedMilestoneIds: string[] }) {
+  function setFiltersSave(f: {
+    statusFilter: string | null;
+    selectedSprintFilter: string | null;
+    selectedMilestoneIds: string[];
+  }) {
     setStatusFilterSave(f.statusFilter);
     setSprintFilterSave(f.selectedSprintFilter);
     setMilestoneIdsSave(f.selectedMilestoneIds);
@@ -335,7 +360,10 @@ function CanvasInner() {
   }, [activeProduct?.id]);
 
   // Keep ref current so onNodeClick always reads latest sprint state without stale closures
-  sprintClickRef.current = { filter: selectedSprintFilter, toggle: toggleSprintMembership };
+  sprintClickRef.current = {
+    filter: selectedSprintFilter,
+    toggle: toggleSprintMembership,
+  };
 
   // ReactFlow callbacks
   const onPaneClick = useCallback(() => {
@@ -378,8 +406,17 @@ function CanvasInner() {
               source: taskId,
               target: `product-${activeProduct.id}`,
               type: 'smoothstep',
-              style: { stroke: 'var(--brand)', strokeWidth: 2, strokeDasharray: '5 3' },
-              markerEnd: { type: MarkerType.Arrow, width: 16, height: 16, color: 'var(--brand)' },
+              style: {
+                stroke: 'var(--brand)',
+                strokeWidth: 2,
+                strokeDasharray: '5 3',
+              },
+              markerEnd: {
+                type: MarkerType.Arrow,
+                width: 16,
+                height: 16,
+                color: 'var(--brand)',
+              },
             },
             eds,
           ),
@@ -406,7 +443,12 @@ function CanvasInner() {
               type: 'smoothstep',
               animated: isIP,
               style: { stroke: 'var(--border-2)', strokeWidth: 2 },
-              markerEnd: { type: MarkerType.Arrow, width: 16, height: 16, color: 'var(--border-2)' },
+              markerEnd: {
+                type: MarkerType.Arrow,
+                width: 16,
+                height: 16,
+                color: 'var(--border-2)',
+              },
             },
             eds,
           ),
@@ -424,7 +466,15 @@ function CanvasInner() {
     const parts = edge.id.split('->');
     const srcId = parts[0],
       tgtId = parts.slice(1).join('->');
-    if (srcId && tgtId) setCtxMenu({ x: e.clientX, y: e.clientY, type: 'edge', edgeId: edge.id, srcId, tgtId });
+    if (srcId && tgtId)
+      setCtxMenu({
+        x: e.clientX,
+        y: e.clientY,
+        type: 'edge',
+        edgeId: edge.id,
+        srcId,
+        tgtId,
+      });
   }, []);
 
   const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
@@ -485,9 +535,7 @@ function CanvasInner() {
     setCtxMenu(null);
     try {
       // When right-clicking a task that's part of a multi-selection, apply to all selected tasks
-      const targets = selectedNodeIds.length >= 2 && selectedNodeIds.includes(taskId)
-        ? selectedNodeIds
-        : [taskId];
+      const targets = selectedNodeIds.length >= 2 && selectedNodeIds.includes(taskId) ? selectedNodeIds : [taskId];
       await Promise.all(targets.map((id) => api.tasks.update(activeProduct.id, id, { status })));
       await refreshTasks();
       showToast(targets.length > 1 ? `Updated ${targets.length} tasks` : 'Status updated', 'success');
@@ -523,18 +571,26 @@ function CanvasInner() {
         .map((n) => {
           const t = tasksRef.current.find((t) => t.id === n.id);
           if (!t) return null;
-          return { name: t.name, description: t.description, status: t.status, ownerId: t.ownerId, color: t.color, deadline: t.deadline, position: n.position };
+          return {
+            name: t.name,
+            description: t.description,
+            status: t.status,
+            ownerId: t.ownerId,
+            color: t.color,
+            deadline: t.deadline,
+            position: n.position,
+          };
         })
         .filter(Boolean) as DeletedSnapshot;
       setUndoStack((s) => [...s.slice(-9), snapshot]);
 
       try {
-        await api.tasks.bulkDelete(activeProduct.id, taskNodes.map((n) => n.id));
-        await refreshTasks();
-        showToast(
-          `${taskNodes.length} task${taskNodes.length > 1 ? 's' : ''} deleted - press Ctrl+Z to undo`,
-          'info',
+        await api.tasks.bulkDelete(
+          activeProduct.id,
+          taskNodes.map((n) => n.id),
         );
+        await refreshTasks();
+        showToast(`${taskNodes.length} task${taskNodes.length > 1 ? 's' : ''} deleted - press Ctrl+Z to undo`, 'info');
       } catch (err) {
         showToast((err as Error).message, 'error');
       }
@@ -584,7 +640,9 @@ function CanvasInner() {
   }, []);
 
   // Fetch members once when the bulk bar first appears; reset when project changes
-  useEffect(() => { setCanvasMembers([]); }, [activeProduct?.id]);
+  useEffect(() => {
+    setCanvasMembers([]);
+  }, [activeProduct?.id]);
   useEffect(() => {
     if (selectedNodeIds.length < 2 || !activeProduct || canvasMembers.length > 0) return;
     api.products
@@ -596,25 +654,34 @@ function CanvasInner() {
   // Close bulk dropdowns on outside click (cast via HTMLElement to avoid collision with ReactFlow's Node import)
   useEffect(() => {
     if (!showBulkOwner) return;
-    const h = (e: MouseEvent) => { if (bulkOwnerRef.current && !bulkOwnerRef.current.contains(e.target as HTMLElement)) setShowBulkOwner(false); };
+    const h = (e: MouseEvent) => {
+      if (bulkOwnerRef.current && !bulkOwnerRef.current.contains(e.target as HTMLElement)) setShowBulkOwner(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [showBulkOwner]);
   useEffect(() => {
     if (!showBulkStatus) return;
-    const h = (e: MouseEvent) => { if (bulkStatusRef.current && !bulkStatusRef.current.contains(e.target as HTMLElement)) setShowBulkStatus(false); };
+    const h = (e: MouseEvent) => {
+      if (bulkStatusRef.current && !bulkStatusRef.current.contains(e.target as HTMLElement)) setShowBulkStatus(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [showBulkStatus]);
   useEffect(() => {
     if (!showBulkReviewer) return;
-    const h = (e: MouseEvent) => { if (bulkReviewerRef.current && !bulkReviewerRef.current.contains(e.target as HTMLElement)) setShowBulkReviewer(false); };
+    const h = (e: MouseEvent) => {
+      if (bulkReviewerRef.current && !bulkReviewerRef.current.contains(e.target as HTMLElement))
+        setShowBulkReviewer(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [showBulkReviewer]);
   useEffect(() => {
     if (!showBulkColor) return;
-    const h = (e: MouseEvent) => { if (bulkColorRef.current && !bulkColorRef.current.contains(e.target as HTMLElement)) setShowBulkColor(false); };
+    const h = (e: MouseEvent) => {
+      if (bulkColorRef.current && !bulkColorRef.current.contains(e.target as HTMLElement)) setShowBulkColor(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [showBulkColor]);
@@ -626,7 +693,9 @@ function CanvasInner() {
     setShowBulkOwner(false);
     const count = selectedNodeIds.length;
     try {
-      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, { ownerId: userId });
+      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, {
+        ownerId: userId,
+      });
       await refreshTasks();
       showToast(`Assigned owner to ${count} tasks`, 'success');
     } catch {
@@ -643,7 +712,9 @@ function CanvasInner() {
     setShowBulkReviewer(false);
     const count = selectedNodeIds.length;
     try {
-      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, { reviewerId: userId });
+      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, {
+        reviewerId: userId,
+      });
       await refreshTasks();
       showToast(`Assigned reviewer to ${count} tasks`, 'success');
     } catch {
@@ -660,7 +731,9 @@ function CanvasInner() {
     setShowBulkStatus(false);
     const count = selectedNodeIds.length;
     try {
-      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, { status: status as Task['status'] });
+      await api.tasks.bulkUpdate(activeProduct.id, selectedNodeIds, {
+        status: status as Task['status'],
+      });
       await refreshTasks();
       showToast(`Updated status for ${count} tasks`, 'success');
     } catch {
@@ -691,12 +764,16 @@ function CanvasInner() {
     (_: React.MouseEvent, node: Node) => {
       if (!activeProduct) return;
       if (node.id.startsWith('product-')) {
-        save({ productNodePosition: { x: node.position.x, y: node.position.y } });
+        save({
+          productNodePosition: { x: node.position.x, y: node.position.y },
+        });
         return;
       }
       const { x, y } = node.position;
       const curr = loadState(activeProduct.id).positions ?? {};
-      patchState(activeProduct.id, { positions: { ...curr, [node.id]: { x, y } } });
+      patchState(activeProduct.id, {
+        positions: { ...curr, [node.id]: { x, y } },
+      });
     },
     [activeProduct],
   );
@@ -715,7 +792,11 @@ function CanvasInner() {
         canvasX = Math.round((-vp.x + window.innerWidth / 2) / vp.zoom) - 100;
         canvasY = Math.round((-vp.y + window.innerHeight / 2) / vp.zoom) - 40;
       }
-      await api.tasks.create(activeProduct.id, { name: newTaskName.trim(), canvasX, canvasY });
+      await api.tasks.create(activeProduct.id, {
+        name: newTaskName.trim(),
+        canvasX,
+        canvasY,
+      });
       await refreshTasks();
       setNewTaskName('');
       setNewTaskPos(null);
@@ -765,7 +846,10 @@ function CanvasInner() {
           nodesDraggable={canWriteCanvas}
           nodesConnectable={canWriteCanvas}
           defaultViewport={activeProduct ? (loadState(activeProduct.id).viewport ?? undefined) : undefined}
-          defaultEdgeOptions={{ type: 'smoothstep', style: { stroke: 'var(--border-2)', strokeWidth: 2 } }}
+          defaultEdgeOptions={{
+            type: 'smoothstep',
+            style: { stroke: 'var(--border-2)', strokeWidth: 2 },
+          }}
           zoomOnDoubleClick={false}
           deleteKeyCode={canWriteCanvas ? ['Delete', 'Backspace'] : []}
           onEdgesDelete={onEdgesDelete}
@@ -776,13 +860,19 @@ function CanvasInner() {
           <Background variant={BackgroundVariant.Dots} color="var(--border)" gap={24} size={1.5} />
           <Controls
             className="hidden md:block"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
           />
           <MiniMap
             className="hidden md:block"
             nodeColor={(n) => (n.id.startsWith('product-') ? 'var(--brand)' : 'var(--surface-2)')}
             maskColor="rgba(0,0,0,0.25)"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
             zoomable
             pannable
           />
@@ -847,7 +937,15 @@ function CanvasInner() {
                   boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
                 }}
               >
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    flexShrink: 0,
+                  }}
+                />
                 <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
                   {activeSprint.name}
                 </span>
@@ -909,7 +1007,13 @@ function CanvasInner() {
                   {sortedSprints.map((s) => (
                     <div key={s.id} className="flex items-center gap-2 mb-1 last:mb-0">
                       <span
-                        style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }}
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          background: s.color,
+                          flexShrink: 0,
+                        }}
                       />
                       <span className="text-xs" style={{ color: 'var(--text-2)' }}>
                         {s.name}
@@ -984,11 +1088,17 @@ function CanvasInner() {
               <div className="flex flex-col gap-1.5 w-full">
                 <div
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-3)',
+                  }}
                 >
                   <span
                     className="font-mono text-[10px] px-1 py-0.5 rounded"
-                    style={{ background: 'var(--border)', color: 'var(--text-2)' }}
+                    style={{
+                      background: 'var(--border)',
+                      color: 'var(--text-2)',
+                    }}
                   >
                     dbl-click
                   </span>
@@ -996,11 +1106,17 @@ function CanvasInner() {
                 </div>
                 <div
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-3)',
+                  }}
                 >
                   <span
                     className="font-mono text-[10px] px-1 py-0.5 rounded"
-                    style={{ background: 'var(--border)', color: 'var(--text-2)' }}
+                    style={{
+                      background: 'var(--border)',
+                      color: 'var(--text-2)',
+                    }}
                   >
                     drag
                   </span>
@@ -1086,7 +1202,10 @@ function CanvasInner() {
             <div className="flex flex-col items-center gap-3" style={{ color: 'var(--text-3)' }}>
               <div
                 className="w-6 h-6 border-2 rounded-full animate-spin"
-                style={{ borderColor: 'var(--border)', borderTopColor: 'var(--brand)' }}
+                style={{
+                  borderColor: 'var(--border)',
+                  borderTopColor: 'var(--brand)',
+                }}
               />
               <span className="text-xs">Loading canvas…</span>
             </div>

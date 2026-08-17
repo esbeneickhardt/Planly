@@ -76,8 +76,12 @@ const PREVIEW_MD_COMPONENTS = {
       {children}
     </a>
   ),
-  ul: ({ children }: { children?: React.ReactNode }) => <ul style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ul>,
-  ol: ({ children }: { children?: React.ReactNode }) => <ol style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ol>,
+  ul: ({ children }: { children?: React.ReactNode }) => (
+    <ul style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ul>
+  ),
+  ol: ({ children }: { children?: React.ReactNode }) => (
+    <ol style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ol>
+  ),
   li: ({ children }: { children?: React.ReactNode }) => <li style={{ marginBottom: 3 }}>{children}</li>,
   table: ({ children }: { children?: React.ReactNode }) => (
     <div style={{ overflowX: 'auto', marginBottom: 8 }}>
@@ -101,7 +105,14 @@ const PREVIEW_MD_COMPONENTS = {
     <td style={{ border: '1px solid var(--border)', padding: '4px 8px' }}>{children}</td>
   ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote style={{ borderLeft: '3px solid var(--brand)', paddingLeft: 10, margin: '0 0 8px', opacity: 0.8 }}>
+    <blockquote
+      style={{
+        borderLeft: '3px solid var(--brand)',
+        paddingLeft: 10,
+        margin: '0 0 8px',
+        opacity: 0.8,
+      }}
+    >
       {children}
     </blockquote>
   ),
@@ -125,7 +136,14 @@ const PREVIEW_MD_COMPONENTS = {
         </pre>
       );
     return (
-      <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>
+      <code
+        style={{
+          background: 'var(--surface)',
+          padding: '1px 4px',
+          borderRadius: 4,
+          fontSize: 12,
+        }}
+      >
         {children}
       </code>
     );
@@ -133,7 +151,15 @@ const PREVIEW_MD_COMPONENTS = {
   img: ({ src, alt }: { src?: string; alt?: string }) => (
     <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: 6, margin: '4px 0' }} />
   ),
-  hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />,
+  hr: () => (
+    <hr
+      style={{
+        border: 'none',
+        borderTop: '1px solid var(--border)',
+        margin: '12px 0',
+      }}
+    />
+  ),
 };
 
 const SNIPPETS: [string, string][] = [
@@ -163,14 +189,10 @@ export interface MarkdownEditorHandle {
   goToPreview: () => void;
 }
 
-const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor({
-  value,
-  onChange,
-  rows = 6,
-  placeholder = 'Write in markdown…',
-  disabled = false,
-  initialPreview = false,
-}, ref) {
+const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor(
+  { value, onChange, rows = 6, placeholder = 'Write in markdown…', disabled = false, initialPreview = false },
+  ref,
+) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState(initialPreview);
@@ -246,12 +268,19 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
           {showEmoji && (
             <div
               className="absolute left-0 top-full mt-1 z-50 rounded-xl shadow-xl overflow-hidden"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', width: 296 }}
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                width: 296,
+              }}
             >
               {/* Category nav */}
               <div
                 className="flex items-center justify-between px-3 py-2"
-                style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
+                style={{
+                  borderBottom: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                }}
               >
                 <button
                   type="button"
@@ -259,7 +288,10 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
                   onClick={() => setEmojiPage((p) => Math.max(0, p - 1))}
                   disabled={emojiPage === 0}
                   className="w-6 h-6 flex items-center justify-center rounded-md text-sm transition-colors disabled:opacity-30"
-                  style={{ color: 'var(--text-3)', background: 'var(--surface)' }}
+                  style={{
+                    color: 'var(--text-3)',
+                    background: 'var(--surface)',
+                  }}
                 >
                   ‹
                 </button>
@@ -272,7 +304,10 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
                   onClick={() => setEmojiPage((p) => Math.min(EMOJI_CATEGORIES.length - 1, p + 1))}
                   disabled={emojiPage === EMOJI_CATEGORIES.length - 1}
                   className="w-6 h-6 flex items-center justify-center rounded-md text-sm transition-colors disabled:opacity-30"
-                  style={{ color: 'var(--text-3)', background: 'var(--surface)' }}
+                  style={{
+                    color: 'var(--text-3)',
+                    background: 'var(--surface)',
+                  }}
                 >
                   ›
                 </button>
@@ -323,7 +358,10 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
           onClick={() => fileRef.current?.click()}
           disabled={disabled || uploading}
           className="text-xs px-2 py-0.5 rounded-md transition-colors"
-          style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
+          style={{
+            background: 'var(--surface-2)',
+            color: uploading ? 'var(--text-3)' : 'var(--text-2)',
+          }}
           title="Attach file or image - also supports paste"
         >
           {uploading ? '⏳ Uploading…' : '📎 Attach'}
@@ -349,11 +387,19 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
           {showHelp && (
             <div
               className="absolute left-0 top-full mt-1 z-50 rounded-xl shadow-xl overflow-y-auto"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 280, maxHeight: 360 }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                width: 280,
+                maxHeight: 360,
+              }}
             >
               <div
                 className="flex items-center justify-between px-3 py-2 sticky top-0"
-                style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  borderBottom: '1px solid var(--border)',
+                }}
               >
                 <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
                   Click to insert
@@ -428,7 +474,9 @@ const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function Markdown
       {preview ? (
         <div
           className="rounded-lg px-3 py-2.5 overflow-y-auto"
-          onDoubleClick={() => { if (!disabled) setPreview(false); }}
+          onDoubleClick={() => {
+            if (!disabled) setPreview(false);
+          }}
           style={{
             background: 'var(--surface-2)',
             border: '1px solid var(--border)',

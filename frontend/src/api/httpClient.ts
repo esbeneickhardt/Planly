@@ -26,7 +26,10 @@ let _refreshPromise: Promise<boolean> | null = null;
 
 async function tryRefresh(): Promise<boolean> {
   if (!_refreshPromise) {
-    _refreshPromise = fetch('/api/auth/refresh-token', { method: 'POST', credentials: 'include' })
+    _refreshPromise = fetch('/api/auth/refresh-token', {
+      method: 'POST',
+      credentials: 'include',
+    })
       .then((r) => r.ok)
       .catch(() => false)
       .finally(() => {

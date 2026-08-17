@@ -20,7 +20,14 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
   const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null);
   const [whitelist, setWhitelist] = useState<{ id: string; pattern: string; type: string; createdAt: string }[]>([]);
-  const [smtpForm, setSmtpForm] = useState({ host: '', port: 587, secure: false, user: '', pass: '', from: '' });
+  const [smtpForm, setSmtpForm] = useState({
+    host: '',
+    port: 587,
+    secure: false,
+    user: '',
+    pass: '',
+    from: '',
+  });
   const [smtpDirty, setSmtpDirty] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
@@ -130,7 +137,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
               setSmtpDirty(false);
             }}
             className="text-xs px-3 py-1.5 rounded-lg font-medium"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-2)',
+            }}
           >
             {showSmtpForm ? 'Cancel' : emailStatus?.enabled ? 'Reconfigure' : 'Configure'}
           </button>
@@ -139,7 +150,10 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
         {showSmtpForm && (
           <div
             className="px-5 pb-5 space-y-4"
-            style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              borderTop: '1px solid var(--border)',
+            }}
           >
             <p className="text-xs pt-4" style={{ color: 'var(--text-3)' }}>
               Server-wide outgoing mail. For Gmail, use an{' '}
@@ -155,7 +169,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 sm:col-span-1">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-host">
+                <label
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--text-2)' }}
+                  htmlFor="admin-smtp-host"
+                >
                   Host
                 </label>
                 <input
@@ -170,7 +188,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-port">
+                <label
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--text-2)' }}
+                  htmlFor="admin-smtp-port"
+                >
                   Port
                 </label>
                 <input
@@ -180,13 +202,20 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                   placeholder="587"
                   value={smtpForm.port}
                   onChange={(e) => {
-                    setSmtpForm((f) => ({ ...f, port: parseInt(e.target.value) || 587 }));
+                    setSmtpForm((f) => ({
+                      ...f,
+                      port: parseInt(e.target.value) || 587,
+                    }));
                     setSmtpDirty(true);
                   }}
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-user">
+                <label
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--text-2)' }}
+                  htmlFor="admin-smtp-user"
+                >
                   Username
                 </label>
                 <input
@@ -201,7 +230,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-pass">
+                <label
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--text-2)' }}
+                  htmlFor="admin-smtp-pass"
+                >
                   Password
                 </label>
                 <input
@@ -217,7 +250,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="admin-smtp-from">
+                <label
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--text-2)' }}
+                  htmlFor="admin-smtp-from"
+                >
                   From address
                 </label>
                 <input
@@ -255,7 +292,10 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 onClick={() => {
                   setSavingSmtp(true);
                   api.emailConfig
-                    .save({ ...smtpForm, ...(smtpForm.pass ? {} : { pass: undefined }) })
+                    .save({
+                      ...smtpForm,
+                      ...(smtpForm.pass ? {} : { pass: undefined }),
+                    })
                     .then(() => api.emailStatus.get())
                     .then((s) => {
                       setEmailStatus(s);
@@ -309,7 +349,9 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 onChange={(v) =>
                   act(async () => {
                     if (v) {
-                      const res = await api.admin.updateServerConfig({ requireEmailVerification: true });
+                      const res = await api.admin.updateServerConfig({
+                        requireEmailVerification: true,
+                      });
                       setServerConfig((c) => (c ? { ...c, requireEmailVerification: true } : c));
                       await refreshUser();
                       await onUsersChanged();
@@ -322,7 +364,9 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                       );
                       setVerifyEmailPrompt(!currentUser?.emailVerified);
                     } else {
-                      await api.admin.updateServerConfig({ requireEmailVerification: false });
+                      await api.admin.updateServerConfig({
+                        requireEmailVerification: false,
+                      });
                       setServerConfig((c) => (c ? { ...c, requireEmailVerification: false } : c));
                       showToast('Email verification disabled', 'success');
                       setVerifyEmailPrompt(false);
@@ -333,7 +377,10 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
               {verifyEmailPrompt && (
                 <div
                   className="flex items-start gap-3 px-4 py-3 rounded-xl"
-                  style={{ background: '#f59e0b15', border: '1px solid #f59e0b44' }}
+                  style={{
+                    background: '#f59e0b15',
+                    border: '1px solid #f59e0b44',
+                  }}
                 >
                   <span style={{ color: '#f59e0b' }}>⚠</span>
                   <div className="flex-1 text-sm" style={{ color: 'var(--text-2)' }}>
@@ -356,7 +403,11 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
           ) : (
             <div
               className="px-4 py-3 rounded-xl text-sm"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-3)',
+              }}
             >
               Email not configured - set up SMTP above to enable email verification.
             </div>
@@ -421,7 +472,10 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                           <div
                             key={entry.id}
                             className="flex items-center justify-between px-3 py-1.5 rounded-lg"
-                            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                            style={{
+                              background: 'var(--surface-2)',
+                              border: '1px solid var(--border)',
+                            }}
                           >
                             <span className="text-sm font-mono" style={{ color: 'var(--text)' }}>
                               {entry.pattern}
@@ -521,7 +575,10 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                           <div
                             key={entry.id}
                             className="flex items-center justify-between px-3 py-1.5 rounded-lg"
-                            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                            style={{
+                              background: 'var(--surface-2)',
+                              border: '1px solid var(--border)',
+                            }}
                           >
                             <span className="text-sm font-mono" style={{ color: 'var(--text)' }}>
                               {entry.pattern}
@@ -614,7 +671,10 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
           {serverConfig.announcementsEnabled && (
             <div
               className="px-4 py-3 rounded-xl space-y-2"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+              }}
             >
               <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                 Who can post announcements?
@@ -622,14 +682,19 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
               <div className="flex flex-col sm:flex-row gap-2">
                 {[
                   { value: 'admin', label: 'Admins only' },
-                  { value: 'admin_and_owners', label: 'Admins + Project owners' },
+                  {
+                    value: 'admin_and_owners',
+                    label: 'Admins + Project owners',
+                  },
                   { value: 'all', label: 'All members' },
                 ].map(({ value, label }) => (
                   <button
                     key={value}
                     onClick={() =>
                       act(async () => {
-                        await api.admin.updateServerConfig({ announcementPostRole: value });
+                        await api.admin.updateServerConfig({
+                          announcementPostRole: value,
+                        });
                         setServerConfig((c) => (c ? { ...c, announcementPostRole: value } : c));
                         showToast(`Posting restricted to ${label.toLowerCase()}`, 'success');
                       })

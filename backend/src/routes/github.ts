@@ -38,7 +38,9 @@ export async function githubRoutes(app: FastifyInstance) {
 
   // Get webhook URL, current secret status, and import toggles
   app.get('/api/github/config', { preHandler: requireAdmin }, async (_req, reply) => {
-    const config = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
+    const config = await prisma.serverConfig.findUnique({
+      where: { id: 'main' },
+    });
     reply.send({
       webhookUrl: `${process.env.APP_URL ?? ''}/api/github/webhook`,
       hasSecret: Boolean(config?.githubWebhookSecret),
@@ -57,7 +59,9 @@ export async function githubRoutes(app: FastifyInstance) {
     // secret would let anyone on the internet inject fake issues/PRs as tasks - never allow
     // import to be enabled without a secret already configured (see /api/github/regenerate-secret
     // above, the only endpoint that sets one).
-    const existing = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
+    const existing = await prisma.serverConfig.findUnique({
+      where: { id: 'main' },
+    });
     const importingIssues = body.githubImportIssues ?? existing?.githubImportIssues ?? false;
     const importingPrs = body.githubImportPrs ?? existing?.githubImportPrs ?? false;
     if ((importingIssues || importingPrs) && !existing?.githubWebhookSecret) {
@@ -93,7 +97,9 @@ export async function githubRoutes(app: FastifyInstance) {
       config: { rawBody: true },
     },
     async (req, reply) => {
-      const config = await prisma.serverConfig.findUnique({ where: { id: 'main' } });
+      const config = await prisma.serverConfig.findUnique({
+        where: { id: 'main' },
+      });
       const secret = config?.githubWebhookSecret;
 
       // Fail closed: refuse to process anything without a configured secret, rather than only
@@ -126,14 +132,20 @@ export async function githubRoutes(app: FastifyInstance) {
 async function handleGithubEvent(
   event: string | undefined,
   payload: Record<string, unknown>,
-  config: { githubImportIssues: boolean; githubImportPrs: boolean; githubDefaultProductId: string | null } | null,
+  config: {
+    githubImportIssues: boolean;
+    githubImportPrs: boolean;
+    githubDefaultProductId: string | null;
+  } | null,
 ) {
   // Guard: no default project configured - nothing to import into
   if (!config?.githubDefaultProductId) return;
   const productId = config.githubDefaultProductId;
 
   // Verify the target project still exists and hasn't been soft-deleted
-  const product = await prisma.product.findUnique({ where: { id: productId, deletedAt: null } });
+  const product = await prisma.product.findUnique({
+    where: { id: productId, deletedAt: null },
+  });
   if (!product) return;
 
   if (event === 'issues' && config.githubImportIssues) {

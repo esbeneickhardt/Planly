@@ -3,7 +3,12 @@
  * The parent (TopBar) owns the isOpen state and the wrapping ref div.
  */
 interface Props {
-  user: { username: string; realName?: string | null; avatarEmoji?: string | null; avatarUrl?: string | null } | null;
+  user: {
+    username: string;
+    realName?: string | null;
+    avatarEmoji?: string | null;
+    avatarUrl?: string | null;
+  } | null;
   isDark: boolean;
   onClose: () => void;
   onShowProfile: () => void;
@@ -119,7 +124,10 @@ export default function TopBarAccountDropdown({
               onClose();
             }}
             className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-2xl flex-shrink-0 relative group transition-opacity hover:opacity-80"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
             title="Edit profile"
           >
             {user?.avatarUrl ? (
@@ -129,7 +137,12 @@ export default function TopBarAccountDropdown({
             )}
             <div
               className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ background: 'rgba(0,0,0,0.35)', fontSize: 11, color: 'white', fontWeight: 600 }}
+              style={{
+                background: 'rgba(0,0,0,0.35)',
+                fontSize: 11,
+                color: 'white',
+                fontWeight: 600,
+              }}
             >
               Edit
             </div>

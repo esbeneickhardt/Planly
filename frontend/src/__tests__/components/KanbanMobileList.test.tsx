@@ -61,14 +61,30 @@ describe('KanbanMobileList', () => {
   beforeEach(() => onOpenDetail.mockClear());
 
   it('renders a section heading for each column', () => {
-    const columns = [makeColumn(), makeColumn({ id: 'col-2', label: 'Done', statusKey: 'done', isDone: true })];
+    const columns = [
+      makeColumn(),
+      makeColumn({
+        id: 'col-2',
+        label: 'Done',
+        statusKey: 'done',
+        isDone: true,
+      }),
+    ];
     render(<KanbanMobileList columns={columns} tasks={[]} users={[]} onOpenDetail={onOpenDetail} />);
     expect(screen.getByText('To Do')).toBeInTheDocument();
     expect(screen.getByText('Done')).toBeInTheDocument();
   });
 
   it('groups tasks into the correct column', () => {
-    const columns = [makeColumn(), makeColumn({ id: 'col-2', label: 'Done', statusKey: 'done', isDone: true })];
+    const columns = [
+      makeColumn(),
+      makeColumn({
+        id: 'col-2',
+        label: 'Done',
+        statusKey: 'done',
+        isDone: true,
+      }),
+    ];
     const tasks = [makeTask('t1', { status: 'todo' }), makeTask('t2', { status: 'done' })];
     render(<KanbanMobileList columns={columns} tasks={tasks} users={[]} onOpenDetail={onOpenDetail} />);
     // Each column shows its task count; both have 1 task so two count spans appear
@@ -122,14 +138,25 @@ describe('KanbanMobileList', () => {
   });
 
   it('shows sr-only "(overdue)" text for overdue non-done tasks', () => {
-    const task = makeTask('t1', { deadline: '2020-01-01T00:00:00.000Z', status: 'todo' });
+    const task = makeTask('t1', {
+      deadline: '2020-01-01T00:00:00.000Z',
+      status: 'todo',
+    });
     render(<KanbanMobileList columns={[makeColumn()]} tasks={[task]} users={[]} onOpenDetail={onOpenDetail} />);
     expect(document.querySelector('.sr-only')?.textContent).toContain('overdue');
   });
 
   it('does NOT mark a done task as overdue even if deadline is past', () => {
-    const doneCol = makeColumn({ id: 'col-done', statusKey: 'done', label: 'Done', isDone: true });
-    const task = makeTask('t1', { deadline: '2020-01-01T00:00:00.000Z', status: 'done' });
+    const doneCol = makeColumn({
+      id: 'col-done',
+      statusKey: 'done',
+      label: 'Done',
+      isDone: true,
+    });
+    const task = makeTask('t1', {
+      deadline: '2020-01-01T00:00:00.000Z',
+      status: 'done',
+    });
     render(<KanbanMobileList columns={[doneCol]} tasks={[task]} users={[]} onOpenDetail={onOpenDetail} />);
     expect(document.querySelector('.sr-only')).toBeNull();
   });

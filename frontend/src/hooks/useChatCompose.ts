@@ -124,7 +124,12 @@ export function useChatCompose({
           (m.username.toLowerCase().startsWith(q) || m.realName?.trim().toLowerCase().startsWith(q)),
       )
       .slice(0, 6);
-    const allEntry: TeamMemberEntry = { id: '__all__', username: 'all', realName: 'Everyone', avatarEmoji: '📢' };
+    const allEntry: TeamMemberEntry = {
+      id: '__all__',
+      username: 'all',
+      realName: 'Everyone',
+      avatarEmoji: '📢',
+    };
     // Only offered in project chat, where the backend actually fans out notifications for it -
     // admin chat has no team roster and no backend support for this shortcut.
     return !isAdminChat && 'all'.startsWith(q) ? [allEntry, ...members] : members;
@@ -241,7 +246,12 @@ export function useChatCompose({
     try {
       const postedAsRole = computePostedAsRole();
       const msg = isAdminChat
-        ? await api.adminChat.create({ content: draft.trim(), replyToId: replyingTo?.id, attachments, postedAsRole })
+        ? await api.adminChat.create({
+            content: draft.trim(),
+            replyToId: replyingTo?.id,
+            attachments,
+            postedAsRole,
+          })
         : await api.messages.create(productId!, {
             content: draft.trim(),
             taskId: sendTaskId,

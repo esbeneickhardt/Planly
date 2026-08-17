@@ -13,7 +13,10 @@ export const webhooks = {
       body: json(data),
     }),
   update: (productId: string, webhookId: string, data: { url?: string; events?: string[]; active?: boolean }) =>
-    request<Webhook>(`/api/products/${productId}/webhooks/${webhookId}`, { method: 'PATCH', body: json(data) }),
+    request<Webhook>(`/api/products/${productId}/webhooks/${webhookId}`, {
+      method: 'PATCH',
+      body: json(data),
+    }),
   delete: (productId: string, webhookId: string) =>
     request<{ ok: boolean }>(`/api/products/${productId}/webhooks/${webhookId}`, { method: 'DELETE' }),
   rotateSecret: (productId: string, webhookId: string) =>

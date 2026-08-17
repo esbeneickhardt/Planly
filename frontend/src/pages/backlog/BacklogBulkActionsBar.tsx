@@ -36,7 +36,15 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [members, setMembers] = useState<
-    { userId: string; user: { id: string; username: string; realName: string | null; avatarEmoji: string | null } }[]
+    {
+      userId: string;
+      user: {
+        id: string;
+        username: string;
+        realName: string | null;
+        avatarEmoji: string | null;
+      };
+    }[]
   >([]);
   const [assigningOwner, setAssigningOwner] = useState(false);
   const ownerPickerRef = useRef<HTMLDivElement>(null);
@@ -68,7 +76,8 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
   useEffect(() => {
     if (!showReviewerPicker) return;
     function onClickOutside(e: MouseEvent) {
-      if (reviewerPickerRef.current && !reviewerPickerRef.current.contains(e.target as Node)) setShowReviewerPicker(false);
+      if (reviewerPickerRef.current && !reviewerPickerRef.current.contains(e.target as Node))
+        setShowReviewerPicker(false);
     }
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
@@ -108,7 +117,9 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
     setShowOwnerPicker(false);
     const count = selected.size;
     try {
-      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), { ownerId: userId });
+      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), {
+        ownerId: userId,
+      });
       await refreshTasks();
       onCleared();
       showToast(`Assigned owner to ${count} task${count !== 1 ? 's' : ''}`, 'success');
@@ -124,7 +135,9 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
     setShowReviewerPicker(false);
     const count = selected.size;
     try {
-      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), { reviewerId: userId });
+      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), {
+        reviewerId: userId,
+      });
       await refreshTasks();
       onCleared();
       showToast(`Assigned reviewer to ${count} task${count !== 1 ? 's' : ''}`, 'success');
@@ -138,7 +151,9 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
     setShowStatusPicker(false);
     const count = selected.size;
     try {
-      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), { status: status as Task['status'] });
+      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), {
+        status: status as Task['status'],
+      });
       await refreshTasks();
       onCleared();
       showToast(`Updated status for ${count} task${count !== 1 ? 's' : ''}`, 'success');
@@ -152,7 +167,9 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
     setShowColorPicker(false);
     const count = selected.size;
     try {
-      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), { color });
+      await api.tasks.bulkUpdate(activeProduct.id, Array.from(selected), {
+        color,
+      });
       await refreshTasks();
       onCleared();
       showToast(`Updated color for ${count} task${count !== 1 ? 's' : ''}`, 'success');
@@ -214,7 +231,11 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
       </div>
       {/* Reviewer picker */}
       <div ref={reviewerPickerRef} style={{ position: 'relative' }}>
-        <button onClick={() => setShowReviewerPicker((v) => !v)} className="font-medium" style={{ color: 'var(--brand)' }}>
+        <button
+          onClick={() => setShowReviewerPicker((v) => !v)}
+          className="font-medium"
+          style={{ color: 'var(--brand)' }}
+        >
           Assign reviewer ▾
         </button>
         {showReviewerPicker && (
@@ -257,7 +278,11 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
       </div>
       {/* Status picker */}
       <div ref={statusPickerRef} style={{ position: 'relative' }}>
-        <button onClick={() => setShowStatusPicker((v) => !v)} className="font-medium" style={{ color: 'var(--brand)' }}>
+        <button
+          onClick={() => setShowStatusPicker((v) => !v)}
+          className="font-medium"
+          style={{ color: 'var(--brand)' }}
+        >
           Set status ▾
         </button>
         {showStatusPicker && (
@@ -327,7 +352,10 @@ export default function BacklogBulkActionsBar({ selected, onCleared }: Props) {
             <button
               onClick={() => bulkSetColor(null)}
               className="w-full text-left px-3 py-2 text-xs"
-              style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}
+              style={{
+                color: 'var(--text-3)',
+                borderTop: '1px solid var(--border)',
+              }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >

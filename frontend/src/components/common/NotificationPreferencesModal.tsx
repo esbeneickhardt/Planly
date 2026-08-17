@@ -11,11 +11,37 @@ import { useToast } from '../../context/ToastContext';
 import Modal from './Modal';
 import ToggleSwitch from './ToggleSwitch';
 
-const NOTIFICATION_TYPES: { type: string; label: string; description: string; defaultOn: boolean; group?: string }[] = [
-  { type: 'task_assigned', label: 'Task assigned', description: 'When a task is assigned to you', defaultOn: true },
-  { type: 'task_commented', label: 'Task comment', description: 'When someone comments on your task', defaultOn: true },
-  { type: 'mention', label: '@Mention', description: 'When someone mentions you in a message', defaultOn: true },
-  { type: 'reaction', label: 'Reactions', description: 'When someone reacts to your message', defaultOn: true },
+const NOTIFICATION_TYPES: {
+  type: string;
+  label: string;
+  description: string;
+  defaultOn: boolean;
+  group?: string;
+}[] = [
+  {
+    type: 'task_assigned',
+    label: 'Task assigned',
+    description: 'When a task is assigned to you',
+    defaultOn: true,
+  },
+  {
+    type: 'task_commented',
+    label: 'Task comment',
+    description: 'When someone comments on your task',
+    defaultOn: true,
+  },
+  {
+    type: 'mention',
+    label: '@Mention',
+    description: 'When someone mentions you in a message',
+    defaultOn: true,
+  },
+  {
+    type: 'reaction',
+    label: 'Reactions',
+    description: 'When someone reacts to your message',
+    defaultOn: true,
+  },
   {
     type: 'emailMentions',
     label: 'Email for @mentions',
@@ -54,8 +80,18 @@ const NOTIFICATION_TYPES: { type: string; label: string; description: string; de
     description: 'Get a notification when you are invited to a project',
     defaultOn: true,
   },
-  { type: 'role_changed', label: 'Role change', description: 'When your role in a project changes', defaultOn: true },
-  { type: 'sprint_started', label: 'Sprint started', description: 'When a sprint begins', defaultOn: false },
+  {
+    type: 'role_changed',
+    label: 'Role change',
+    description: 'When your role in a project changes',
+    defaultOn: true,
+  },
+  {
+    type: 'sprint_started',
+    label: 'Sprint started',
+    description: 'When a sprint begins',
+    defaultOn: false,
+  },
 ];
 
 interface Props {

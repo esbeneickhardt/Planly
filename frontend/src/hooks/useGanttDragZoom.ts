@@ -33,7 +33,12 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   // Refs hold mutable interaction state so wheel/pointer closures avoid stale values
-  const viewRef = useRef({ vs: new Date(), ve: new Date(), fullStart: new Date(), fullEnd: new Date() });
+  const viewRef = useRef({
+    vs: new Date(),
+    ve: new Date(),
+    fullStart: new Date(),
+    fullEnd: new Date(),
+  });
   const dragState = useRef<{ startX: number; vs: Date; ve: Date } | null>(null);
   const resizeState = useRef<{ type: ResizeType; id: string } | null>(null);
 
@@ -171,7 +176,11 @@ export function useGanttDragZoom({ fullStart, fullEnd, onResizing, onResized }: 
       const rect = e.currentTarget.getBoundingClientRect();
       const pctX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const newDate = new Date(v.getTime() + pctX * (en.getTime() - v.getTime()));
-      onResizing({ type: resizeState.current.type, id: resizeState.current.id, date: newDate });
+      onResizing({
+        type: resizeState.current.type,
+        id: resizeState.current.id,
+        date: newDate,
+      });
       return;
     }
     if (!dragState.current) return;

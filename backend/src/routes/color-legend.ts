@@ -43,11 +43,17 @@ export async function colorLegendRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/color-legend', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!(await requireProductMember(productId, req.user, reply))) return;
-    const entries = await prisma.colorLegendEntry.findMany({ where: { productId } });
+    const entries = await prisma.colorLegendEntry.findMany({
+      where: { productId },
+    });
     const entryMap = new Map(entries.map((e) => [e.colorKey, e]));
     const result = PRESET_COLORS.map((color) => {
       const entry = entryMap.get(color);
-      return { colorKey: color, name: entry?.name ?? DEFAULT_NAMES[color] ?? color, enabled: entry?.enabled ?? true };
+      return {
+        colorKey: color,
+        name: entry?.name ?? DEFAULT_NAMES[color] ?? color,
+        enabled: entry?.enabled ?? true,
+      };
     });
     reply.send(result);
   });
@@ -70,7 +76,12 @@ export async function colorLegendRoutes(app: FastifyInstance) {
       entries.map((e) =>
         prisma.colorLegendEntry.upsert({
           where: { productId_colorKey: { productId, colorKey: e.colorKey } },
-          create: { productId, colorKey: e.colorKey, name: e.name, enabled: e.enabled },
+          create: {
+            productId,
+            colorKey: e.colorKey,
+            name: e.name,
+            enabled: e.enabled,
+          },
           update: { name: e.name, enabled: e.enabled },
         }),
       ),

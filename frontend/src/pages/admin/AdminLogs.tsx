@@ -26,7 +26,12 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
   // append=true is used by "Load more" to concatenate pages; false (default) replaces the list
   async function fetchLogs(opts?: { cursor?: string; action?: string; from?: string; to?: string; append?: boolean }) {
     try {
-      const res = await api.admin.logs({ cursor: opts?.cursor, action: opts?.action, from: opts?.from, to: opts?.to });
+      const res = await api.admin.logs({
+        cursor: opts?.cursor,
+        action: opts?.action,
+        from: opts?.from,
+        to: opts?.to,
+      });
       setLogs(opts?.append ? (prev) => [...prev, ...res.logs] : res.logs);
       setLogCursor(res.nextCursor);
       setHasMoreLogs(res.nextCursor !== null);
@@ -46,7 +51,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
       {/* Filter bar */}
       <div className="flex items-end gap-2 flex-wrap">
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }} htmlFor="admin-logs-action">
+          <label
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--text-3)' }}
+            htmlFor="admin-logs-action"
+          >
             Action
           </label>
           <select
@@ -54,7 +63,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
             value={logAction}
             onChange={(e) => setLogAction(e.target.value)}
             className="text-sm px-2.5 py-1.5 rounded-lg"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+            }}
           >
             <option value="">All</option>
             {Object.entries(ACTION_LABELS).map(([k, v]) => (
@@ -65,7 +78,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }} htmlFor="admin-logs-from">
+          <label
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--text-3)' }}
+            htmlFor="admin-logs-from"
+          >
             From
           </label>
           <input
@@ -74,11 +91,19 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
             value={logFrom}
             onChange={(e) => setLogFrom(e.target.value)}
             className="text-sm px-2.5 py-1.5 rounded-lg"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+            }}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }} htmlFor="admin-logs-to">
+          <label
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--text-3)' }}
+            htmlFor="admin-logs-to"
+          >
             To
           </label>
           <input
@@ -87,12 +112,20 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
             value={logTo}
             onChange={(e) => setLogTo(e.target.value)}
             className="text-sm px-2.5 py-1.5 rounded-lg"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+            }}
           />
         </div>
         <button
           onClick={() =>
-            fetchLogs({ action: logAction || undefined, from: logFrom || undefined, to: logTo || undefined })
+            fetchLogs({
+              action: logAction || undefined,
+              from: logFrom || undefined,
+              to: logTo || undefined,
+            })
           }
           className="px-3 py-1.5 rounded-lg text-sm font-medium"
           style={{ background: 'var(--brand)', color: 'white' }}
@@ -107,7 +140,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
             fetchLogs({});
           }}
           className="px-3 py-1.5 rounded-lg text-sm"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-2)',
+          }}
         >
           Reset
         </button>
@@ -124,7 +161,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
                 .catch((e) => showToast((e as Error).message, 'error'))
             }
             className="px-3 py-1.5 rounded-lg text-xs font-medium"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-2)',
+            }}
           >
             ↓ CSV
           </button>
@@ -140,7 +181,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
                 .catch((e) => showToast((e as Error).message, 'error'))
             }
             className="px-3 py-1.5 rounded-lg text-xs font-medium"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-2)',
+            }}
           >
             ↓ JSONL
           </button>
@@ -160,7 +205,10 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
                 key={log.id}
                 data-testid="log-entry"
                 className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 py-2.5 rounded-lg"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 <div className="flex items-center justify-between gap-2 sm:contents">
                   <span
@@ -178,7 +226,10 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
                   >
                     {ACTION_LABELS[log.action] ?? log.action}
                   </span>
-                  <span className="text-xs flex-shrink-0 whitespace-nowrap sm:order-3" style={{ color: 'var(--text-3)' }}>
+                  <span
+                    className="text-xs flex-shrink-0 whitespace-nowrap sm:order-3"
+                    style={{ color: 'var(--text-3)' }}
+                  >
                     {new Date(log.createdAt).toLocaleString()}
                   </span>
                 </div>
@@ -201,7 +252,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
                   })
                 }
                 className="w-full py-2 text-sm text-center rounded-lg"
-                style={{ color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                style={{
+                  color: 'var(--text-3)',
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 Load more
               </button>
@@ -212,7 +267,13 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
 
       {/* Prune - founding admin only */}
       {isFoundingAdmin && (
-        <div className="mt-4 p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid #ef444433' }}>
+        <div
+          className="mt-4 p-4 rounded-xl"
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid #ef444433',
+          }}
+        >
           <p className="text-sm font-semibold mb-1" style={{ color: '#ef4444' }}>
             Prune old logs
           </p>
@@ -226,7 +287,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
               value={pruneDays}
               onChange={(e) => setPruneDays(e.target.value)}
               className="w-20 text-sm px-2.5 py-1.5 rounded-lg"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+              }}
             />
             <span className="text-sm" style={{ color: 'var(--text-2)' }}>
               days old
@@ -235,7 +300,11 @@ export default function AdminLogs({ isFoundingAdmin, showToast }: Props) {
               <button
                 onClick={() => setPruneConfirm(true)}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium"
-                style={{ background: '#ef444422', color: '#ef4444', border: '1px solid #ef444433' }}
+                style={{
+                  background: '#ef444422',
+                  color: '#ef4444',
+                  border: '1px solid #ef444433',
+                }}
               >
                 Prune
               </button>

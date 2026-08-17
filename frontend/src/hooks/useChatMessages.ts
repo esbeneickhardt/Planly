@@ -69,7 +69,10 @@ export function useChatMessages({ isAdminChat, productId }: Options) {
     if (!oldest) return;
     setLoadingOlder(true);
     try {
-      const batch = await fetchLatest({ before: oldest.createdAt, limit: PAGE_SIZE });
+      const batch = await fetchLatest({
+        before: oldest.createdAt,
+        limit: PAGE_SIZE,
+      });
       const list = Array.isArray(batch) ? batch : [];
       if (list.length < PAGE_SIZE) setHasMoreOlder(false);
       if (list.length > 0) {

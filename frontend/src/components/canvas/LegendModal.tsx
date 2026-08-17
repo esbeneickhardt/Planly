@@ -55,7 +55,15 @@ export default function LegendModal({ onClose }: { onClose: () => void }) {
               <span>Overdue milestone - deadline has passed</span>
             </div>
             <div className="flex items-center gap-3">
-              <div style={{ width: 52, height: 30, borderRadius: 8, background: 'var(--brand)', flexShrink: 0 }} />
+              <div
+                style={{
+                  width: 52,
+                  height: 30,
+                  borderRadius: 8,
+                  background: 'var(--brand)',
+                  flexShrink: 0,
+                }}
+              />
               <span>Product node - final deliverable all tasks lead to</span>
             </div>
           </div>

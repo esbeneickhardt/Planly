@@ -11,14 +11,21 @@ import prisma from '../../db/client';
 import { validate } from '../../utils/validate';
 
 // Validates the prune request - defaults to 90 days if olderThanDays is omitted
-const pruneLogsSchema = z.object({ olderThanDays: z.number().int().min(1).optional() });
+const pruneLogsSchema = z.object({
+  olderThanDays: z.number().int().min(1).optional(),
+});
 
 // Builds the Prisma where clause for log queries shared by GET and export routes
 function buildLogWhere(action?: string, from?: string, to?: string) {
   return {
     ...(action ? { action } : {}),
     ...(from || to
-      ? { createdAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } }
+      ? {
+          createdAt: {
+            ...(from ? { gte: new Date(from) } : {}),
+            ...(to ? { lte: new Date(to) } : {}),
+          },
+        }
       : {}),
   };
 }
@@ -57,7 +64,13 @@ export async function adminLogRoutes(app: FastifyInstance) {
       action,
       from,
       to,
-    } = req.query as { limit?: string; cursor?: string; action?: string; from?: string; to?: string };
+    } = req.query as {
+      limit?: string;
+      cursor?: string;
+      action?: string;
+      from?: string;
+      to?: string;
+    };
     const take = Math.min(parseInt(limit) || 50, 200);
     const where = buildLogWhere(action, from, to);
     const logs = await prisma.adminLog.findMany({
@@ -66,7 +79,10 @@ export async function adminLogRoutes(app: FastifyInstance) {
       take,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
-    reply.send({ logs, nextCursor: logs.length === take ? (logs[logs.length - 1]?.id ?? null) : null });
+    reply.send({
+      logs,
+      nextCursor: logs.length === take ? (logs[logs.length - 1]?.id ?? null) : null,
+    });
   });
 
   // Stream a full CSV or JSONL export of the audit log in batches (avoids loading the full table into memory)
@@ -76,7 +92,12 @@ export async function adminLogRoutes(app: FastifyInstance) {
       action,
       from,
       to,
-    } = req.query as { format?: string; action?: string; from?: string; to?: string };
+    } = req.query as {
+      format?: string;
+      action?: string;
+      from?: string;
+      to?: string;
+    };
     const fmt = format === 'jsonl' ? 'jsonl' : 'csv';
     const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.${fmt}`;
     const where = buildLogWhere(action, from, to);
@@ -135,7 +156,10 @@ export async function adminLogRoutes(app: FastifyInstance) {
     const { since } = req.query as { since?: string };
     if (!since) return reply.send({ count: 0 });
     const count = await prisma.adminLog.count({
-      where: { action: { in: ADMIN_NOTIF_ACTIONS }, createdAt: { gt: new Date(since) } },
+      where: {
+        action: { in: ADMIN_NOTIF_ACTIONS },
+        createdAt: { gt: new Date(since) },
+      },
     });
     reply.send({ count });
   });
@@ -152,7 +176,9 @@ export async function adminLogRoutes(app: FastifyInstance) {
     // Pruning is restricted to the founding admin to prevent accidental audit trail destruction
     if (!actor?.isFoundingAdmin) return reply.status(403).send({ error: 'Only the founding admin can prune logs.' });
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const { count } = await prisma.adminLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    const { count } = await prisma.adminLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
     // Write a prune record after deletion so the action itself is audited
     await prisma.adminLog.create({
       data: {

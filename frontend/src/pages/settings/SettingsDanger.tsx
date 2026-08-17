@@ -76,7 +76,10 @@ export default function SettingsDanger({
     <div className="max-w-lg mx-auto space-y-4">
       <div
         className="p-4 rounded-xl"
-        style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}
+        style={{
+          background: 'rgba(239,68,68,0.05)',
+          border: '1px solid rgba(239,68,68,0.2)',
+        }}
       >
         <p className="text-xs" style={{ color: '#ef4444' }}>
           Actions here are permanent and cannot be undone. Proceed with caution.
@@ -84,15 +87,21 @@ export default function SettingsDanger({
       </div>
 
       {canManage && (
-        <div className="p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+        <div
+          className="p-4 rounded-xl"
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
             Project status
           </h3>
           <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
-            Mark this project as completed or archived once it's no longer active work. Completed makes it read-only
-            for regular members (owners/co-owners keep full access); archived makes it read-only for everyone,
-            including you. Both revoke any API tokens or app registrations scoped to this project - reverting to
-            active restores everyone's access.
+            Mark this project as completed or archived once it's no longer active work. Completed makes it read-only for
+            regular members (owners/co-owners keep full access); archived makes it read-only for everyone, including
+            you. Both revoke any API tokens or app registrations scoped to this project - reverting to active restores
+            everyone's access.
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             {(Object.keys(STATUS_STYLE) as ProductStatus[]).map((s) => {
@@ -120,7 +129,13 @@ export default function SettingsDanger({
       )}
 
       {!isOwner && (
-        <div className="p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+        <div
+          className="p-4 rounded-xl"
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
             Leave project
           </h3>
@@ -139,7 +154,10 @@ export default function SettingsDanger({
               }
             }}
             className="text-sm px-4 py-2 rounded-lg transition-colors bg-[rgba(245,158,11,0.06)] hover:bg-[rgba(245,158,11,0.12)]"
-            style={{ color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+            style={{
+              color: '#f59e0b',
+              border: '1px solid rgba(245,158,11,0.3)',
+            }}
           >
             Leave project
           </button>
@@ -149,7 +167,10 @@ export default function SettingsDanger({
       {isOwner && (
         <div
           className="p-4 rounded-xl"
-          style={{ background: 'var(--surface-2)', border: '1px solid rgba(239,68,68,0.15)' }}
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid rgba(239,68,68,0.15)',
+          }}
         >
           <h3 className="text-sm font-semibold mb-1" style={{ color: '#ef4444' }}>
             Delete project
@@ -174,7 +195,10 @@ export default function SettingsDanger({
               }
             }}
             className="text-sm px-4 py-2 rounded-lg transition-colors bg-[rgba(239,68,68,0.06)] hover:bg-[rgba(239,68,68,0.12)]"
-            style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+            style={{
+              color: '#ef4444',
+              border: '1px solid rgba(239,68,68,0.3)',
+            }}
           >
             Delete project
           </button>

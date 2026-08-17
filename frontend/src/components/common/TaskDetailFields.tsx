@@ -230,7 +230,15 @@ export default function TaskDetailFields({
                     cursor: readOnly ? 'default' : 'pointer',
                   }}
                 >
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background: s.color,
+                      flexShrink: 0,
+                    }}
+                  />
                   {s.name}
                   {active && <span style={{ fontSize: 10 }}>✓</span>}
                 </button>
@@ -398,7 +406,9 @@ export default function TaskDetailFields({
             (addingSubtask ? (
               <div
                 className="flex gap-1.5 px-3 py-2"
-                style={{ borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none' }}
+                style={{
+                  borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none',
+                }}
               >
                 <input
                   // eslint-disable-next-line jsx-a11y/no-autofocus -- field just revealed by clicking "+ Add subtask"; focusing it is the expected next action
@@ -434,7 +444,9 @@ export default function TaskDetailFields({
               <button
                 onClick={() => setAddingSubtask(true)}
                 className="w-full text-left px-3 py-2 text-xs transition-colors text-[var(--text-3)] hover:text-[var(--brand)]"
-                style={{ borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none' }}
+                style={{
+                  borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none',
+                }}
               >
                 + Add subtask
               </button>
@@ -448,7 +460,11 @@ export default function TaskDetailFields({
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs transition-colors"
-          style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface-2)',
+            color: 'var(--text-2)',
+            border: '1px solid var(--border)',
+          }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand)';
             (e.currentTarget as HTMLElement).style.color = 'var(--brand)';
@@ -468,7 +484,11 @@ export default function TaskDetailFields({
       {completedAt && (
         <div
           className="text-xs px-3 py-2.5 rounded-lg"
-          style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface-2)',
+            color: 'var(--text-3)',
+            border: '1px solid var(--border)',
+          }}
         >
           Completed {new Date(completedAt).toLocaleString()}
         </div>

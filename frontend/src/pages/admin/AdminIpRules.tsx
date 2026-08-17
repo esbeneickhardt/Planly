@@ -83,11 +83,7 @@ function RuleList({
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
         />
-        <button
-          disabled={!cidr.trim() || adding}
-          className="btn-primary text-sm px-4 sm:flex-shrink-0"
-          onClick={add}
-        >
+        <button disabled={!cidr.trim() || adding} className="btn-primary text-sm px-4 sm:flex-shrink-0" onClick={add}>
           {adding ? '…' : 'Add'}
         </button>
       </div>
@@ -101,7 +97,10 @@ function RuleList({
             <div
               key={r.id}
               className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+              }}
             >
               <span className="text-sm font-mono" style={{ color: 'var(--text)' }}>
                 {r.cidr}
@@ -150,7 +149,10 @@ function IpRulesPanel({
     <div className="space-y-4">
       <div
         className="p-5 rounded-xl space-y-3"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+        }}
       >
         <div>
           <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
@@ -163,7 +165,10 @@ function IpRulesPanel({
         {data && (
           <div
             className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
           >
             <span style={{ color: 'var(--text-3)' }}>Your current IP:</span>
             <code className="font-mono font-medium" style={{ color: 'var(--text)' }}>

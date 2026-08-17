@@ -60,7 +60,9 @@ export async function csrfCheck(req: FastifyRequest, reply: FastifyReply) {
     const csrfCookie = (req.cookies as Record<string, string | undefined>)['csrf'];
     const csrfHeader = req.headers['x-csrf-token'] as string | undefined;
     if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
-      return reply.status(403).send({ error: 'CSRF check failed: missing or invalid X-CSRF-Token header' });
+      return reply.status(403).send({
+        error: 'CSRF check failed: missing or invalid X-CSRF-Token header',
+      });
     }
   }
   // No cookie session and no Origin = non-browser API call - allow

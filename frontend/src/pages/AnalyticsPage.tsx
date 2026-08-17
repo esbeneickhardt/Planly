@@ -53,7 +53,12 @@ interface ActivityEvent {
 }
 
 type Period = '7d' | '30d' | '90d' | 'all';
-const PERIOD_DAYS: Record<Period, number> = { '7d': 7, '30d': 30, '90d': 90, all: 0 };
+const PERIOD_DAYS: Record<Period, number> = {
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+  all: 0,
+};
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const STATUS_LABEL: Record<string, string> = {
@@ -100,7 +105,10 @@ function formatRelative(iso: string) {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
-  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 // Bar chart where each bar column always has the same total height (bar area + label area),
@@ -126,7 +134,11 @@ function BarChart({
             {count > 0 && (
               <div
                 className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-medium px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none"
-                style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 {count}
               </div>
@@ -155,7 +167,12 @@ function BarChart({
             {label && (
               <span
                 className="text-[9px] leading-none"
-                style={{ color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'clip' }}
+                style={{
+                  color: 'var(--text-3)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'clip',
+                }}
               >
                 {label}
               </span>
@@ -353,15 +370,26 @@ export default function AnalyticsPage() {
     for (let i = 0; i < filteredDays.length; i += 7) {
       const chunk = filteredDays.slice(i, i + 7);
       const label = chunk[0]?.date
-        ? new Date(chunk[0].date).toLocaleDateString([], { month: 'short', day: 'numeric' })
+        ? new Date(chunk[0].date).toLocaleDateString([], {
+            month: 'short',
+            day: 'numeric',
+          })
         : '';
-      throughputData.push({ label, count: chunk.reduce((s, d) => s + d.count, 0) });
+      throughputData.push({
+        label,
+        count: chunk.reduce((s, d) => s + d.count, 0),
+      });
     }
   } else {
     filteredDays.forEach((d, i) => {
       const show = period === '7d' || i % 5 === 0;
       throughputData.push({
-        label: show ? new Date(d.date).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '',
+        label: show
+          ? new Date(d.date).toLocaleDateString([], {
+              month: 'short',
+              day: 'numeric',
+            })
+          : '',
         count: d.count,
       });
     });
@@ -377,7 +405,10 @@ export default function AnalyticsPage() {
     for (let i = 0; i < cumulativeDays.length; i += 7) {
       const chunk = cumulativeDays.slice(i, i + 7);
       const label = chunk[0]?.date
-        ? new Date(chunk[0].date).toLocaleDateString([], { month: 'short', day: 'numeric' })
+        ? new Date(chunk[0].date).toLocaleDateString([], {
+            month: 'short',
+            day: 'numeric',
+          })
         : '';
       running += chunk.reduce((s, d) => s + d.count, 0);
       cumulativeData.push({ label, count: running });
@@ -387,7 +418,12 @@ export default function AnalyticsPage() {
       const show = cumulativePeriod === '7d' || i % 5 === 0;
       running += d.count;
       cumulativeData.push({
-        label: show ? new Date(d.date).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '',
+        label: show
+          ? new Date(d.date).toLocaleDateString([], {
+              month: 'short',
+              day: 'numeric',
+            })
+          : '',
         count: running,
       });
     });
@@ -400,7 +436,10 @@ export default function AnalyticsPage() {
     const day = new Date(d.date).getDay();
     wdCounts[day] = (wdCounts[day] ?? 0) + d.count;
   });
-  const weekdayData = WEEKDAYS.map((label, i) => ({ label, count: wdCounts[i] ?? 0 }));
+  const weekdayData = WEEKDAYS.map((label, i) => ({
+    label,
+    count: wdCounts[i] ?? 0,
+  }));
 
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden" style={{ background: 'var(--bg)' }}>
@@ -411,7 +450,10 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-center py-16">
             <div
               className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+              style={{
+                borderColor: 'var(--brand)',
+                borderTopColor: 'transparent',
+              }}
             />
           </div>
         )}
@@ -424,10 +466,30 @@ export default function AnalyticsPage() {
               const activeCount = data.totalActive - backlogCount;
               const total = data.totalActive + data.totalCompleted;
               const tiles = [
-                { label: 'Not started', value: backlogCount, icon: '□', color: '#64748b' },
-                { label: 'Active', value: activeCount, icon: '⚡', color: 'var(--brand)' },
-                { label: 'Completed', value: data.totalCompleted, icon: '✓', color: '#10b981' },
-                { label: 'Total', value: total, icon: '☰', color: 'var(--text-3)' },
+                {
+                  label: 'Not started',
+                  value: backlogCount,
+                  icon: '□',
+                  color: '#64748b',
+                },
+                {
+                  label: 'Active',
+                  value: activeCount,
+                  icon: '⚡',
+                  color: 'var(--brand)',
+                },
+                {
+                  label: 'Completed',
+                  value: data.totalCompleted,
+                  icon: '✓',
+                  color: '#10b981',
+                },
+                {
+                  label: 'Total',
+                  value: total,
+                  icon: '☰',
+                  color: 'var(--text-3)',
+                },
               ];
               return (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -435,7 +497,10 @@ export default function AnalyticsPage() {
                     <div
                       key={label}
                       className="rounded-xl p-4 flex flex-col gap-1 shadow-sm"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                      style={{
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                      }}
                     >
                       <span className="text-xl">{icon}</span>
                       <span className="text-2xl font-bold" style={{ color }}>
@@ -454,7 +519,10 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
               <div
                 className="sm:col-span-2 rounded-xl p-6 shadow-sm"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -479,7 +547,10 @@ export default function AnalyticsPage() {
                 return (
                   <div
                     className="rounded-xl p-6 shadow-sm"
-                    style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                    }}
                   >
                     <div className="mb-4">
                       <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
@@ -524,7 +595,9 @@ export default function AnalyticsPage() {
                                 <div className="flex items-center gap-1.5">
                                   <span
                                     className="w-2 h-2 rounded-full flex-shrink-0"
-                                    style={{ background: STATUS_COLOR[status] ?? '#64748b' }}
+                                    style={{
+                                      background: STATUS_COLOR[status] ?? '#64748b',
+                                    }}
                                   />
                                   <span className="text-xs" style={{ color: 'var(--text-2)' }}>
                                     {STATUS_LABEL[status] ?? status}
@@ -560,7 +633,10 @@ export default function AnalyticsPage() {
             {data.totalCompleted > 0 && (
               <div
                 className="rounded-xl p-6 shadow-sm"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -581,7 +657,10 @@ export default function AnalyticsPage() {
             {data.totalCompleted > 0 && (
               <div
                 className="rounded-xl p-6 shadow-sm"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -602,7 +681,10 @@ export default function AnalyticsPage() {
             {data.sprintVelocity.length > 0 && (
               <div
                 className="rounded-xl p-6 shadow-sm"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>
                   Tasks completed per sub-plan
@@ -618,7 +700,13 @@ export default function AnalyticsPage() {
 
         {/* My workload */}
         {workload && (
-          <div className="rounded-xl p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div
+            className="rounded-xl p-6 shadow-sm"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+          >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
@@ -650,7 +738,9 @@ export default function AnalyticsPage() {
                             <div className="flex items-center gap-1.5">
                               <span
                                 className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ background: STATUS_COLOR[status] ?? '#64748b' }}
+                                style={{
+                                  background: STATUS_COLOR[status] ?? '#64748b',
+                                }}
                               />
                               <span className="text-xs" style={{ color: 'var(--text-2)' }}>
                                 {STATUS_LABEL[status] ?? status}
@@ -689,7 +779,12 @@ export default function AnalyticsPage() {
                     data={workload.completionsByDay.map((d, i) => ({
                       count: d.count,
                       label:
-                        i % 7 === 0 ? new Date(d.date).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '',
+                        i % 7 === 0
+                          ? new Date(d.date).toLocaleDateString([], {
+                              month: 'short',
+                              day: 'numeric',
+                            })
+                          : '',
                     }))}
                     height={80}
                     color="#10b981"
@@ -701,7 +796,13 @@ export default function AnalyticsPage() {
         )}
 
         {/* Activity feed */}
-        <div className="rounded-xl p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div
+          className="rounded-xl p-6 shadow-sm"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text)' }}>
             Recent activity
           </h2>
@@ -719,7 +820,10 @@ export default function AnalyticsPage() {
                 >
                   <div
                     className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5"
-                    style={{ background: `${actionColor(ev.action)}20`, color: actionColor(ev.action) }}
+                    style={{
+                      background: `${actionColor(ev.action)}20`,
+                      color: actionColor(ev.action),
+                    }}
                   >
                     {actionIcon(ev.action)}
                   </div>
@@ -772,7 +876,13 @@ function SprintVelocityChart({ sprints }: { sprints: SprintVelocity[] }) {
       {sprints.map((s) => (
         <div key={s.sprintId} className="flex items-center gap-3 group">
           <div
-            style={{ width: 7, height: 7, borderRadius: '50%', background: s.color || 'var(--brand)', flexShrink: 0 }}
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: s.color || 'var(--brand)',
+              flexShrink: 0,
+            }}
           />
           <div style={{ width: 148, flexShrink: 0 }}>
             <div className="text-xs truncate" style={{ color: 'var(--text-2)' }}>

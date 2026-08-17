@@ -9,14 +9,7 @@
  * `readOnly` gate that blocks the other two.
  */
 import { useState } from 'react';
-import {
-  DragEndEvent,
-  DragStartEvent,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
+import { DragEndEvent, DragStartEvent, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task, KanbanColumn as KanbanColumnType, Product } from '../types';
 import { api } from '../api/client';
@@ -64,7 +57,9 @@ export function useKanbanDnd({
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
   );
 
   // DnD handlers: `pointerWithin` collision (configured on the DndContext itself) detects both
@@ -197,7 +192,9 @@ export function useKanbanDnd({
 
     const listChanged = statusChanged || milestoneChanged;
     const sorted = (s: string) =>
-      tasks.filter((t) => t.status === s && t.id !== taskId && inScope(t)).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
+      tasks
+        .filter((t) => t.status === s && t.id !== taskId && inScope(t))
+        .sort((a, b) => a.kanbanOrder - b.kanbanOrder);
 
     let newColumnTasks: Task[];
     if (overTask && overTask.id !== taskId) {
@@ -208,7 +205,9 @@ export function useKanbanDnd({
         // Same-column reorder: insert AFTER the target when moving down, BEFORE when moving up.
         // Without this, dragging the top card onto a lower card inserts it before the target —
         // which produces no visible change when there are only two tasks (e.g. [A,B] → [A,B]).
-        const col = tasks.filter((t) => t.status === task.status && inScope(t)).sort((a, b) => a.kanbanOrder - b.kanbanOrder);
+        const col = tasks
+          .filter((t) => t.status === task.status && inScope(t))
+          .sort((a, b) => a.kanbanOrder - b.kanbanOrder);
         const movingDown = col.findIndex((t) => t.id === taskId) < col.findIndex((t) => t.id === overTask.id);
         peers.splice(movingDown ? insertAt + 1 : insertAt, 0, task);
       } else {
@@ -225,7 +224,9 @@ export function useKanbanDnd({
 
     try {
       if (statusChanged) {
-        await api.tasks.update(activeProduct.id, taskId, { status: targetStatusKey });
+        await api.tasks.update(activeProduct.id, taskId, {
+          status: targetStatusKey,
+        });
       }
       await api.tasks.reorder(
         activeProduct.id,
@@ -237,5 +238,12 @@ export function useKanbanDnd({
     }
   }
 
-  return { sensors, activeTask, activeColumn, activeMilestoneHeader, onDragStart, handleDragEnd };
+  return {
+    sensors,
+    activeTask,
+    activeColumn,
+    activeMilestoneHeader,
+    onDragStart,
+    handleDragEnd,
+  };
 }

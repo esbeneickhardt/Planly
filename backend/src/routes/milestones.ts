@@ -24,7 +24,16 @@ export async function milestoneRoutes(app: FastifyInstance) {
       prisma.product.findUnique({ where: { id: productId } }),
       prisma.task.findMany({
         where: { productId, deadline: { not: null }, deletedAt: null },
-        include: { owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } } },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              username: true,
+              realName: true,
+              avatarEmoji: true,
+            },
+          },
+        },
         // Stable tiebreak - without an orderBy, Postgres gives no ordering guarantee, so milestones
         // sharing a deadline would appear to reorder unpredictably across requests.
         orderBy: [{ deadline: 'asc' }, { createdAt: 'asc' }],
@@ -37,7 +46,13 @@ export async function milestoneRoutes(app: FastifyInstance) {
     const milestoneIds = milestones.map((m) => m.id);
 
     const depRows = await prisma.$queryRaw<
-      { milestoneId: string; id: string; status: string; name: string; ownerId: string | null }[]
+      {
+        milestoneId: string;
+        id: string;
+        status: string;
+        name: string;
+        ownerId: string | null;
+      }[]
     >`
       WITH RECURSIVE reachable AS (
         SELECT "dependentId" AS "milestoneId", "prerequisiteId" AS id
@@ -83,7 +98,12 @@ export async function milestoneRoutes(app: FastifyInstance) {
         totalDependencies: total,
         doneDependencies: done,
         progress: total > 0 ? done / total : milestone.status === 'done' ? 1 : 0,
-        dependencyList: deps.map(({ id, status, name, ownerId }) => ({ id, status, name, ownerId })),
+        dependencyList: deps.map(({ id, status, name, ownerId }) => ({
+          id,
+          status,
+          name,
+          ownerId,
+        })),
         unassignedDeps: deps.filter((d) => !d.ownerId && d.status !== 'done').length,
       };
     });

@@ -46,10 +46,20 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
 
   app.get('/api/admin/ip-restrictions', { preHandler: requireAdmin }, async (req, reply) => {
     const [allowlistRules, blocklistRules] = await Promise.all([
-      prisma.ipRestriction.findMany({ where: { listType: 'allowlist' }, orderBy: { createdAt: 'asc' } }),
-      prisma.ipRestriction.findMany({ where: { listType: 'blocklist' }, orderBy: { createdAt: 'asc' } }),
+      prisma.ipRestriction.findMany({
+        where: { listType: 'allowlist' },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.ipRestriction.findMany({
+        where: { listType: 'blocklist' },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
-    reply.send({ allowlistRules, blocklistRules, yourIp: getClientIp(req as never) });
+    reply.send({
+      allowlistRules,
+      blocklistRules,
+      yourIp: getClientIp(req as never),
+    });
   });
 
   app.post('/api/admin/ip-restrictions', { preHandler: requireAdmin }, async (req, reply) => {
@@ -60,7 +70,11 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     if (err) return reply.status(400).send({ error: err });
     try {
       const rule = await prisma.ipRestriction.create({
-        data: { cidr: normalized, listType: body.listType, description: body.description?.trim() || null },
+        data: {
+          cidr: normalized,
+          listType: body.listType,
+          description: body.description?.trim() || null,
+        },
       });
       await prisma.adminLog.create({
         data: {
@@ -94,10 +108,20 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
 
   app.get('/api/admin/admin-ip-restrictions', { preHandler: requireAdmin }, async (req, reply) => {
     const [allowlistRules, blocklistRules] = await Promise.all([
-      prisma.adminIpRestriction.findMany({ where: { listType: 'allowlist' }, orderBy: { createdAt: 'asc' } }),
-      prisma.adminIpRestriction.findMany({ where: { listType: 'blocklist' }, orderBy: { createdAt: 'asc' } }),
+      prisma.adminIpRestriction.findMany({
+        where: { listType: 'allowlist' },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.adminIpRestriction.findMany({
+        where: { listType: 'blocklist' },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
-    reply.send({ allowlistRules, blocklistRules, yourIp: getClientIp(req as never) });
+    reply.send({
+      allowlistRules,
+      blocklistRules,
+      yourIp: getClientIp(req as never),
+    });
   });
 
   app.post('/api/admin/admin-ip-restrictions', { preHandler: requireAdmin }, async (req, reply) => {
@@ -108,7 +132,11 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
     if (err) return reply.status(400).send({ error: err });
     try {
       const rule = await prisma.adminIpRestriction.create({
-        data: { cidr: normalized, listType: body.listType, description: body.description?.trim() || null },
+        data: {
+          cidr: normalized,
+          listType: body.listType,
+          description: body.description?.trim() || null,
+        },
       });
       await prisma.adminLog.create({
         data: {
@@ -125,7 +153,9 @@ export async function ipRestrictionRoutes(app: FastifyInstance) {
 
   app.delete('/api/admin/admin-ip-restrictions/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const rule = await prisma.adminIpRestriction.findUnique({ where: { id } });
+    const rule = await prisma.adminIpRestriction.findUnique({
+      where: { id },
+    });
     if (!rule) return reply.status(404).send({ error: 'Not found' });
     await prisma.adminIpRestriction.delete({ where: { id } });
     await prisma.adminLog.create({

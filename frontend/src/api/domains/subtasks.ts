@@ -7,7 +7,10 @@ import type { Subtask } from '../../types';
 
 export const subtasks = {
   create: (productId: string, taskId: string, name: string) =>
-    request<Subtask>(`/api/products/${productId}/tasks/${taskId}/subtasks`, { method: 'POST', body: json({ name }) }),
+    request<Subtask>(`/api/products/${productId}/tasks/${taskId}/subtasks`, {
+      method: 'POST',
+      body: json({ name }),
+    }),
   update: (
     productId: string,
     taskId: string,

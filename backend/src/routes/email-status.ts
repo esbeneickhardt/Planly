@@ -29,7 +29,10 @@ export async function emailStatusRoutes(app: FastifyInstance) {
   app.get('/api/email-status', { preHandler: requireAuth }, async (req, reply) => {
     const [settings, user] = await Promise.all([
       getSmtpSettings(),
-      prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } }),
+      prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { isAdmin: true },
+      }),
     ]);
     if (!user?.isAdmin) {
       return reply.send({ enabled: !!settings });
@@ -51,10 +54,18 @@ export async function emailStatusRoutes(app: FastifyInstance) {
 
   // Returns the raw saved DB config (for pre-filling the form)
   app.get('/api/email-config', { preHandler: requireAdmin }, async (_req, reply) => {
-    const row = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
+    const row = await prisma.smtpConfig.findUnique({
+      where: { id: 'default' },
+    });
     if (!row) return reply.send(null);
     // Never return the password
-    reply.send({ host: row.host, port: row.port, secure: row.secure, user: row.user, from: row.from });
+    reply.send({
+      host: row.host,
+      port: row.port,
+      secure: row.secure,
+      user: row.user,
+      from: row.from,
+    });
   });
 
   // Save (upsert) SMTP config
@@ -64,7 +75,9 @@ export async function emailStatusRoutes(app: FastifyInstance) {
     const { host, port, secure, user, pass, from } = body;
 
     // Update or create depending on whether a config record already exists
-    const existing = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
+    const existing = await prisma.smtpConfig.findUnique({
+      where: { id: 'default' },
+    });
 
     if (existing) {
       await prisma.smtpConfig.update({
@@ -108,7 +121,9 @@ export async function emailStatusRoutes(app: FastifyInstance) {
   app.post('/api/email-status/test', { preHandler: requireAuth }, async (req, reply) => {
     const settings = await getSmtpSettings();
     if (!settings) return reply.status(400).send({ error: 'SMTP not configured' });
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+    });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     try {
       await sendEmail({

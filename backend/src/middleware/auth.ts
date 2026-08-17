@@ -104,9 +104,15 @@ async function enforceEmailVerification(req: FastifyRequest, reply: FastifyReply
   if (EMAIL_VERIFY_EXEMPT.has(req.routeOptions?.url ?? req.url.split('?')[0] ?? '')) return;
   const cfg = await getServerConfig();
   if (!cfg.requireEmailVerification) return;
-  const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { emailVerified: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.userId },
+    select: { emailVerified: true },
+  });
   if (!user?.emailVerified) {
-    reply.status(403).send({ error: 'Please verify your email address to continue.', code: 'EMAIL_NOT_VERIFIED' });
+    reply.status(403).send({
+      error: 'Please verify your email address to continue.',
+      code: 'EMAIL_NOT_VERIFIED',
+    });
   }
 }
 
@@ -144,11 +150,18 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
             : {}),
           ...(apiToken.productId ? { scopedProductId: apiToken.productId } : {}),
         };
-        prisma.apiToken.update({ where: { id: apiToken.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
+        prisma.apiToken
+          .update({
+            where: { id: apiToken.id },
+            data: { lastUsedAt: new Date() },
+          })
+          .catch(() => {});
 
         // Read-only tokens may only perform GET and HEAD requests
         if (apiToken.readOnly && req.method !== 'GET' && req.method !== 'HEAD') {
-          reply.status(403).send({ error: 'This token is read-only and cannot perform write operations' });
+          reply.status(403).send({
+            error: 'This token is read-only and cannot perform write operations',
+          });
           return false;
         }
 
@@ -180,7 +193,9 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
   const cookieToken = req.cookies?.token;
   if (cookieToken) {
     try {
-      const payload = jwt.verify(cookieToken, config.jwtSecret, { algorithms: ['HS256'] }) as AuthPayload;
+      const payload = jwt.verify(cookieToken, config.jwtSecret, {
+        algorithms: ['HS256'],
+      }) as AuthPayload;
       // tokenVersion is an incrementing integer on the user row.
       // Password change, password reset, and admin logout all increment it,
       // instantly invalidating every outstanding session without maintaining a blocklist.
@@ -199,7 +214,10 @@ async function validateToken(req: FastifyRequest, reply: FastifyReply): Promise<
       const cached = getCachedTokenVersion(payload.userId);
       let liveVersion: number | undefined = cached;
       if (liveVersion === undefined) {
-        const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
+        const userRow = await prisma.user.findUnique({
+          where: { id: payload.userId },
+          select: { tokenVersion: true },
+        });
         if (!userRow) {
           reply
             .clearCookie('token', { path: '/' })
@@ -248,7 +266,9 @@ export async function requireInteractiveAuth(req: FastifyRequest, reply: Fastify
   const ok = await validateToken(req, reply);
   if (!ok) return;
   if (req.user.tokenVersion === undefined) {
-    reply.status(403).send({ error: 'This action requires an interactive login session, not an API token' });
+    reply.status(403).send({
+      error: 'This action requires an interactive login session, not an API token',
+    });
     return;
   }
   await enforceEmailVerification(req, reply);
@@ -261,7 +281,10 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   // Admins are subject to email verification like everyone else
   await enforceEmailVerification(req, reply);
   if (reply.sent) return;
-  const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.userId },
+    select: { isAdmin: true },
+  });
   if (!user?.isAdmin) return reply.status(403).send({ error: 'Admin access required' });
 
   // Admin-scope IP restriction - exempt the IP restriction management routes so an admin
@@ -272,18 +295,26 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   const ip = getClientIp(req as never);
   if (!isLocalhost(ip)) {
     const [allowlist, blocklist] = await Promise.all([
-      prisma.adminIpRestriction.findMany({ where: { listType: 'allowlist' }, select: { cidr: true } }),
-      prisma.adminIpRestriction.findMany({ where: { listType: 'blocklist' }, select: { cidr: true } }),
+      prisma.adminIpRestriction.findMany({
+        where: { listType: 'allowlist' },
+        select: { cidr: true },
+      }),
+      prisma.adminIpRestriction.findMany({
+        where: { listType: 'blocklist' },
+        select: { cidr: true },
+      }),
     ]);
     if (blocklist.some((r) => matchesCidr(ip, r.cidr))) {
-      return reply
-        .status(403)
-        .send({ error: 'Admin access denied: your IP has been blocked.', code: 'ADMIN_IP_BLOCKED' });
+      return reply.status(403).send({
+        error: 'Admin access denied: your IP has been blocked.',
+        code: 'ADMIN_IP_BLOCKED',
+      });
     }
     if (allowlist.length > 0 && !allowlist.some((r) => matchesCidr(ip, r.cidr))) {
-      return reply
-        .status(403)
-        .send({ error: 'Admin access denied: your IP is not on the admin allowlist.', code: 'ADMIN_IP_BLOCKED' });
+      return reply.status(403).send({
+        error: 'Admin access denied: your IP is not on the admin allowlist.',
+        code: 'ADMIN_IP_BLOCKED',
+      });
     }
   }
 }

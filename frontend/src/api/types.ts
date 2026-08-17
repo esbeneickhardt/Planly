@@ -99,7 +99,9 @@ export type ConversationSummary = {
 };
 
 export interface SearchResults {
-  tasks: (Task & { product: { id: string; name: string; emoji: string | null } })[];
+  tasks: (Task & {
+    product: { id: string; name: string; emoji: string | null };
+  })[];
   messages: {
     id: string;
     content: string;
@@ -130,7 +132,12 @@ export interface MilestoneResult {
   doneDependencies: number;
   progress: number;
   unassignedDeps: number;
-  dependencyList: { id: string; name: string; status: string; ownerId: string | null }[];
+  dependencyList: {
+    id: string;
+    name: string;
+    status: string;
+    ownerId: string | null;
+  }[];
 }
 
 export interface ColorLegendEntryResult {
@@ -156,7 +163,12 @@ export interface Message {
   content: string;
   attachments: MessageAttachment[];
   replyToId: string | null;
-  replyTo: { id: string; content: string; attachments: MessageAttachment[]; author: MinUser } | null;
+  replyTo: {
+    id: string;
+    content: string;
+    attachments: MessageAttachment[];
+    author: MinUser;
+  } | null;
   postedAsRole: string | null;
   createdAt: string;
   editedAt: string | null;

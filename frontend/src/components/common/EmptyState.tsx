@@ -6,8 +6,16 @@
  */
 import type { ReactNode } from 'react';
 
-const ICON_SIZE: Record<'sm' | 'md' | 'lg', string> = { sm: 'text-3xl', md: 'text-4xl', lg: 'text-5xl' };
-const GAP: Record<'sm' | 'md' | 'lg', string> = { sm: 'gap-2', md: 'gap-3', lg: 'gap-4' };
+const ICON_SIZE: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'text-3xl',
+  md: 'text-4xl',
+  lg: 'text-5xl',
+};
+const GAP: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'gap-2',
+  md: 'gap-3',
+  lg: 'gap-4',
+};
 
 interface Props {
   icon: string;

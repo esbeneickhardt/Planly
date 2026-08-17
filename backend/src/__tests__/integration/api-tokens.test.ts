@@ -20,13 +20,19 @@ describe.skipIf(!HAS_DB)('API token routes smoke', () => {
 
   beforeAll(async () => {
     app = await buildTestApp();
-    const user = await createTestUser({ username: `token_user_${suffix}`, email: `token_user_${suffix}@example.com` });
+    const user = await createTestUser({
+      username: `token_user_${suffix}`,
+      email: `token_user_${suffix}@example.com`,
+    });
     userId = user.id;
 
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { identifier: `token_user_${suffix}@example.com`, password: 'test-password-123' },
+      payload: {
+        identifier: `token_user_${suffix}@example.com`,
+        password: 'test-password-123',
+      },
     });
     cookie = loginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
   });

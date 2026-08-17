@@ -27,7 +27,10 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
     <div className="space-y-6 max-w-xl mx-auto">
       <div
         className="p-5 rounded-xl space-y-3"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+        }}
       >
         <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
           Server owner
@@ -56,7 +59,10 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
 
       <div
         className="p-5 rounded-xl space-y-2"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+        }}
       >
         <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
           Server admins
@@ -96,7 +102,10 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
       {isFoundingAdmin && (
         <div
           className="p-5 rounded-xl space-y-3"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
         >
           <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
             Transfer ownership

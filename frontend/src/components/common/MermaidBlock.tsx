@@ -25,7 +25,11 @@ export function MermaidBlock({ code }: { code: string }) {
       document.documentElement.getAttribute('data-theme') === 'dark' ||
       (!document.documentElement.hasAttribute('data-theme') &&
         window.matchMedia('(prefers-color-scheme: dark)').matches);
-    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default', securityLevel: 'loose' });
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default',
+      securityLevel: 'loose',
+    });
     mermaid
       .render(`mermaid-${rawId}`, code)
       .then(({ svg }) => {

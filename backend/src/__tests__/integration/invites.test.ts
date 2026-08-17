@@ -46,7 +46,11 @@ describe.skipIf(!HAS_DB)('Invite accept race condition', () => {
     // Several distinct users racing to accept the same single-use invite.
     for (let i = 0; i < RACE_SIZE; i++) {
       const email = `inv_race_${i}_${suffix}@t.com`;
-      const u = await createTestUser({ email, username: `inv_race_${i}_${suffix}`, password: PASSWORD });
+      const u = await createTestUser({
+        email,
+        username: `inv_race_${i}_${suffix}`,
+        password: PASSWORD,
+      });
       raceUserIds.push(u.id);
       raceUserCookies.push(await loginAs(app, email, PASSWORD));
     }
@@ -56,7 +60,9 @@ describe.skipIf(!HAS_DB)('Invite accept race condition', () => {
     // Team deletion cascades TeamMember and TeamInvite rows; products must go first (no cascade).
     await prisma.product.deleteMany({ where: { teamId } });
     await prisma.team.deleteMany({ where: { id: teamId } });
-    await prisma.user.deleteMany({ where: { id: { in: [ownerId, ...raceUserIds] } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [ownerId, ...raceUserIds] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
@@ -75,7 +81,11 @@ describe.skipIf(!HAS_DB)('Invite accept race condition', () => {
     // than one succeed against the same single-use invite.
     const results = await Promise.all(
       raceUserCookies.map((cookie) =>
-        app.inject({ method: 'POST', url: `/api/invites/${token}/accept`, cookies: cookieJar(cookie) }),
+        app.inject({
+          method: 'POST',
+          url: `/api/invites/${token}/accept`,
+          cookies: cookieJar(cookie),
+        }),
       ),
     );
 
@@ -91,7 +101,9 @@ describe.skipIf(!HAS_DB)('Invite accept race condition', () => {
     expect(invite?.useCount).toBe(1);
     expect(invite?.usedAt).not.toBeNull();
 
-    const members = await prisma.teamMember.findMany({ where: { teamId, userId: { in: raceUserIds } } });
+    const members = await prisma.teamMember.findMany({
+      where: { teamId, userId: { in: raceUserIds } },
+    });
     expect(members).toHaveLength(1);
   });
 
@@ -107,11 +119,17 @@ describe.skipIf(!HAS_DB)('Invite accept race condition', () => {
 
     // Reuse the same race-user pool, but first remove them from the team (added by the previous
     // test / this test's own membership upserts) so accepting is meaningful again.
-    await prisma.teamMember.deleteMany({ where: { teamId, userId: { in: raceUserIds } } });
+    await prisma.teamMember.deleteMany({
+      where: { teamId, userId: { in: raceUserIds } },
+    });
 
     const results = await Promise.all(
       raceUserCookies.map((cookie) =>
-        app.inject({ method: 'POST', url: `/api/invites/${token}/accept`, cookies: cookieJar(cookie) }),
+        app.inject({
+          method: 'POST',
+          url: `/api/invites/${token}/accept`,
+          cookies: cookieJar(cookie),
+        }),
       ),
     );
     results.forEach((r) => expect(r.statusCode).toBe(200));

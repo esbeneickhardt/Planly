@@ -81,7 +81,9 @@ export default function SettingsGeneral({
   async function toggleAnalytics() {
     setTogglingAnalytics(true);
     try {
-      await api.products.update(activeProduct.id, { analyticsEnabled: !activeProduct.analyticsEnabled });
+      await api.products.update(activeProduct.id, {
+        analyticsEnabled: !activeProduct.analyticsEnabled,
+      });
       await refreshProducts();
     } catch (err) {
       showToast((err as Error).message, 'error');
@@ -93,7 +95,9 @@ export default function SettingsGeneral({
   async function toggleDiscoverable() {
     setTogglingDiscoverable(true);
     try {
-      await api.products.update(activeProduct.id, { discoverable: !activeProduct.discoverable });
+      await api.products.update(activeProduct.id, {
+        discoverable: !activeProduct.discoverable,
+      });
       await refreshProducts();
     } catch (err) {
       showToast((err as Error).message, 'error');
@@ -125,10 +129,18 @@ export default function SettingsGeneral({
   // Keep refs to the latest field values and save function so Cmd/Ctrl+Enter can flush a save
   // immediately without re-subscribing the keydown listener (and without an exhaustive-deps
   // warning on a function that's recreated every render).
-  const latestFieldsRef = useRef<ProjectFields>({ name: projName, emoji: projEmoji, description: projDesc });
+  const latestFieldsRef = useRef<ProjectFields>({
+    name: projName,
+    emoji: projEmoji,
+    description: projDesc,
+  });
   const saveRef = useRef(saveProjectDetails);
   useEffect(() => {
-    latestFieldsRef.current = { name: projName, emoji: projEmoji, description: projDesc };
+    latestFieldsRef.current = {
+      name: projName,
+      emoji: projEmoji,
+      description: projDesc,
+    };
     saveRef.current = saveProjectDetails;
   });
 
@@ -210,7 +222,11 @@ export default function SettingsGeneral({
                 value={projName}
                 onChange={(e) => {
                   setProjName(e.target.value);
-                  scheduleSave({ name: e.target.value, emoji: projEmoji, description: projDesc });
+                  scheduleSave({
+                    name: e.target.value,
+                    emoji: projEmoji,
+                    description: projDesc,
+                  });
                 }}
                 placeholder="Project name"
               />
@@ -222,7 +238,11 @@ export default function SettingsGeneral({
                   onChange={(e) => {
                     setProjEmoji(e);
                     setShowEmojiPicker(false);
-                    scheduleSave({ name: projName, emoji: e, description: projDesc });
+                    scheduleSave({
+                      name: projName,
+                      emoji: e,
+                      description: projDesc,
+                    });
                   }}
                 />
                 {projEmoji && (
@@ -231,10 +251,17 @@ export default function SettingsGeneral({
                     onClick={() => {
                       setProjEmoji('');
                       setShowEmojiPicker(false);
-                      scheduleSave({ name: projName, emoji: '', description: projDesc });
+                      scheduleSave({
+                        name: projName,
+                        emoji: '',
+                        description: projDesc,
+                      });
                     }}
                     className="mt-1 w-full text-xs py-1 rounded-lg transition-colors"
-                    style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
+                    style={{
+                      color: 'var(--text-3)',
+                      background: 'var(--surface-2)',
+                    }}
                   >
                     Remove icon
                   </button>
@@ -246,7 +273,11 @@ export default function SettingsGeneral({
               value={projDesc}
               onChange={(v) => {
                 setProjDesc(v);
-                scheduleSave({ name: projName, emoji: projEmoji, description: v });
+                scheduleSave({
+                  name: projName,
+                  emoji: projEmoji,
+                  description: v,
+                });
               }}
               rows={6}
               placeholder="Describe the project… (markdown supported, images can be pasted or attached)"
@@ -292,8 +323,8 @@ export default function SettingsGeneral({
               Project search visibility
             </h2>
             <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
-              When on, other users can find this project in "Find projects" and request access. Turn it off to keep
-              this project invisible to search - existing members are unaffected either way.
+              When on, other users can find this project in "Find projects" and request access. Turn it off to keep this
+              project invisible to search - existing members are unaffected either way.
             </p>
             <button
               onClick={toggleDiscoverable}
@@ -322,7 +353,11 @@ export default function SettingsGeneral({
               Create a fresh copy of this project's tasks, dependencies, and canvas layout in a brand new project - no
               members, sub-plans, or integrations carried over, and every deadline shifted into the future.
             </p>
-            <button onClick={duplicateProject} disabled={duplicating} className="btn-secondary text-sm inline-flex items-center gap-2">
+            <button
+              onClick={duplicateProject}
+              disabled={duplicating}
+              className="btn-secondary text-sm inline-flex items-center gap-2"
+            >
               <span>⧉</span> {duplicating ? 'Duplicating…' : 'Duplicate project'}
             </button>
           </div>

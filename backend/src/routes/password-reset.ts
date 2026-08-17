@@ -56,15 +56,17 @@ export async function passwordResetRoutes(app: FastifyInstance) {
   // Request password reset - sends email with link
   app.post('/api/auth/forgot-password', async (req, reply) => {
     if (!emailEnabled) {
-      return reply
-        .status(503)
-        .send({ error: 'Email is not configured on this server. Ask your administrator to set up SMTP.' });
+      return reply.status(503).send({
+        error: 'Email is not configured on this server. Ask your administrator to set up SMTP.',
+      });
     }
     const body = validate(emailBodySchema, req.body, reply);
     if (!body) return;
     const { email } = body;
 
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
     // Always respond OK to avoid user enumeration
     if (!user) return reply.send({ ok: true });
 
@@ -115,11 +117,19 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     // Set new password hash and invalidate all existing sessions atomically
     const passwordHash = await bcrypt.hash(password, 12);
     await prisma.$transaction([
-      prisma.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } }),
-      prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { passwordHash, tokenVersion: { increment: 1 } },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
     ]);
 
-    logAdminEvent('PASSWORD_RESET_COMPLETED', { targetName: record.user.username });
+    logAdminEvent('PASSWORD_RESET_COMPLETED', {
+      targetName: record.user.username,
+    });
 
     reply.send({ ok: true });
   });
@@ -132,7 +142,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const smtpSettings = await getSmtpSettings();
     if (!smtpSettings) return reply.status(503).send({ error: 'Email is not configured on this server.' });
 
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
     // Always respond OK to avoid user enumeration
     if (!user || user.emailVerified) return reply.send({ ok: true });
 
@@ -140,7 +152,11 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');
     await prisma.emailVerifyToken.create({
-      data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
     });
     await sendEmail({
       to: user.email,
@@ -166,7 +182,9 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const tokenHash = createHash('sha256').update(raw).digest('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    await prisma.emailVerifyToken.create({ data: { userId, tokenHash, expiresAt } });
+    await prisma.emailVerifyToken.create({
+      data: { userId, tokenHash, expiresAt },
+    });
 
     const verifyUrl = `${config.appUrl}/verify-email?token=${raw}`;
     await sendEmail({
@@ -183,10 +201,14 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const body = validate(changePasswordBodySchema, req.body, reply);
     if (!body) return;
     const { currentPassword, newPassword } = body;
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+    });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     if (!user.passwordHash)
-      return reply.status(400).send({ error: 'This account uses SSO - password cannot be changed here.' });
+      return reply.status(400).send({
+        error: 'This account uses SSO - password cannot be changed here.',
+      });
     // If mustChangePassword is set, skip current-password check (they can't know it)
     if (!user.mustChangePassword) {
       if (!currentPassword) return reply.status(400).send({ error: 'Current password required' });
@@ -197,14 +219,25 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(newPassword, 12);
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash, mustChangePassword: false, tokenVersion: { increment: 1 } },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+        tokenVersion: { increment: 1 },
+      },
       select: { tokenVersion: true },
     });
     invalidateCachedTokenVersion(user.id);
-    logAdminEvent('PASSWORD_CHANGED', { actorName: user.username, targetName: user.username });
+    logAdminEvent('PASSWORD_CHANGED', {
+      actorName: user.username,
+      targetName: user.username,
+    });
     // Re-issue session cookie with the new tokenVersion so the user stays logged in
     const token = jwt.sign(
-      { userId: user.id, username: user.username, tokenVersion: updated.tokenVersion },
+      {
+        userId: user.id,
+        username: user.username,
+        tokenVersion: updated.tokenVersion,
+      },
       config.jwtSecret,
       { expiresIn: '1h' },
     );
@@ -220,15 +253,23 @@ export async function passwordResetRoutes(app: FastifyInstance) {
     const { token } = body;
 
     const tokenHash = createHash('sha256').update(token).digest('hex');
-    const record = await prisma.emailVerifyToken.findUnique({ where: { tokenHash } });
+    const record = await prisma.emailVerifyToken.findUnique({
+      where: { tokenHash },
+    });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
       return reply.status(400).send({ error: 'Invalid or expired verification link' });
     }
 
     await prisma.$transaction([
-      prisma.user.update({ where: { id: record.userId }, data: { emailVerified: true } }),
-      prisma.emailVerifyToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { emailVerified: true },
+      }),
+      prisma.emailVerifyToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
     ]);
 
     reply.send({ ok: true });

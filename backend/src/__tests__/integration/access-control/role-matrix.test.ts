@@ -43,7 +43,11 @@ describe.skipIf(!HAS_DB)('Role matrix - endpoint access control', () => {
       username: `rm_member_${suffix}`,
       password: pw,
     });
-    await createTestUser({ email: `rm_outside_${suffix}@t.com`, username: `rm_outside_${suffix}`, password: pw });
+    await createTestUser({
+      email: `rm_outside_${suffix}@t.com`,
+      username: `rm_outside_${suffix}`,
+      password: pw,
+    });
 
     const team = await createTestTeam(owner.id, [member.id]);
     const product = await createTestProduct(owner.id, team.id);
@@ -51,7 +55,13 @@ describe.skipIf(!HAS_DB)('Role matrix - endpoint access control', () => {
 
     // Create a task to use in per-task endpoint tests
     const task = await prisma.task.create({
-      data: { name: 'matrix-task', productId, createdBy: owner.id, status: 'backlog', kanbanOrder: 0 },
+      data: {
+        name: 'matrix-task',
+        productId,
+        createdBy: owner.id,
+        status: 'backlog',
+        kanbanOrder: 0,
+      },
     });
     taskId = task.id;
 
@@ -64,7 +74,11 @@ describe.skipIf(!HAS_DB)('Role matrix - endpoint access control', () => {
     await prisma.task.deleteMany({ where: { productId } });
     await prisma.product.deleteMany({ where: { id: productId } });
     await prisma.user.deleteMany({
-      where: { email: { in: [`rm_owner_${suffix}@t.com`, `rm_member_${suffix}@t.com`, `rm_outside_${suffix}@t.com`] } },
+      where: {
+        email: {
+          in: [`rm_owner_${suffix}@t.com`, `rm_member_${suffix}@t.com`, `rm_outside_${suffix}@t.com`],
+        },
+      },
     });
     await app.close();
     await prisma.$disconnect();

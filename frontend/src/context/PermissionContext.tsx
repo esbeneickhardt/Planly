@@ -96,7 +96,16 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
   // Memoized so consumers (most components in the app read this context) only re-render when a
   // field they actually use changes, not on every PermissionProvider render.
   const value = useMemo(
-    () => ({ canRead, canWrite, levelFor, refresh, isOwner, isCoOwner, canManage, permissionsLoaded }),
+    () => ({
+      canRead,
+      canWrite,
+      levelFor,
+      refresh,
+      isOwner,
+      isCoOwner,
+      canManage,
+      permissionsLoaded,
+    }),
     [canRead, canWrite, levelFor, refresh, isOwner, isCoOwner, canManage, permissionsLoaded],
   );
 

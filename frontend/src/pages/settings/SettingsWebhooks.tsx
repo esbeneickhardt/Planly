@@ -57,7 +57,10 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
         {/* Create webhook */}
         <div
           className="p-4 rounded-xl mb-4"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
         >
           <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text)' }}>
             Add webhook
@@ -98,7 +101,10 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
               onClick={async () => {
                 setCreating(true);
                 try {
-                  const wh = await api.webhooks.create(activeProduct.id, { url: newUrl, events: newEvents });
+                  const wh = await api.webhooks.create(activeProduct.id, {
+                    url: newUrl,
+                    events: newEvents,
+                  });
                   setRevealedSecret(wh.secret!);
                   setNewUrl('');
                   setNewEvents([]);
@@ -120,7 +126,10 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
         {revealedSecret && (
           <div
             className="p-4 rounded-xl mb-4"
-            style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}
+            style={{
+              background: 'rgba(16,185,129,0.08)',
+              border: '1px solid rgba(16,185,129,0.3)',
+            }}
           >
             <p className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>
               Save this secret - it will not be shown again.
@@ -128,7 +137,11 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
             <div className="flex items-center gap-2">
               <code
                 className="flex-1 text-xs break-all px-3 py-2 rounded-lg"
-                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 {revealedSecret}
               </code>
@@ -172,8 +185,8 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                         {wh.url}
                       </p>
                       <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                        {wh.events.length} event{wh.events.length !== 1 ? 's' : ''} · Created{' '}
-                        {new Date(wh.createdAt).toLocaleDateString()}
+                        {wh.events.length} event
+                        {wh.events.length !== 1 ? 's' : ''} · Created {new Date(wh.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -187,7 +200,9 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                       }}
                       onClick={async () => {
                         try {
-                          await api.webhooks.update(activeProduct.id, wh.id, { active: !wh.active });
+                          await api.webhooks.update(activeProduct.id, wh.id, {
+                            active: !wh.active,
+                          });
                           await load();
                         } catch (err) {
                           showToast((err as Error).message, 'error');
@@ -198,7 +213,11 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                     </button>
                     <button
                       className="text-xs px-2.5 py-1 rounded-lg"
-                      style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', background: 'transparent' }}
+                      style={{
+                        color: '#ef4444',
+                        border: '1px solid rgba(239,68,68,0.25)',
+                        background: 'transparent',
+                      }}
                       onClick={async () => {
                         if (!(await confirm('Delete this webhook?'))) return;
                         try {
@@ -216,7 +235,10 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                 </div>
                 <div
                   className="px-4 py-2 flex flex-wrap gap-1.5"
-                  style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}
+                  style={{
+                    background: 'var(--surface)',
+                    borderTop: '1px solid var(--border)',
+                  }}
                 >
                   {wh.events.map((ev) => (
                     <span
@@ -240,14 +262,21 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
         {/* Verification hint */}
         <div
           className="mt-6 p-4 rounded-xl"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
         >
           <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-2)' }}>
             Verifying webhook signatures
           </p>
           <code
             className="block text-xs px-3 py-2 rounded-lg whitespace-pre overflow-x-auto"
-            style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+            }}
           >{`const sig = req.headers['x-planly-signature'];
 const expected = 'sha256=' +
   crypto.createHmac('sha256', SECRET)

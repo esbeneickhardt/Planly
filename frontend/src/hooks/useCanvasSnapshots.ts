@@ -152,7 +152,10 @@ export function useCanvasSnapshots({
     const { x, y, zoom } = snap.viewport;
     setViewport({ x, y, zoom });
     // Persist snapshot positions to localStorage so this user's canvas restores correctly on reload
-    const patch: CanvasPatch = { viewport: { x, y, zoom }, positions: snap.positions };
+    const patch: CanvasPatch = {
+      viewport: { x, y, zoom },
+      positions: snap.positions,
+    };
     if (snap.viewport.viewMode) {
       setViewMode(snap.viewport.viewMode as ViewMode);
       patch.viewMode = snap.viewport.viewMode as ViewMode;
@@ -183,9 +186,7 @@ export function useCanvasSnapshots({
   const sortedFilteredSnapshots = (() => {
     const q = snapshotSearch.trim().toLowerCase();
     const matches = q
-      ? snapshots.filter(
-          (s) => s.name.toLowerCase().includes(q) || displayName(s.user).toLowerCase().includes(q),
-        )
+      ? snapshots.filter((s) => s.name.toLowerCase().includes(q) || displayName(s.user).toLowerCase().includes(q))
       : snapshots;
     return [...matches].sort((a, b) => {
       const aOwn = a.userId === currentUserId ? 0 : 1;

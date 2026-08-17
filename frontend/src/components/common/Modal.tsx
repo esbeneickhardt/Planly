@@ -43,7 +43,9 @@ export default function Modal({
   // arrow passed by a parent re-render would re-run the effect, firing the cleanup's
   // previouslyFocused?.focus() and stealing focus from inputs on every keystroke.
   const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; });
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     // Save the element that had focus before the modal opened so we can restore it on close

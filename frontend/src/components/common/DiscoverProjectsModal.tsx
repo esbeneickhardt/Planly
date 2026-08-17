@@ -10,7 +10,10 @@ import Modal from './Modal';
 import { api } from '../../api/client';
 import type { Product } from '../../types';
 
-type DiscoverProduct = Product & { requestStatus: string | null; team: { id: string; name: string } };
+type DiscoverProduct = Product & {
+  requestStatus: string | null;
+  team: { id: string; name: string };
+};
 
 function descriptionPreview(raw: string | undefined): string {
   if (!raw?.trim()) return '';
@@ -77,7 +80,11 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
       return (
         <span
           className="text-xs px-2.5 py-1 rounded-full font-medium"
-          style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+          style={{
+            background: 'rgba(245,158,11,0.12)',
+            color: '#f59e0b',
+            border: '1px solid rgba(245,158,11,0.3)',
+          }}
         >
           Pending
         </span>
@@ -117,7 +124,10 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                 <div
                   key={p.id}
                   className="rounded-xl px-4 py-3"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-2xl flex-shrink-0 mt-0.5">{p.emoji ?? '📦'}</span>
@@ -135,7 +145,11 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                             {preview ? (
                               <p
                                 className="text-xs"
-                                style={{ color: 'var(--text-2)', lineHeight: 1.6, whiteSpace: 'pre-line' }}
+                                style={{
+                                  color: 'var(--text-2)',
+                                  lineHeight: 1.6,
+                                  whiteSpace: 'pre-line',
+                                }}
                               >
                                 {truncated}
                                 {isLong ? '…' : ''}
@@ -183,7 +197,12 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                       <textarea
                         rows={2}
                         value={noteMap[p.id] ?? ''}
-                        onChange={(e) => setNoteMap((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                        onChange={(e) =>
+                          setNoteMap((prev) => ({
+                            ...prev,
+                            [p.id]: e.target.value,
+                          }))
+                        }
                         placeholder="Add a note (optional)…"
                         className="input text-sm w-full resize-none"
                       />

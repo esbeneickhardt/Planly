@@ -23,11 +23,18 @@ import { sendEmail, directMessageEmail } from '../utils/email';
 import { config } from '../config/env';
 
 // Validates the message payload for sending a DM
-const sendSchema = z.object({ content: z.string().min(1).max(10000), replyToId: z.string().optional().nullable() });
+const sendSchema = z.object({
+  content: z.string().min(1).max(10000),
+  replyToId: z.string().optional().nullable(),
+});
 // Validates the conversation creation request; isAdminChat scopes the conversation to the admin
 // context (unscoped from any project - server admins can contact anyone directly). Non-admin
 // conversations must instead carry the project they belong to, checked in the handler below.
-const createSchema = z.object({ participantId: z.string(), isAdminChat: z.boolean().optional(), productId: z.string().optional() });
+const createSchema = z.object({
+  participantId: z.string(),
+  isAdminChat: z.boolean().optional(),
+  productId: z.string().optional(),
+});
 // Validates group creation - at least 2 other participants (3+ total incl. creator); a smaller
 // group is just a DM, handled by the route above instead.
 const createGroupSchema = z.object({
@@ -49,15 +56,25 @@ const AUTHOR_SELECT = {
   isFoundingAdmin: true,
 };
 // Compact reply-to shape embedded in threaded DM messages
-const DM_REPLY_SELECT = { id: true, content: true, author: { select: AUTHOR_SELECT } };
+const DM_REPLY_SELECT = {
+  id: true,
+  content: true,
+  author: { select: AUTHOR_SELECT },
+};
 
 // Decrypt realName PII on both the message author and the quoted reply-to author
 function decryptAuthor<
-  T extends { author: { realName: string | null }; replyTo?: { author: { realName: string | null } } | null },
+  T extends {
+    author: { realName: string | null };
+    replyTo?: { author: { realName: string | null } } | null;
+  },
 >(msg: T): T {
   return {
     ...msg,
-    author: { ...msg.author, realName: msg.author.realName ? safeDecryptValue(msg.author.realName) : null },
+    author: {
+      ...msg.author,
+      realName: msg.author.realName ? safeDecryptValue(msg.author.realName) : null,
+    },
     replyTo: msg.replyTo
       ? {
           ...msg.replyTo,
@@ -78,7 +95,16 @@ function decryptAuthor<
 async function productMemberIds(productId: string, userIds: string[]): Promise<Set<string>> {
   const product = await prisma.product.findFirst({
     where: { id: productId, deletedAt: null },
-    select: { team: { select: { members: { where: { userId: { in: userIds } }, select: { userId: true } } } } },
+    select: {
+      team: {
+        select: {
+          members: {
+            where: { userId: { in: userIds } },
+            select: { userId: true },
+          },
+        },
+      },
+    },
   });
   return new Set(product?.team.members.map((m) => m.userId) ?? []);
 }
@@ -89,7 +115,10 @@ async function productMemberIds(productId: string, userIds: string[]): Promise<S
 // anyone in the system. This re-verifies isAdmin against the DB server-side, exactly like
 // middleware/auth.ts's requireAdmin does, whenever isAdminChat is claimed.
 async function isRealAdmin(userId: string): Promise<boolean> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isAdmin: true },
+  });
   return !!user?.isAdmin;
 }
 
@@ -129,14 +158,20 @@ export async function conversationRoutes(app: FastifyInstance) {
   // ?productId= is required - non-admin chat is always scoped to one project, never global).
   app.get('/api/conversations', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user.userId;
-    const { admin, productId } = req.query as { admin?: string; productId?: string };
+    const { admin, productId } = req.query as {
+      admin?: string;
+      productId?: string;
+    };
     const isAdminChat = admin === 'true';
     if (!isAdminChat && !productId) return reply.status(400).send({ error: 'productId is required' });
     if (isAdminChat && !(await isRealAdmin(userId))) return reply.status(403).send({ error: 'Admin access required' });
     if (!requireConvScopeMatch(isAdminChat ? null : (productId ?? null), req.user, reply)) return;
 
     const participations = await prisma.conversationParticipant.findMany({
-      where: { userId, conversation: { isAdminChat, ...(isAdminChat ? {} : { productId }) } },
+      where: {
+        userId,
+        conversation: { isAdminChat, ...(isAdminChat ? {} : { productId }) },
+      },
       include: {
         conversation: {
           include: {
@@ -174,7 +209,10 @@ export async function conversationRoutes(app: FastifyInstance) {
         isGroup: p.conversation.isGroup,
         name: p.conversation.name,
         other: other
-          ? { ...other.user, realName: other.user.realName ? safeDecryptValue(other.user.realName) : null }
+          ? {
+              ...other.user,
+              realName: other.user.realName ? safeDecryptValue(other.user.realName) : null,
+            }
           : null,
         participants: others.map((o) => ({
           ...o.user,
@@ -183,7 +221,12 @@ export async function conversationRoutes(app: FastifyInstance) {
         lastMessage: lastMsg
           ? decryptAuthor({
               ...lastMsg,
-              author: lastMsgAuthor ?? { id: '', username: '', realName: null, avatarEmoji: null },
+              author: lastMsgAuthor ?? {
+                id: '',
+                username: '',
+                realName: null,
+                avatarEmoji: null,
+              },
             })
           : null,
         unread: unreadByConv.get(p.conversation.id) ?? 0,
@@ -204,7 +247,10 @@ export async function conversationRoutes(app: FastifyInstance) {
     const { participantId, isAdminChat = false, productId } = body;
     if (participantId === userId) return reply.status(400).send({ error: 'Cannot start a conversation with yourself' });
 
-    const other = await prisma.user.findUnique({ where: { id: participantId }, select: { id: true } });
+    const other = await prisma.user.findUnique({
+      where: { id: participantId },
+      select: { id: true },
+    });
     if (!other) return reply.status(404).send({ error: 'User not found' });
     if (!requireConvScopeMatch(isAdminChat ? null : (productId ?? null), req.user, reply)) return;
 
@@ -262,7 +308,10 @@ export async function conversationRoutes(app: FastifyInstance) {
     if (participantIds.length < 2)
       return reply.status(400).send({ error: 'A group needs at least 2 other participants' });
 
-    const users = await prisma.user.findMany({ where: { id: { in: participantIds } }, select: { id: true } });
+    const users = await prisma.user.findMany({
+      where: { id: { in: participantIds } },
+      select: { id: true },
+    });
     if (users.length !== participantIds.length) return reply.status(404).send({ error: 'One or more users not found' });
     if (!requireConvScopeMatch(isAdminChat ? null : (productId ?? null), req.user, reply)) return;
 
@@ -274,7 +323,9 @@ export async function conversationRoutes(app: FastifyInstance) {
       if (!members.has(userId)) return reply.status(403).send({ error: 'Forbidden' });
       const outsiders = participantIds.filter((id) => !members.has(id));
       if (outsiders.length > 0)
-        return reply.status(403).send({ error: 'One or more users are not members of this project' });
+        return reply.status(403).send({
+          error: 'One or more users are not members of this project',
+        });
     } else if (!(await isRealAdmin(userId))) {
       return reply.status(403).send({ error: 'Admin access required' });
     }
@@ -285,7 +336,9 @@ export async function conversationRoutes(app: FastifyInstance) {
         productId: isAdminChat ? null : productId,
         isGroup: true,
         name: name?.trim() || null,
-        participants: { create: [{ userId }, ...participantIds.map((id) => ({ userId: id }))] },
+        participants: {
+          create: [{ userId }, ...participantIds.map((id) => ({ userId: id }))],
+        },
       },
     });
     reply.status(201).send({ id: conv.id });
@@ -303,11 +356,17 @@ export async function conversationRoutes(app: FastifyInstance) {
     });
     if (!participant) return reply.status(403).send({ error: 'Not a participant' });
 
-    const conv = await prisma.conversation.findUnique({ where: { id }, select: { isGroup: true, productId: true } });
+    const conv = await prisma.conversation.findUnique({
+      where: { id },
+      select: { isGroup: true, productId: true },
+    });
     if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
     if (!requireConvScopeMatch(conv.productId, req.user, reply)) return;
 
-    await prisma.conversation.update({ where: { id }, data: { name: body.name.trim() } });
+    await prisma.conversation.update({
+      where: { id },
+      data: { name: body.name.trim() },
+    });
     reply.send({ ok: true });
   });
 
@@ -325,7 +384,11 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const conv = await prisma.conversation.findUnique({
       where: { id },
-      select: { isGroup: true, productId: true, participants: { select: { userId: true } } },
+      select: {
+        isGroup: true,
+        productId: true,
+        participants: { select: { userId: true } },
+      },
     });
     if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
     if (!requireConvScopeMatch(conv.productId, req.user, reply)) return;
@@ -334,7 +397,10 @@ export async function conversationRoutes(app: FastifyInstance) {
     const toAdd = Array.from(new Set(body.userIds)).filter((uid) => !existingIds.has(uid));
     if (toAdd.length === 0) return reply.send({ ok: true });
 
-    const users = await prisma.user.findMany({ where: { id: { in: toAdd } }, select: { id: true } });
+    const users = await prisma.user.findMany({
+      where: { id: { in: toAdd } },
+      select: { id: true },
+    });
     if (users.length !== toAdd.length) return reply.status(404).send({ error: 'One or more users not found' });
 
     // A project-scoped group can only ever grow with members of that same project.
@@ -342,7 +408,9 @@ export async function conversationRoutes(app: FastifyInstance) {
       const members = await productMemberIds(conv.productId, toAdd);
       const outsiders = toAdd.filter((uid) => !members.has(uid));
       if (outsiders.length > 0)
-        return reply.status(403).send({ error: 'One or more users are not members of this project' });
+        return reply.status(403).send({
+          error: 'One or more users are not members of this project',
+        });
     }
 
     await prisma.conversationParticipant.createMany({
@@ -355,7 +423,10 @@ export async function conversationRoutes(app: FastifyInstance) {
   // removing themselves). Blocked if it would drop the conversation below 2 remaining participants.
   app.delete('/api/conversations/:id/participants/:userId', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user.userId;
-    const { id, userId: targetUserId } = req.params as { id: string; userId: string };
+    const { id, userId: targetUserId } = req.params as {
+      id: string;
+      userId: string;
+    };
 
     const participant = await prisma.conversationParticipant.findUnique({
       where: { conversationId_userId: { conversationId: id, userId } },
@@ -364,7 +435,11 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const conv = await prisma.conversation.findUnique({
       where: { id },
-      select: { isGroup: true, productId: true, participants: { select: { userId: true } } },
+      select: {
+        isGroup: true,
+        productId: true,
+        participants: { select: { userId: true } },
+      },
     });
     if (!conv?.isGroup) return reply.status(400).send({ error: 'Not a group conversation' });
     if (!requireConvScopeMatch(conv.productId, req.user, reply)) return;
@@ -374,7 +449,9 @@ export async function conversationRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'A group needs at least 2 participants' });
 
     await prisma.conversationParticipant.delete({
-      where: { conversationId_userId: { conversationId: id, userId: targetUserId } },
+      where: {
+        conversationId_userId: { conversationId: id, userId: targetUserId },
+      },
     });
     reply.send({ ok: true });
   });
@@ -390,13 +467,19 @@ export async function conversationRoutes(app: FastifyInstance) {
     // Only look up the conversation's own productId when a scoped token is asking - free for the
     // much more common cookie-session case, which never needs this extra query.
     if (req.user.scopedProductId) {
-      const conv = await prisma.conversation.findUnique({ where: { id }, select: { productId: true } });
+      const conv = await prisma.conversation.findUnique({
+        where: { id },
+        select: { productId: true },
+      });
       if (!requireConvScopeMatch(conv?.productId ?? null, req.user, reply)) return;
     }
 
     const messages = await prisma.directMessage.findMany({
       where: { conversationId: id },
-      include: { author: { select: AUTHOR_SELECT }, replyTo: { select: DM_REPLY_SELECT } },
+      include: {
+        author: { select: AUTHOR_SELECT },
+        replyTo: { select: DM_REPLY_SELECT },
+      },
       orderBy: { createdAt: 'asc' },
     });
     reply.send({ messages: messages.map((m) => decryptAuthor(m)) });
@@ -420,7 +503,10 @@ export async function conversationRoutes(app: FastifyInstance) {
       select: { closed: true, isGroup: true, name: true, productId: true },
     });
     if (conv?.closed) {
-      const actor = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+      const actor = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isAdmin: true },
+      });
       if (!actor?.isAdmin) return reply.status(403).send({ error: 'This conversation has been closed.' });
     }
     if (!requireConvScopeMatch(conv?.productId ?? null, req.user, reply)) return;
@@ -430,8 +516,16 @@ export async function conversationRoutes(app: FastifyInstance) {
     if (convProductId && !(await requireProductWritable(convProductId, req.user, reply))) return;
 
     const msg = await prisma.directMessage.create({
-      data: { conversationId: id, authorId: userId, content: body.content.trim(), replyToId: body.replyToId ?? null },
-      include: { author: { select: AUTHOR_SELECT }, replyTo: { select: DM_REPLY_SELECT } },
+      data: {
+        conversationId: id,
+        authorId: userId,
+        content: body.content.trim(),
+        replyToId: body.replyToId ?? null,
+      },
+      include: {
+        author: { select: AUTHOR_SELECT },
+        replyTo: { select: DM_REPLY_SELECT },
+      },
     });
 
     await prisma.conversationParticipant.update({
@@ -441,7 +535,10 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const others = await prisma.conversationParticipant.findMany({
       where: { conversationId: id, userId: { not: userId } },
-      select: { userId: true, user: { select: { email: true, notificationPreferences: true } } },
+      select: {
+        userId: true,
+        user: { select: { email: true, notificationPreferences: true } },
+      },
     });
     const groupContext = conv?.isGroup ? (conv.name ?? 'group chat') : undefined;
     for (const o of others) {
@@ -479,7 +576,10 @@ export async function conversationRoutes(app: FastifyInstance) {
     });
     if (!participant) return reply.status(403).send({ error: 'Not a participant' });
     if (req.user.scopedProductId) {
-      const conv = await prisma.conversation.findUnique({ where: { id }, select: { productId: true } });
+      const conv = await prisma.conversation.findUnique({
+        where: { id },
+        select: { productId: true },
+      });
       if (!requireConvScopeMatch(conv?.productId ?? null, req.user, reply)) return;
     }
     await prisma.conversationParticipant.update({
@@ -498,10 +598,16 @@ export async function conversationRoutes(app: FastifyInstance) {
     if (req.user.scopedProductId)
       return reply.status(403).send({ error: 'This token is not authorized for admin actions' });
 
-    const actor = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true },
+    });
     if (!actor?.isAdmin) return reply.status(403).send({ error: 'Admin access required' });
 
-    const conv = await prisma.conversation.findUnique({ where: { id }, select: { closed: true } });
+    const conv = await prisma.conversation.findUnique({
+      where: { id },
+      select: { closed: true },
+    });
     if (!conv) return reply.status(404).send({ error: 'Conversation not found' });
 
     const updated = await prisma.conversation.update({
@@ -514,7 +620,10 @@ export async function conversationRoutes(app: FastifyInstance) {
   // Total unread DM count across all conversations for a given scope
   app.get('/api/conversations/unread-count', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user.userId;
-    const { admin, productId } = req.query as { admin?: string; productId?: string };
+    const { admin, productId } = req.query as {
+      admin?: string;
+      productId?: string;
+    };
     const isAdminChat = admin === 'true';
     if (!isAdminChat && !productId) return reply.status(400).send({ error: 'productId is required' });
     if (isAdminChat && !(await isRealAdmin(userId))) return reply.status(403).send({ error: 'Admin access required' });
@@ -524,7 +633,10 @@ export async function conversationRoutes(app: FastifyInstance) {
     // unread messages for all of them in a single SQL aggregate instead of fetching every
     // message's full content for every conversation just to count them in JS.
     const participations = await prisma.conversationParticipant.findMany({
-      where: { userId, conversation: { isAdminChat, ...(isAdminChat ? {} : { productId }) } },
+      where: {
+        userId,
+        conversation: { isAdminChat, ...(isAdminChat ? {} : { productId }) },
+      },
       select: { conversationId: true },
     });
     const unreadByConv = await unreadCountsByConversation(

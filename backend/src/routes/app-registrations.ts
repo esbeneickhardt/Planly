@@ -23,7 +23,10 @@ const createAppSchema = z.object({
   productId: z.string().uuid().optional(), // scopes all tokens in this registration to one product
 });
 // Partial update for renaming or re-describing a registration
-const updateAppSchema = z.object({ name: z.string().optional(), description: z.string().optional() });
+const updateAppSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+});
 // Per-tab permission levels for an app registration (all fields optional - absent means 'write')
 const level = z.enum(['write', 'read', 'none']).optional();
 const permissionsSchema = z.object({
@@ -56,7 +59,14 @@ const APP_SELECT = {
   createdAt: true,
 };
 // Fields returned for token listings under an app - never includes tokenHash
-const TOKEN_SELECT = { id: true, name: true, appId: true, lastUsedAt: true, expiresAt: true, createdAt: true };
+const TOKEN_SELECT = {
+  id: true,
+  name: true,
+  appId: true,
+  lastUsedAt: true,
+  expiresAt: true,
+  createdAt: true,
+};
 
 export async function appRegistrationRoutes(app: FastifyInstance) {
   // List the current user's app registrations
@@ -78,13 +88,21 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
     // Verify caller is a member of the target product before scoping the registration to it
     if (productId) {
       const membership = await prisma.teamMember.findFirst({
-        where: { userId: req.user.userId, team: { products: { some: { id: productId } } } },
+        where: {
+          userId: req.user.userId,
+          team: { products: { some: { id: productId } } },
+        },
       });
       if (!membership) return reply.status(403).send({ error: 'You are not a member of that project' });
     }
 
     const registration = await prisma.appRegistration.create({
-      data: { name: name.trim(), description, ownerId: req.user.userId, productId: productId ?? null },
+      data: {
+        name: name.trim(),
+        description,
+        ownerId: req.user.userId,
+        productId: productId ?? null,
+      },
       select: APP_SELECT,
     });
     logAdminEvent('APP_CREATED', {
@@ -122,8 +140,14 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
         select: { name: true },
       });
       if (!existing) return reply.status(404).send({ error: 'Not found' });
-      await prisma.appRegistration.delete({ where: { id: appId, ownerId: req.user.userId } });
-      logAdminEvent('APP_DELETED', { actorName: req.user.username, targetName: existing.name, metadata: { appId } });
+      await prisma.appRegistration.delete({
+        where: { id: appId, ownerId: req.user.userId },
+      });
+      logAdminEvent('APP_DELETED', {
+        actorName: req.user.username,
+        targetName: existing.name,
+        metadata: { appId },
+      });
       reply.send({ ok: true });
     } catch (e) {
       handleNotFound(e, reply);
@@ -133,7 +157,9 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
   // List tokens for an app
   app.get('/api/apps/:appId/tokens', { preHandler: requireInteractiveAuth }, async (req, reply) => {
     const { appId } = req.params as { appId: string };
-    const appExists = await prisma.appRegistration.findUnique({ where: { id: appId, ownerId: req.user.userId } });
+    const appExists = await prisma.appRegistration.findUnique({
+      where: { id: appId, ownerId: req.user.userId },
+    });
     if (!appExists) return reply.status(404).send({ error: 'Not found' });
     const tokens = await prisma.apiToken.findMany({
       where: { appId },
@@ -174,7 +200,12 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
     logAdminEvent('APP_TOKEN_CREATED', {
       actorName: req.user.username,
       targetName: appExists.name,
-      metadata: { appId, tokenId: token.id, name: name.trim(), scoped: !!appExists.productId },
+      metadata: {
+        appId,
+        tokenId: token.id,
+        name: name.trim(),
+        scoped: !!appExists.productId,
+      },
     });
     reply.status(201).send({ ...token, token: rawToken });
   });
@@ -198,12 +229,17 @@ export async function appRegistrationRoutes(app: FastifyInstance) {
 
   // Revoke a specific app token
   app.delete('/api/apps/:appId/tokens/:tokenId', { preHandler: requireInteractiveAuth }, async (req, reply) => {
-    const { appId, tokenId } = req.params as { appId: string; tokenId: string };
+    const { appId, tokenId } = req.params as {
+      appId: string;
+      tokenId: string;
+    };
     const existing = await prisma.apiToken.findFirst({
       where: { id: tokenId, appId, userId: req.user.userId },
       select: { name: true },
     });
-    const { count } = await prisma.apiToken.deleteMany({ where: { id: tokenId, appId, userId: req.user.userId } });
+    const { count } = await prisma.apiToken.deleteMany({
+      where: { id: tokenId, appId, userId: req.user.userId },
+    });
     if (count === 0) return reply.status(404).send({ error: 'Not found' });
     logAdminEvent('APP_TOKEN_REVOKED', {
       actorName: req.user.username,

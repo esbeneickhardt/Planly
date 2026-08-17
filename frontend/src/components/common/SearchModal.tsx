@@ -441,7 +441,11 @@ export default function SearchModal({ onClose }: Props) {
     }
     if (msg.conversation) {
       openConversationChat(
-        { id: msg.conversation.id, isGroup: msg.conversation.isGroup, other: msg.conversation.other },
+        {
+          id: msg.conversation.id,
+          isGroup: msg.conversation.isGroup,
+          other: msg.conversation.other,
+        },
         msg.id,
       );
     } else {
@@ -468,10 +472,7 @@ export default function SearchModal({ onClose }: Props) {
     }
 
     // Left/right cycle through result-type tabs when they're visible
-    if (
-      (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
-      showTabs
-    ) {
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && showTabs) {
       e.preventDefault();
       const cur = TAB_ORDER.indexOf(tab);
       const next =
@@ -584,7 +585,10 @@ export default function SearchModal({ onClose }: Props) {
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the backdrop's onClick */}
       <div
         className="fixed left-1/2 top-[20%] z-50 w-full max-w-lg -translate-x-1/2 flex flex-col overflow-hidden rounded-2xl shadow-2xl"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
@@ -615,12 +619,19 @@ export default function SearchModal({ onClose }: Props) {
           {searching && (
             <div
               className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin flex-shrink-0"
-              style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+              style={{
+                borderColor: 'var(--brand)',
+                borderTopColor: 'transparent',
+              }}
             />
           )}
           <kbd
             className="text-xs px-1.5 py-0.5 rounded flex-shrink-0"
-            style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              color: 'var(--text-3)',
+              border: '1px solid var(--border)',
+            }}
           >
             Esc
           </kbd>
@@ -708,7 +719,10 @@ export default function SearchModal({ onClose }: Props) {
         {/* Footer hint */}
         <div
           className="px-4 py-2 flex items-center gap-4 text-xs"
-          style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}
+          style={{
+            borderTop: '1px solid var(--border)',
+            color: 'var(--text-3)',
+          }}
         >
           <span>↑↓ navigate · ←→ switch tab · Enter open · Esc close</span>
           {activeProduct && (

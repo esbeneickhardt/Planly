@@ -9,7 +9,12 @@ import type { RefObject } from 'react';
 
 interface Member {
   userId: string;
-  user: { id: string; username: string; realName: string | null; avatarEmoji: string | null };
+  user: {
+    id: string;
+    username: string;
+    realName: string | null;
+    avatarEmoji: string | null;
+  };
 }
 
 interface Props {
@@ -262,7 +267,10 @@ export default function CanvasBulkActionBar({
             <button
               onClick={() => onSetColor(null)}
               className="w-full text-left px-3 py-2 text-xs"
-              style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}
+              style={{
+                color: 'var(--text-3)',
+                borderTop: '1px solid var(--border)',
+              }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >

@@ -16,7 +16,15 @@ interface Props {
   onGoToGantt: () => void;
 }
 
-export default function NavSection({ navItems, sprintItems, tab, highlightIdx, nextIdx, onActivateNav, onGoToGantt }: Props) {
+export default function NavSection({
+  navItems,
+  sprintItems,
+  tab,
+  highlightIdx,
+  nextIdx,
+  onActivateNav,
+  onGoToGantt,
+}: Props) {
   if (navItems.length === 0 && sprintItems.length === 0) return null;
   return (
     <div className="py-1">
@@ -32,9 +40,13 @@ export default function NavSection({ navItems, sprintItems, tab, highlightIdx, n
             data-idx={i}
             onClick={() => onActivateNav(item)}
             className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-            style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+            style={{
+              background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+            }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
+            }
           >
             <span className="text-base flex-shrink-0 w-5 text-center">{item.icon}</span>
             <span className="flex-1 min-w-0">
@@ -60,9 +72,13 @@ export default function NavSection({ navItems, sprintItems, tab, highlightIdx, n
             data-idx={i}
             onClick={onGoToGantt}
             className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-            style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+            style={{
+              background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+            }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
+            }
           >
             <span className="w-3 h-3 rounded-full flex-shrink-0 ml-1" style={{ background: cycle.color }} />
             <span className="flex-1 min-w-0">
@@ -71,8 +87,16 @@ export default function NavSection({ navItems, sprintItems, tab, highlightIdx, n
               </span>
               <span className="text-xs block" style={{ color: 'var(--text-3)' }}>
                 Sub-plan ·{' '}
-                {new Date(cycle.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} –{' '}
-                {new Date(cycle.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} · Progress
+                {new Date(cycle.startDate).toLocaleDateString('en', {
+                  month: 'short',
+                  day: 'numeric',
+                })}{' '}
+                –{' '}
+                {new Date(cycle.endDate).toLocaleDateString('en', {
+                  month: 'short',
+                  day: 'numeric',
+                })}{' '}
+                · Progress
               </span>
             </span>
             <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>

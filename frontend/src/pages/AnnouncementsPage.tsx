@@ -21,7 +21,11 @@ import { useConfirm } from '../context/ConfirmContext';
 import MarkdownEditor from '../components/common/MarkdownEditor';
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 // ── Compose / edit form ────────────────────────────────────────────────────────
@@ -60,7 +64,13 @@ function AnnouncementForm({
     if (!title.trim() || !content.trim()) return;
     setSaving(true);
     try {
-      await onSave({ title: title.trim(), content: content.trim(), pinned, commentsEnabled, teamId: effectiveTeamId });
+      await onSave({
+        title: title.trim(),
+        content: content.trim(),
+        pinned,
+        commentsEnabled,
+        teamId: effectiveTeamId,
+      });
     } finally {
       setSaving(false);
     }
@@ -69,7 +79,10 @@ function AnnouncementForm({
   return (
     <div
       className="rounded-2xl p-5 space-y-4"
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+      style={{
+        background: 'var(--surface-2)',
+        border: '1px solid var(--border)',
+      }}
     >
       <div className="flex items-center justify-between">
         <div>
@@ -84,8 +97,16 @@ function AnnouncementForm({
               className="text-xs px-2 py-px rounded-full font-medium"
               style={
                 !effectiveTeamId
-                  ? { background: '#6366f120', color: '#6366f1', border: '1px solid #6366f133' }
-                  : { background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--border)' }
+                  ? {
+                      background: '#6366f120',
+                      color: '#6366f1',
+                      border: '1px solid #6366f133',
+                    }
+                  : {
+                      background: 'var(--surface)',
+                      color: 'var(--text-2)',
+                      border: '1px solid var(--border)',
+                    }
               }
             >
               {effectiveTeamId ? `🏢 ${effectiveTeamName ?? effectiveTeamId}` : '🛡 Server Admins'}
@@ -149,7 +170,9 @@ function AnnouncementForm({
             />
             <div
               className="w-7 h-4 rounded-full relative transition-colors flex-shrink-0"
-              style={{ background: commentsEnabled ? '#6366f1' : 'var(--border)' }}
+              style={{
+                background: commentsEnabled ? '#6366f1' : 'var(--border)',
+              }}
             >
               <div
                 className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all"
@@ -390,7 +413,10 @@ function AnnouncementCard({
   return (
     <article
       className="rounded-2xl overflow-hidden"
-      style={{ background: 'var(--surface)', border: `1px solid ${ann.pinned ? '#6366f133' : 'var(--border)'}` }}
+      style={{
+        background: 'var(--surface)',
+        border: `1px solid ${ann.pinned ? '#6366f133' : 'var(--border)'}`,
+      }}
     >
       <div className="px-5 pt-4 pb-3">
         <div className="flex items-start justify-between gap-3">
@@ -482,7 +508,8 @@ function AnnouncementCard({
             className="flex items-center gap-1 text-xs"
             style={{ color: commentsOpen ? 'var(--brand)' : 'var(--text-3)' }}
           >
-            💬 {ann._count.comments} comment{ann._count.comments !== 1 ? 's' : ''}
+            💬 {ann._count.comments} comment
+            {ann._count.comments !== 1 ? 's' : ''}
             <span className="ml-1 text-[10px]">{commentsOpen ? '▲' : '▼'}</span>
           </button>
         ) : (
@@ -579,7 +606,10 @@ export default function AnnouncementsPage() {
   useEffect(() => {
     return addRealtimeListener((e: RealtimeEvent) => {
       if (e.event === 'announcement.commented') {
-        const d = e.data as { announcementId: string; comment: { author?: { id?: string } } };
+        const d = e.data as {
+          announcementId: string;
+          comment: { author?: { id?: string } };
+        };
         // Skip if current user posted (CommentSection already called onCountChange locally)
         if (d.comment?.author?.id === user?.id) return;
         setAnnouncements((prev) =>
@@ -590,7 +620,12 @@ export default function AnnouncementsPage() {
         const d = e.data as { announcementId: string; commentId: string };
         setAnnouncements((prev) =>
           prev.map((a) =>
-            a.id === d.announcementId ? { ...a, _count: { comments: Math.max(0, a._count.comments - 1) } } : a,
+            a.id === d.announcementId
+              ? {
+                  ...a,
+                  _count: { comments: Math.max(0, a._count.comments - 1) },
+                }
+              : a,
           ),
         );
       }
@@ -619,7 +654,10 @@ export default function AnnouncementsPage() {
     teamId?: string;
   }) {
     try {
-      const ann = await api.announcements.create({ ...data, postedAsRole: computeAnnRole(data.teamId) });
+      const ann = await api.announcements.create({
+        ...data,
+        postedAsRole: computeAnnRole(data.teamId),
+      });
       setAnnouncements((prev) => sort([ann, ...prev]));
       setShowForm(false);
       showToast('Announcement posted', 'success');
@@ -708,8 +746,16 @@ export default function AnnouncementsPage() {
               className="text-xs px-2 py-0.5 rounded-full font-medium"
               style={
                 adminMode
-                  ? { background: '#6366f120', color: '#6366f1', border: '1px solid #6366f133' }
-                  : { background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }
+                  ? {
+                      background: '#6366f120',
+                      color: '#6366f1',
+                      border: '1px solid #6366f133',
+                    }
+                  : {
+                      background: 'var(--surface-2)',
+                      color: 'var(--text-3)',
+                      border: '1px solid var(--border)',
+                    }
               }
             >
               {adminMode ? '🛡 Server Admins' : contextTeamName ? `🏢 ${contextTeamName}` : 'Server-wide'}
@@ -780,11 +826,24 @@ export default function AnnouncementsPage() {
                   paddingRight: '1.5rem',
                 }}
               >
-                <option value="" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                <option
+                  value=""
+                  style={{
+                    background: 'var(--surface)',
+                    color: 'var(--text-2)',
+                  }}
+                >
                   Project…
                 </option>
                 {announcementTeams.map((t) => (
-                  <option key={t.id} value={t.id} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
+                  <option
+                    key={t.id}
+                    value={t.id}
+                    style={{
+                      background: 'var(--surface)',
+                      color: 'var(--text)',
+                    }}
+                  >
                     {t.name}
                   </option>
                 ))}
@@ -868,7 +927,14 @@ export default function AnnouncementsPage() {
                 }
                 onCommentCountChange={(delta) =>
                   setAnnouncements((prev) =>
-                    prev.map((a) => (a.id === ann.id ? { ...a, _count: { comments: a._count.comments + delta } } : a)),
+                    prev.map((a) =>
+                      a.id === ann.id
+                        ? {
+                            ...a,
+                            _count: { comments: a._count.comments + delta },
+                          }
+                        : a,
+                    ),
                   )
                 }
               />

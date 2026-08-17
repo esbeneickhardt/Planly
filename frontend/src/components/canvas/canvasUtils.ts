@@ -37,7 +37,10 @@ export interface CanvasCtx {
   showSprintAura: boolean;
   simpleMode: boolean;
 }
-export const CanvasContext = createContext<CanvasCtx>({ showSprintAura: false, simpleMode: false });
+export const CanvasContext = createContext<CanvasCtx>({
+  showSprintAura: false,
+  simpleMode: false,
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,7 +127,11 @@ export function buildGraph(
     id: `product-${product.id}`,
     type: 'product',
     position: productNodePos ?? { x: 900, y: 300 },
-    data: { name: product.name, emoji: product.emoji, deadline: product.deadline },
+    data: {
+      name: product.name,
+      emoji: product.emoji,
+      deadline: product.deadline,
+    },
     deletable: false,
   });
 
@@ -132,7 +139,10 @@ export function buildGraph(
     nodes.push({
       id: t.id,
       type: 'task',
-      position: localPositions[t.id] ?? { x: t.canvasX ?? 0, y: t.canvasY ?? 0 },
+      position: localPositions[t.id] ?? {
+        x: t.canvasX ?? 0,
+        y: t.canvasY ?? 0,
+      },
       data: {
         ...t,
         selectedSprintId: sprintCheckbox?.sprintId ?? null,
@@ -150,7 +160,12 @@ export function buildGraph(
         type: 'smoothstep',
         animated: t.status === 'in_progress',
         style: { stroke: 'var(--border-2)', strokeWidth: 2 },
-        markerEnd: { type: MarkerType.Arrow, width: 16, height: 16, color: 'var(--border-2)' },
+        markerEnd: {
+          type: MarkerType.Arrow,
+          width: 16,
+          height: 16,
+          color: 'var(--border-2)',
+        },
       });
     });
   });
@@ -162,8 +177,17 @@ export function buildGraph(
         source: taskId,
         target: `product-${product.id}`,
         type: 'smoothstep',
-        style: { stroke: 'var(--brand)', strokeWidth: 2, strokeDasharray: '5 3' },
-        markerEnd: { type: MarkerType.Arrow, width: 16, height: 16, color: 'var(--brand)' },
+        style: {
+          stroke: 'var(--brand)',
+          strokeWidth: 2,
+          strokeDasharray: '5 3',
+        },
+        markerEnd: {
+          type: MarkerType.Arrow,
+          width: 16,
+          height: 16,
+          color: 'var(--brand)',
+        },
       });
     }
   });

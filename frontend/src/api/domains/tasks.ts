@@ -20,7 +20,11 @@ export const tasks = {
       canvasY?: number;
       status?: string;
     },
-  ) => request<Task>(`/api/products/${productId}/tasks`, { method: 'POST', body: json(data) }),
+  ) =>
+    request<Task>(`/api/products/${productId}/tasks`, {
+      method: 'POST',
+      body: json(data),
+    }),
   get: (productId: string, taskId: string) => request<Task>(`/api/products/${productId}/tasks/${taskId}`),
   update: (
     productId: string,
@@ -35,9 +39,15 @@ export const tasks = {
         status: Status;
       }
     >,
-  ) => request<Task>(`/api/products/${productId}/tasks/${taskId}`, { method: 'PATCH', body: json(data) }),
+  ) =>
+    request<Task>(`/api/products/${productId}/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: json(data),
+    }),
   delete: (productId: string, taskId: string) =>
-    request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}`, { method: 'DELETE' }),
+    request<{ ok: boolean }>(`/api/products/${productId}/tasks/${taskId}`, {
+      method: 'DELETE',
+    }),
   reorder: (productId: string, updates: { taskId: string; order: number }[]) =>
     request<{ ok: boolean }>(`/api/products/${productId}/tasks/reorder`, {
       method: 'PATCH',
@@ -64,7 +74,10 @@ export const tasks = {
       body: json({ taskIds, ...data }),
     }),
   bulkDelete: (productId: string, taskIds: string[]) =>
-    request<void>(`/api/products/${productId}/tasks/bulk-delete`, { method: 'POST', body: json({ taskIds }) }),
+    request<void>(`/api/products/${productId}/tasks/bulk-delete`, {
+      method: 'POST',
+      body: json({ taskIds }),
+    }),
   // Adds a prerequisite edge: `taskId` depends on `prerequisiteId` (i.e. prerequisiteId is
   // required by taskId). Used e.g. to make a task feed into a milestone task.
   addDependency: (productId: string, taskId: string, prerequisiteId: string) =>
