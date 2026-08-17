@@ -28,16 +28,20 @@ const permissionUpdateSchema = z
   .max(100);
 
 export async function permissionRoutes(app: FastifyInstance) {
-  // Returns the authenticated user's tab permissions across all their projects (used to populate the client's permission cache)
+  // Returns the authenticated user's tab permissions across all their projects (used to populate
+  // the client's permission cache). Doesn't have a :productId in its URL, so it's outside the
+  // global scoped-token check in middleware/auth.ts - a scoped token only ever gets its own
+  // project's entry here, never the full cross-project list.
   app.get('/api/me/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user.userId;
+    const scopedProductId = req.user.scopedProductId;
     const memberships = await prisma.teamMember.findMany({
       where: { userId },
       include: {
         team: {
           include: {
             products: {
-              where: { deletedAt: null },
+              where: { deletedAt: null, ...(scopedProductId ? { id: scopedProductId } : {}) },
               include: { tabPermissions: { where: { userId } } },
             },
           },
