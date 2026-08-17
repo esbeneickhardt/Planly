@@ -26,9 +26,15 @@ export const markdownComponents = {
       {children}
     </a>
   ),
-  ul: ({ children }: { children?: React.ReactNode }) => <ul style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ul>,
-  ol: ({ children }: { children?: React.ReactNode }) => <ol style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ol>,
-  li: ({ children }: { children?: React.ReactNode }) => <li style={{ marginBottom: 3, lineHeight: 1.6 }}>{children}</li>,
+  ul: ({ children }: { children?: React.ReactNode }) => (
+    <ul style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ul>
+  ),
+  ol: ({ children }: { children?: React.ReactNode }) => (
+    <ol style={{ paddingLeft: 18, margin: '0 0 8px' }}>{children}</ol>
+  ),
+  li: ({ children }: { children?: React.ReactNode }) => (
+    <li style={{ marginBottom: 3, lineHeight: 1.6 }}>{children}</li>
+  ),
   table: ({ children }: { children?: React.ReactNode }) => (
     <div style={{ overflowX: 'auto', marginBottom: 8 }}>
       <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>{children}</table>
@@ -51,7 +57,14 @@ export const markdownComponents = {
     <td style={{ border: '1px solid var(--border)', padding: '4px 8px' }}>{children}</td>
   ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote style={{ borderLeft: '3px solid var(--brand)', paddingLeft: 10, margin: '0 0 8px', opacity: 0.8 }}>
+    <blockquote
+      style={{
+        borderLeft: '3px solid var(--brand)',
+        paddingLeft: 10,
+        margin: '0 0 8px',
+        opacity: 0.8,
+      }}
+    >
       {children}
     </blockquote>
   ),
@@ -77,7 +90,14 @@ export const markdownComponents = {
         </pre>
       );
     return (
-      <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4, fontSize: 12 }}>
+      <code
+        style={{
+          background: 'var(--surface)',
+          padding: '1px 4px',
+          borderRadius: 4,
+          fontSize: 12,
+        }}
+      >
         {children}
       </code>
     );
@@ -85,5 +105,13 @@ export const markdownComponents = {
   img: ({ src, alt }: { src?: string; alt?: string }) => (
     <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: 6, margin: '4px 0' }} />
   ),
-  hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />,
+  hr: () => (
+    <hr
+      style={{
+        border: 'none',
+        borderTop: '1px solid var(--border)',
+        margin: '10px 0',
+      }}
+    />
+  ),
 };

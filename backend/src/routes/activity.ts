@@ -26,7 +26,10 @@ export async function activityRoutes(app: FastifyInstance) {
     }
 
     // Paginated fetch ordered newest-first with cursor-based pagination
-    const { cursor, limit = '50' } = req.query as { cursor?: string; limit?: string };
+    const { cursor, limit = '50' } = req.query as {
+      cursor?: string;
+      limit?: string;
+    };
     const take = Math.min(parseInt(limit), 100);
 
     const events = await prisma.activityEvent.findMany({
@@ -50,7 +53,11 @@ export async function activityRoutes(app: FastifyInstance) {
       const actor = actorMap.get(e.actorId);
       return {
         ...e,
-        metadata: { ...((e.metadata as object) ?? {}), actorName: actor?.username, actorEmoji: actor?.avatarEmoji },
+        metadata: {
+          ...((e.metadata as object) ?? {}),
+          actorName: actor?.username,
+          actorEmoji: actor?.avatarEmoji,
+        },
       };
     });
 

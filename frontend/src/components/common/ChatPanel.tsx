@@ -36,7 +36,11 @@ interface Props {
   initialTask?: { id: string; name: string };
   /** Opens directly onto a specific DM or group thread (e.g. a search result) instead of the
    * general project channel - `other` is required for a DM (isGroup: false), unused for a group. */
-  initialConversation?: { id: string; isGroup: boolean; other?: MinUser | null };
+  initialConversation?: {
+    id: string;
+    isGroup: boolean;
+    other?: MinUser | null;
+  };
   /** Scrolls to and briefly highlights this specific message once its thread has loaded - set
    * when opening chat from a notification about one particular message (e.g. a reaction), or from
    * a search result. Applies to whichever thread `initialTask`/`initialConversation` selects,
@@ -139,7 +143,10 @@ export default function ChatPanel({
 
   // Message + tab state
   const [tab, setTab] = useState<Tab>('messages');
-  const [selectedTask, setSelectedTask] = useState<{ id: string; name: string } | null>(null);
+  const [selectedTask, setSelectedTask] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [openedTask, setOpenedTask] = useState<Task | null>(null);
   const [openingTask, setOpeningTask] = useState(false);
 
@@ -147,7 +154,10 @@ export default function ChatPanel({
   // badge (`general`), the Tasks tab's aggregate badge (sum of `byTask`), and each individual
   // task-thread row's own badge. Not applicable to admin chat (mentions are a per-project
   // feature tied to a productId, which admin chat doesn't have).
-  const [unreadByTask, setUnreadByTask] = useState<{ general: number; byTask: Record<string, number> }>({
+  const [unreadByTask, setUnreadByTask] = useState<{
+    general: number;
+    byTask: Record<string, number>;
+  }>({
     general: 0,
     byTask: {},
   });
@@ -163,10 +173,7 @@ export default function ChatPanel({
     const interval = setInterval(refreshUnreadByTask, 30_000);
     return () => clearInterval(interval);
   }, [refreshUnreadByTask]);
-  const tasksUnread = useMemo(
-    () => Object.values(unreadByTask.byTask).reduce((sum, n) => sum + n, 0),
-    [unreadByTask],
-  );
+  const tasksUnread = useMemo(() => Object.values(unreadByTask.byTask).reduce((sum, n) => sum + n, 0), [unreadByTask]);
 
   // Mark mentions read as the user actually visits the general channel or a specific task thread -
   // granular, unlike the navbar Chat button which used to blanket-clear everything on open.
@@ -674,7 +681,12 @@ export default function ChatPanel({
 
   function openDm(
     userId: string,
-    other?: { id: string; username: string; realName: string | null; avatarEmoji: string | null } | null,
+    other?: {
+      id: string;
+      username: string;
+      realName: string | null;
+      avatarEmoji: string | null;
+    } | null,
   ) {
     return openDmBase(userId, other, () => {
       setDraft('');
@@ -693,7 +705,12 @@ export default function ChatPanel({
   // other project team member otherwise. Unlike the DM "People" tab's roster, this deliberately
   // does NOT exclude admin-flagged users - a project's own team members should all be selectable
   // for a project group chat regardless of their platform-wide admin status.
-  function groupRoster(): { id: string; username: string; realName?: string | null; avatarEmoji?: string | null }[] {
+  function groupRoster(): {
+    id: string;
+    username: string;
+    realName?: string | null;
+    avatarEmoji?: string | null;
+  }[] {
     return isAdminChat ? allUsers.filter((u) => u.id !== user?.id) : teamMembers.filter((m) => m.id !== user?.id);
   }
 
@@ -861,31 +878,87 @@ export default function ChatPanel({
         <>
           <div
             onPointerDown={(e) => startResizeDir(e, 'n')}
-            style={{ position: 'absolute', top: 0, left: 12, right: 12, height: 5, cursor: 'n-resize', zIndex: 10 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 12,
+              right: 12,
+              height: 5,
+              cursor: 'n-resize',
+              zIndex: 10,
+            }}
           />
           <div
             onPointerDown={(e) => startResizeDir(e, 's')}
-            style={{ position: 'absolute', bottom: 0, left: 12, right: 12, height: 5, cursor: 's-resize', zIndex: 10 }}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 12,
+              right: 12,
+              height: 5,
+              cursor: 's-resize',
+              zIndex: 10,
+            }}
           />
           <div
             onPointerDown={(e) => startResizeDir(e, 'e')}
-            style={{ position: 'absolute', top: 12, right: 0, bottom: 12, width: 5, cursor: 'e-resize', zIndex: 10 }}
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 0,
+              bottom: 12,
+              width: 5,
+              cursor: 'e-resize',
+              zIndex: 10,
+            }}
           />
           <div
             onPointerDown={(e) => startResizeDir(e, 'w')}
-            style={{ position: 'absolute', top: 12, left: 0, bottom: 12, width: 5, cursor: 'w-resize', zIndex: 10 }}
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: 0,
+              bottom: 12,
+              width: 5,
+              cursor: 'w-resize',
+              zIndex: 10,
+            }}
           />
           <div
             onPointerDown={(e) => startResizeDir(e, 'nw')}
-            style={{ position: 'absolute', top: 0, left: 0, width: 12, height: 12, cursor: 'nw-resize', zIndex: 11 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: 12,
+              height: 12,
+              cursor: 'nw-resize',
+              zIndex: 11,
+            }}
           />
           <div
             onPointerDown={(e) => startResizeDir(e, 'ne')}
-            style={{ position: 'absolute', top: 0, right: 0, width: 12, height: 12, cursor: 'ne-resize', zIndex: 11 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 12,
+              height: 12,
+              cursor: 'ne-resize',
+              zIndex: 11,
+            }}
           />
           <div
             onPointerDown={(e) => startResizeDir(e, 'sw')}
-            style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 12, cursor: 'sw-resize', zIndex: 11 }}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: 12,
+              height: 12,
+              cursor: 'sw-resize',
+              zIndex: 11,
+            }}
           />
           <div
             onPointerDown={(e) => startResizeDir(e, 'se')}
@@ -905,7 +978,15 @@ export default function ChatPanel({
       {!isExpanded && isSidebar && (
         <div
           onPointerDown={(e) => startResizeDir(e, 'w')}
-          style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: 5,
+            cursor: 'w-resize',
+            zIndex: 10,
+          }}
         />
       )}
       <ChatPanelHeader
@@ -960,7 +1041,10 @@ export default function ChatPanel({
                   onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
                   onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
                   className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
+                  style={{
+                    borderBottom: '1px solid var(--border)',
+                    touchAction: isExpanded ? 'none' : undefined,
+                  }}
                 >
                   <button
                     onClick={() => {
@@ -1010,7 +1094,10 @@ export default function ChatPanel({
                     }}
                     disabled={openingTask}
                     className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                    style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                    style={{
+                      background: 'var(--brand-subtle)',
+                      color: 'var(--brand)',
+                    }}
                   >
                     {openingTask ? '…' : 'Open task →'}
                   </button>
@@ -1062,7 +1149,10 @@ export default function ChatPanel({
                         <button
                           onClick={() => setShowAllTasks(true)}
                           className="text-xs px-3 py-1 rounded-lg"
-                          style={{ background: 'var(--surface-2)', color: 'var(--brand)' }}
+                          style={{
+                            background: 'var(--surface-2)',
+                            color: 'var(--brand)',
+                          }}
                         >
                           Show all tasks
                         </button>
@@ -1084,12 +1174,20 @@ export default function ChatPanel({
                             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                           >
                             <button
-                              onClick={() => setSelectedTask({ id: task.id, name: task.name })}
+                              onClick={() =>
+                                setSelectedTask({
+                                  id: task.id,
+                                  name: task.name,
+                                })
+                              }
                               className="flex gap-3 flex-1 min-w-0 text-left"
                             >
                               <div
                                 className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-base"
-                                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                                style={{
+                                  background: 'var(--surface)',
+                                  border: '1px solid var(--border)',
+                                }}
                               >
                                 {task.color ? (
                                   <span style={{ background: task.color }} className="w-3.5 h-3.5 rounded-full block" />
@@ -1124,7 +1222,12 @@ export default function ChatPanel({
                               {unread > 0 && (
                                 <span
                                   className="flex-shrink-0 self-center flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+                                  style={{
+                                    background: '#ef4444',
+                                    minWidth: 14,
+                                    height: 14,
+                                    padding: '0 2px',
+                                  }}
                                 >
                                   {unread > 99 ? '99+' : unread}
                                 </span>
@@ -1132,7 +1235,10 @@ export default function ChatPanel({
                               {msgInfo && (
                                 <span
                                   className="flex-shrink-0 self-center text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                                  style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                                  style={{
+                                    background: 'var(--brand-subtle)',
+                                    color: 'var(--brand)',
+                                  }}
                                 >
                                   {msgInfo.count}
                                 </span>
@@ -1213,7 +1319,10 @@ export default function ChatPanel({
                     <button
                       key={msg.id}
                       className="w-full text-left rounded-xl px-3 py-2.5 transition-colors"
-                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                      style={{
+                        background: 'var(--surface-2)',
+                        border: '1px solid var(--border)',
+                      }}
                       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
                       onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                       onClick={() => {
@@ -1261,7 +1370,8 @@ export default function ChatPanel({
                       </p>
                       {msg.attachments.length > 0 && (
                         <p className="text-[10px] mt-1" style={{ color: 'var(--text-3)' }}>
-                          📎 {msg.attachments.length} attachment{msg.attachments.length > 1 ? 's' : ''}
+                          📎 {msg.attachments.length} attachment
+                          {msg.attachments.length > 1 ? 's' : ''}
                         </p>
                       )}
                     </button>

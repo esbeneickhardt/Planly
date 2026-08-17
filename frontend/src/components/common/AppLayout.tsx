@@ -32,7 +32,12 @@ function ChatPanelFallback() {
   return (
     <div
       className="fixed bottom-6 right-6 z-50 flex items-center justify-center rounded-full shadow-xl"
-      style={{ width: 56, height: 56, background: 'var(--surface)', border: '1px solid var(--border)' }}
+      style={{
+        width: 56,
+        height: 56,
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+      }}
     >
       <div
         className="w-5 h-5 border-2 rounded-full animate-spin"
@@ -234,60 +239,60 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <ProfileModalsContext.Provider value={profileModalsValue}>
-    <ChatContext.Provider value={chatContextValue}>
-      <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
-        {/* Skip navigation link - visually hidden until focused by keyboard */}
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
-          style={{ background: 'var(--brand)', color: 'white' }}
-        >
-          Skip to main content
-        </a>
-        <TopBar
-          onOpenSearch={() => setShowSearch(true)}
-          onOpenChat={activeAdminMode ? toggleAdminChat : () => openProductChat()}
-          onOpenVision={() => setShowVision(true)}
-          chatOpen={activeAdminMode ? showAdminChat : showProductChat}
-          chatIsAdmin={activeAdminMode}
-          onToggleAdmin={handleToggleAdmin}
-          onExitAdmin={() => setAdminMode(false)}
-        />
-        <PermissionGuard>
-          <main
-            id="main-content"
-            className={`flex-1 overflow-auto min-w-0 ${mobileNavPosition === 'bottom' ? 'pb-14 lg:pb-0' : ''}`}
+      <ChatContext.Provider value={chatContextValue}>
+        <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+          {/* Skip navigation link - visually hidden until focused by keyboard */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
+            style={{ background: 'var(--brand)', color: 'white' }}
           >
-            {productsLoaded && products.length === 0 && !activeAdminMode ? <NoProjectsWelcome /> : children}
-          </main>
-        </PermissionGuard>
-        {showSearch &&
-          (activeAdminMode ? (
-            <AdminSearchModal onClose={() => setShowSearch(false)} />
-          ) : (
-            <SearchModal onClose={() => setShowSearch(false)} />
-          ))}
-        {(showProductChat || showAdminChat) && (
-          <Suspense fallback={<ChatPanelFallback />}>
-            {showProductChat && (
-              <ChatPanel
-                initialTask={chatInitialTask}
-                initialConversation={chatInitialConversation}
-                scrollToMessageId={chatScrollToMessageId}
-                onClose={() => {
-                  setShowProductChat(false);
-                  setChatInitialTask(undefined);
-                  setChatInitialConversation(undefined);
-                  setChatScrollToMessageId(undefined);
-                }}
-              />
-            )}
-            {showAdminChat && <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />}
-          </Suspense>
-        )}
-        {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
-      </div>
-    </ChatContext.Provider>
+            Skip to main content
+          </a>
+          <TopBar
+            onOpenSearch={() => setShowSearch(true)}
+            onOpenChat={activeAdminMode ? toggleAdminChat : () => openProductChat()}
+            onOpenVision={() => setShowVision(true)}
+            chatOpen={activeAdminMode ? showAdminChat : showProductChat}
+            chatIsAdmin={activeAdminMode}
+            onToggleAdmin={handleToggleAdmin}
+            onExitAdmin={() => setAdminMode(false)}
+          />
+          <PermissionGuard>
+            <main
+              id="main-content"
+              className={`flex-1 overflow-auto min-w-0 ${mobileNavPosition === 'bottom' ? 'pb-14 lg:pb-0' : ''}`}
+            >
+              {productsLoaded && products.length === 0 && !activeAdminMode ? <NoProjectsWelcome /> : children}
+            </main>
+          </PermissionGuard>
+          {showSearch &&
+            (activeAdminMode ? (
+              <AdminSearchModal onClose={() => setShowSearch(false)} />
+            ) : (
+              <SearchModal onClose={() => setShowSearch(false)} />
+            ))}
+          {(showProductChat || showAdminChat) && (
+            <Suspense fallback={<ChatPanelFallback />}>
+              {showProductChat && (
+                <ChatPanel
+                  initialTask={chatInitialTask}
+                  initialConversation={chatInitialConversation}
+                  scrollToMessageId={chatScrollToMessageId}
+                  onClose={() => {
+                    setShowProductChat(false);
+                    setChatInitialTask(undefined);
+                    setChatInitialConversation(undefined);
+                    setChatScrollToMessageId(undefined);
+                  }}
+                />
+              )}
+              {showAdminChat && <ChatPanel isAdminChat onClose={() => setShowAdminChat(false)} />}
+            </Suspense>
+          )}
+          {showVision && <PlanlyVisionModal onClose={() => setShowVision(false)} />}
+        </div>
+      </ChatContext.Provider>
     </ProfileModalsContext.Provider>
   );
 }

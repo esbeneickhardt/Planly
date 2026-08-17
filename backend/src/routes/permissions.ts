@@ -41,7 +41,10 @@ export async function permissionRoutes(app: FastifyInstance) {
         team: {
           include: {
             products: {
-              where: { deletedAt: null, ...(scopedProductId ? { id: scopedProductId } : {}) },
+              where: {
+                deletedAt: null,
+                ...(scopedProductId ? { id: scopedProductId } : {}),
+              },
               include: { tabPermissions: { where: { userId } } },
             },
           },
@@ -65,7 +68,13 @@ export async function permissionRoutes(app: FastifyInstance) {
           : role === 'owner' || role === 'co_owner'
             ? {}
             : Object.fromEntries(p.tabPermissions.map((tp) => [tp.tab, tp.level]));
-        return { productId: p.id, productName: p.name, productEmoji: p.emoji, role, permissions };
+        return {
+          productId: p.id,
+          productName: p.name,
+          productEmoji: p.emoji,
+          role,
+          permissions,
+        };
       }),
     );
     reply.send(result);
@@ -75,7 +84,9 @@ export async function permissionRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/permissions', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
-    const rows = await prisma.tabPermission.findMany({ where: { productId } });
+    const rows = await prisma.tabPermission.findMany({
+      where: { productId },
+    });
     reply.send(rows);
   });
 
@@ -99,7 +110,9 @@ export async function permissionRoutes(app: FastifyInstance) {
     const memberUserIds = new Set(product.team.members.map((m) => m.userId));
     for (const u of updates) {
       if (!memberUserIds.has(u.userId)) {
-        return reply.status(400).send({ error: `User ${u.userId} is not a member of this project` });
+        return reply.status(400).send({
+          error: `User ${u.userId} is not a member of this project`,
+        });
       }
     }
 

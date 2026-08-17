@@ -52,7 +52,12 @@ export default function NoProjectsWelcome() {
   const [showSeedData, setShowSeedData] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [form, setForm] = useState<ProductForm>({ name: '', emoji: '', description: '', deadline: '' });
+  const [form, setForm] = useState<ProductForm>({
+    name: '',
+    emoji: '',
+    description: '',
+    deadline: '',
+  });
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -104,7 +109,10 @@ export default function NoProjectsWelcome() {
             <div
               key={phase.label}
               className="rounded-2xl p-4"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+              }}
             >
               <p className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: phase.color }}>
                 {phase.label}
@@ -195,9 +203,15 @@ export default function NoProjectsWelcome() {
                 {form.emoji && (
                   <button
                     type="button"
-                    onClick={() => { setForm((f) => ({ ...f, emoji: '' })); setShowEmojiPicker(false); }}
+                    onClick={() => {
+                      setForm((f) => ({ ...f, emoji: '' }));
+                      setShowEmojiPicker(false);
+                    }}
                     className="mt-1 w-full text-xs py-1 rounded-lg"
-                    style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
+                    style={{
+                      color: 'var(--text-3)',
+                      background: 'var(--surface-2)',
+                    }}
                   >
                     Remove icon
                   </button>
@@ -249,13 +263,9 @@ export default function NoProjectsWelcome() {
         </Modal>
       )}
 
-      {showSeedData && (
-        <SeedDataModal onClose={() => setShowSeedData(false)} onSuccess={refreshProducts} />
-      )}
+      {showSeedData && <SeedDataModal onClose={() => setShowSeedData(false)} onSuccess={refreshProducts} />}
 
-      {showDiscover && (
-        <DiscoverProjectsModal onClose={() => setShowDiscover(false)} />
-      )}
+      {showDiscover && <DiscoverProjectsModal onClose={() => setShowDiscover(false)} />}
     </div>
   );
 }

@@ -67,9 +67,15 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
   });
 
   afterAll(async () => {
-    await prisma.apiToken.deleteMany({ where: { userId: { in: [ownerId, otherId] } } });
-    await prisma.appRegistration.deleteMany({ where: { ownerId: { in: [ownerId, otherId] } } });
-    await prisma.product.deleteMany({ where: { id: { in: [productAId, productBId] } } });
+    await prisma.apiToken.deleteMany({
+      where: { userId: { in: [ownerId, otherId] } },
+    });
+    await prisma.appRegistration.deleteMany({
+      where: { ownerId: { in: [ownerId, otherId] } },
+    });
+    await prisma.product.deleteMany({
+      where: { id: { in: [productAId, productBId] } },
+    });
     await prisma.user.deleteMany({ where: { id: { in: [ownerId, otherId] } } });
     await app.close();
     await prisma.$disconnect();
@@ -78,7 +84,11 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   it('owner can list their app registrations (empty)', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/apps', cookies: cookieJar(ownerCookie) });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/apps',
+      cookies: cookieJar(ownerCookie),
+    });
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(JSON.parse(res.body))).toBe(true);
   });
@@ -98,7 +108,11 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
       payload: { name: 'CI integration', description: 'Used by CI pipeline' },
     });
     expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body) as { id: string; name: string; productId: null };
+    const body = JSON.parse(res.body) as {
+      id: string;
+      name: string;
+      productId: null;
+    };
     expect(body.name).toBe('CI integration');
     expect(body.productId).toBeNull();
     createdAppId = body.id;
@@ -151,7 +165,9 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
   // ── Token auth: unscoped registration ──────────────────────────────────────
 
   it('unscoped app token: can access any member product', async () => {
-    const { raw } = await createTestAppRegistration(ownerId, { name: 'unscoped-app' });
+    const { raw } = await createTestAppRegistration(ownerId, {
+      name: 'unscoped-app',
+    });
 
     const resA = await app.inject({
       method: 'GET',
@@ -171,7 +187,10 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
   // ── Token auth: scoped registration ───────────────────────────────────────
 
   it('scoped app token: can access scoped product, blocked for others', async () => {
-    const { raw } = await createTestAppRegistration(ownerId, { productId: productAId, name: 'scoped-app' });
+    const { raw } = await createTestAppRegistration(ownerId, {
+      productId: productAId,
+      name: 'scoped-app',
+    });
 
     const resA = await app.inject({
       method: 'GET',
@@ -189,7 +208,10 @@ describe.skipIf(!HAS_DB)('App registrations', () => {
   });
 
   it('scoped app token: cannot access /api/admin', async () => {
-    const { raw } = await createTestAppRegistration(ownerId, { productId: productAId, name: 'scoped-admin-attempt' });
+    const { raw } = await createTestAppRegistration(ownerId, {
+      productId: productAId,
+      name: 'scoped-admin-attempt',
+    });
     const res = await app.inject({
       method: 'GET',
       url: '/api/admin/users',

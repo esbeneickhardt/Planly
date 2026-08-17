@@ -27,7 +27,11 @@ export default function SettingsColors({ productId }: Props) {
             <div
               key={color}
               className="flex items-center gap-4 px-4 py-3 rounded-xl transition-opacity"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', opacity: on ? 1 : 0.45 }}
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                opacity: on ? 1 : 0.45,
+              }}
             >
               <button
                 onClick={() => toggleEnabled(color)}

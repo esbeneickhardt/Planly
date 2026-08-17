@@ -25,4 +25,6 @@ export const upload = (file: File) => {
 };
 
 export const deleteUpload = (filename: string) =>
-  request<{ ok: boolean }>(`/api/uploads/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+  request<{ ok: boolean }>(`/api/uploads/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  });

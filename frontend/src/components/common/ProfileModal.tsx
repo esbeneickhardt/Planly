@@ -48,7 +48,10 @@ export default function ProfileModal({ user, onClose }: Props) {
         <div className="flex flex-col items-center gap-1 pb-1">
           <div
             className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-4xl flex-shrink-0"
-            style={{ background: 'var(--surface-2)', border: '2px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '2px solid var(--border)',
+            }}
           >
             {profileForm.avatarUrl ? (
               <img src={profileForm.avatarUrl} className="w-full h-full object-cover" alt="" />
@@ -62,7 +65,10 @@ export default function ProfileModal({ user, onClose }: Props) {
         </div>
 
         <AvatarPicker
-          current={{ avatarEmoji: profileForm.avatarEmoji, avatarUrl: profileForm.avatarUrl }}
+          current={{
+            avatarEmoji: profileForm.avatarEmoji,
+            avatarUrl: profileForm.avatarUrl,
+          }}
           onChange={(v) =>
             setProfileForm((p) => ({
               ...p,

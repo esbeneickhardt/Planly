@@ -127,7 +127,11 @@ export default function IntegrationsModal({ onClose }: Props) {
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg font-medium flex-shrink-0 whitespace-nowrap transition-colors"
-          style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface-2)',
+            color: 'var(--text-2)',
+            border: '1px solid var(--border)',
+          }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = 'var(--brand)';
             e.currentTarget.style.borderColor = 'var(--brand)';
@@ -150,7 +154,10 @@ export default function IntegrationsModal({ onClose }: Props) {
             <div className="flex justify-center py-6">
               <div
                 className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-                style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                style={{
+                  borderColor: 'var(--brand)',
+                  borderTopColor: 'transparent',
+                }}
               />
             </div>
           ) : perms.length === 0 ? (
@@ -162,7 +169,10 @@ export default function IntegrationsModal({ onClose }: Props) {
               <div
                 key={p.productId}
                 className="rounded-xl px-3 py-2.5"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-base">{p.productEmoji ?? '🎯'}</span>
@@ -218,7 +228,10 @@ export default function IntegrationsModal({ onClose }: Props) {
           {revealed && (
             <div
               className="mb-5 rounded-xl p-3 space-y-2"
-              style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}
+              style={{
+                background: 'rgba(16,185,129,0.08)',
+                border: '1px solid rgba(16,185,129,0.25)',
+              }}
             >
               <p className="text-xs font-semibold" style={{ color: '#10b981' }}>
                 Token created - copy it now, it won't be shown again.
@@ -226,7 +239,11 @@ export default function IntegrationsModal({ onClose }: Props) {
               <div className="flex items-center gap-2">
                 <code
                   className="flex-1 text-xs font-mono px-2 py-1.5 rounded-lg break-all"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                  }}
                 >
                   {revealed}
                 </code>
@@ -306,7 +323,10 @@ export default function IntegrationsModal({ onClose }: Props) {
               <div className="flex justify-center py-6">
                 <div
                   className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-                  style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                  style={{
+                    borderColor: 'var(--brand)',
+                    borderTopColor: 'transparent',
+                  }}
                 />
               </div>
             ) : tokens.length === 0 ? (

@@ -23,9 +23,21 @@ export const COLUMN_HEADERS: { label: string; column?: SortColumn }[] = [
 
 export const STATUS_TABS: { key: StatusTab; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: 'var(--text-3)' },
-  { key: 'backlog', label: STATUS_LABELS.backlog!, color: STATUS_COLORS.backlog! },
+  {
+    key: 'backlog',
+    label: STATUS_LABELS.backlog!,
+    color: STATUS_COLORS.backlog!,
+  },
   { key: 'todo', label: STATUS_LABELS.todo!, color: STATUS_COLORS.todo! },
-  { key: 'in_progress', label: STATUS_LABELS.in_progress!, color: STATUS_COLORS.in_progress! },
-  { key: 'blocked', label: STATUS_LABELS.blocked!, color: STATUS_COLORS.blocked! },
+  {
+    key: 'in_progress',
+    label: STATUS_LABELS.in_progress!,
+    color: STATUS_COLORS.in_progress!,
+  },
+  {
+    key: 'blocked',
+    label: STATUS_LABELS.blocked!,
+    color: STATUS_COLORS.blocked!,
+  },
   { key: 'done', label: STATUS_LABELS.done!, color: STATUS_COLORS.done! },
 ];

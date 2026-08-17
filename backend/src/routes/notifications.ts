@@ -123,7 +123,12 @@ export async function notificationRoutes(app: FastifyInstance) {
     if (!requireScopeMatch(productId, req.user, reply)) return;
     const groups = await prisma.notification.groupBy({
       by: ['taskId'],
-      where: { userId: req.user.userId, type: 'mention', read: false, productId },
+      where: {
+        userId: req.user.userId,
+        type: 'mention',
+        read: false,
+        productId,
+      },
       _count: { _all: true },
     });
     let general = 0;

@@ -19,7 +19,10 @@ export default function DeleteAccountModal({ user, onClose, logout }: Props) {
     setDeleting(true);
     setError('');
     try {
-      await fetch(`/api/users/${user.id}`, { method: 'DELETE', credentials: 'include' });
+      await fetch(`/api/users/${user.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
       logout();
     } catch {
       setError('Failed to delete account. Please try again or contact support.');

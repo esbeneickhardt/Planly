@@ -54,7 +54,9 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     if (!(await requireTabRead(productId, req.user, CANVAS_TAB, reply))) return;
     const snapshots = await prisma.canvasSnapshot.findMany({
       where: { productId },
-      include: { user: { select: { id: true, username: true, avatarEmoji: true } } },
+      include: {
+        user: { select: { id: true, username: true, avatarEmoji: true } },
+      },
       orderBy: { updatedAt: 'desc' },
     });
     reply.send(snapshots);
@@ -67,18 +69,22 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
 
     // Enforce max snapshot limit per project (mirrors the per-project/per-user caps used
     // elsewhere - webhooks: 20, API tokens: 25, subtasks: 500 per task).
-    const snapshotCount = await prisma.canvasSnapshot.count({ where: { productId } });
+    const snapshotCount = await prisma.canvasSnapshot.count({
+      where: { productId },
+    });
     if (snapshotCount >= 50)
-      return reply
-        .status(400)
-        .send({ error: 'Maximum 50 canvas snapshots allowed per project. Delete an existing snapshot first.' });
+      return reply.status(400).send({
+        error: 'Maximum 50 canvas snapshots allowed per project. Delete an existing snapshot first.',
+      });
 
     const body = validate(createSnapshotSchema, req.body, reply);
     if (!body) return;
     const { name, positions, viewport } = body;
     const snapshot = await prisma.canvasSnapshot.create({
       data: { productId, userId: req.user.userId, name, positions, viewport },
-      include: { user: { select: { id: true, username: true, avatarEmoji: true } } },
+      include: {
+        user: { select: { id: true, username: true, avatarEmoji: true } },
+      },
     });
     reply.status(201).send(snapshot);
   });
@@ -89,9 +95,14 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     '/api/products/:productId/canvas-snapshots/:snapshotId',
     { preHandler: requireAuth },
     async (req, reply) => {
-      const { productId, snapshotId } = req.params as { productId: string; snapshotId: string };
+      const { productId, snapshotId } = req.params as {
+        productId: string;
+        snapshotId: string;
+      };
       if (!(await requireTabWrite(productId, req.user, CANVAS_TAB, reply))) return;
-      const snap = await prisma.canvasSnapshot.findFirst({ where: { id: snapshotId, productId } });
+      const snap = await prisma.canvasSnapshot.findFirst({
+        where: { id: snapshotId, productId },
+      });
       if (!snap) return reply.status(404).send({ error: 'Not found' });
       if (snap.userId !== req.user.userId) return reply.status(403).send({ error: 'Not your snapshot' });
       const body = validate(updateSnapshotSchema, req.body, reply);
@@ -99,7 +110,9 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
       const updated = await prisma.canvasSnapshot.update({
         where: { id: snapshotId },
         data: body,
-        include: { user: { select: { id: true, username: true, avatarEmoji: true } } },
+        include: {
+          user: { select: { id: true, username: true, avatarEmoji: true } },
+        },
       });
       reply.send(updated);
     },
@@ -110,9 +123,14 @@ export async function canvasSnapshotRoutes(app: FastifyInstance) {
     '/api/products/:productId/canvas-snapshots/:snapshotId',
     { preHandler: requireAuth },
     async (req, reply) => {
-      const { productId, snapshotId } = req.params as { productId: string; snapshotId: string };
+      const { productId, snapshotId } = req.params as {
+        productId: string;
+        snapshotId: string;
+      };
       if (!(await requireTabWrite(productId, req.user, CANVAS_TAB, reply))) return;
-      const snap = await prisma.canvasSnapshot.findFirst({ where: { id: snapshotId, productId } });
+      const snap = await prisma.canvasSnapshot.findFirst({
+        where: { id: snapshotId, productId },
+      });
       if (!snap) return reply.status(404).send({ error: 'Not found' });
       if (snap.userId !== req.user.userId) return reply.status(403).send({ error: 'Not your snapshot' });
       await prisma.canvasSnapshot.delete({ where: { id: snapshotId } });

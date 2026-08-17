@@ -9,8 +9,16 @@ export const canvasSnapshots = {
   list: (productId: string) => request<CanvasSnapshot[]>(`/api/products/${productId}/canvas-snapshots`),
   create: (
     productId: string,
-    data: { name: string; positions: Record<string, { x: number; y: number }>; viewport: CanvasSnapshotViewport },
-  ) => request<CanvasSnapshot>(`/api/products/${productId}/canvas-snapshots`, { method: 'POST', body: json(data) }),
+    data: {
+      name: string;
+      positions: Record<string, { x: number; y: number }>;
+      viewport: CanvasSnapshotViewport;
+    },
+  ) =>
+    request<CanvasSnapshot>(`/api/products/${productId}/canvas-snapshots`, {
+      method: 'POST',
+      body: json(data),
+    }),
   update: (
     productId: string,
     snapshotId: string,

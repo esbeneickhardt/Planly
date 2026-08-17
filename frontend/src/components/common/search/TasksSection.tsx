@@ -48,7 +48,9 @@ export default function TasksSection({ milestones, regular, highlightIdx, nextId
                 data-idx={i}
                 onClick={() => onTaskClick(task)}
                 className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                style={{
+                  background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+                }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
@@ -85,7 +87,9 @@ export default function TasksSection({ milestones, regular, highlightIdx, nextId
                 data-idx={i}
                 onClick={() => onTaskClick(task)}
                 className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+                style={{
+                  background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+                }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')

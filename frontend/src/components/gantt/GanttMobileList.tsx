@@ -61,9 +61,7 @@ function TaskRow({ task, onOpen }: { task: { id: string; name: string; status: s
           border: isDone ? 'none' : '1.5px solid var(--border)',
         }}
       >
-        {isDone && (
-          <span style={{ color: 'white', fontSize: 9, lineHeight: 1 }}>✓</span>
-        )}
+        {isDone && <span style={{ color: 'white', fontSize: 9, lineHeight: 1 }}>✓</span>}
       </span>
       <span
         className="text-xs truncate"
@@ -112,7 +110,11 @@ function SortableMilestoneCard({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
       className="w-full text-left rounded-xl px-4 py-3 transition-colors bg-surface-2 border border-border"
     >
       <button
@@ -138,11 +140,18 @@ function SortableMilestoneCard({
               color: isOverdue ? '#ef4444' : 'var(--text-3)',
             }}
           >
-            {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+            {new Date(m.deadline).toLocaleDateString('en', {
+              month: 'short',
+              day: 'numeric',
+            })}
           </span>
           <span
             className="text-[10px]"
-            style={{ color: 'var(--text-3)', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
+            style={{
+              color: 'var(--text-3)',
+              transform: expanded ? 'rotate(90deg)' : 'none',
+              transition: 'transform 0.15s',
+            }}
           >
             ▸
           </span>
@@ -212,7 +221,9 @@ export default function GanttMobileList({
   const [showProductStatus, setShowProductStatus] = useState(false);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
   );
 
   function toggleExpand(id: string) {
@@ -248,7 +259,11 @@ export default function GanttMobileList({
             </span>
             <span
               className="text-[10px]"
-              style={{ color: 'var(--text-3)', transform: showProductStatus ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
+              style={{
+                color: 'var(--text-3)',
+                transform: showProductStatus ? 'rotate(90deg)' : 'none',
+                transition: 'transform 0.15s',
+              }}
             >
               ▸
             </span>
@@ -258,7 +273,10 @@ export default function GanttMobileList({
               <div className="h-1.5 rounded-full overflow-hidden bg-border my-2">
                 <div
                   className="h-full rounded-full transition-all"
-                  style={{ width: `${milestones.length > 0 ? (doneCount / milestones.length) * 100 : 0}%`, background: '#10b981' }}
+                  style={{
+                    width: `${milestones.length > 0 ? (doneCount / milestones.length) * 100 : 0}%`,
+                    background: '#10b981',
+                  }}
                 />
               </div>
               <div className="space-y-1 max-h-48 overflow-auto">
@@ -294,14 +312,23 @@ export default function GanttMobileList({
                         {m.name}
                       </span>
                       <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
-                        {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                        {new Date(m.deadline).toLocaleDateString('en', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </span>
                     </button>
                   );
                 })}
               </div>
               {hasIncompleteTasks && (
-                <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
+                <p
+                  className="text-[11px] mt-2 pt-2"
+                  style={{
+                    color: '#f59e0b',
+                    borderTop: '1px solid var(--border)',
+                  }}
+                >
                   ⚠ Some milestones have incomplete tasks
                 </p>
               )}
@@ -386,20 +413,34 @@ export default function GanttMobileList({
                       className="w-full flex items-start justify-between gap-2 text-left cursor-pointer"
                       onClick={() => toggleExpand(s.id)}
                     >
-                      <p className="text-sm font-medium leading-tight truncate min-w-0" style={{ color: 'var(--text)' }}>
+                      <p
+                        className="text-sm font-medium leading-tight truncate min-w-0"
+                        style={{ color: 'var(--text)' }}
+                      >
                         {s.name}
                       </p>
                       <span
                         className="text-[10px] flex-shrink-0"
-                        style={{ color: 'var(--text-3)', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
+                        style={{
+                          color: 'var(--text-3)',
+                          transform: expanded ? 'rotate(90deg)' : 'none',
+                          transition: 'transform 0.15s',
+                        }}
                       >
                         ▸
                       </span>
                     </button>
                     <div className="flex items-center gap-1 mt-1.5">
                       <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-                        {new Date(s.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} –{' '}
-                        {new Date(s.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                        {new Date(s.startDate).toLocaleDateString('en', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}{' '}
+                        –{' '}
+                        {new Date(s.endDate).toLocaleDateString('en', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </span>
                       <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
                         · {doneTasks.length}/{sprintTasks.length} done
@@ -412,7 +453,10 @@ export default function GanttMobileList({
                         <div className="h-1.5 rounded-full overflow-hidden bg-border">
                           <div
                             className="h-full rounded-full transition-all"
-                            style={{ width: `${(doneTasks.length / sprintTasks.length) * 100}%`, background: s.color }}
+                            style={{
+                              width: `${(doneTasks.length / sprintTasks.length) * 100}%`,
+                              background: s.color,
+                            }}
                           />
                         </div>
                       </div>

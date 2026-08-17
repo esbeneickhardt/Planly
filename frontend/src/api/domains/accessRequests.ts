@@ -15,7 +15,12 @@ export const accessRequests = {
         status: string;
         note: string | null;
         createdAt: string;
-        user: { id: string; username: string; avatarEmoji: string | null; realName: string | null };
+        user: {
+          id: string;
+          username: string;
+          avatarEmoji: string | null;
+          realName: string | null;
+        };
       }[]
     >(`/api/products/${productId}/access-requests`),
   request: (productId: string, note?: string) =>
@@ -29,7 +34,8 @@ export const accessRequests = {
       body: json({ action }),
     }),
   discover: () =>
-    request<{ products: (Product & { requestStatus: string | null })[]; nextCursor: string | null }>(
-      '/api/products/discover',
-    ).then((r) => r.products),
+    request<{
+      products: (Product & { requestStatus: string | null })[];
+      nextCursor: string | null;
+    }>('/api/products/discover').then((r) => r.products),
 };

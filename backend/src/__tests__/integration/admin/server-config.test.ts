@@ -41,7 +41,10 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
     // Founding-admin-only operations (e.g. PUT /api/admin/users/:id, see the privilege-escalation
     // guard tested below) require more than isAdmin - promote this user the same way admin.test.ts
     // does, since createTestUser itself has no isFoundingAdmin option.
-    await prisma.user.update({ where: { id: admin.id }, data: { isFoundingAdmin: true } });
+    await prisma.user.update({
+      where: { id: admin.id },
+      data: { isFoundingAdmin: true },
+    });
     const user = await createTestUser({
       email: `cfg_user_${suffix}@t.com`,
       username: `cfg_user_${suffix}`,
@@ -65,15 +68,25 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
     plainAdminCookie = await loginAs(app, `cfg_plain_admin_${suffix}@t.com`, pw);
 
     // Ensure the ServerConfig singleton exists (created on first request)
-    await app.inject({ method: 'GET', url: '/api/admin/server-config', cookies: cookieJar(adminCookie) });
+    await app.inject({
+      method: 'GET',
+      url: '/api/admin/server-config',
+      cookies: cookieJar(adminCookie),
+    });
   });
 
   afterAll(async () => {
     // Restore defaults so other test runs aren't affected
     await prisma.serverConfig.updateMany({
-      data: { requireEmailVerification: false, requireWhitelist: false, allowProjectCreation: false },
+      data: {
+        requireEmailVerification: false,
+        requireWhitelist: false,
+        allowProjectCreation: false,
+      },
     });
-    await prisma.user.deleteMany({ where: { id: { in: [adminId, userId, plainAdminId] } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [adminId, userId, plainAdminId] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
@@ -81,17 +94,28 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
   // ── Access control ─────────────────────────────────────────────────────────
 
   it('GET /api/admin/server-config returns 401 for unauthenticated', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/admin/server-config' });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/server-config',
+    });
     expect(res.statusCode).toBe(401);
   });
 
   it('GET /api/admin/server-config returns 403 for regular user', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/admin/server-config', cookies: cookieJar(userCookie) });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/server-config',
+      cookies: cookieJar(userCookie),
+    });
     expect(res.statusCode).toBe(403);
   });
 
   it('GET /api/admin/server-config returns config for admin', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/admin/server-config', cookies: cookieJar(adminCookie) });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/server-config',
+      cookies: cookieJar(adminCookie),
+    });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(typeof body.requireEmailVerification).toBe('boolean');
@@ -119,7 +143,11 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
     });
     expect(put.statusCode).toBe(200);
 
-    const get = await app.inject({ method: 'GET', url: '/api/admin/server-config', cookies: cookieJar(adminCookie) });
+    const get = await app.inject({
+      method: 'GET',
+      url: '/api/admin/server-config',
+      cookies: cookieJar(adminCookie),
+    });
     expect(JSON.parse(get.body).requireWhitelist).toBe(true);
   });
 
@@ -180,7 +208,11 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
   // ── Admin user management (bonus) ──────────────────────────────────────────
 
   it('admin can list all users', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/admin/users', cookies: cookieJar(adminCookie) });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/users',
+      cookies: cookieJar(adminCookie),
+    });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body) as { id: string }[];
     expect(Array.isArray(body)).toBe(true);
@@ -227,7 +259,10 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
   // Same guard, the other direction - a regular admin also can't use the generic endpoint to
   // demote another admin (bypassing /demote's founding-admin check).
   it('a regular (non-founding) admin cannot revoke admin rights via PUT /api/admin/users/:id', async () => {
-    await prisma.user.update({ where: { id: userId }, data: { isAdmin: true } });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isAdmin: true },
+    });
     const put = await app.inject({
       method: 'PUT',
       url: `/api/admin/users/${userId}`,
@@ -238,6 +273,9 @@ describe.skipIf(!HAS_DB)('Admin server-config', () => {
     const target = await prisma.user.findUnique({ where: { id: userId } });
     expect(target?.isAdmin).toBe(true);
     // Reset for isolation from any other test that might run after this one.
-    await prisma.user.update({ where: { id: userId }, data: { isAdmin: false } });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isAdmin: false },
+    });
   });
 });

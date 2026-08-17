@@ -8,13 +8,7 @@
 import { createContext, useContext } from 'react';
 
 export type ProfileModalKey =
-  | 'theme'
-  | 'memberships'
-  | 'integrations'
-  | 'notifications'
-  | 'privacy'
-  | 'security'
-  | 'changePassword';
+  'theme' | 'memberships' | 'integrations' | 'notifications' | 'privacy' | 'security' | 'changePassword';
 
 interface ProfileModalsContextValue {
   showThemePicker: boolean;

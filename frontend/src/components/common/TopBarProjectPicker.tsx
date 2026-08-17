@@ -96,7 +96,12 @@ export default function TopBarProjectPicker({
         {!!unreadByProduct?.[p.id] && (
           <span
             className="flex items-center justify-center rounded-full text-white text-[10px] font-bold flex-shrink-0"
-            style={{ background: '#ef4444', minWidth: 16, height: 16, padding: '0 4px' }}
+            style={{
+              background: '#ef4444',
+              minWidth: 16,
+              height: 16,
+              padding: '0 4px',
+            }}
           >
             {unreadByProduct[p.id]! > 99 ? '99+' : unreadByProduct[p.id]}
           </span>
@@ -115,7 +120,11 @@ export default function TopBarProjectPicker({
       className={`absolute right-0 w-64 rounded-2xl shadow-2xl overflow-hidden py-1.5 animate-dropdown-in ${
         mobileNavPosition === 'bottom' ? 'bottom-full mb-2 lg:bottom-auto lg:top-full lg:mt-2' : 'top-full mt-2'
       }`}
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        zIndex: 50,
+      }}
     >
       {chatIsAdmin && products.length > 0 && (
         <p className="px-4 pt-2 pb-1 text-[10px]" style={{ color: 'var(--text-3)' }}>

@@ -52,7 +52,10 @@ export default function ChatProjectsTab({
           onTouchEnd={isExpanded ? onExpandedTouchEnd : undefined}
           onTouchCancel={isExpanded ? onExpandedTouchEnd : undefined}
           className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
+          style={{
+            borderBottom: '1px solid var(--border)',
+            touchAction: isExpanded ? 'none' : undefined,
+          }}
         >
           <button
             onClick={onBack}

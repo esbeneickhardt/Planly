@@ -17,6 +17,14 @@ export const github = {
     githubImportIssues?: boolean;
     githubImportPrs?: boolean;
     githubDefaultProductId?: string | null;
-  }) => request<{ ok: boolean }>('/api/github/config', { method: 'POST', body: json(data) }),
-  regenerateSecret: () => request<{ secret: string }>('/api/github/regenerate-secret', { method: 'POST', body: json({}) }),
+  }) =>
+    request<{ ok: boolean }>('/api/github/config', {
+      method: 'POST',
+      body: json(data),
+    }),
+  regenerateSecret: () =>
+    request<{ secret: string }>('/api/github/regenerate-secret', {
+      method: 'POST',
+      body: json({}),
+    }),
 };

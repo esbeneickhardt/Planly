@@ -33,7 +33,10 @@ export default function ChangePasswordModal({ onClose }: Props) {
     }
     setLoading(true);
     try {
-      await api.auth.changePassword({ currentPassword: current, newPassword: next });
+      await api.auth.changePassword({
+        currentPassword: current,
+        newPassword: next,
+      });
       setDone(true);
     } catch (err) {
       setError((err as Error).message);

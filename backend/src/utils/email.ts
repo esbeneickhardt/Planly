@@ -49,7 +49,9 @@ export function invalidateSmtpCache() {
 async function resolveSmtpSettings(): Promise<SmtpSettings | null> {
   // Prefer DB row (admin-configured) over env vars
   try {
-    const row = await prisma.smtpConfig.findUnique({ where: { id: 'default' } });
+    const row = await prisma.smtpConfig.findUnique({
+      where: { id: 'default' },
+    });
     if (row?.host) {
       // Decrypt the stored password before returning (stored AES-256-GCM encrypted)
       return {
@@ -104,7 +106,10 @@ function buildTransporter(s: SmtpSettings): Transporter {
 
 // Returns the settings + a transporter built from them, reusing the cached transporter (if the
 // settings cache is still warm) instead of constructing a new one on every call.
-async function getTransporter(): Promise<{ transporter: Transporter; settings: SmtpSettings } | null> {
+async function getTransporter(): Promise<{
+  transporter: Transporter;
+  settings: SmtpSettings;
+} | null> {
   const settings = await getSmtpSettings(); // seeds/refreshes _cache as a side effect
   if (!settings || !_cache) return null;
   if (!_cache.transporter) _cache.transporter = buildTransporter(settings);
@@ -131,7 +136,12 @@ export async function sendEmail({
     logger.info({ to, subject }, 'email skipped - no SMTP configured (body redacted)');
     return false;
   }
-  await resolved.transporter.sendMail({ from: resolved.settings.from, to, subject, html });
+  await resolved.transporter.sendMail({
+    from: resolved.settings.from,
+    to,
+    subject,
+    html,
+  });
   return true;
 }
 

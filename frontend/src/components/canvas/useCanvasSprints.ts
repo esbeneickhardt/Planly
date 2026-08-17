@@ -28,7 +28,12 @@ interface Params {
   suppressNextFilterRelayout: () => void;
 }
 
-type SprintForm = { name: string; startDate: string; endDate: string; color: string };
+type SprintForm = {
+  name: string;
+  startDate: string;
+  endDate: string;
+  color: string;
+};
 type EditSprintForm = { name: string; color: string };
 
 export function useCanvasSprints({
@@ -55,7 +60,10 @@ export function useCanvasSprints({
     color: SPRINT_PALETTE[0],
   });
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
-  const [editSprintForm, setEditSprintForm] = useState<EditSprintForm>({ name: '', color: SPRINT_PALETTE[0] });
+  const [editSprintForm, setEditSprintForm] = useState<EditSprintForm>({
+    name: '',
+    color: SPRINT_PALETTE[0],
+  });
 
   // Reset sprint init tracking when product changes so a new product starts fresh
   useEffect(() => {

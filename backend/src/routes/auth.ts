@@ -59,7 +59,9 @@ export async function authRoutes(app: FastifyInstance) {
     const trimmed = identifier.trim();
     const normalized = trimmed.toLowerCase();
     const user = await prisma.user.findFirst({
-      where: { OR: [{ email: normalized }, { username: { equals: trimmed, mode: 'insensitive' } }] },
+      where: {
+        OR: [{ email: normalized }, { username: { equals: trimmed, mode: 'insensitive' } }],
+      },
       select: {
         id: true,
         username: true,
@@ -86,7 +88,9 @@ export async function authRoutes(app: FastifyInstance) {
       const hours = Math.floor(remaining / 60);
       const mins = remaining % 60;
       const timeStr = hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins} minute${mins === 1 ? '' : 's'}`;
-      return reply.status(429).send({ error: `Account temporarily locked. Try again in ${timeStr}.` });
+      return reply.status(429).send({
+        error: `Account temporarily locked. Try again in ${timeStr}.`,
+      });
     }
 
     // Validate password and record failed attempts / lockout
@@ -101,12 +105,21 @@ export async function authRoutes(app: FastifyInstance) {
         data: {
           failedLoginAttempts: attempts,
           ...(shouldLock
-            ? { loginLockedUntil: new Date(Date.now() + lockMinutes * 60 * 1000), loginLockCount: newLockCount }
+            ? {
+                loginLockedUntil: new Date(Date.now() + lockMinutes * 60 * 1000),
+                loginLockCount: newLockCount,
+              }
             : {}),
         },
       });
       await prisma.adminLog
-        .create({ data: { action: 'LOGIN_FAILED', targetName: user.username, metadata: { attempts } } })
+        .create({
+          data: {
+            action: 'LOGIN_FAILED',
+            targetName: user.username,
+            metadata: { attempts },
+          },
+        })
         .catch((err) => {
           console.warn('[auth] Failed to write LOGIN_FAILED audit log:', (err as Error).message);
         });
@@ -137,7 +150,9 @@ export async function authRoutes(app: FastifyInstance) {
           hours > 0
             ? `${hours} hour${hours === 1 ? '' : 's'}${mins > 0 ? ` ${mins} min` : ''}`
             : `${lockMinutes} minutes`;
-        return reply.status(429).send({ error: `Too many failed attempts. Account locked for ${timeStr}.` });
+        return reply.status(429).send({
+          error: `Too many failed attempts. Account locked for ${timeStr}.`,
+        });
       }
       // Same message as the "no such user" / "no password set" branches above - varying the text
       // based on which check failed (e.g. appending an "attempts remaining" count only when the
@@ -159,7 +174,11 @@ export async function authRoutes(app: FastifyInstance) {
     if (user.totpEnabled) {
       await prisma.user.update({
         where: { id: user.id },
-        data: { failedLoginAttempts: 0, loginLockedUntil: null, loginLockCount: 0 },
+        data: {
+          failedLoginAttempts: 0,
+          loginLockedUntil: null,
+          loginLockCount: 0,
+        },
       });
       const mfaToken = jwt.sign({ userId: user.id, type: 'mfa_challenge' }, config.jwtSecret, { expiresIn: '5m' });
       return reply.send({ requiresTOTP: true, mfaToken });
@@ -183,13 +202,23 @@ export async function authRoutes(app: FastifyInstance) {
     invalidateCachedTokenVersion(user.id);
 
     const token = jwt.sign(
-      { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
+      {
+        userId: user.id,
+        username: user.username,
+        tokenVersion: updatedUser.tokenVersion,
+      },
       config.jwtSecret,
       { expiresIn: '1h' },
     );
 
     await prisma.adminLog
-      .create({ data: { action: 'LOGIN', actorName: user.username, targetName: user.username } })
+      .create({
+        data: {
+          action: 'LOGIN',
+          actorName: user.username,
+          targetName: user.username,
+        },
+      })
       .catch((err) => {
         console.warn('[auth] Failed to write LOGIN audit log:', (err as Error).message);
       });
@@ -255,7 +284,11 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const newJwt = jwt.sign(
-      { userId: user.id, username: user.username, tokenVersion: user.tokenVersion },
+      {
+        userId: user.id,
+        username: user.username,
+        tokenVersion: user.tokenVersion,
+      },
       config.jwtSecret,
       { expiresIn: '1h' },
     );
@@ -267,8 +300,15 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {
     // App Registration tokens surface the app's name as its identity, not the creator's profile
     if (req.user.appName) {
-      const creator = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { username: true } });
-      return reply.send({ username: req.user.appName, isApp: true, createdBy: creator?.username ?? null });
+      const creator = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { username: true },
+      });
+      return reply.send({
+        username: req.user.appName,
+        isApp: true,
+        createdBy: creator?.username ?? null,
+      });
     }
     const [user, cfg] = await Promise.all([
       prisma.user.findUnique({
@@ -295,6 +335,10 @@ export async function authRoutes(app: FastifyInstance) {
     if (!user) return reply.status(404).send({ error: 'Not found' });
     const mustSetupMfa = cfg.requireMfa && !user.totpEnabled;
     // Decrypt PII fields (realName, phone stored AES-256-GCM) and append server-config flags the UI needs
-    reply.send({ ...decryptUserPii(user), announcementsEnabled: cfg.announcementsEnabled, mustSetupMfa });
+    reply.send({
+      ...decryptUserPii(user),
+      announcementsEnabled: cfg.announcementsEnabled,
+      mustSetupMfa,
+    });
   });
 }

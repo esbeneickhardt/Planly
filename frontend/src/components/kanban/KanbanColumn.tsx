@@ -96,7 +96,10 @@ function SortableMilestoneHeader({
       >
         <span
           className="inline-block flex-shrink-0"
-          style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+          style={{
+            transform: collapsed ? 'rotate(-90deg)' : 'none',
+            transition: 'transform 0.1s',
+          }}
         >
           ▾
         </span>
@@ -138,7 +141,10 @@ export default function KanbanColumn({
   } = useSortable({ id: column.id, data: { type: 'column' } });
 
   // Droppable (for task drops)
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: column.statusKey, data: { type: 'column-drop' } });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: column.statusKey,
+    data: { type: 'column-drop' },
+  });
 
   const { canWrite } = usePermission();
   const readOnly = !canWrite('kanban');
@@ -231,12 +237,18 @@ export default function KanbanColumn({
         // Colored by the column's own status color (blue for To Do, etc.) - matches the Milestone
         // columns view's own 2px colored border exactly, instead of the plain neutral gray this had
         // before, so status columns get the same "cool" colored look.
-        style={{ background: 'var(--surface-2)', border: `2px solid ${column.color}` }}
+        style={{
+          background: 'var(--surface-2)',
+          border: `2px solid ${column.color}`,
+        }}
       >
         {/* Column header - drag handle for column reordering */}
         <div
           className="px-3 pt-3 pb-2 flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--border)', cursor: isOverlay ? 'grabbing' : 'grab' }}
+          style={{
+            borderBottom: '1px solid var(--border)',
+            cursor: isOverlay ? 'grabbing' : 'grab',
+          }}
           {...(isOverlay ? {} : { ...attributes, ...listeners })}
           onDoubleClick={(e) => {
             // Stop drag-start from propagating when double-clicking to rename
@@ -265,7 +277,11 @@ export default function KanbanColumn({
                 }}
                 onClick={(e) => e.stopPropagation()}
                 className="flex-1 text-sm font-semibold bg-transparent border-b outline-none"
-                style={{ color: 'var(--text)', borderColor: column.color, cursor: 'text' }}
+                style={{
+                  color: 'var(--text)',
+                  borderColor: column.color,
+                  cursor: 'text',
+                }}
               />
             ) : (
               <h2
@@ -302,7 +318,11 @@ export default function KanbanColumn({
               {showSortMenu && (
                 <div
                   className="absolute right-0 top-full mt-1 rounded-lg shadow-xl z-30 py-1 overflow-hidden"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 140 }}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    minWidth: 140,
+                  }}
                   onMouseLeave={() => setShowSortMenu(false)}
                 >
                   {SORT_CYCLE.map((mode) => (
@@ -388,7 +408,10 @@ export default function KanbanColumn({
             (addingTask ? (
               <div
                 className="mb-1 rounded-lg overflow-hidden"
-                style={{ border: `1px solid ${column.color}`, background: 'var(--surface)' }}
+                style={{
+                  border: `1px solid ${column.color}`,
+                  background: 'var(--surface)',
+                }}
               >
                 <input
                   ref={addInputRef}

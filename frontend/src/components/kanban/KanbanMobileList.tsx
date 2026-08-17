@@ -37,7 +37,14 @@ import { buildMilestoneClusters, buildStatusClusters, UNASSIGNED_CLUSTER } from 
 import { useTheme } from '../../context/ThemeContext';
 import { useChat } from '../../context/ChatContext';
 import { useLongPress } from '../../hooks/useLongPress';
-import { SortMode, SORT_LABELS, SORT_CYCLE, sortTasks, loadColumnSortMode, saveColumnSortMode } from '../../utils/kanbanSort';
+import {
+  SortMode,
+  SORT_LABELS,
+  SORT_CYCLE,
+  sortTasks,
+  loadColumnSortMode,
+  saveColumnSortMode,
+} from '../../utils/kanbanSort';
 import type { MilestoneOption } from './KanbanMilestoneFilter';
 
 // Background for the "status board" panel (see the per-page render below for the three-layer
@@ -74,7 +81,10 @@ interface Props {
    * grouped into collapsible per-status sections within each - the mirror image of the above. */
   viewMode?: 'status' | 'milestone';
   orderedMilestoneIds?: string[];
-  milestoneColumnTasks?: { byMilestoneId: Map<string, Task[]>; unassigned: Task[] };
+  milestoneColumnTasks?: {
+    byMilestoneId: Map<string, Task[]>;
+    unassigned: Task[];
+  };
   milestoneMeta?: Map<string, MilestoneOption>;
   collapsedStatuses?: Set<string>;
   onToggleStatusCollapse?: (statusKey: string) => void;
@@ -179,7 +189,10 @@ function QuickStatusMenu({
         <button
           onClick={onOpenChat}
           className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left transition-colors"
-          style={{ color: 'var(--text)', borderBottom: onSelect ? '1px solid var(--border)' : 'none' }}
+          style={{
+            color: 'var(--text)',
+            borderBottom: onSelect ? '1px solid var(--border)' : 'none',
+          }}
         >
           <span className="flex-shrink-0">💬</span>
           <span className="flex-1">Open chat</span>
@@ -224,7 +237,10 @@ function CardBody({
   users: User[];
   onOpenDetail: (task: Task) => void;
   onQuickStatusChange?: (taskId: string, newStatus: string) => void;
-  dragHandle?: { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners };
+  dragHandle?: {
+    attributes: DraggableAttributes;
+    listeners: DraggableSyntheticListeners;
+  };
   /** Dense display: title only, everything else (owner, due date, subtasks) hidden - mirrors
    * desktop KanbanCard's own simpleMode. */
   simpleMode?: boolean;
@@ -281,7 +297,10 @@ function CardBody({
               {owner && (
                 <span
                   className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md max-w-[140px]"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-3)',
+                  }}
                 >
                   <span aria-hidden="true">{owner.avatarEmoji ?? '👤'}</span>
                   <span className="truncate">{displayName(owner)}</span>
@@ -296,14 +315,20 @@ function CardBody({
                   }}
                 >
                   <span aria-hidden="true">{isOverdue ? '⚠' : '🕐'}</span>
-                  {new Date(task.deadline).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  {new Date(task.deadline).toLocaleDateString([], {
+                    month: 'short',
+                    day: 'numeric',
+                  })}
                   {isOverdue && <span className="sr-only"> (overdue)</span>}
                 </span>
               )}
               {task.subtasks.length > 0 && (
                 <span
                   className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-3)',
+                  }}
                 >
                   <span aria-hidden="true">☑</span>
                   {doneSubtasks}/{task.subtasks.length}
@@ -349,7 +374,14 @@ function SortableMobileCard(props: {
 }) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: props.task.id });
   return (
-    <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}>
+    <li
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+    >
       <CardBody {...props} dragHandle={{ attributes, listeners }} />
     </li>
   );
@@ -382,7 +414,9 @@ function MobileStatusColumn({
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 5 },
+    }),
   );
   const sorted = sortTasks(colTasks, sortMode);
 
@@ -430,10 +464,19 @@ function MobileStatusColumn({
           </button>
           {showSortMenu && (
             <>
-              <button className="fixed inset-0 z-40" style={{ background: 'transparent' }} aria-label="Close sort menu" onClick={() => setShowSortMenu(false)} />
+              <button
+                className="fixed inset-0 z-40"
+                style={{ background: 'transparent' }}
+                aria-label="Close sort menu"
+                onClick={() => setShowSortMenu(false)}
+              />
               <div
                 className="absolute right-0 top-full mt-1 rounded-lg shadow-xl z-50 py-1 overflow-hidden"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 160 }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  minWidth: 160,
+                }}
               >
                 {SORT_CYCLE.map((mode) => (
                   <button
@@ -603,7 +646,9 @@ export default function KanbanMobileList({
           {pageIds.map((id, i) => {
             const label =
               viewMode === 'milestone'
-                ? (id === UNASSIGNED_CLUSTER ? 'No milestone' : (milestoneMeta?.get(id)?.name ?? 'Milestone'))
+                ? id === UNASSIGNED_CLUSTER
+                  ? 'No milestone'
+                  : (milestoneMeta?.get(id)?.name ?? 'Milestone')
                 : (columns.find((c) => c.id === id)?.label ?? '');
             const color =
               viewMode === 'milestone'
@@ -683,7 +728,11 @@ export default function KanbanMobileList({
                       {/* No color dot here - the panel's own top accent bar (borderTop, set from
                           this same `color`) already conveys it, so a second color chip next to
                           the title was redundant. */}
-                      <h2 id={`mcol-heading-${milestoneId}`} className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                      <h2
+                        id={`mcol-heading-${milestoneId}`}
+                        className="text-sm font-semibold"
+                        style={{ color: 'var(--text)' }}
+                      >
                         {label}
                       </h2>
                       <span className="text-xs" style={{ color: 'var(--text-3)' }}>
@@ -691,7 +740,10 @@ export default function KanbanMobileList({
                       </span>
                       {milestoneTask?.deadline && (
                         <span className="text-xs ml-auto" style={{ color: 'var(--text-3)' }}>
-                          {new Date(milestoneTask.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                          {new Date(milestoneTask.deadline).toLocaleDateString('en', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
                         </span>
                       )}
                     </div>
@@ -711,17 +763,33 @@ export default function KanbanMobileList({
                             <button
                               onClick={() => onToggleStatusCollapse?.(statusKey)}
                               className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
-                              style={{ color: 'var(--text-2)', background: `${statusColor}14` }}
+                              style={{
+                                color: 'var(--text-2)',
+                                background: `${statusColor}14`,
+                              }}
                             >
                               <span
                                 className="inline-block flex-shrink-0"
-                                style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+                                style={{
+                                  transform: collapsed ? 'rotate(-90deg)' : 'none',
+                                  transition: 'transform 0.1s',
+                                }}
                               >
                                 ▾
                               </span>
-                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+                              <span
+                                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                style={{ background: statusColor }}
+                              />
                               <span className="truncate flex-1 text-left">{statusLabel}</span>
-                              <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{children.length}</span>
+                              <span
+                                style={{
+                                  color: 'var(--text-3)',
+                                  fontWeight: 400,
+                                }}
+                              >
+                                {children.length}
+                              </span>
                             </button>
                             {!collapsed && (
                               <ul className="space-y-2 mb-2">{children.map((t) => renderCard(t, statusCol))}</ul>
@@ -735,109 +803,132 @@ export default function KanbanMobileList({
               );
             })
           : columns.map((col) => {
-          const colTasks = tasks
-            .filter((t) => t.status === col.statusKey)
-            .sort((a, b) => a.kanbanOrder - b.kanbanOrder);
-          const clusters =
-            groupByMilestone && primaryMilestones
-              ? buildMilestoneClusters(colTasks, primaryMilestones, milestoneOrderIds ?? [])
-              : null;
-          const boardBg = bgImage ? 'color-mix(in srgb, var(--surface) 88%, transparent)' : boardTint(col.color);
-          return (
-            <section
-              key={col.id}
-              aria-labelledby={`col-heading-${col.id}`}
-              className="w-full flex-shrink-0 p-3 flex flex-col"
-              style={{ scrollSnapAlign: 'start' }}
-            >
-              {/* The "status board" panel - see the milestone-mode branch above for the full
+              const colTasks = tasks
+                .filter((t) => t.status === col.statusKey)
+                .sort((a, b) => a.kanbanOrder - b.kanbanOrder);
+              const clusters =
+                groupByMilestone && primaryMilestones
+                  ? buildMilestoneClusters(colTasks, primaryMilestones, milestoneOrderIds ?? [])
+                  : null;
+              const boardBg = bgImage ? 'color-mix(in srgb, var(--surface) 88%, transparent)' : boardTint(col.color);
+              return (
+                <section
+                  key={col.id}
+                  aria-labelledby={`col-heading-${col.id}`}
+                  className="w-full flex-shrink-0 p-3 flex flex-col"
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  {/* The "status board" panel - see the milestone-mode branch above for the full
                   three-layer explanation (page background -> this board -> task cards). A thin
                   neutral border plus a colored top accent bar (not a full-strength colored
                   outline) keeps this reading as a compact list card, not a big solid-colored box. */}
-              <div
-                className="rounded-xl flex-1 flex flex-col shadow-sm overflow-hidden"
-                style={{
-                  background: boardBg,
-                  border: '1px solid var(--border)',
-                  borderTop: `3px solid ${col.color}`,
-                }}
-              >
-                {clusters ? (
-                  <>
-                    {/* A genuine header row - not `position: sticky` layered over the scrolling
+                  <div
+                    className="rounded-xl flex-1 flex flex-col shadow-sm overflow-hidden"
+                    style={{
+                      background: boardBg,
+                      border: '1px solid var(--border)',
+                      borderTop: `3px solid ${col.color}`,
+                    }}
+                  >
+                    {clusters ? (
+                      <>
+                        {/* A genuine header row - not `position: sticky` layered over the scrolling
                         list (that needed an opaque background faked in to mask cards scrolling
                         underneath, and still only ever covered the list's own padding box, not
                         the panel's full width). Instead, same structure as desktop's
                         KanbanColumn.tsx: a separate flex-shrink-0 row above a separately-
                         scrollable body below, so it's trivially full-bleed edge-to-edge and never
                         has to fight a scroll container's own clipping to stay covered or aligned. */}
-                    <div
-                      className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0"
-                      style={{ borderBottom: '1px solid var(--border)' }}
-                    >
-                      <h2 id={`col-heading-${col.id}`} className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
-                        {col.label}
-                      </h2>
-                      <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-                        {colTasks.length}
-                      </span>
-                    </div>
+                        <div
+                          className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0"
+                          style={{ borderBottom: '1px solid var(--border)' }}
+                        >
+                          <h2
+                            id={`col-heading-${col.id}`}
+                            className="text-sm font-semibold"
+                            style={{ color: 'var(--text)' }}
+                          >
+                            {col.label}
+                          </h2>
+                          <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                            {colTasks.length}
+                          </span>
+                        </div>
 
-                    <div className="flex-1 overflow-y-auto p-3 pt-2">
-                      {colTasks.length === 0 && (
-                        <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
-                          No tasks
-                        </p>
-                      )}
+                        <div className="flex-1 overflow-y-auto p-3 pt-2">
+                          {colTasks.length === 0 && (
+                            <p className="text-xs px-2 py-3" style={{ color: 'var(--text-3)' }}>
+                              No tasks
+                            </p>
+                          )}
 
-                      {clusters.map(({ id, children }) => {
-                        const isUnassigned = id === UNASSIGNED_CLUSTER;
-                        const meta = isUnassigned ? null : milestoneColors?.get(id);
-                        const milestoneTask = isUnassigned ? null : tasks.find((t) => t.id === id);
-                        const label = isUnassigned ? 'No milestone' : (milestoneTask?.name ?? 'Milestone');
-                        const color = isUnassigned ? 'var(--text-3)' : (meta ?? 'var(--text-3)');
-                        const collapsed = collapsedMilestones?.has(id) ?? false;
-                        return (
-                          <div key={id} className="mb-2">
-                            <button
-                              onClick={() => onToggleMilestoneCollapse?.(id)}
-                              className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
-                              style={{ color: 'var(--text-2)', background: `${color}14`, borderLeft: `3px solid ${color}` }}
-                            >
-                              <span
-                                className="inline-block flex-shrink-0"
-                                style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
-                              >
-                                ▾
-                              </span>
-                              {!isUnassigned && (
-                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-                              )}
-                              <span className="truncate flex-1 text-left">{label}</span>
-                              <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{children.length}</span>
-                            </button>
-                            {!collapsed && <ul className="space-y-2 mb-2">{children.map((t) => renderCard(t, col))}</ul>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <MobileStatusColumn
-                    col={col}
-                    colTasks={colTasks}
-                    columns={columns}
-                    users={users}
-                    onOpenDetail={onOpenDetail}
-                    onQuickStatusChange={onQuickStatusChange}
-                    onReorderTasks={onReorderTasks}
-                    simpleMode={simpleMode}
-                  />
-                )}
-              </div>
-            </section>
-          );
-        })}
+                          {clusters.map(({ id, children }) => {
+                            const isUnassigned = id === UNASSIGNED_CLUSTER;
+                            const meta = isUnassigned ? null : milestoneColors?.get(id);
+                            const milestoneTask = isUnassigned ? null : tasks.find((t) => t.id === id);
+                            const label = isUnassigned ? 'No milestone' : (milestoneTask?.name ?? 'Milestone');
+                            const color = isUnassigned ? 'var(--text-3)' : (meta ?? 'var(--text-3)');
+                            const collapsed = collapsedMilestones?.has(id) ?? false;
+                            return (
+                              <div key={id} className="mb-2">
+                                <button
+                                  onClick={() => onToggleMilestoneCollapse?.(id)}
+                                  className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
+                                  style={{
+                                    color: 'var(--text-2)',
+                                    background: `${color}14`,
+                                    borderLeft: `3px solid ${color}`,
+                                  }}
+                                >
+                                  <span
+                                    className="inline-block flex-shrink-0"
+                                    style={{
+                                      transform: collapsed ? 'rotate(-90deg)' : 'none',
+                                      transition: 'transform 0.1s',
+                                    }}
+                                  >
+                                    ▾
+                                  </span>
+                                  {!isUnassigned && (
+                                    <span
+                                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                      style={{ background: color }}
+                                    />
+                                  )}
+                                  <span className="truncate flex-1 text-left">{label}</span>
+                                  <span
+                                    style={{
+                                      color: 'var(--text-3)',
+                                      fontWeight: 400,
+                                    }}
+                                  >
+                                    {children.length}
+                                  </span>
+                                </button>
+                                {!collapsed && (
+                                  <ul className="space-y-2 mb-2">{children.map((t) => renderCard(t, col))}</ul>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <MobileStatusColumn
+                        col={col}
+                        colTasks={colTasks}
+                        columns={columns}
+                        users={users}
+                        onOpenDetail={onOpenDetail}
+                        onQuickStatusChange={onQuickStatusChange}
+                        onReorderTasks={onReorderTasks}
+                        simpleMode={simpleMode}
+                      />
+                    )}
+                  </div>
+                </section>
+              );
+            })}
         {pageIds.length === 0 && (
           <p className="text-sm text-center py-16 w-full" style={{ color: 'var(--text-3)' }}>
             {viewMode === 'milestone' ? 'No milestones yet' : 'No columns yet'}
@@ -855,7 +946,12 @@ export default function KanbanMobileList({
           className={`fixed right-4 flex items-center gap-2 px-5 py-3 rounded-full text-sm font-semibold shadow-2xl ${
             mobileNavPosition === 'bottom' ? 'bottom-20' : 'bottom-5'
           }`}
-          style={{ background: 'var(--brand)', color: 'white', display: 'flex', zIndex: 30 }}
+          style={{
+            background: 'var(--brand)',
+            color: 'white',
+            display: 'flex',
+            zIndex: 30,
+          }}
         >
           <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>
             +

@@ -133,7 +133,10 @@ export function buildMilestoneClusters(
     ...milestoneOrderIds.filter((id) => childrenByMilestoneId.has(id)),
     ...Array.from(childrenByMilestoneId.keys()).filter((id) => !milestoneOrderIds.includes(id)),
   ];
-  const clusters = orderedIds.map((id) => ({ id, children: childrenByMilestoneId.get(id)! }));
+  const clusters = orderedIds.map((id) => ({
+    id,
+    children: childrenByMilestoneId.get(id)!,
+  }));
   if (unassigned.length > 0) clusters.push({ id: UNASSIGNED_CLUSTER, children: unassigned });
   return clusters;
 }

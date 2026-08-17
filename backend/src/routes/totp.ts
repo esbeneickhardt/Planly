@@ -62,7 +62,10 @@ function verifyCode(secret: string, username: string, token: string): boolean {
 }
 
 // Generate 8 one-time backup codes; returns both plain text (to show once) and bcrypt hashes
-async function generateBackupCodes(): Promise<{ plain: string[]; hashes: string[] }> {
+async function generateBackupCodes(): Promise<{
+  plain: string[];
+  hashes: string[];
+}> {
   const plain: string[] = [];
   const hashes: string[] = [];
   for (let i = 0; i < BACKUP_CODE_COUNT; i++) {
@@ -103,7 +106,10 @@ export async function totpRoutes(app: FastifyInstance) {
     const qrDataUrl = await QRCode.toDataURL(uri);
 
     // Persist the secret tentatively (totpEnabled remains false)
-    await prisma.user.update({ where: { id: user.id }, data: { totpSecret: secret } });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { totpSecret: secret },
+    });
 
     reply.send({ qrDataUrl, secret, uri });
   });
@@ -115,14 +121,21 @@ export async function totpRoutes(app: FastifyInstance) {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, username: true, totpSecret: true, totpEnabled: true },
+      select: {
+        id: true,
+        username: true,
+        totpSecret: true,
+        totpEnabled: true,
+      },
     });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     if (user.totpEnabled) return reply.status(409).send({ error: 'TOTP is already enabled' });
     if (!user.totpSecret) return reply.status(400).send({ error: 'Run /totp/setup first' });
 
     if (!verifyCode(user.totpSecret, user.username, body.code)) {
-      return reply.status(401).send({ error: 'Invalid code - check your authenticator app and try again' });
+      return reply.status(401).send({
+        error: 'Invalid code - check your authenticator app and try again',
+      });
     }
 
     // Generate backup codes to present to the user
@@ -130,12 +143,18 @@ export async function totpRoutes(app: FastifyInstance) {
 
     // Atomically activate TOTP and replace any previous backup codes
     await prisma.$transaction([
-      prisma.user.update({ where: { id: user.id }, data: { totpEnabled: true } }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { totpEnabled: true },
+      }),
       prisma.totpBackupCode.deleteMany({ where: { userId: user.id } }),
       ...hashes.map((codeHash) => prisma.totpBackupCode.create({ data: { userId: user.id, codeHash } })),
     ]);
 
-    logAdminEvent('TOTP_ENABLED', { actorName: user.username, targetName: user.username });
+    logAdminEvent('TOTP_ENABLED', {
+      actorName: user.username,
+      targetName: user.username,
+    });
 
     reply.send({
       ok: true,
@@ -151,7 +170,12 @@ export async function totpRoutes(app: FastifyInstance) {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, username: true, totpSecret: true, totpEnabled: true },
+      select: {
+        id: true,
+        username: true,
+        totpSecret: true,
+        totpEnabled: true,
+      },
     });
     if (!user) return reply.status(404).send({ error: 'Not found' });
     if (!user.totpEnabled) return reply.status(409).send({ error: 'TOTP is not enabled' });
@@ -164,11 +188,17 @@ export async function totpRoutes(app: FastifyInstance) {
     }
 
     await prisma.$transaction([
-      prisma.user.update({ where: { id: user.id }, data: { totpEnabled: false, totpSecret: null } }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { totpEnabled: false, totpSecret: null },
+      }),
       prisma.totpBackupCode.deleteMany({ where: { userId: user.id } }),
     ]);
 
-    logAdminEvent('TOTP_DISABLED', { actorName: user.username, targetName: user.username });
+    logAdminEvent('TOTP_DISABLED', {
+      actorName: user.username,
+      targetName: user.username,
+    });
     sendSecurityAlert({
       event: 'TOTP_DISABLED',
       account: user.username,
@@ -189,13 +219,23 @@ export async function totpRoutes(app: FastifyInstance) {
   // successful password check (required to obtain mfaToken) always resets these counters first,
   // so each login attempt starts with a fresh budget of LOGIN_MAX_ATTEMPTS code guesses.
   app.post('/api/auth/totp/challenge', async (req, reply) => {
-    const body = validate(z.object({ mfaToken: z.string().min(1), code: z.string().min(6).max(10) }), req.body, reply);
+    const body = validate(
+      z.object({
+        mfaToken: z.string().min(1),
+        code: z.string().min(6).max(10),
+      }),
+      req.body,
+      reply,
+    );
     if (!body) return;
 
     // Verify the short-lived MFA challenge JWT issued during login
     let payload: { userId: string; type: string };
     try {
-      payload = jwt.verify(body.mfaToken, config.jwtSecret) as { userId: string; type: string };
+      payload = jwt.verify(body.mfaToken, config.jwtSecret) as {
+        userId: string;
+        type: string;
+      };
     } catch {
       return reply.status(401).send({ error: 'MFA token expired or invalid - please log in again' });
     }
@@ -204,7 +244,9 @@ export async function totpRoutes(app: FastifyInstance) {
     }
 
     // Load user and confirm TOTP is active
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+    });
     if (!user || !user.totpEnabled || !user.totpSecret) {
       return reply.status(401).send({ error: 'MFA not configured for this account' });
     }
@@ -216,7 +258,9 @@ export async function totpRoutes(app: FastifyInstance) {
       const hours = Math.floor(remaining / 60);
       const mins = remaining % 60;
       const timeStr = hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins} minute${mins === 1 ? '' : 's'}`;
-      return reply.status(429).send({ error: `Account temporarily locked. Try again in ${timeStr}.` });
+      return reply.status(429).send({
+        error: `Account temporarily locked. Try again in ${timeStr}.`,
+      });
     }
 
     const codeOk = verifyCode(user.totpSecret, user.username, body.code);
@@ -232,12 +276,21 @@ export async function totpRoutes(app: FastifyInstance) {
         data: {
           failedLoginAttempts: attempts,
           ...(shouldLock
-            ? { loginLockedUntil: new Date(Date.now() + lockMinutes * 60 * 1000), loginLockCount: newLockCount }
+            ? {
+                loginLockedUntil: new Date(Date.now() + lockMinutes * 60 * 1000),
+                loginLockCount: newLockCount,
+              }
             : {}),
         },
       });
       await prisma.adminLog
-        .create({ data: { action: 'LOGIN_FAILED', targetName: user.username, metadata: { attempts, stage: 'totp' } } })
+        .create({
+          data: {
+            action: 'LOGIN_FAILED',
+            targetName: user.username,
+            metadata: { attempts, stage: 'totp' },
+          },
+        })
         .catch(() => {});
       if (shouldLock) {
         await prisma.adminLog
@@ -264,7 +317,9 @@ export async function totpRoutes(app: FastifyInstance) {
           hours > 0
             ? `${hours} hour${hours === 1 ? '' : 's'}${mins > 0 ? ` ${mins} min` : ''}`
             : `${lockMinutes} minutes`;
-        return reply.status(429).send({ error: `Too many failed attempts. Account locked for ${timeStr}.` });
+        return reply.status(429).send({
+          error: `Too many failed attempts. Account locked for ${timeStr}.`,
+        });
       }
       return reply.status(401).send({ error: 'Invalid code' });
     }
@@ -286,7 +341,11 @@ export async function totpRoutes(app: FastifyInstance) {
 
     // Sign a full-session JWT with the incremented tokenVersion
     const token = jwt.sign(
-      { userId: user.id, username: user.username, tokenVersion: updatedUser.tokenVersion },
+      {
+        userId: user.id,
+        username: user.username,
+        tokenVersion: updatedUser.tokenVersion,
+      },
       config.jwtSecret,
       { expiresIn: '1h' },
     );
@@ -294,7 +353,11 @@ export async function totpRoutes(app: FastifyInstance) {
     // Log successful TOTP login in the audit trail
     await prisma.adminLog
       .create({
-        data: { action: 'LOGIN_TOTP', actorName: user.username, targetName: user.username },
+        data: {
+          action: 'LOGIN_TOTP',
+          actorName: user.username,
+          targetName: user.username,
+        },
       })
       .catch(() => {});
 

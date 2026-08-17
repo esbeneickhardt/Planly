@@ -52,7 +52,12 @@ export async function adminChatRoutes(app: FastifyInstance) {
   // only its earliest messages. An optional `q` switches to a search mode instead: most-recent-
   // first, content match, capped at 20 - a different shape of query than the chronological one.
   app.get('/api/admin/chat', { preHandler: requireAdmin }, async (req, reply) => {
-    const { cursor, before, limit = '200', q } = req.query as {
+    const {
+      cursor,
+      before,
+      limit = '200',
+      q,
+    } = req.query as {
       cursor?: string;
       before?: string;
       limit?: string;
@@ -61,7 +66,10 @@ export async function adminChatRoutes(app: FastifyInstance) {
     const query = q?.trim();
     if (query && query.length >= 2) {
       const messages = await prisma.message.findMany({
-        where: { isAdminChat: true, content: { contains: query, mode: 'insensitive' } },
+        where: {
+          isAdminChat: true,
+          content: { contains: query, mode: 'insensitive' },
+        },
         include: MESSAGE_INCLUDE,
         orderBy: { createdAt: 'desc' },
         take: 20,
@@ -122,7 +130,9 @@ export async function adminChatRoutes(app: FastifyInstance) {
     const editBody = validate(editMessageSchema, req.body, reply);
     if (!editBody) return;
     const { content } = editBody;
-    const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
+    const msg = await prisma.message.findFirst({
+      where: { id: messageId, isAdminChat: true },
+    });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
     if (Date.now() - msg.createdAt.getTime() > EDIT_TIMEOUT_MS)
@@ -138,7 +148,9 @@ export async function adminChatRoutes(app: FastifyInstance) {
   // Delete an admin chat message (author only)
   app.delete('/api/admin/chat/:messageId', { preHandler: requireAdmin }, async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
+    const msg = await prisma.message.findFirst({
+      where: { id: messageId, isAdminChat: true },
+    });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
     await prisma.message.delete({ where: { id: messageId } });
@@ -151,14 +163,20 @@ export async function adminChatRoutes(app: FastifyInstance) {
     const body = validate(addReactionSchema, req.body, reply);
     if (!body) return;
     const { emoji } = body;
-    const msg = await prisma.message.findFirst({ where: { id: messageId, isAdminChat: true } });
+    const msg = await prisma.message.findFirst({
+      where: { id: messageId, isAdminChat: true },
+    });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
 
     // Toggle: remove if the user already reacted with this emoji, otherwise add
     const key = { messageId, userId: req.user.userId, emoji };
-    const existing = await prisma.messageReaction.findUnique({ where: { messageId_userId_emoji: key } });
+    const existing = await prisma.messageReaction.findUnique({
+      where: { messageId_userId_emoji: key },
+    });
     if (existing) {
-      await prisma.messageReaction.delete({ where: { messageId_userId_emoji: key } });
+      await prisma.messageReaction.delete({
+        where: { messageId_userId_emoji: key },
+      });
     } else {
       await prisma.messageReaction.create({ data: key });
     }

@@ -21,7 +21,10 @@ export async function connectionRoutes(app: FastifyInstance) {
   app.get('/api/products/:productId/connections', { preHandler: requireAuth }, async (req, reply) => {
     const { productId } = req.params as { productId: string };
     if (!(await requireTabRead(productId, req.user, ['canvas'], reply))) return;
-    const conns = await prisma.productConnection.findMany({ where: { productId }, select: { taskId: true } });
+    const conns = await prisma.productConnection.findMany({
+      where: { productId },
+      select: { taskId: true },
+    });
     reply.send(conns.map((c) => c.taskId));
   });
 
@@ -34,7 +37,9 @@ export async function connectionRoutes(app: FastifyInstance) {
     const body = validate(createConnectionSchema, req.body, reply);
     if (!body) return;
     const { taskId } = body;
-    const task = await prisma.task.findFirst({ where: { id: taskId, productId } });
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, productId },
+    });
     if (!task) return reply.status(404).send({ error: 'Task not found in this product' });
     await prisma.productConnection.upsert({
       where: { productId_taskId: { productId, taskId } },
@@ -46,10 +51,15 @@ export async function connectionRoutes(app: FastifyInstance) {
 
   // Remove a canvas connection edge
   app.delete('/api/products/:productId/connections/:taskId', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, taskId } = req.params as { productId: string; taskId: string };
+    const { productId, taskId } = req.params as {
+      productId: string;
+      taskId: string;
+    };
     if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
     try {
-      await prisma.productConnection.delete({ where: { productId_taskId: { productId, taskId } } });
+      await prisma.productConnection.delete({
+        where: { productId_taskId: { productId, taskId } },
+      });
       reply.send({ ok: true });
     } catch (e) {
       handleNotFound(e, reply);

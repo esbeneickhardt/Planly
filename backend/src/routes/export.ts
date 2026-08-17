@@ -31,7 +31,10 @@ export async function exportRoutes(app: FastifyInstance) {
         },
         orderBy: { createdAt: 'asc' },
       }),
-      prisma.kanbanColumn.findMany({ where: { productId }, orderBy: { order: 'asc' } }),
+      prisma.kanbanColumn.findMany({
+        where: { productId },
+        orderBy: { order: 'asc' },
+      }),
       prisma.sprint.findMany({
         where: { productId },
         include: { sprintTasks: { select: { taskId: true } } },

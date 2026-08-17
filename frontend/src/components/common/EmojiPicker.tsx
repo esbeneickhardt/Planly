@@ -345,12 +345,18 @@ export default function EmojiPicker({ value, onChange }: Props) {
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+      style={{
+        border: '1px solid var(--border)',
+        background: 'var(--surface-2)',
+      }}
     >
       {/* Category header */}
       <div
         className="flex items-center justify-between px-3 py-2"
-        style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
+        style={{
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+        }}
       >
         <button
           type="button"

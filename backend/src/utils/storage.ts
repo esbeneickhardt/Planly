@@ -118,12 +118,13 @@ export function generateFilename(originalName: string, ext: string): string {
     String(now.getSeconds()).padStart(2, '0') +
     '-' +
     String(now.getMilliseconds()).padStart(3, '0');
-  const base = originalName
-    .replace(/\.[^.]+$/, '')        // strip extension
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')   // collapse non-alphanumeric runs to hyphens
-    .replace(/^-+|-+$/g, '')        // trim leading/trailing hyphens
-    .slice(0, 60) || 'file';
+  const base =
+    originalName
+      .replace(/\.[^.]+$/, '') // strip extension
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-') // collapse non-alphanumeric runs to hyphens
+      .replace(/^-+|-+$/g, '') // trim leading/trailing hyphens
+      .slice(0, 60) || 'file';
   return `${ts}_${base}.${ext}`;
 }
 
@@ -192,7 +193,12 @@ export async function deleteFile(filename: string): Promise<void> {
   const s3 = await getS3();
   if (s3) {
     const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
-    await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `${S3_PREFIX}/${safe}` }));
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: `${S3_PREFIX}/${safe}`,
+      }),
+    );
     return;
   }
   await unlink(join(config.uploadsDir, safe));

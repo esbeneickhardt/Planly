@@ -60,15 +60,22 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     // If scoping to a product, verify caller is actually a member of that product
     if (productId) {
       const membership = await prisma.teamMember.findFirst({
-        where: { userId: req.user.userId, team: { products: { some: { id: productId } } } },
+        where: {
+          userId: req.user.userId,
+          team: { products: { some: { id: productId } } },
+        },
       });
       if (!membership) return reply.status(403).send({ error: 'You are not a member of that project' });
     }
 
     // Enforce per-user token limit
-    const existingCount = await prisma.apiToken.count({ where: { userId: req.user.userId } });
+    const existingCount = await prisma.apiToken.count({
+      where: { userId: req.user.userId },
+    });
     if (existingCount >= 25)
-      return reply.status(400).send({ error: 'Maximum 25 tokens allowed per user. Revoke an existing token first.' });
+      return reply.status(400).send({
+        error: 'Maximum 25 tokens allowed per user. Revoke an existing token first.',
+      });
 
     // Generate token value and hash for storage
     // Format: planly_<48 hex chars> = 55 chars total, easy to identify in logs
@@ -90,7 +97,12 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     logAdminEvent('PAT_CREATED', {
       actorName: req.user.username,
       targetName: req.user.username,
-      metadata: { tokenId: token.id, name: name.trim(), scoped: !!productId, readOnly: readOnly ?? false },
+      metadata: {
+        tokenId: token.id,
+        name: name.trim(),
+        scoped: !!productId,
+        readOnly: readOnly ?? false,
+      },
     });
     // Include raw token in response - never stored, never retrievable again
     reply.status(201).send({ ...token, token: rawToken });
@@ -103,7 +115,9 @@ export async function apiTokenRoutes(app: FastifyInstance) {
       where: { id: tokenId, userId: req.user.userId },
       select: { name: true },
     });
-    const { count } = await prisma.apiToken.deleteMany({ where: { id: tokenId, userId: req.user.userId } });
+    const { count } = await prisma.apiToken.deleteMany({
+      where: { id: tokenId, userId: req.user.userId },
+    });
     if (count === 0) return reply.status(404).send({ error: 'Not found' });
     logAdminEvent('PAT_REVOKED', {
       actorName: req.user.username,

@@ -57,7 +57,10 @@ function decryptAuthor<T extends { author: { realName: string | null } | null }>
   if (!obj.author) return obj;
   return {
     ...obj,
-    author: { ...obj.author, realName: obj.author.realName ? safeDecryptValue(obj.author.realName) : null },
+    author: {
+      ...obj.author,
+      realName: obj.author.realName ? safeDecryptValue(obj.author.realName) : null,
+    },
   };
 }
 
@@ -65,7 +68,10 @@ function decryptAuthor<T extends { author: { realName: string | null } | null }>
 async function resolvePermissions(userId: string): Promise<{ isAdmin: boolean; canPost: boolean; enabled: boolean }> {
   const [cfg, user] = await Promise.all([
     getServerConfig(),
-    prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true },
+    }),
   ]);
   const isAdmin = user?.isAdmin ?? false;
   if (isAdmin) return { isAdmin, canPost: true, enabled: cfg.announcementsEnabled };
@@ -76,7 +82,9 @@ async function resolvePermissions(userId: string): Promise<{ isAdmin: boolean; c
   if (cfg.announcementPostRole === 'all') return { isAdmin, canPost: true, enabled: true };
 
   if (cfg.announcementPostRole === 'admin_and_owners') {
-    const ownsProduct = await prisma.product.count({ where: { ownerId: userId, deletedAt: null } });
+    const ownsProduct = await prisma.product.count({
+      where: { ownerId: userId, deletedAt: null },
+    });
     return { isAdmin, canPost: ownsProduct > 0, enabled: true };
   }
 
@@ -93,7 +101,12 @@ export async function announcementRoutes(app: FastifyInstance) {
   // that. This means a team announcement reaches the whole organisation by design.
   app.get('/api/announcements', { preHandler: requireAuth }, async (req, reply) => {
     const { canPost, enabled } = await resolvePermissions(req.user.userId);
-    if (!enabled && !canPost) return reply.send({ announcements: [], canPost: false, enabled: false });
+    if (!enabled && !canPost)
+      return reply.send({
+        announcements: [],
+        canPost: false,
+        enabled: false,
+      });
 
     const { cursor } = req.query as { cursor?: string };
     const announcements = await prisma.announcement.findMany({
@@ -107,7 +120,12 @@ export async function announcementRoutes(app: FastifyInstance) {
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
     });
     const nextCursor = announcements.length === 50 ? (announcements[announcements.length - 1]?.id ?? null) : null;
-    reply.send({ announcements: announcements.map(decryptAuthor), canPost, enabled, nextCursor });
+    reply.send({
+      announcements: announcements.map(decryptAuthor),
+      canPost,
+      enabled,
+      nextCursor,
+    });
   });
 
   // Create an announcement
@@ -124,7 +142,9 @@ export async function announcementRoutes(app: FastifyInstance) {
     // Verify teamId belongs to requester if provided; reused below for the Project Co-Owner
     // role-claim check so we don't look up the same team-membership row twice.
     const teamMembership = teamId
-      ? await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId: req.user.userId } } })
+      ? await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId, userId: req.user.userId } },
+        })
       : null;
     if (teamId && !teamMembership) return reply.status(403).send({ error: 'Not a member of that team.' });
 
@@ -142,7 +162,9 @@ export async function announcementRoutes(app: FastifyInstance) {
     if (postedAsRole === 'Project Co-Owner' && teamMembership?.role !== 'co_owner') postedAsRole = null;
     if (postedAsRole === 'Project Owner') {
       const ownsProduct = teamId
-        ? await prisma.product.count({ where: { teamId, ownerId: req.user.userId, deletedAt: null } })
+        ? await prisma.product.count({
+            where: { teamId, ownerId: req.user.userId, deletedAt: null },
+          })
         : 0;
       if (ownsProduct === 0) postedAsRole = null;
     }
@@ -176,7 +198,10 @@ export async function announcementRoutes(app: FastifyInstance) {
     const existing = await prisma.announcement.findUnique({ where: { id } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { isAdmin: true },
+    });
     if (!user?.isAdmin && existing.authorId !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
 
     // Only admins can pin; team announcements cannot be pinned at all
@@ -205,7 +230,10 @@ export async function announcementRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.announcement.findUnique({ where: { id } });
     if (!existing) return reply.status(404).send({ error: 'Not found' });
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { isAdmin: true },
+    });
     if (!user?.isAdmin && existing.authorId !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
     await prisma.announcement.delete({ where: { id } });
     reply.send({ ok: true });
@@ -216,7 +244,10 @@ export async function announcementRoutes(app: FastifyInstance) {
   // List comments on an announcement
   app.get('/api/announcements/:id/comments', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const announcement = await prisma.announcement.findUnique({ where: { id }, select: { commentsEnabled: true } });
+    const announcement = await prisma.announcement.findUnique({
+      where: { id },
+      select: { commentsEnabled: true },
+    });
     if (!announcement) return reply.status(404).send({ error: 'Not found' });
 
     const { cursor } = req.query as { cursor?: string };
@@ -255,7 +286,9 @@ export async function announcementRoutes(app: FastifyInstance) {
       // Project Owner/Co-Owner are only meaningful relative to the announcement's team, if any -
       // see resolveProjectRoleClaims's doc comment for the no-team-in-scope (server-wide
       // announcement) case, which always comes back false for both.
-      resolveProjectRoleClaims(req.user.userId, { teamId: announcement.teamId ?? undefined }),
+      resolveProjectRoleClaims(req.user.userId, {
+        teamId: announcement.teamId ?? undefined,
+      }),
     ]);
     let postedAsRole: string | null = rawRole ?? null;
     if (postedAsRole === 'Server Owner' && !sender?.isFoundingAdmin) postedAsRole = null;
@@ -264,24 +297,40 @@ export async function announcementRoutes(app: FastifyInstance) {
     if (postedAsRole === 'Project Co-Owner' && !roleClaims.isProjectCoOwner) postedAsRole = null;
 
     const comment = await prisma.announcementComment.create({
-      data: { announcementId: id, authorId: req.user.userId, content: content.trim(), postedAsRole },
+      data: {
+        announcementId: id,
+        authorId: req.user.userId,
+        content: content.trim(),
+        postedAsRole,
+      },
       include: { author: { select: AUTHOR_SELECT } },
     });
     const decrypted = decryptAuthor(comment);
-    broadcastAll('announcement.commented', { announcementId: id, comment: decrypted });
+    broadcastAll('announcement.commented', {
+      announcementId: id,
+      comment: decrypted,
+    });
     reply.status(201).send(decrypted);
   });
 
   // Delete a comment (author or admin)
   app.delete('/api/announcements/:id/comments/:commentId', { preHandler: requireAuth }, async (req, reply) => {
     const { commentId } = req.params as { commentId: string };
-    const comment = await prisma.announcementComment.findUnique({ where: { id: commentId } });
+    const comment = await prisma.announcementComment.findUnique({
+      where: { id: commentId },
+    });
     if (!comment) return reply.status(404).send({ error: 'Not found' });
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { isAdmin: true },
+    });
     if (!user?.isAdmin && comment.authorId !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
     const { announcementId } = comment;
     await prisma.announcementComment.delete({ where: { id: commentId } });
-    broadcastAll('announcement.comment.deleted', { announcementId, commentId });
+    broadcastAll('announcement.comment.deleted', {
+      announcementId,
+      commentId,
+    });
     reply.send({ ok: true });
   });
 }

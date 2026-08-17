@@ -57,7 +57,16 @@ export async function searchRoutes(app: FastifyInstance) {
             { description: { contains: query, mode: 'insensitive' } },
           ],
         },
-        include: { owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } } },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              username: true,
+              realName: true,
+              avatarEmoji: true,
+            },
+          },
+        },
         orderBy: { updatedAt: 'desc' },
         take,
       }),
@@ -72,7 +81,16 @@ export async function searchRoutes(app: FastifyInstance) {
             },
           },
         },
-        include: { owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } } },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              username: true,
+              realName: true,
+              avatarEmoji: true,
+            },
+          },
+        },
         orderBy: { updatedAt: 'desc' },
         take: Math.floor(take / 2),
       }),
@@ -82,7 +100,14 @@ export async function searchRoutes(app: FastifyInstance) {
           content: { contains: query, mode: 'insensitive' },
         },
         include: {
-          author: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
+          author: {
+            select: {
+              id: true,
+              username: true,
+              realName: true,
+              avatarEmoji: true,
+            },
+          },
           task: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -100,7 +125,14 @@ export async function searchRoutes(app: FastifyInstance) {
           },
         },
         include: {
-          author: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
+          author: {
+            select: {
+              id: true,
+              username: true,
+              realName: true,
+              avatarEmoji: true,
+            },
+          },
           conversation: {
             select: {
               id: true,
@@ -109,7 +141,16 @@ export async function searchRoutes(app: FastifyInstance) {
               productId: true,
               participants: {
                 where: { userId: { not: req.user.userId } },
-                select: { user: { select: { id: true, username: true, realName: true, avatarEmoji: true } } },
+                select: {
+                  user: {
+                    select: {
+                      id: true,
+                      username: true,
+                      realName: true,
+                      avatarEmoji: true,
+                    },
+                  },
+                },
               },
             },
           },
@@ -163,7 +204,11 @@ export async function searchRoutes(app: FastifyInstance) {
       .slice(0, Math.floor(take / 2));
 
     reply.send({
-      tasks: allTasks.map((t) => ({ ...t, owner: dec(t.owner), product: productMap[t.productId] })),
+      tasks: allTasks.map((t) => ({
+        ...t,
+        owner: dec(t.owner),
+        product: productMap[t.productId],
+      })),
       messages: mergedMessages,
     });
   });

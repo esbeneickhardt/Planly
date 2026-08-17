@@ -66,7 +66,12 @@ export default function KanbanMilestoneFilter({ milestones, selectedId, onChange
       {open && (
         <div
           className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 overflow-hidden flex flex-col"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 220, maxHeight: 280 }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            width: 220,
+            maxHeight: 280,
+          }}
         >
           <input
             ref={inputRef}
@@ -74,7 +79,10 @@ export default function KanbanMilestoneFilter({ milestones, selectedId, onChange
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search milestones…"
             className="text-xs px-2.5 py-2 bg-transparent outline-none flex-shrink-0"
-            style={{ color: 'var(--text)', borderBottom: '1px solid var(--border)' }}
+            style={{
+              color: 'var(--text)',
+              borderBottom: '1px solid var(--border)',
+            }}
           />
           <div className="overflow-y-auto py-1">
             <button

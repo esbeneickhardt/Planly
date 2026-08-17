@@ -122,109 +122,112 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
 
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
         <div className="overflow-x-auto">
-        <div style={{ minWidth: 720 }}>
-        <div
-          className="flex items-center px-4 py-2.5"
-          style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}
-        >
-          <div
-            className="w-44 flex-shrink-0 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-3)' }}
-          >
-            Member
-          </div>
-          {FEATURE_TABS.map(({ key, label }) => (
+          <div style={{ minWidth: 720 }}>
             <div
-              key={key}
-              className="flex-1 text-center text-xs font-semibold uppercase tracking-wide"
-              style={{ color: 'var(--text-3)' }}
-            >
-              {label}
-            </div>
-          ))}
-          <div
-            className="flex-1 text-center text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-3)' }}
-          >
-            Settings
-          </div>
-        </div>
-        {members.length === 0 && (
-          <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-3)' }}>
-            No members yet.
-          </div>
-        )}
-        {members.map(({ userId, user, role }, idx) => {
-          const isProductOwner = userId === activeProduct.ownerId;
-          const isPrivileged = isProductOwner || role === 'co_owner';
-          return (
-            <div
-              key={userId}
-              className="flex items-center px-4 py-3"
+              className="flex items-center px-4 py-2.5"
               style={{
-                background: idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
-                borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
+                background: 'var(--surface-2)',
+                borderBottom: '1px solid var(--border)',
               }}
             >
-              <div className="w-44 flex-shrink-0 flex items-center gap-2 min-w-0">
-                <span className="text-base flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm truncate" style={{ color: 'var(--text)' }}>
-                      {displayName(user)}
-                    </span>
-                    {isProductOwner && <RoleBadge kind="owner" />}
-                    {!isProductOwner && role === 'co_owner' && <RoleBadge kind="co_owner" />}
-                  </div>
-                </div>
-              </div>
-              {FEATURE_TABS.map(({ key }) => {
-                const level = matrix[userId]?.[key] ?? 'write';
-                return (
-                  <div key={key} className="flex-1 flex justify-center">
-                    {isPrivileged ? (
-                      <StatusPill tone="success">Write</StatusPill>
-                    ) : (
-                      <select
-                        value={level}
-                        onChange={(e) => setLevel(userId, key, e.target.value)}
-                        className="text-xs rounded-lg px-2 py-1 font-medium"
-                        style={{
-                          background:
-                            level === 'write'
-                              ? 'rgba(16,185,129,0.12)'
-                              : level === 'read'
-                                ? 'rgba(245,158,11,0.12)'
-                                : 'rgba(239,68,68,0.12)',
-                          color: level === 'write' ? '#10b981' : level === 'read' ? '#f59e0b' : '#ef4444',
-                          border: `1px solid ${level === 'write' ? 'rgba(16,185,129,0.3)' : level === 'read' ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                          outline: 'none',
-                        }}
-                      >
-                        {LEVELS.map(({ value, label }) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                );
-              })}
               <div
-                className="flex-1 flex justify-center"
-                title={isPrivileged ? 'Access granted by role' : 'Requires co-owner role'}
+                className="w-44 flex-shrink-0 text-xs font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-3)' }}
               >
-                {isPrivileged ? (
-                  <StatusPill tone="success">Write 🔒</StatusPill>
-                ) : (
-                  <StatusPill tone="danger">No access 🔒</StatusPill>
-                )}
+                Member
+              </div>
+              {FEATURE_TABS.map(({ key, label }) => (
+                <div
+                  key={key}
+                  className="flex-1 text-center text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: 'var(--text-3)' }}
+                >
+                  {label}
+                </div>
+              ))}
+              <div
+                className="flex-1 text-center text-xs font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-3)' }}
+              >
+                Settings
               </div>
             </div>
-          );
-        })}
-        </div>
+            {members.length === 0 && (
+              <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-3)' }}>
+                No members yet.
+              </div>
+            )}
+            {members.map(({ userId, user, role }, idx) => {
+              const isProductOwner = userId === activeProduct.ownerId;
+              const isPrivileged = isProductOwner || role === 'co_owner';
+              return (
+                <div
+                  key={userId}
+                  className="flex items-center px-4 py-3"
+                  style={{
+                    background: idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
+                    borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
+                  }}
+                >
+                  <div className="w-44 flex-shrink-0 flex items-center gap-2 min-w-0">
+                    <span className="text-base flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm truncate" style={{ color: 'var(--text)' }}>
+                          {displayName(user)}
+                        </span>
+                        {isProductOwner && <RoleBadge kind="owner" />}
+                        {!isProductOwner && role === 'co_owner' && <RoleBadge kind="co_owner" />}
+                      </div>
+                    </div>
+                  </div>
+                  {FEATURE_TABS.map(({ key }) => {
+                    const level = matrix[userId]?.[key] ?? 'write';
+                    return (
+                      <div key={key} className="flex-1 flex justify-center">
+                        {isPrivileged ? (
+                          <StatusPill tone="success">Write</StatusPill>
+                        ) : (
+                          <select
+                            value={level}
+                            onChange={(e) => setLevel(userId, key, e.target.value)}
+                            className="text-xs rounded-lg px-2 py-1 font-medium"
+                            style={{
+                              background:
+                                level === 'write'
+                                  ? 'rgba(16,185,129,0.12)'
+                                  : level === 'read'
+                                    ? 'rgba(245,158,11,0.12)'
+                                    : 'rgba(239,68,68,0.12)',
+                              color: level === 'write' ? '#10b981' : level === 'read' ? '#f59e0b' : '#ef4444',
+                              border: `1px solid ${level === 'write' ? 'rgba(16,185,129,0.3)' : level === 'read' ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                              outline: 'none',
+                            }}
+                          >
+                            {LEVELS.map(({ value, label }) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div
+                    className="flex-1 flex justify-center"
+                    title={isPrivileged ? 'Access granted by role' : 'Requires co-owner role'}
+                  >
+                    {isPrivileged ? (
+                      <StatusPill tone="success">Write 🔒</StatusPill>
+                    ) : (
+                      <StatusPill tone="danger">No access 🔒</StatusPill>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
       <div className="mt-4">

@@ -53,7 +53,10 @@ function callbackUrl(): string {
 export async function ssoRoutes(app: FastifyInstance) {
   // Returns whether SSO is configured and what to call it on the login button
   app.get('/api/auth/sso/config', async (_req, reply) => {
-    reply.send({ enabled: SSO_ENABLED, providerName: config.oidc.providerName });
+    reply.send({
+      enabled: SSO_ENABLED,
+      providerName: config.oidc.providerName,
+    });
   });
 
   if (!SSO_ENABLED) return;
@@ -70,7 +73,12 @@ export async function ssoRoutes(app: FastifyInstance) {
 
     // Persist state to DB for cross-replica callback validation (10-minute TTL)
     await prisma.ssoState.create({
-      data: { state, codeVerifier, nonce, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
+      data: {
+        state,
+        codeVerifier,
+        nonce,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
     });
 
     // Build and redirect to the IdP authorization URL
@@ -121,7 +129,9 @@ export async function ssoRoutes(app: FastifyInstance) {
 
       // Find existing user by SSO subject, or by email only when IdP-verified
       let user = await prisma.user.findFirst({
-        where: { OR: [{ ssoSub: sub }, ...(emailForLinking ? [{ email: emailForLinking }] : [])] },
+        where: {
+          OR: [{ ssoSub: sub }, ...(emailForLinking ? [{ email: emailForLinking }] : [])],
+        },
       });
 
       if (!user) {
@@ -155,7 +165,11 @@ export async function ssoRoutes(app: FastifyInstance) {
 
       // Issue session cookie and redirect to the app
       const token = jwt.sign(
-        { userId: user.id, username: user.username, tokenVersion: user.tokenVersion },
+        {
+          userId: user.id,
+          username: user.username,
+          tokenVersion: user.tokenVersion,
+        },
         config.jwtSecret,
         { expiresIn: '1h' },
       );

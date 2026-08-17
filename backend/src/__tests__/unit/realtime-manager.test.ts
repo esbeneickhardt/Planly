@@ -28,7 +28,12 @@ const { mockPublish, mockPsubscribe, getPmessageHandler, capturePmessageHandler 
     _handler = h;
   };
   const getPmessageHandler = () => _handler;
-  return { mockPublish, mockPsubscribe, getPmessageHandler, capturePmessageHandler };
+  return {
+    mockPublish,
+    mockPsubscribe,
+    getPmessageHandler,
+    capturePmessageHandler,
+  };
 });
 
 // ── Mock ioredis with a real class so `new Redis()` works ─────────────────
@@ -133,7 +138,11 @@ describe('broadcast (Redis path)', () => {
     broadcast('prod-ts', 'sprint.created', { name: 'Sprint 1' });
     await vi.waitFor(() => expect(mockPublish).toHaveBeenCalled());
     const [, message] = mockPublish.mock.calls[0] as [string, string];
-    const parsed = JSON.parse(message) as { event: string; data: unknown; ts: number };
+    const parsed = JSON.parse(message) as {
+      event: string;
+      data: unknown;
+      ts: number;
+    };
     expect(parsed.event).toBe('sprint.created');
     expect(parsed.data).toEqual({ name: 'Sprint 1' });
     expect(parsed.ts).toBeGreaterThanOrEqual(before);
@@ -144,7 +153,11 @@ describe('broadcast (Redis path)', () => {
     const ws = makeFakeWs();
     joinRoom('prod-redis', ws, userId);
 
-    const payload = JSON.stringify({ event: 'message.created', data: {}, ts: Date.now() });
+    const payload = JSON.stringify({
+      event: 'message.created',
+      data: {},
+      ts: Date.now(),
+    });
     getPmessageHandler()!('planly:room:*', 'planly:room:prod-redis', payload);
 
     expect(ws.send).toHaveBeenCalledWith(payload);

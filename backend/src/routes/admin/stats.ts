@@ -32,7 +32,9 @@ const adminMsgSendSchema = z.object({
   postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
 });
 // Payload for the admin project-status override endpoint
-const productStatusSchema = z.object({ status: z.enum(['active', 'completed', 'archived']) });
+const productStatusSchema = z.object({
+  status: z.enum(['active', 'completed', 'archived']),
+});
 
 export async function adminStatsRoutes(app: FastifyInstance) {
   // List all active projects with owner details, member count, and task count for the admin dashboard
@@ -51,7 +53,12 @@ export async function adminStatsRoutes(app: FastifyInstance) {
         status: true,
         ownerUser: { select: { username: true, avatarEmoji: true } },
         _count: { select: { tasks: { where: { deletedAt: null } } } },
-        team: { select: { _count: { select: { members: true } }, members: { select: { userId: true, role: true } } } },
+        team: {
+          select: {
+            _count: { select: { members: true } },
+            members: { select: { userId: true, role: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -82,9 +89,14 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const body = validate(productStatusSchema, req.body, reply);
     if (!body) return;
-    const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
+    const product = await prisma.product.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    await prisma.product.update({ where: { id }, data: { status: body.status } });
+    await prisma.product.update({
+      where: { id },
+      data: { status: body.status },
+    });
 
     // Entering a locked state revokes every API/app token scoped to this project - see
     // revokeProjectTokens for why this is what keeps the read-only lockdown actually enforced.
@@ -96,7 +108,11 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     logAdminEvent('PRODUCT_STATUS_CHANGED', {
       actorName: req.user.username,
       targetName: product.name,
-      metadata: { productId: id, status: body.status, revokedTokens: revoked },
+      metadata: {
+        productId: id,
+        status: body.status,
+        revokedTokens: revoked,
+      },
     });
     reply.send({ ok: true });
   });
@@ -153,7 +169,9 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) return reply.status(404).send({ error: 'Project not found' });
     if (!product.deletedAt)
-      return reply.status(409).send({ error: 'Project must be soft-deleted before it can be permanently removed' });
+      return reply.status(409).send({
+        error: 'Project must be soft-deleted before it can be permanently removed',
+      });
     await prisma.product.delete({ where: { id } });
     logAdminEvent('PRODUCT_HARD_DELETED', {
       actorName: req.user.username,
@@ -166,11 +184,16 @@ export async function adminStatsRoutes(app: FastifyInstance) {
   // Admin can read any project chat
   app.get('/api/admin/products/:id/messages', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
+    const product = await prisma.product.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     const messages = await prisma.message.findMany({
       where: { productId: id, taskId: null },
-      include: { author: { select: ADMIN_MSG_AUTHOR_SELECT }, reactions: true },
+      include: {
+        author: { select: ADMIN_MSG_AUTHOR_SELECT },
+        reactions: true,
+      },
       orderBy: { createdAt: 'asc' },
     });
     reply.send({ messages: messages.map(decryptMessageAuthor) });
@@ -181,7 +204,9 @@ export async function adminStatsRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const body = validate(adminMsgSendSchema, req.body, reply);
     if (!body) return;
-    const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
+    const product = await prisma.product.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     const [sender, coOwnerMembership] = await Promise.all([
       prisma.user.findUnique({
@@ -191,7 +216,9 @@ export async function adminStatsRoutes(app: FastifyInstance) {
       // Co-ownership is a team-level TeamRole (see product-guard.ts), so check it against the
       // team that owns this specific project - needed for the Project Co-Owner claim below.
       prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId: product.teamId, userId: req.user.userId } },
+        where: {
+          teamId_userId: { teamId: product.teamId, userId: req.user.userId },
+        },
       }),
     ]);
     let postedAsRole: string | null = body.postedAsRole ?? null;
@@ -211,7 +238,10 @@ export async function adminStatsRoutes(app: FastifyInstance) {
         attachments: [],
         postedAsRole,
       },
-      include: { author: { select: ADMIN_MSG_AUTHOR_SELECT }, reactions: true },
+      include: {
+        author: { select: ADMIN_MSG_AUTHOR_SELECT },
+        reactions: true,
+      },
     });
     const decryptedMsg = decryptMessageAuthor(msg);
     broadcast(id, 'message.created', decryptedMsg);
@@ -228,8 +258,17 @@ export async function adminStatsRoutes(app: FastifyInstance) {
       prisma.task.count({ where: { deletedAt: null } }),
       prisma.message.count(),
       prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-      prisma.product.count({ where: { deletedAt: null, createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.product.count({
+        where: { deletedAt: null, createdAt: { gte: thirtyDaysAgo } },
+      }),
     ]);
-    reply.send({ userCount, projectCount, taskCount, messageCount, newUsers, newProjects });
+    reply.send({
+      userCount,
+      projectCount,
+      taskCount,
+      messageCount,
+      newUsers,
+      newProjects,
+    });
   });
 }

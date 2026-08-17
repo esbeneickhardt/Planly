@@ -33,13 +33,19 @@ export default function VerifyEmailPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
       <div
         className="w-full max-w-md text-center p-8 rounded-2xl shadow-lg"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+        }}
       >
         {status === 'pending' && (
           <>
             <div
               className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
-              style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+              style={{
+                borderColor: 'var(--brand)',
+                borderTopColor: 'transparent',
+              }}
             />
             <p style={{ color: 'var(--text-3)' }}>Verifying your email…</p>
           </>

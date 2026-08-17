@@ -25,7 +25,11 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 
 describe('sortTasks', () => {
   it('sorts by name alphabetically (asc/desc)', () => {
-    const tasks = [makeTask({ id: 't1', name: 'Charlie' }), makeTask({ id: 't2', name: 'Alpha' }), makeTask({ id: 't3', name: 'Bravo' })];
+    const tasks = [
+      makeTask({ id: 't1', name: 'Charlie' }),
+      makeTask({ id: 't2', name: 'Alpha' }),
+      makeTask({ id: 't3', name: 'Bravo' }),
+    ];
     const empty = new Map();
     expect(sortTasks(tasks, 'name', 'asc', empty).map((t) => t.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
     expect(sortTasks(tasks, 'name', 'desc', empty).map((t) => t.name)).toEqual(['Charlie', 'Bravo', 'Alpha']);
@@ -73,10 +77,24 @@ describe('sortTasks', () => {
   });
 
   it('sorts non-milestone tasks by the name of the milestone they feed into, unlinked tasks last', () => {
-    const milestoneA = makeTask({ id: 'mA', name: 'Zeta milestone', deadline: '2024-03-01' });
-    const milestoneB = makeTask({ id: 'mB', name: 'Alpha milestone', deadline: '2024-04-01' });
-    const childOfA = makeTask({ id: 'c1', requiredBy: [{ dependentId: 'mA' }] });
-    const childOfB = makeTask({ id: 'c2', requiredBy: [{ dependentId: 'mB' }] });
+    const milestoneA = makeTask({
+      id: 'mA',
+      name: 'Zeta milestone',
+      deadline: '2024-03-01',
+    });
+    const milestoneB = makeTask({
+      id: 'mB',
+      name: 'Alpha milestone',
+      deadline: '2024-04-01',
+    });
+    const childOfA = makeTask({
+      id: 'c1',
+      requiredBy: [{ dependentId: 'mA' }],
+    });
+    const childOfB = makeTask({
+      id: 'c2',
+      requiredBy: [{ dependentId: 'mB' }],
+    });
     const unlinked = makeTask({ id: 'c3' });
     const all = [childOfA, childOfB, unlinked, milestoneA, milestoneB];
     const primaryMilestones = computePrimaryMilestones(all);

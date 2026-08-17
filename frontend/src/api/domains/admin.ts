@@ -26,18 +26,39 @@ export const admin = {
       }[]
     >('/api/admin/users'),
   promote: (userId: string) =>
-    request<{ ok: boolean }>(`/api/admin/users/${userId}/promote`, { method: 'PUT', body: json({}) }),
+    request<{ ok: boolean }>(`/api/admin/users/${userId}/promote`, {
+      method: 'PUT',
+      body: json({}),
+    }),
   demote: (userId: string) =>
-    request<{ ok: boolean }>(`/api/admin/users/${userId}/demote`, { method: 'PUT', body: json({}) }),
+    request<{ ok: boolean }>(`/api/admin/users/${userId}/demote`, {
+      method: 'PUT',
+      body: json({}),
+    }),
   transferCrown: (userId: string) =>
-    request<{ ok: boolean }>('/api/admin/transfer-crown', { method: 'PUT', body: json({ userId }) }),
+    request<{ ok: boolean }>('/api/admin/transfer-crown', {
+      method: 'PUT',
+      body: json({ userId }),
+    }),
   verifyEmail: (userId: string) =>
-    request<{ ok: boolean }>(`/api/admin/users/${userId}/verify-email`, { method: 'PUT', body: json({}) }),
-  deleteUser: (userId: string) => request<{ ok: boolean }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
+    request<{ ok: boolean }>(`/api/admin/users/${userId}/verify-email`, {
+      method: 'PUT',
+      body: json({}),
+    }),
+  deleteUser: (userId: string) =>
+    request<{ ok: boolean }>(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+    }),
   unlock: (userId: string) =>
-    request<{ ok: boolean }>(`/api/admin/users/${userId}/unlock`, { method: 'PUT', body: json({}) }),
+    request<{ ok: boolean }>(`/api/admin/users/${userId}/unlock`, {
+      method: 'PUT',
+      body: json({}),
+    }),
   forceLogout: (userId: string) =>
-    request<{ ok: boolean }>(`/api/admin/users/${userId}/force-logout`, { method: 'PUT', body: json({}) }),
+    request<{ ok: boolean }>(`/api/admin/users/${userId}/force-logout`, {
+      method: 'PUT',
+      body: json({}),
+    }),
   resetPassword: (userId: string) =>
     request<{ ok: boolean; tempPassword: string }>(`/api/admin/users/${userId}/reset-password`, {
       method: 'POST',
@@ -49,7 +70,10 @@ export const admin = {
       method: 'POST',
       body: json({ pattern, type }),
     }),
-  removeWhitelist: (id: string) => request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, { method: 'DELETE' }),
+  removeWhitelist: (id: string) =>
+    request<{ ok: boolean }>(`/api/admin/whitelist/${id}`, {
+      method: 'DELETE',
+    }),
   serverConfig: () =>
     request<{
       adminEmail: string | null;
@@ -76,29 +100,70 @@ export const admin = {
     }),
   ipRestrictions: () =>
     request<{
-      allowlistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[];
-      blocklistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[];
+      allowlistRules: {
+        id: string;
+        cidr: string;
+        listType: string;
+        description: string | null;
+        createdAt: string;
+      }[];
+      blocklistRules: {
+        id: string;
+        cidr: string;
+        listType: string;
+        description: string | null;
+        createdAt: string;
+      }[];
       yourIp: string;
     }>('/api/admin/ip-restrictions'),
   addIpRule: (cidr: string, listType: 'allowlist' | 'blocklist', description?: string) =>
-    request<{ id: string; cidr: string; listType: string; description: string | null; createdAt: string }>(
-      '/api/admin/ip-restrictions',
-      { method: 'POST', body: json({ cidr, listType, description }) },
-    ),
-  removeIpRule: (id: string) => request<{ ok: boolean }>(`/api/admin/ip-restrictions/${id}`, { method: 'DELETE' }),
+    request<{
+      id: string;
+      cidr: string;
+      listType: string;
+      description: string | null;
+      createdAt: string;
+    }>('/api/admin/ip-restrictions', {
+      method: 'POST',
+      body: json({ cidr, listType, description }),
+    }),
+  removeIpRule: (id: string) =>
+    request<{ ok: boolean }>(`/api/admin/ip-restrictions/${id}`, {
+      method: 'DELETE',
+    }),
   adminIpRestrictions: () =>
     request<{
-      allowlistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[];
-      blocklistRules: { id: string; cidr: string; listType: string; description: string | null; createdAt: string }[];
+      allowlistRules: {
+        id: string;
+        cidr: string;
+        listType: string;
+        description: string | null;
+        createdAt: string;
+      }[];
+      blocklistRules: {
+        id: string;
+        cidr: string;
+        listType: string;
+        description: string | null;
+        createdAt: string;
+      }[];
       yourIp: string;
     }>('/api/admin/admin-ip-restrictions'),
   addAdminIpRule: (cidr: string, listType: 'allowlist' | 'blocklist', description?: string) =>
-    request<{ id: string; cidr: string; listType: string; description: string | null; createdAt: string }>(
-      '/api/admin/admin-ip-restrictions',
-      { method: 'POST', body: json({ cidr, listType, description }) },
-    ),
+    request<{
+      id: string;
+      cidr: string;
+      listType: string;
+      description: string | null;
+      createdAt: string;
+    }>('/api/admin/admin-ip-restrictions', {
+      method: 'POST',
+      body: json({ cidr, listType, description }),
+    }),
   removeAdminIpRule: (id: string) =>
-    request<{ ok: boolean }>(`/api/admin/admin-ip-restrictions/${id}`, { method: 'DELETE' }),
+    request<{ ok: boolean }>(`/api/admin/admin-ip-restrictions/${id}`, {
+      method: 'DELETE',
+    }),
   adminNotifications: () =>
     request<{
       entries: {
@@ -136,7 +201,9 @@ export const admin = {
     if (params?.action) qs.set('action', params.action);
     if (params?.from) qs.set('from', params.from);
     if (params?.to) qs.set('to', params.to);
-    const res = await fetch(`/api/admin/logs/export?${qs}`, { credentials: 'include' });
+    const res = await fetch(`/api/admin/logs/export?${qs}`, {
+      credentials: 'include',
+    });
     if (!res.ok) throw new Error('Export failed');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -171,7 +238,10 @@ export const admin = {
       }[]
     >('/api/admin/projects'),
   updateProjectStatus: (id: string, status: 'active' | 'completed' | 'archived') =>
-    request<{ ok: boolean }>(`/api/admin/products/${id}/status`, { method: 'PATCH', body: json({ status }) }),
+    request<{ ok: boolean }>(`/api/admin/products/${id}/status`, {
+      method: 'PATCH',
+      body: json({ status }),
+    }),
   deletedProjects: () =>
     request<
       {
@@ -187,7 +257,10 @@ export const admin = {
       }[]
     >('/api/admin/projects/deleted'),
   restoreProject: (id: string) =>
-    request<{ ok: boolean }>(`/api/admin/products/${id}/restore`, { method: 'POST', body: json({}) }),
+    request<{ ok: boolean }>(`/api/admin/products/${id}/restore`, {
+      method: 'POST',
+      body: json({}),
+    }),
   hardDeleteProject: (id: string) => request<{ ok: boolean }>(`/api/admin/products/${id}`, { method: 'DELETE' }),
   stats: () =>
     request<{

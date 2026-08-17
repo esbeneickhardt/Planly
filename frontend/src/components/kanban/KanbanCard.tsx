@@ -124,7 +124,11 @@ function CardContent({
         <button
           onClick={() => onOpenDetail(task)}
           className={`text-sm font-medium text-left flex-1 min-w-0 leading-snug hover:underline ${simpleMode ? '' : 'mb-1.5'}`}
-          style={{ color: 'var(--text)', wordBreak: 'break-word', whiteSpace: 'normal' }}
+          style={{
+            color: 'var(--text)',
+            wordBreak: 'break-word',
+            whiteSpace: 'normal',
+          }}
           title="Long-press to open this task's chat"
           {...longPressChat}
         >
@@ -159,7 +163,12 @@ function CardContent({
                   onClick={(e) => e.stopPropagation()}
                   onPointerDown={(e) => e.stopPropagation()}
                   className="rounded-xl shadow-xl overflow-hidden animate-dropdown-in"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 180, ...dropdownStyle }}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    minWidth: 180,
+                    ...dropdownStyle,
+                  }}
                 >
                   <button
                     onClick={() => {
@@ -167,7 +176,10 @@ function CardContent({
                       setShowStatusMenu(false);
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left"
-                    style={{ color: 'var(--text)', borderBottom: onQuickStatusChange ? '1px solid var(--border)' : 'none' }}
+                    style={{
+                      color: 'var(--text)',
+                      borderBottom: onQuickStatusChange ? '1px solid var(--border)' : 'none',
+                    }}
                   >
                     <span className="flex-shrink-0">💬</span>
                     <span className="flex-1">Open chat</span>
@@ -220,9 +232,15 @@ function CardContent({
             {isMilestone && (
               <span
                 className="text-xs px-1.5 py-0.5 rounded font-medium flex items-center gap-1"
-                style={{ background: `${milestoneColor ?? '#f59e0b'}26`, color: milestoneColor ?? '#f59e0b' }}
+                style={{
+                  background: `${milestoneColor ?? '#f59e0b'}26`,
+                  color: milestoneColor ?? '#f59e0b',
+                }}
               >
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? '#f59e0b' }} />
+                <span
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ background: milestoneColor ?? '#f59e0b' }}
+                />
                 Milestone
               </span>
             )}
@@ -242,8 +260,15 @@ function CardContent({
           </div>
 
           {!isMilestone && primaryMilestone && (
-            <p className="text-xs truncate mt-1 flex items-center gap-1.5" style={{ color: 'var(--text-3)' }} title={primaryMilestone.name}>
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? 'var(--text-3)' }} />
+            <p
+              className="text-xs truncate mt-1 flex items-center gap-1.5"
+              style={{ color: 'var(--text-3)' }}
+              title={primaryMilestone.name}
+            >
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: milestoneColor ?? 'var(--text-3)' }}
+              />
               {primaryMilestone.name}
             </p>
           )}
@@ -336,7 +361,9 @@ export default function KanbanCard({
 
   async function toggleSubtask(s: Subtask) {
     if (!activeProduct) return;
-    await api.subtasks.update(activeProduct.id, task.id, s.id, { completed: !s.completed });
+    await api.subtasks.update(activeProduct.id, task.id, s.id, {
+      completed: !s.completed,
+    });
     await refreshTasks();
   }
 
@@ -353,7 +380,10 @@ export default function KanbanCard({
   // Overlay render: static, non-interactive clone shown under the cursor during drag
   if (isOverlay) {
     return (
-      <div className="card rounded-xl overflow-hidden shadow-2xl" style={{ borderLeft: borderStyle, cursor: 'grabbing' }}>
+      <div
+        className="card rounded-xl overflow-hidden shadow-2xl"
+        style={{ borderLeft: borderStyle, cursor: 'grabbing' }}
+      >
         <CardContent
           task={task}
           onOpenDetail={() => {}}

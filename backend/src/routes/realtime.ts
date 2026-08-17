@@ -29,7 +29,10 @@ export async function realtimeRoutes(app: FastifyInstance) {
     const { productId } = req.params as { productId: string };
     const userId = req.user.userId;
     const member = await prisma.teamMember.findFirst({
-      where: { userId, team: { products: { some: { id: productId, deletedAt: null } } } },
+      where: {
+        userId,
+        team: { products: { some: { id: productId, deletedAt: null } } },
+      },
     });
     if (!member) return reply.status(403).send({ error: 'Forbidden' });
     const ticket = await issueTicket(userId);
@@ -52,12 +55,17 @@ export async function realtimeRoutes(app: FastifyInstance) {
     const cookieToken = req.cookies?.token;
     if (cookieToken) {
       try {
-        const payload = jwt.verify(cookieToken, config.jwtSecret, { algorithms: ['HS256'] }) as AuthPayload;
+        const payload = jwt.verify(cookieToken, config.jwtSecret, {
+          algorithms: ['HS256'],
+        }) as AuthPayload;
         if (typeof payload.tokenVersion !== 'number') {
           ws.close(1008, 'Unauthorized');
           return;
         }
-        const userRow = await prisma.user.findUnique({ where: { id: payload.userId }, select: { tokenVersion: true } });
+        const userRow = await prisma.user.findUnique({
+          where: { id: payload.userId },
+          select: { tokenVersion: true },
+        });
         if (!userRow || userRow.tokenVersion !== payload.tokenVersion) {
           ws.close(1008, 'Unauthorized');
           return;
@@ -104,14 +112,24 @@ export async function realtimeRoutes(app: FastifyInstance) {
     // middleware/auth.ts only guards ordinary Bearer-authenticated HTTP requests - this WebSocket
     // upgrade authenticates itself independently above and never goes through that check.
     if (patScopedProductId && patScopedProductId !== productId) {
-      ws.send(JSON.stringify({ event: 'error', data: 'Token is not authorized for this project' }));
+      ws.send(
+        JSON.stringify({
+          event: 'error',
+          data: 'Token is not authorized for this project',
+        }),
+      );
       ws.close(1008, 'Forbidden');
       return;
     }
 
     // Per-IP connection rate limit - rejects upgrade storms before any DB work
     if (!checkWsRateLimit(getClientIp(req as never))) {
-      ws.send(JSON.stringify({ event: 'error', data: 'Too many connections from your IP' }));
+      ws.send(
+        JSON.stringify({
+          event: 'error',
+          data: 'Too many connections from your IP',
+        }),
+      );
       ws.close(1008, 'Rate limited');
       return;
     }
@@ -126,7 +144,13 @@ export async function realtimeRoutes(app: FastifyInstance) {
     // Verify membership
     const product = await prisma.product.findFirst({
       where: { id: productId, deletedAt: null },
-      select: { team: { select: { members: { where: { userId }, select: { userId: true } } } } },
+      select: {
+        team: {
+          select: {
+            members: { where: { userId }, select: { userId: true } },
+          },
+        },
+      },
     });
     if (!product || product.team.members.length === 0) {
       ws.send(JSON.stringify({ event: 'error', data: 'Forbidden' }));

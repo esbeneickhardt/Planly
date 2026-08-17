@@ -40,7 +40,9 @@ export async function inviteRoutes(app: FastifyInstance) {
 
     const invites = await prisma.teamInvite.findMany({
       where: { teamId, usedAt: null, expiresAt: { gt: new Date() } },
-      include: { toUser: { select: { id: true, username: true, avatarEmoji: true } } },
+      include: {
+        toUser: { select: { id: true, username: true, avatarEmoji: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
     reply.send(
@@ -76,7 +78,13 @@ export async function inviteRoutes(app: FastifyInstance) {
     const resolvedMaxUses = email ? 1 : (maxUses ?? null);
 
     const invite = await prisma.teamInvite.create({
-      data: { teamId, email: email?.toLowerCase().trim() ?? null, token, expiresAt, maxUses: resolvedMaxUses },
+      data: {
+        teamId,
+        email: email?.toLowerCase().trim() ?? null,
+        token,
+        expiresAt,
+        maxUses: resolvedMaxUses,
+      },
     });
 
     const inviteUrl = `${config.appUrl}/invite/${token}`;
@@ -104,7 +112,10 @@ export async function inviteRoutes(app: FastifyInstance) {
 
   // Revoke invite (admins only)
   app.delete('/api/teams/:teamId/invites/:inviteId', { preHandler: requireAuth }, async (req, reply) => {
-    const { teamId, inviteId } = req.params as { teamId: string; inviteId: string };
+    const { teamId, inviteId } = req.params as {
+      teamId: string;
+      inviteId: string;
+    };
     if (!(await requireTeamScopeMatch(teamId, req.user, reply))) return;
     const ctx = await getTeamAdmin(teamId, req.user.userId);
     if (!ctx) return reply.status(404).send({ error: 'Not found' });
@@ -116,10 +127,19 @@ export async function inviteRoutes(app: FastifyInstance) {
   // List pending user-targeted invites addressed to the current user
   app.get('/api/invites/pending', { preHandler: requireAuth }, async (req, reply) => {
     const pending = await prisma.teamInvite.findMany({
-      where: { toUserId: req.user.userId, usedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        toUserId: req.user.userId,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       include: {
         team: {
-          include: { products: { select: { id: true, name: true, emoji: true }, take: 1 } },
+          include: {
+            products: {
+              select: { id: true, name: true, emoji: true },
+              take: 1,
+            },
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -148,7 +168,12 @@ export async function inviteRoutes(app: FastifyInstance) {
     if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
       return reply.status(404).send({ error: 'Invite not found or expired' });
     }
-    reply.send({ teamId: invite.teamId, teamName: invite.team.name, email: invite.email, expiresAt: invite.expiresAt });
+    reply.send({
+      teamId: invite.teamId,
+      teamName: invite.team.name,
+      email: invite.email,
+      expiresAt: invite.expiresAt,
+    });
   });
 
   // Accept invite (requires auth)
@@ -169,9 +194,14 @@ export async function inviteRoutes(app: FastifyInstance) {
       }
     } else if (invite.email) {
       // Email-targeted invites: validate by email address
-      const acceptingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { email: true } });
+      const acceptingUser = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { email: true },
+      });
       if (!acceptingUser || invite.email.toLowerCase() !== acceptingUser.email.toLowerCase()) {
-        return reply.status(403).send({ error: 'This invite was sent to a different email address' });
+        return reply.status(403).send({
+          error: 'This invite was sent to a different email address',
+        });
       }
     }
 
@@ -189,23 +219,34 @@ export async function inviteRoutes(app: FastifyInstance) {
         data: { useCount: { increment: 1 } },
       });
       if (count === 0) {
-        return reply.status(400).send({ error: 'This invite has reached its maximum number of uses.' });
+        return reply.status(400).send({
+          error: 'This invite has reached its maximum number of uses.',
+        });
       }
       // This request's increment may have just hit the cap - mark the invite exhausted so the
       // admin invite list and the public invite-info endpoint stop showing it as active. Safe if
       // a concurrently-winning request does this too (idempotent - both just set the same flag).
       await prisma.teamInvite.updateMany({
-        where: { id: invite.id, useCount: { gte: invite.maxUses }, usedAt: null },
+        where: {
+          id: invite.id,
+          useCount: { gte: invite.maxUses },
+          usedAt: null,
+        },
         data: { usedAt: new Date() },
       });
     } else {
       // Unlimited invite - no cap to race against, a plain increment is safe.
-      await prisma.teamInvite.update({ where: { id: invite.id }, data: { useCount: { increment: 1 } } });
+      await prisma.teamInvite.update({
+        where: { id: invite.id },
+        data: { useCount: { increment: 1 } },
+      });
     }
 
     // Add to team - only reached once this request's use of the invite is confirmed reserved above.
     await prisma.teamMember.upsert({
-      where: { teamId_userId: { teamId: invite.teamId, userId: req.user.userId } },
+      where: {
+        teamId_userId: { teamId: invite.teamId, userId: req.user.userId },
+      },
       create: { teamId: invite.teamId, userId: req.user.userId },
       update: {},
     });
@@ -215,10 +256,19 @@ export async function inviteRoutes(app: FastifyInstance) {
       targetName: invite.team.name,
       // Best-effort - under concurrent accepts the true count may have moved past this by the
       // time this log line is written; it's informational only and never used for enforcement.
-      metadata: { inviteId: invite.id, teamId: invite.teamId, useCount: invite.useCount + 1, maxUses: invite.maxUses },
+      metadata: {
+        inviteId: invite.id,
+        teamId: invite.teamId,
+        useCount: invite.useCount + 1,
+        maxUses: invite.maxUses,
+      },
     });
 
-    reply.send({ ok: true, teamId: invite.teamId, teamName: invite.team.name });
+    reply.send({
+      ok: true,
+      teamId: invite.teamId,
+      teamName: invite.team.name,
+    });
   });
 
   // Decline a user-targeted invite (only the intended recipient can decline)

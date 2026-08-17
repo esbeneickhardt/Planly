@@ -65,7 +65,11 @@ const CONCEPTS = [
 ];
 
 const PRINCIPLES = [
-  { icon: '👤', heading: 'One owner per task', body: 'Accountability is unambiguous - no "the team owns it."' },
+  {
+    icon: '👤',
+    heading: 'One owner per task',
+    body: 'Accountability is unambiguous - no "the team owns it."',
+  },
   {
     icon: '💬',
     heading: 'Every task has its own chat',
@@ -76,9 +80,21 @@ const PRINCIPLES = [
     heading: 'Tasks flow through states',
     body: 'Columns show work state, not org charts. The board shows reality.',
   },
-  { icon: '⛓', heading: 'Dependencies are explicit', body: 'Blockers are visible before they become crises.' },
-  { icon: '📌', heading: 'Milestones mark commitments', body: 'A milestone is a commitment, not just a grouping.' },
-  { icon: '⚡', heading: 'Sub-plans are optional', body: 'Filter by "All sub-plans" if your team doesn\'t cycle.' },
+  {
+    icon: '⛓',
+    heading: 'Dependencies are explicit',
+    body: 'Blockers are visible before they become crises.',
+  },
+  {
+    icon: '📌',
+    heading: 'Milestones mark commitments',
+    body: 'A milestone is a commitment, not just a grouping.',
+  },
+  {
+    icon: '⚡',
+    heading: 'Sub-plans are optional',
+    body: 'Filter by "All sub-plans" if your team doesn\'t cycle.',
+  },
   {
     icon: '🔑',
     heading: 'Granular permissions',
@@ -92,9 +108,21 @@ const PRINCIPLES = [
 ];
 
 const PAGES = [
-  { id: 'flow', title: 'The flow', subtitle: 'Three views, one coherent pipeline from planning to delivery.' },
-  { id: 'concepts', title: 'Key concepts', subtitle: 'The building blocks that connect all three views.' },
-  { id: 'principles', title: 'How we work', subtitle: 'The principles that make Planly different.' },
+  {
+    id: 'flow',
+    title: 'The flow',
+    subtitle: 'Three views, one coherent pipeline from planning to delivery.',
+  },
+  {
+    id: 'concepts',
+    title: 'Key concepts',
+    subtitle: 'The building blocks that connect all three views.',
+  },
+  {
+    id: 'principles',
+    title: 'How we work',
+    subtitle: 'The principles that make Planly different.',
+  },
 ];
 
 export default function PlanlyVisionModal({ onClose }: Props) {
@@ -130,18 +158,17 @@ export default function PlanlyVisionModal({ onClose }: Props) {
     >
       <div
         className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '92vh' }}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          maxHeight: '92vh',
+        }}
       >
         {/* Header - fixed */}
         <div className="px-9 pt-7 pb-5 flex-shrink-0 flex items-start justify-between">
           <div className="flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
-              <img
-                src="/icons/p.png"
-                alt="Planly"
-                className="w-full h-full object-contain"
-               
-              />
+              <img src="/icons/p.png" alt="Planly" className="w-full h-full object-contain" />
             </div>
             <div>
               <h2 className="text-lg font-bold leading-tight" style={{ color: 'var(--text)' }}>
@@ -176,7 +203,10 @@ export default function PlanlyVisionModal({ onClose }: Props) {
                   {/* Step badge */}
                   <div
                     className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 z-10 gap-0.5"
-                    style={{ background: phase.color + '22', border: `2px solid ${phase.color}` }}
+                    style={{
+                      background: phase.color + '22',
+                      border: `2px solid ${phase.color}`,
+                    }}
                   >
                     <span className="text-2xl leading-none">{phase.icon}</span>
                     <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: phase.color }}>
@@ -186,7 +216,10 @@ export default function PlanlyVisionModal({ onClose }: Props) {
                   {/* Text */}
                   <div
                     className="flex-1 rounded-2xl p-5"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                    style={{
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border)',
+                    }}
                   >
                     <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: phase.color }}>
                       {phase.label}
@@ -210,7 +243,10 @@ export default function PlanlyVisionModal({ onClose }: Props) {
                 <div
                   key={term}
                   className="flex gap-4 p-4 rounded-xl"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}
                 >
                   <span
                     className="w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0"
@@ -236,7 +272,10 @@ export default function PlanlyVisionModal({ onClose }: Props) {
                 <div
                   key={heading}
                   className="flex gap-3 p-4 rounded-xl"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}
                 >
                   <span className="text-xl flex-shrink-0 leading-none mt-0.5">{icon}</span>
                   <div>

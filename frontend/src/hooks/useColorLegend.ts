@@ -34,7 +34,10 @@ export function useColorLegend(productId: string) {
   const [legend, setLegend] = useState<ColorLegend>(DEFAULT_NAMES);
   const [enabledSet, setEnabledSet] = useState<Set<string>>(new Set(PRESET_COLORS));
   const [loaded, setLoaded] = useState(false);
-  const stateRef = useRef({ legend: DEFAULT_NAMES, enabledSet: new Set<string>(PRESET_COLORS) });
+  const stateRef = useRef({
+    legend: DEFAULT_NAMES,
+    enabledSet: new Set<string>(PRESET_COLORS),
+  });
 
   useEffect(() => {
     if (!productId) return;
@@ -94,5 +97,12 @@ export function useColorLegend(productId: string) {
 
   const enabledColors = PRESET_COLORS.filter((c) => enabledSet.has(c));
 
-  return { legend, update, toggleEnabled, colors: PRESET_COLORS, enabledColors, loaded };
+  return {
+    legend,
+    update,
+    toggleEnabled,
+    colors: PRESET_COLORS,
+    enabledColors,
+    loaded,
+  };
 }

@@ -199,7 +199,9 @@ export default function GanttTimelineBars({
                         >
                           <span
                             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                            style={{ background: STATUS_COLOR[t.status] ?? '#64748b' }}
+                            style={{
+                              background: STATUS_COLOR[t.status] ?? '#64748b',
+                            }}
                           />
                           <span
                             className="flex-1 truncate"
@@ -229,7 +231,10 @@ export default function GanttTimelineBars({
         <div className="flex flex-col items-center justify-center h-full gap-3 px-8 text-center">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
           >
             🗓
           </div>
@@ -383,7 +388,10 @@ export default function GanttTimelineBars({
                       return (
                         <div key={d.id}>
                           {isFirstDone && m.doneDependencies > 0 && m.doneDependencies < m.totalDependencies && (
-                            <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>
+                            <div
+                              className="text-[10px] uppercase tracking-wide pt-1 pb-0.5"
+                              style={{ color: 'var(--text-3)' }}
+                            >
                               Completed
                             </div>
                           )}
@@ -397,7 +405,9 @@ export default function GanttTimelineBars({
                           >
                             <span
                               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                              style={{ background: STATUS_COLOR[d.status] ?? '#64748b' }}
+                              style={{
+                                background: STATUS_COLOR[d.status] ?? '#64748b',
+                              }}
                             />
                             <span
                               className="flex-1 truncate"
@@ -412,7 +422,10 @@ export default function GanttTimelineBars({
                             {!d.ownerId && !isDone && (
                               <span
                                 className="text-[10px] px-1 rounded flex-shrink-0"
-                                style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}
+                                style={{
+                                  background: 'rgba(239,68,68,0.12)',
+                                  color: '#ef4444',
+                                }}
                               >
                                 unassigned
                               </span>
@@ -423,7 +436,13 @@ export default function GanttTimelineBars({
                     })}
                   </div>
                   {m.unassignedDeps > 0 && (
-                    <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
+                    <p
+                      className="text-[11px] mt-2 pt-2"
+                      style={{
+                        color: '#f59e0b',
+                        borderTop: '1px solid var(--border)',
+                      }}
+                    >
                       ⚠ {m.unassignedDeps} unassigned blocking
                     </p>
                   )}
@@ -553,7 +572,10 @@ export default function GanttTimelineBars({
                   return (
                     <div key={m.id}>
                       {isFirstDone && doneCount > 0 && doneCount < milestones.length && (
-                        <div className="text-[10px] uppercase tracking-wide pt-1 pb-0.5" style={{ color: 'var(--text-3)' }}>
+                        <div
+                          className="text-[10px] uppercase tracking-wide pt-1 pb-0.5"
+                          style={{ color: 'var(--text-3)' }}
+                        >
                           Completed
                         </div>
                       )}
@@ -573,7 +595,10 @@ export default function GanttTimelineBars({
                             ✓
                           </span>
                         ) : (
-                          <span className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0" style={{ borderColor: progressColor(m) }} />
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0"
+                            style={{ borderColor: progressColor(m) }}
+                          />
                         )}
                         <span
                           className="flex-1 truncate"
@@ -586,15 +611,26 @@ export default function GanttTimelineBars({
                           {m.name}
                         </span>
                         <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
-                          {new Date(m.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                          {new Date(m.deadline).toLocaleDateString('en', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
                         </span>
                       </button>
                     </div>
                   );
                 })}
               </div>
-              {milestones.some((m) => m.status !== 'done' && m.doneDependencies < m.totalDependencies && m.totalDependencies > 0) && (
-                <p className="text-[11px] mt-2 pt-2" style={{ color: '#f59e0b', borderTop: '1px solid var(--border)' }}>
+              {milestones.some(
+                (m) => m.status !== 'done' && m.doneDependencies < m.totalDependencies && m.totalDependencies > 0,
+              ) && (
+                <p
+                  className="text-[11px] mt-2 pt-2"
+                  style={{
+                    color: '#f59e0b',
+                    borderTop: '1px solid var(--border)',
+                  }}
+                >
                   ⚠ Some milestones have incomplete tasks
                 </p>
               )}

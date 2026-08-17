@@ -30,13 +30,25 @@ describe.skipIf(!HAS_DB)('Conversation project scoping', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const alice = await createTestUser({ username: `alice_${suffix}`, email: `alice_${suffix}@example.com` });
-    const bob = await createTestUser({ username: `bob_${suffix}`, email: `bob_${suffix}@example.com` });
+    const alice = await createTestUser({
+      username: `alice_${suffix}`,
+      email: `alice_${suffix}@example.com`,
+    });
+    const bob = await createTestUser({
+      username: `bob_${suffix}`,
+      email: `bob_${suffix}@example.com`,
+    });
     // A third team-A member, needed alongside bob for group tests (groups require 2+ other
     // participants besides the creator - a single extra participant is just a DM).
-    const dave = await createTestUser({ username: `dave_${suffix}`, email: `dave_${suffix}@example.com` });
+    const dave = await createTestUser({
+      username: `dave_${suffix}`,
+      email: `dave_${suffix}@example.com`,
+    });
     // Carol belongs to no team at all - a clean "outside the project" user.
-    const carol = await createTestUser({ username: `carol_${suffix}`, email: `carol_${suffix}@example.com` });
+    const carol = await createTestUser({
+      username: `carol_${suffix}`,
+      email: `carol_${suffix}@example.com`,
+    });
     // A genuine server admin (isAdmin: true) - the only identity allowed to actually use
     // isAdminChat: true (see the "isAdminChat can't be self-claimed" tests below).
     const admin = await createTestUser({
@@ -62,31 +74,50 @@ describe.skipIf(!HAS_DB)('Conversation project scoping', () => {
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { identifier: `alice_${suffix}@example.com`, password: 'test-password-123' },
+      payload: {
+        identifier: `alice_${suffix}@example.com`,
+        password: 'test-password-123',
+      },
     });
     aliceCookie = loginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
 
     const adminLoginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { identifier: `admin_${suffix}@example.com`, password: 'test-password-123' },
+      payload: {
+        identifier: `admin_${suffix}@example.com`,
+        password: 'test-password-123',
+      },
     });
     adminCookie = adminLoginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
   });
 
   afterAll(async () => {
     await prisma.conversation.deleteMany({
-      where: { OR: [{ productId: { in: [productAId, productBId] } }, { isAdminChat: true, participants: { some: { userId: adminId } } }] },
+      where: {
+        OR: [
+          { productId: { in: [productAId, productBId] } },
+          { isAdminChat: true, participants: { some: { userId: adminId } } },
+        ],
+      },
     });
-    await prisma.product.deleteMany({ where: { id: { in: [productAId, productBId] } } });
+    await prisma.product.deleteMany({
+      where: { id: { in: [productAId, productBId] } },
+    });
     await prisma.team.deleteMany({ where: { id: teamAId } });
-    await prisma.user.deleteMany({ where: { id: { in: [aliceId, bobId, daveId, carolId, adminId] } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [aliceId, bobId, daveId, carolId, adminId] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
 
   it('GET /api/conversations without admin or productId is rejected', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/conversations', headers: { cookie: aliceCookie } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/conversations',
+      headers: { cookie: aliceCookie },
+    });
     expect(res.statusCode).toBe(400);
   });
 
@@ -162,7 +193,11 @@ describe.skipIf(!HAS_DB)('Conversation project scoping', () => {
       method: 'POST',
       url: '/api/conversations/group',
       headers: { cookie: aliceCookie },
-      payload: { participantIds: [bobId, daveId], name: 'Scoped group', productId: productAId },
+      payload: {
+        participantIds: [bobId, daveId],
+        name: 'Scoped group',
+        productId: productAId,
+      },
     });
     expect(res.statusCode).toBe(201);
   });
@@ -172,7 +207,11 @@ describe.skipIf(!HAS_DB)('Conversation project scoping', () => {
       method: 'POST',
       url: '/api/conversations/group',
       headers: { cookie: aliceCookie },
-      payload: { participantIds: [bobId, daveId], name: 'Add-test group', productId: productAId },
+      payload: {
+        participantIds: [bobId, daveId],
+        name: 'Add-test group',
+        productId: productAId,
+      },
     });
     const { id } = JSON.parse(createRes.body);
 

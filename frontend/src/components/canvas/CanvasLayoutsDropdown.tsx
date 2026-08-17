@@ -13,7 +13,13 @@ interface Props {
   onOpenLoadModal: () => void;
 }
 
-export default function CanvasLayoutsDropdown({ open, onToggle, canWriteCanvas, onOpenShareModal, onOpenLoadModal }: Props) {
+export default function CanvasLayoutsDropdown({
+  open,
+  onToggle,
+  canWriteCanvas,
+  onOpenShareModal,
+  onOpenLoadModal,
+}: Props) {
   return (
     <div className="relative">
       <button
@@ -27,7 +33,11 @@ export default function CanvasLayoutsDropdown({ open, onToggle, canWriteCanvas, 
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
         <div
           className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            minWidth: 200,
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {canWriteCanvas && (

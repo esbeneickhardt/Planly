@@ -80,7 +80,10 @@ function StatusSection({
       >
         <span
           className="inline-block flex-shrink-0"
-          style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}
+          style={{
+            transform: collapsed ? 'rotate(-90deg)' : 'none',
+            transition: 'transform 0.1s',
+          }}
         >
           ▾
         </span>
@@ -176,7 +179,10 @@ export default function KanbanMilestoneColumn({
             </h2>
             {!isUnassigned && milestone?.deadline && (
               <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-                {new Date(milestone.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                {new Date(milestone.deadline).toLocaleDateString('en', {
+                  month: 'short',
+                  day: 'numeric',
+                })}
               </span>
             )}
           </div>

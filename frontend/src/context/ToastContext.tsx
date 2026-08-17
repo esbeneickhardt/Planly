@@ -32,9 +32,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const COLORS: Record<ToastType, { bg: string; border: string; text: string }> = {
-    error: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)', text: '#ef4444' },
-    success: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)', text: '#10b981' },
-    info: { bg: 'var(--surface-2)', border: 'var(--border)', text: 'var(--text-2)' },
+    error: {
+      bg: 'rgba(239,68,68,0.12)',
+      border: 'rgba(239,68,68,0.25)',
+      text: '#ef4444',
+    },
+    success: {
+      bg: 'rgba(16,185,129,0.12)',
+      border: 'rgba(16,185,129,0.25)',
+      text: '#10b981',
+    },
+    info: {
+      bg: 'var(--surface-2)',
+      border: 'var(--border)',
+      text: 'var(--text-2)',
+    },
   };
 
   // Memoized so consumers only re-render when `showToast` itself changes - which, since it's
@@ -59,7 +71,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               className="px-4 py-2.5 rounded-xl text-sm shadow-lg pointer-events-auto animate-fade-in"
-              style={{ background: c.bg, border: `1px solid ${c.border}`, color: c.text, maxWidth: 320 }}
+              style={{
+                background: c.bg,
+                border: `1px solid ${c.border}`,
+                color: c.text,
+                maxWidth: 320,
+              }}
             >
               {t.message}
             </div>

@@ -7,11 +7,27 @@ import Modal from './Modal';
 
 type Profile = Awaited<ReturnType<typeof api.users.getProfile>>;
 
-const ROLE_LABEL: Record<string, string> = { owner: 'Owner', co_owner: 'Co-owner', member: 'Member' };
+const ROLE_LABEL: Record<string, string> = {
+  owner: 'Owner',
+  co_owner: 'Co-owner',
+  member: 'Member',
+};
 const ROLE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  owner: { bg: 'var(--brand-subtle)', color: 'var(--brand)', border: 'var(--brand)' },
-  co_owner: { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6', border: 'rgba(139,92,246,0.3)' },
-  member: { bg: 'var(--surface)', color: 'var(--text-3)', border: 'var(--border)' },
+  owner: {
+    bg: 'var(--brand-subtle)',
+    color: 'var(--brand)',
+    border: 'var(--brand)',
+  },
+  co_owner: {
+    bg: 'rgba(139,92,246,0.1)',
+    color: '#8b5cf6',
+    border: 'rgba(139,92,246,0.3)',
+  },
+  member: {
+    bg: 'var(--surface)',
+    color: 'var(--text-3)',
+    border: 'var(--border)',
+  },
 };
 
 interface Props {
@@ -40,7 +56,10 @@ export default function UserProfileModal({ userId, onClose }: Props) {
         <div className="flex justify-center py-8">
           <div
             className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+            style={{
+              borderColor: 'var(--brand)',
+              borderTopColor: 'transparent',
+            }}
           />
         </div>
       ) : profile ? (
@@ -75,7 +94,10 @@ export default function UserProfileModal({ userId, onClose }: Props) {
                     <div
                       key={p.id}
                       className="flex items-center gap-2.5 px-3 py-2 rounded-lg"
-                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                      style={{
+                        background: 'var(--surface-2)',
+                        border: '1px solid var(--border)',
+                      }}
                     >
                       <span className="text-base flex-shrink-0">{p.emoji ?? '🎯'}</span>
                       <span className="text-sm flex-1 min-w-0 truncate font-medium" style={{ color: 'var(--text)' }}>
@@ -83,7 +105,11 @@ export default function UserProfileModal({ userId, onClose }: Props) {
                       </span>
                       <span
                         className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-medium"
-                        style={{ background: style.bg, color: style.color, border: `1px solid ${style.border}` }}
+                        style={{
+                          background: style.bg,
+                          color: style.color,
+                          border: `1px solid ${style.border}`,
+                        }}
                       >
                         {ROLE_LABEL[p.role] ?? p.role}
                       </span>

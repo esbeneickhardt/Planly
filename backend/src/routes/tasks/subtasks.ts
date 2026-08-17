@@ -26,19 +26,26 @@ const updateSubtaskSchema = z.object({
 export async function subtaskRoutes(app: FastifyInstance) {
   // Add a subtask to a task; new subtask is appended at the end (order = current count)
   app.post('/api/products/:productId/tasks/:taskId/subtasks', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, taskId } = req.params as { productId: string; taskId: string };
+    const { productId, taskId } = req.params as {
+      productId: string;
+      taskId: string;
+    };
     // requireTabWrite already re-verifies membership internally (see product-guard.ts), so a
     // preceding requireProductMember call would be pure overhead.
     if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
     const stBody = validate(createSubtaskSchema, req.body, reply);
     if (!stBody) return;
 
-    const task = await prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } });
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, productId, ...TASK_WHERE_ACTIVE },
+    });
     if (!task) return reply.status(404).send({ error: 'Not found' });
 
     const count = await prisma.subtask.count({ where: { taskId } });
     if (count >= 500) return reply.status(400).send({ error: 'Subtask limit reached (max 500)' });
-    const subtask = await prisma.subtask.create({ data: { taskId, name: stBody.name.trim(), order: count } });
+    const subtask = await prisma.subtask.create({
+      data: { taskId, name: stBody.name.trim(), order: count },
+    });
     reply.status(201).send(subtask);
   });
 
@@ -47,7 +54,11 @@ export async function subtaskRoutes(app: FastifyInstance) {
     '/api/products/:productId/tasks/:taskId/subtasks/:subtaskId',
     { preHandler: requireAuth },
     async (req, reply) => {
-      const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
+      const { productId, taskId, subtaskId } = req.params as {
+        productId: string;
+        taskId: string;
+        subtaskId: string;
+      };
       if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
       const updateStBody = validate(updateSubtaskSchema, req.body, reply);
       if (!updateStBody) return;
@@ -78,7 +89,11 @@ export async function subtaskRoutes(app: FastifyInstance) {
     '/api/products/:productId/tasks/:taskId/subtasks/:subtaskId',
     { preHandler: requireAuth },
     async (req, reply) => {
-      const { productId, taskId, subtaskId } = req.params as { productId: string; taskId: string; subtaskId: string };
+      const { productId, taskId, subtaskId } = req.params as {
+        productId: string;
+        taskId: string;
+        subtaskId: string;
+      };
       if (!(await requireTabWrite(productId, req.user, ['kanban', 'backlog'], reply))) return;
       try {
         await prisma.subtask.delete({ where: { id: subtaskId, taskId } });

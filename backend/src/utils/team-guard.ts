@@ -35,7 +35,10 @@ export async function getTeamAdmin(teamId: string, userId: string) {
 // ever carries a teamId, never a productId.
 export async function requireTeamScopeMatch(teamId: string, user: AuthPayload, reply: FastifyReply): Promise<boolean> {
   if (!user.scopedProductId) return true;
-  const product = await prisma.product.findFirst({ where: { id: user.scopedProductId, teamId }, select: { id: true } });
+  const product = await prisma.product.findFirst({
+    where: { id: user.scopedProductId, teamId },
+    select: { id: true },
+  });
   if (!product) {
     reply.status(403).send({ error: 'Token is not authorized for this team' });
     return false;

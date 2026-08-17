@@ -31,7 +31,10 @@ export async function requireProductMember(
 ): Promise<boolean> {
   // App token scoped to this product - skip creator membership check
   if (user.appName && user.scopedProductId === productId) {
-    const exists = await prisma.product.findFirst({ where: { id: productId, deletedAt: null }, select: { id: true } });
+    const exists = await prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+      select: { id: true },
+    });
     if (!exists) {
       reply.status(404).send({ error: 'Not found' });
       return false;
@@ -90,7 +93,9 @@ export async function requireTabWrite(
     select: {
       ownerId: true,
       status: true,
-      team: { select: { members: { where: { userId }, select: { role: true } } } },
+      team: {
+        select: { members: { where: { userId }, select: { role: true } } },
+      },
     },
   });
 
@@ -161,7 +166,9 @@ export async function requireProductWritable(
     select: {
       ownerId: true,
       status: true,
-      team: { select: { members: { where: { userId }, select: { role: true } } } },
+      team: {
+        select: { members: { where: { userId }, select: { role: true } } },
+      },
     },
   });
 
@@ -217,7 +224,9 @@ export async function requireTabRead(
     where: { id: productId, deletedAt: null },
     select: {
       ownerId: true,
-      team: { select: { members: { where: { userId }, select: { role: true } } } },
+      team: {
+        select: { members: { where: { userId }, select: { role: true } } },
+      },
     },
   });
 
@@ -261,7 +270,9 @@ export async function requireProductCoOwner(productId: string, userId: string, r
     where: { id: productId, deletedAt: null },
     select: {
       ownerId: true,
-      team: { select: { members: { where: { userId }, select: { role: true } } } },
+      team: {
+        select: { members: { where: { userId }, select: { role: true } } },
+      },
     },
   });
 
@@ -289,7 +300,9 @@ export async function isProductCoOwner(productId: string, userId: string): Promi
     where: { id: productId, deletedAt: null },
     select: {
       ownerId: true,
-      team: { select: { members: { where: { userId }, select: { role: true } } } },
+      team: {
+        select: { members: { where: { userId }, select: { role: true } } },
+      },
     },
   });
   if (!product) return false;
@@ -326,12 +339,16 @@ export async function resolveProjectRoleClaims(
   } else if (scope.teamId) {
     // No single product in scope (e.g. a team-wide announcement) - "owner" means owning at
     // least one active product on that team.
-    const owned = await prisma.product.count({ where: { teamId: scope.teamId, ownerId: userId, deletedAt: null } });
+    const owned = await prisma.product.count({
+      where: { teamId: scope.teamId, ownerId: userId, deletedAt: null },
+    });
     isProjectOwner = owned > 0;
   }
 
   if (!teamId) return { isProjectOwner, isProjectCoOwner: false };
-  const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
+  const member = await prisma.teamMember.findUnique({
+    where: { teamId_userId: { teamId, userId } },
+  });
   return { isProjectOwner, isProjectCoOwner: member?.role === 'co_owner' };
 }
 

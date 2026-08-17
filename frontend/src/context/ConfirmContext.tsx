@@ -19,7 +19,9 @@ interface ConfirmContextValue {
   confirm: (message: string) => Promise<boolean>;
 }
 
-const ConfirmContext = createContext<ConfirmContextValue>({ confirm: async () => false });
+const ConfirmContext = createContext<ConfirmContextValue>({
+  confirm: async () => false,
+});
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   // State: null when no dialog is open
@@ -58,7 +60,11 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               <button
                 onClick={() => answer(false)}
                 className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  color: 'var(--text-2)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 Cancel
               </button>

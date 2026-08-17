@@ -29,9 +29,13 @@ export default function MessagesSection({ items, highlightIdx, nextIdx, loading,
             onClick={() => onMessageClick(msg)}
             disabled={loading}
             className="w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors"
-            style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+            style={{
+              background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+            }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
+            }
           >
             <span className="text-base flex-shrink-0 mt-0.5">{msg.author.avatarEmoji ?? '👤'}</span>
             <div className="flex-1 min-w-0">

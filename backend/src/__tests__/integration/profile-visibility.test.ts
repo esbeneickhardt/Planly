@@ -55,24 +55,29 @@ describe.skipIf(!HAS_DB)('Profile visibility', () => {
   afterAll(async () => {
     await prisma.product.deleteMany({ where: { id: productId } });
     await prisma.team.deleteMany({ where: { id: teamId } });
-    await prisma.user.deleteMany({ where: { id: { in: [targetId, viewerId] } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [targetId, viewerId] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
 
-  it('defaults to visible: another user sees the target\'s real projects', async () => {
+  it("defaults to visible: another user sees the target's real projects", async () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/users/${targetId}/profile`,
       cookies: cookieJar(viewerCookie),
     });
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body) as { projectsVisible: boolean; projects: Array<{ id: string }> };
+    const body = JSON.parse(res.body) as {
+      projectsVisible: boolean;
+      projects: Array<{ id: string }>;
+    };
     expect(body.projectsVisible).toBe(true);
     expect(body.projects.some((p) => p.id === productId)).toBe(true);
   });
 
-  it('a user cannot change another user\'s showProjectsOnProfile setting', async () => {
+  it("a user cannot change another user's showProjectsOnProfile setting", async () => {
     const res = await app.inject({
       method: 'PATCH',
       url: `/api/users/${targetId}`,
@@ -100,7 +105,10 @@ describe.skipIf(!HAS_DB)('Profile visibility', () => {
       cookies: cookieJar(viewerCookie),
     });
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body) as { projectsVisible: boolean; projects: unknown[] };
+    const body = JSON.parse(res.body) as {
+      projectsVisible: boolean;
+      projects: unknown[];
+    };
     expect(body.projectsVisible).toBe(false);
     expect(body.projects).toEqual([]);
   });
@@ -112,7 +120,10 @@ describe.skipIf(!HAS_DB)('Profile visibility', () => {
       cookies: cookieJar(targetCookie),
     });
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body) as { projectsVisible: boolean; projects: Array<{ id: string }> };
+    const body = JSON.parse(res.body) as {
+      projectsVisible: boolean;
+      projects: Array<{ id: string }>;
+    };
     expect(body.projectsVisible).toBe(true);
     expect(body.projects.some((p) => p.id === productId)).toBe(true);
   });
@@ -132,7 +143,10 @@ describe.skipIf(!HAS_DB)('Profile visibility', () => {
       url: `/api/users/${targetId}/profile`,
       cookies: cookieJar(viewerCookie),
     });
-    const body = JSON.parse(res.body) as { projectsVisible: boolean; projects: Array<{ id: string }> };
+    const body = JSON.parse(res.body) as {
+      projectsVisible: boolean;
+      projects: Array<{ id: string }>;
+    };
     expect(body.projectsVisible).toBe(true);
     expect(body.projects.some((p) => p.id === productId)).toBe(true);
   });

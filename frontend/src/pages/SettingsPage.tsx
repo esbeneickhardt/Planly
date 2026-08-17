@@ -79,7 +79,11 @@ export default function SettingsPage() {
   // Keep the active tab button scrolled into view within its own (horizontally scrollable) strip,
   // e.g. after swiping several panels past what's currently visible in the strip.
   useEffect(() => {
-    tabButtonRefs.current.get(activeTab)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    tabButtonRefs.current.get(activeTab)?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    });
   }, [activeTab]);
 
   // Keep active tab in sync when the URL changes (e.g. browser back/forward or external link)
@@ -111,7 +115,10 @@ export default function SettingsPage() {
         <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg)' }}>
           <div
             className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+            style={{
+              borderColor: 'var(--brand)',
+              borderTopColor: 'transparent',
+            }}
           />
         </div>
       );
@@ -157,7 +164,10 @@ export default function SettingsPage() {
           scrollable row so it can overflow on narrow screens. The full-width divider is desktop-only
           - on mobile the active tab's own short colored underline is enough, and a full-width line
           under it just doubled up and looked dated. */}
-      <div className="flex-shrink-0 overflow-x-auto no-scrollbar md:border-b pt-4" style={{ borderColor: 'var(--border)' }}>
+      <div
+        className="flex-shrink-0 overflow-x-auto no-scrollbar md:border-b pt-4"
+        style={{ borderColor: 'var(--border)' }}
+      >
         <div className="flex justify-center px-6 min-w-max max-w-4xl mx-auto">
           {PAGE_TABS.map(({ key, label, danger }) => (
             <button

@@ -12,7 +12,12 @@ import multipart from '@fastify/multipart';
 import prisma from '../db/client';
 import { config } from '../config/env';
 import { requireAuth } from '../middleware/auth';
-import { requireProductMember, requireProductWritable, requireScopeMatch, resolveProjectRoleClaims } from '../utils/product-guard';
+import {
+  requireProductMember,
+  requireProductWritable,
+  requireScopeMatch,
+  resolveProjectRoleClaims,
+} from '../utils/product-guard';
 import { dispatchWebhooks } from '../utils/webhook-dispatch';
 import { broadcast } from '../realtime/manager';
 import {
@@ -65,7 +70,14 @@ const updateMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 const addReactionSchema = z.object({ emoji: z.string().min(1).max(12) });
 
 export async function messageRoutes(app: FastifyInstance) {
-  await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 5, fieldSize: 1024 } });
+  await app.register(multipart, {
+    limits: {
+      fileSize: 50 * 1024 * 1024,
+      files: 1,
+      fields: 5,
+      fieldSize: 1024,
+    },
+  });
 
   // Upload file - returns a URL that can be embedded in messages. productId is optional at the
   // type level because this endpoint also backs non-project uploads (e.g. AvatarPicker has no
@@ -74,7 +86,10 @@ export async function messageRoutes(app: FastifyInstance) {
   // project's id regardless of membership.
   app.post(
     '/api/upload',
-    { preHandler: requireAuth, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    {
+      preHandler: requireAuth,
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
     async (req, reply) => {
       const { productId } = req.query as { productId?: string };
       if (productId) {
@@ -129,7 +144,12 @@ export async function messageRoutes(app: FastifyInstance) {
         thumbnailUrl = `/api/uploads/${thumbName}`;
       }
 
-      reply.send({ url: `/api/uploads/${filename}`, name: data.filename, type: data.mimetype, thumbnailUrl });
+      reply.send({
+        url: `/api/uploads/${filename}`,
+        name: data.filename,
+        type: data.mimetype,
+        thumbnailUrl,
+      });
     },
   );
 
@@ -143,10 +163,15 @@ export async function messageRoutes(app: FastifyInstance) {
     // non-project upload (e.g. an avatar) or a pre-existing untagged upload from before this
     // check existed - closing that residual gap would require a data migration, so (per the
     // audit) it's intentionally left out of scope here.
-    const record = await prisma.fileUpload.findUnique({ where: { filename: safe } });
+    const record = await prisma.fileUpload.findUnique({
+      where: { filename: safe },
+    });
     if (record?.productId) {
       const isMember = await prisma.product.findFirst({
-        where: { id: record.productId, team: { members: { some: { userId: req.user.userId } } } },
+        where: {
+          id: record.productId,
+          team: { members: { some: { userId: req.user.userId } } },
+        },
       });
       if (!isMember) return reply.status(403).send({ error: 'Forbidden' });
       // A PAT/App token scoped to a different project must not be able to read this file even if
@@ -169,7 +194,9 @@ export async function messageRoutes(app: FastifyInstance) {
     const { filename } = req.params as { filename: string };
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\.{2,}/g, '');
 
-    const record = await prisma.fileUpload.findUnique({ where: { filename: safe } });
+    const record = await prisma.fileUpload.findUnique({
+      where: { filename: safe },
+    });
     if (!record) return reply.status(404).send({ error: 'Not found' });
     if (record.uploaderId !== req.user.userId) {
       return reply.status(403).send({ error: 'Forbidden' });
@@ -204,7 +231,13 @@ export async function messageRoutes(app: FastifyInstance) {
       cursor,
       before,
       limit = '100',
-    } = req.query as { taskId?: string; all?: string; cursor?: string; before?: string; limit?: string };
+    } = req.query as {
+      taskId?: string;
+      all?: string;
+      cursor?: string;
+      before?: string;
+      limit?: string;
+    };
     const take = Math.min(parseInt(limit), 200);
     const where = all === 'true' ? { productId } : { productId, taskId: taskId ?? null };
     // "Latest N" mode (no cursor/before): fetch newest-first then reverse, so callers always get
@@ -237,7 +270,10 @@ export async function messageRoutes(app: FastifyInstance) {
     // are independent of each other - run all three in parallel to save round trips.
     const [isWritable, sender, roleClaims] = await Promise.all([
       requireProductWritable(productId, req.user, reply),
-      prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true, isFoundingAdmin: true } }),
+      prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { isAdmin: true, isFoundingAdmin: true },
+      }),
       resolveProjectRoleClaims(req.user.userId, { productId }),
     ]);
     if (!isWritable) return;
@@ -280,7 +316,9 @@ export async function messageRoutes(app: FastifyInstance) {
           where: {
             id: { not: req.user.userId },
             // Only notify users who are actually members of this project
-            teams: { some: { team: { products: { some: { id: productId } } } } },
+            teams: {
+              some: { team: { products: { some: { id: productId } } } },
+            },
             ...(mentionsAll ? {} : { username: { in: specificUsernames } }),
           },
           select: { id: true, email: true, notificationPreferences: true },
@@ -330,13 +368,18 @@ export async function messageRoutes(app: FastifyInstance) {
 
   // Edit own message content
   app.patch('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, messageId } = req.params as { productId: string; messageId: string };
+    const { productId, messageId } = req.params as {
+      productId: string;
+      messageId: string;
+    };
     // requireProductWritable re-verifies membership internally - see the create handler above.
     if (!(await requireProductWritable(productId, req.user, reply))) return;
     const editBody = validate(updateMessageSchema, req.body, reply);
     if (!editBody) return;
     const { content } = editBody;
-    const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
+    const msg = await prisma.message.findFirst({
+      where: { id: messageId, productId },
+    });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
     const updated = await prisma.message.update({
@@ -349,10 +392,15 @@ export async function messageRoutes(app: FastifyInstance) {
 
   // Delete own message
   app.delete('/api/products/:productId/messages/:messageId', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, messageId } = req.params as { productId: string; messageId: string };
+    const { productId, messageId } = req.params as {
+      productId: string;
+      messageId: string;
+    };
     // requireProductWritable re-verifies membership internally - see the create handler above.
     if (!(await requireProductWritable(productId, req.user, reply))) return;
-    const msg = await prisma.message.findFirst({ where: { id: messageId, productId } });
+    const msg = await prisma.message.findFirst({
+      where: { id: messageId, productId },
+    });
     if (!msg) return reply.status(404).send({ error: 'Not found' });
     if (msg.authorId !== req.user.userId) return reply.status(403).send({ error: 'Not your message' });
     await prisma.message.delete({ where: { id: messageId } });
@@ -364,7 +412,10 @@ export async function messageRoutes(app: FastifyInstance) {
     '/api/products/:productId/messages/:messageId/reactions',
     { preHandler: requireAuth },
     async (req, reply) => {
-      const { productId, messageId } = req.params as { productId: string; messageId: string };
+      const { productId, messageId } = req.params as {
+        productId: string;
+        messageId: string;
+      };
       // requireProductWritable re-verifies membership internally - see the create handler above.
       if (!(await requireProductWritable(productId, req.user, reply))) return;
       const rxnBody = validate(addReactionSchema, req.body, reply);
@@ -372,9 +423,13 @@ export async function messageRoutes(app: FastifyInstance) {
       const { emoji } = rxnBody;
 
       const key = { messageId, userId: req.user.userId, emoji };
-      const existing = await prisma.messageReaction.findUnique({ where: { messageId_userId_emoji: key } });
+      const existing = await prisma.messageReaction.findUnique({
+        where: { messageId_userId_emoji: key },
+      });
       if (existing) {
-        await prisma.messageReaction.delete({ where: { messageId_userId_emoji: key } });
+        await prisma.messageReaction.delete({
+          where: { messageId_userId_emoji: key },
+        });
       } else {
         await prisma.messageReaction.create({ data: key });
         // Notify the message author on a new reaction (not on toggle-off, and never for

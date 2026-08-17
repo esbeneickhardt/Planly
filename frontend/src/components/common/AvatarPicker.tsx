@@ -146,7 +146,12 @@ export default function AvatarPicker({ current, onChange }: Props) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    ox: number;
+    oy: number;
+  } | null>(null);
 
   // Rendered scale of the image inside the PREVIEW circle
   const scale = cropImg ? (PREVIEW / Math.min(cropImg.naturalWidth, cropImg.naturalHeight)) * zoom : 1;
@@ -164,7 +169,12 @@ export default function AvatarPicker({ current, onChange }: Props) {
 
   function onPointerDown(e: React.PointerEvent) {
     e.preventDefault();
-    dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      ox: offset.x,
+      oy: offset.y,
+    };
     setDragging(true);
   }
 
@@ -299,10 +309,19 @@ export default function AvatarPicker({ current, onChange }: Props) {
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+      style={{
+        border: '1px solid var(--border)',
+        background: 'var(--surface-2)',
+      }}
     >
       {/* Tabs */}
-      <div className="flex gap-1 p-1" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+      <div
+        className="flex gap-1 p-1"
+        style={{
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+        }}
+      >
         {tabBtn('emoji', 'Emoji')}
         {tabBtn('photo', 'Photo')}
       </div>
@@ -438,7 +457,12 @@ export default function AvatarPicker({ current, onChange }: Props) {
               </div>
 
               <div className="flex gap-2 w-full">
-                <button type="button" onClick={cancelCrop} disabled={uploading} className="btn-secondary text-xs flex-1">
+                <button
+                  type="button"
+                  onClick={cancelCrop}
+                  disabled={uploading}
+                  className="btn-secondary text-xs flex-1"
+                >
                   Cancel
                 </button>
                 <button
@@ -456,7 +480,10 @@ export default function AvatarPicker({ current, onChange }: Props) {
               <button
                 type="button"
                 className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-4xl cursor-pointer relative group"
-                style={{ background: 'var(--surface)', border: '2px dashed var(--border)' }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '2px dashed var(--border)',
+                }}
                 onClick={() => fileRef.current?.click()}
               >
                 {preview ? (

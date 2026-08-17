@@ -136,7 +136,9 @@ export default function ChatGroupModals({
                     <label
                       key={m.id}
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors"
-                      style={{ background: checked ? 'var(--brand-subtle)' : 'transparent' }}
+                      style={{
+                        background: checked ? 'var(--brand-subtle)' : 'transparent',
+                      }}
                     >
                       <input
                         type="checkbox"
@@ -153,7 +155,10 @@ export default function ChatGroupModals({
                       />
                       <div
                         className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                        style={{
+                          background: 'var(--surface-2)',
+                          color: 'var(--text-2)',
+                        }}
                       >
                         {m.avatarEmoji ?? m.username[0]?.toUpperCase()}
                       </div>
@@ -169,7 +174,10 @@ export default function ChatGroupModals({
                 </p>
               )}
             </div>
-            <div className="flex items-center justify-between gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+            <div
+              className="flex items-center justify-between gap-2 pt-2"
+              style={{ borderTop: '1px solid var(--border)' }}
+            >
               <span className="text-xs" style={{ color: 'var(--text-3)' }}>
                 {newGroupSelected.size} selected
               </span>
@@ -315,7 +323,9 @@ export default function ChatGroupModals({
                           <label
                             key={m.id}
                             className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
-                            style={{ background: checked ? 'var(--brand-subtle)' : 'transparent' }}
+                            style={{
+                              background: checked ? 'var(--brand-subtle)' : 'transparent',
+                            }}
                           >
                             <input
                               type="checkbox"

@@ -102,91 +102,91 @@ export default function AdminSearchModal({ onClose }: Props) {
   // memoizing it would need `goToTab`/`openProfileModal`/`onClose` in the dep array anyway, which
   // are recreated each render regardless.
   const settingsNavItems: NavItem[] = [
-      ...ADMIN_TABS.map((t) => ({
-        key: `admin-${t.key}`,
-        label: t.label,
-        subtitle: 'Admin panel',
-        keywords: ADMIN_TAB_KEYWORDS[t.key] ?? [t.label.toLowerCase()],
-        icon: <t.Icon size={16} />,
-        action: () => goToTab(t.key),
-      })),
-      {
-        key: 'profile-theme',
-        label: 'Profile - Appearance',
-        subtitle: 'Theme, colors, mobile nav position',
-        keywords: ['appearance', 'theme', 'themes', 'color', 'colors', 'dark mode', 'light mode', 'style'],
-        icon: '🎨',
-        action: () => {
-          openProfileModal('theme');
-          onClose();
-        },
+    ...ADMIN_TABS.map((t) => ({
+      key: `admin-${t.key}`,
+      label: t.label,
+      subtitle: 'Admin panel',
+      keywords: ADMIN_TAB_KEYWORDS[t.key] ?? [t.label.toLowerCase()],
+      icon: <t.Icon size={16} />,
+      action: () => goToTab(t.key),
+    })),
+    {
+      key: 'profile-theme',
+      label: 'Profile - Appearance',
+      subtitle: 'Theme, colors, mobile nav position',
+      keywords: ['appearance', 'theme', 'themes', 'color', 'colors', 'dark mode', 'light mode', 'style'],
+      icon: '🎨',
+      action: () => {
+        openProfileModal('theme');
+        onClose();
       },
-      {
-        key: 'profile-notifications',
-        label: 'Profile - Notification Settings',
-        subtitle: 'Email & in-app notification preferences',
-        keywords: ['notification', 'notifications', 'email', 'alerts', 'preferences'],
-        icon: '🔔',
-        action: () => {
-          openProfileModal('notifications');
-          onClose();
-        },
+    },
+    {
+      key: 'profile-notifications',
+      label: 'Profile - Notification Settings',
+      subtitle: 'Email & in-app notification preferences',
+      keywords: ['notification', 'notifications', 'email', 'alerts', 'preferences'],
+      icon: '🔔',
+      action: () => {
+        openProfileModal('notifications');
+        onClose();
       },
-      {
-        key: 'profile-privacy',
-        label: 'Profile - Privacy',
-        subtitle: 'Who can invite you, activity visibility',
-        keywords: ['privacy', 'invite', 'invites', 'visibility'],
-        icon: '🔒',
-        action: () => {
-          openProfileModal('privacy');
-          onClose();
-        },
+    },
+    {
+      key: 'profile-privacy',
+      label: 'Profile - Privacy',
+      subtitle: 'Who can invite you, activity visibility',
+      keywords: ['privacy', 'invite', 'invites', 'visibility'],
+      icon: '🔒',
+      action: () => {
+        openProfileModal('privacy');
+        onClose();
       },
-      {
-        key: 'profile-integrations',
-        label: 'Profile - Integrations',
-        subtitle: 'API tokens & connected apps',
-        keywords: ['integration', 'integrations', 'api', 'token', 'tokens', 'app', 'apps'],
-        icon: '🔗',
-        action: () => {
-          openProfileModal('integrations');
-          onClose();
-        },
+    },
+    {
+      key: 'profile-integrations',
+      label: 'Profile - Integrations',
+      subtitle: 'API tokens & connected apps',
+      keywords: ['integration', 'integrations', 'api', 'token', 'tokens', 'app', 'apps'],
+      icon: '🔗',
+      action: () => {
+        openProfileModal('integrations');
+        onClose();
       },
-      {
-        key: 'profile-security',
-        label: 'Profile - Security (2FA)',
-        subtitle: 'Two-factor authentication',
-        keywords: ['security', '2fa', 'mfa', 'two factor', 'authenticator', 'totp'],
-        icon: '🛡️',
-        action: () => {
-          openProfileModal('security');
-          onClose();
-        },
+    },
+    {
+      key: 'profile-security',
+      label: 'Profile - Security (2FA)',
+      subtitle: 'Two-factor authentication',
+      keywords: ['security', '2fa', 'mfa', 'two factor', 'authenticator', 'totp'],
+      icon: '🛡️',
+      action: () => {
+        openProfileModal('security');
+        onClose();
       },
-      {
-        key: 'profile-change-password',
-        label: 'Profile - Change Password',
-        subtitle: 'Update your account password',
-        keywords: ['password', 'change password'],
-        icon: '🔑',
-        action: () => {
-          openProfileModal('changePassword');
-          onClose();
-        },
+    },
+    {
+      key: 'profile-change-password',
+      label: 'Profile - Change Password',
+      subtitle: 'Update your account password',
+      keywords: ['password', 'change password'],
+      icon: '🔑',
+      action: () => {
+        openProfileModal('changePassword');
+        onClose();
       },
-      {
-        key: 'profile-memberships',
-        label: 'Profile - Memberships',
-        subtitle: 'Projects you belong to',
-        keywords: ['membership', 'memberships', 'projects', 'teams'],
-        icon: '👥',
-        action: () => {
-          openProfileModal('memberships');
-          onClose();
-        },
+    },
+    {
+      key: 'profile-memberships',
+      label: 'Profile - Memberships',
+      subtitle: 'Projects you belong to',
+      keywords: ['membership', 'memberships', 'projects', 'teams'],
+      icon: '👥',
+      action: () => {
+        openProfileModal('memberships');
+        onClose();
       },
+    },
   ];
 
   const q = query.trim().toLowerCase();
@@ -205,7 +205,12 @@ export default function AdminSearchModal({ onClose }: Props) {
       : [];
 
   const TAB_ORDER: TabFilter[] = ['all', 'settings', 'projects', 'chat'];
-  const TAB_LABELS: Record<TabFilter, string> = { all: 'All', settings: 'Settings', projects: 'Projects', chat: 'Chat' };
+  const TAB_LABELS: Record<TabFilter, string> = {
+    all: 'All',
+    settings: 'Settings',
+    projects: 'Projects',
+    chat: 'Chat',
+  };
   const tabCounts: Record<TabFilter, number> = {
     all: matchingNav.length + matchingProjects.length + chatResults.length,
     settings: matchingNav.length,
@@ -227,7 +232,8 @@ export default function AdminSearchModal({ onClose }: Props) {
     ADMIN_TABS.forEach((t) => allItems.push({ type: 'quicknav', tabKey: t.key }));
   } else {
     if (tab === 'all' || tab === 'settings') matchingNav.forEach((item) => allItems.push({ type: 'nav', item }));
-    if (tab === 'all' || tab === 'projects') matchingProjects.forEach((project) => allItems.push({ type: 'project', project }));
+    if (tab === 'all' || tab === 'projects')
+      matchingProjects.forEach((project) => allItems.push({ type: 'project', project }));
     if (tab === 'all' || tab === 'chat') chatResults.forEach((msg) => allItems.push({ type: 'chat', msg }));
   }
 
@@ -288,11 +294,18 @@ export default function AdminSearchModal({ onClose }: Props) {
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the backdrop's onClick */}
       <div
         className="fixed left-1/2 top-[20%] z-50 w-full max-w-lg -translate-x-1/2 flex flex-col overflow-hidden rounded-2xl shadow-2xl"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '60vh' }}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          maxHeight: '60vh',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div
+          className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
           <svg
             width="16"
             height="16"
@@ -319,12 +332,19 @@ export default function AdminSearchModal({ onClose }: Props) {
           {searchingChat && (
             <div
               className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin flex-shrink-0"
-              style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+              style={{
+                borderColor: 'var(--brand)',
+                borderTopColor: 'transparent',
+              }}
             />
           )}
           <kbd
             className="text-xs px-1.5 py-0.5 rounded flex-shrink-0"
-            style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              color: 'var(--text-3)',
+              border: '1px solid var(--border)',
+            }}
           >
             Esc
           </kbd>
@@ -332,7 +352,10 @@ export default function AdminSearchModal({ onClose }: Props) {
 
         {/* Type filter tabs - shown as soon as any results exist, same pattern as SearchModal */}
         {showTabs && (
-          <div className="flex items-center gap-1 px-4 pt-2 pb-0 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div
+            className="flex items-center gap-1 px-4 pt-2 pb-0 flex-shrink-0"
+            style={{ borderBottom: '1px solid var(--border)' }}
+          >
             {TAB_ORDER.map((t) => {
               const count = tabCounts[t];
               return (
@@ -378,7 +401,10 @@ export default function AdminSearchModal({ onClose }: Props) {
                     data-idx={i}
                     onClick={() => goToTab(t.key)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent', color: 'var(--text-2)' }}
+                    style={{
+                      background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+                      color: 'var(--text-2)',
+                    }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                     onMouseLeave={(e) =>
                       (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
@@ -418,7 +444,10 @@ export default function AdminSearchModal({ onClose }: Props) {
                         data-idx={i}
                         onClick={item.action}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors"
-                        style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent', color: 'var(--text-2)' }}
+                        style={{
+                          background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+                          color: 'var(--text-2)',
+                        }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                         onMouseLeave={(e) =>
                           (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
@@ -440,7 +469,12 @@ export default function AdminSearchModal({ onClose }: Props) {
               )}
 
               {(tab === 'all' || tab === 'projects') && matchingProjects.length > 0 && (
-                <div className="py-2" style={{ borderTop: rowIdx >= 0 ? '1px solid var(--border)' : 'none' }}>
+                <div
+                  className="py-2"
+                  style={{
+                    borderTop: rowIdx >= 0 ? '1px solid var(--border)' : 'none',
+                  }}
+                >
                   <p
                     className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest"
                     style={{ color: 'var(--text-3)' }}
@@ -457,7 +491,10 @@ export default function AdminSearchModal({ onClose }: Props) {
                         data-idx={i}
                         onClick={() => goToTab('projects')}
                         className="w-full flex items-center gap-3 px-4 py-2 text-sm text-left transition-colors"
-                        style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent', color: 'var(--text-2)' }}
+                        style={{
+                          background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+                          color: 'var(--text-2)',
+                        }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                         onMouseLeave={(e) =>
                           (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
@@ -472,7 +509,12 @@ export default function AdminSearchModal({ onClose }: Props) {
               )}
 
               {(tab === 'all' || tab === 'chat') && chatResults.length > 0 && (
-                <div className="py-2" style={{ borderTop: rowIdx >= 0 ? '1px solid var(--border)' : 'none' }}>
+                <div
+                  className="py-2"
+                  style={{
+                    borderTop: rowIdx >= 0 ? '1px solid var(--border)' : 'none',
+                  }}
+                >
                   <p
                     className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest"
                     style={{ color: 'var(--text-3)' }}
@@ -489,7 +531,10 @@ export default function AdminSearchModal({ onClose }: Props) {
                         data-idx={i}
                         onClick={openChatResult}
                         className="w-full flex items-start gap-3 px-4 py-2 text-sm text-left transition-colors"
-                        style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent', color: 'var(--text-2)' }}
+                        style={{
+                          background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+                          color: 'var(--text-2)',
+                        }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                         onMouseLeave={(e) =>
                           (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
@@ -514,7 +559,10 @@ export default function AdminSearchModal({ onClose }: Props) {
         {/* Footer hint */}
         <div
           className="px-4 py-2 flex items-center gap-4 text-xs flex-shrink-0"
-          style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}
+          style={{
+            borderTop: '1px solid var(--border)',
+            color: 'var(--text-3)',
+          }}
         >
           <span>↑↓ navigate · ←→ switch tab · Enter open · Esc close</span>
         </div>

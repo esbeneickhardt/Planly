@@ -32,7 +32,11 @@ describe('ProjectHeader', () => {
         name="Owned Project"
         deadline={futureDate(10)}
         status="active"
-        owner={{ username: 'alice', realName: 'Alice Smith', avatarEmoji: '😀' }}
+        owner={{
+          username: 'alice',
+          realName: 'Alice Smith',
+          avatarEmoji: '😀',
+        }}
       />,
     );
     expect(screen.getByText(/Owner:/)).toBeInTheDocument();

@@ -17,7 +17,12 @@ export const products = {
         members: {
           userId: string;
           role: string;
-          user: { id: string; username: string; realName: string | null; avatarEmoji: string | null };
+          user: {
+            id: string;
+            username: string;
+            realName: string | null;
+            avatarEmoji: string | null;
+          };
         }[];
       }
     >(`/api/products/${id}/about`),
@@ -29,7 +34,11 @@ export const products = {
         'name' | 'emoji' | 'description' | 'deadline' | 'ownerId' | 'analyticsEnabled' | 'discoverable' | 'status'
       >
     >,
-  ) => request<Product>(`/api/products/${id}`, { method: 'PATCH', body: json(data) }),
+  ) =>
+    request<Product>(`/api/products/${id}`, {
+      method: 'PATCH',
+      body: json(data),
+    }),
   delete: (id: string) => request<{ ok: boolean }>(`/api/products/${id}`, { method: 'DELETE' }),
   duplicate: (id: string) => request<Product>(`/api/products/${id}/duplicate`, { method: 'POST' }),
 };

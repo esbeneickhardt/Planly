@@ -55,7 +55,9 @@ describe.skipIf(!HAS_DB)('Search routes smoke', () => {
         isGroup: false,
         productId,
         participants: { create: [{ userId: ownerId }, { userId: memberId }] },
-        messages: { create: [{ authorId: memberId, content: 'Winston is so cute' }] },
+        messages: {
+          create: [{ authorId: memberId, content: 'Winston is so cute' }],
+        },
       },
     });
     dmConversationId = dmConv.id;
@@ -66,7 +68,9 @@ describe.skipIf(!HAS_DB)('Search routes smoke', () => {
         name: 'Cat parents',
         productId,
         participants: { create: [{ userId: ownerId }, { userId: memberId }] },
-        messages: { create: [{ authorId: ownerId, content: 'Winston needs a vet appointment' }] },
+        messages: {
+          create: [{ authorId: ownerId, content: 'Winston needs a vet appointment' }],
+        },
       },
     });
     groupConversationId = groupConv.id;
@@ -74,23 +78,33 @@ describe.skipIf(!HAS_DB)('Search routes smoke', () => {
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { identifier: `search_owner_${suffix}@example.com`, password: 'test-password-123' },
+      payload: {
+        identifier: `search_owner_${suffix}@example.com`,
+        password: 'test-password-123',
+      },
     });
     cookie = loginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
 
     const outsiderLoginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { identifier: `search_outsider_${suffix}@example.com`, password: 'test-password-123' },
+      payload: {
+        identifier: `search_outsider_${suffix}@example.com`,
+        password: 'test-password-123',
+      },
     });
     outsiderCookie = outsiderLoginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
   });
 
   afterAll(async () => {
-    await prisma.conversation.deleteMany({ where: { id: { in: [dmConversationId, groupConversationId] } } });
+    await prisma.conversation.deleteMany({
+      where: { id: { in: [dmConversationId, groupConversationId] } },
+    });
     await prisma.product.deleteMany({ where: { id: productId } });
     await prisma.team.deleteMany({ where: { id: teamId } });
-    await prisma.user.deleteMany({ where: { id: { in: [ownerId, memberId, outsiderId] } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [ownerId, memberId, outsiderId] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
@@ -138,7 +152,9 @@ describe.skipIf(!HAS_DB)('Search routes smoke', () => {
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    const dmResult = body.messages.find((m: { conversation?: { id: string } }) => m.conversation?.id === dmConversationId);
+    const dmResult = body.messages.find(
+      (m: { conversation?: { id: string } }) => m.conversation?.id === dmConversationId,
+    );
     expect(dmResult).toBeTruthy();
     expect(dmResult.content).toBe('Winston is so cute');
     expect(dmResult.conversation.isGroup).toBe(false);

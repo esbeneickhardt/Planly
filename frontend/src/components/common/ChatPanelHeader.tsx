@@ -128,7 +128,12 @@ export default function ChatPanelHeader({
       {!!badge && badge > 0 && tab !== t && (
         <span
           className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-          style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+          style={{
+            background: '#ef4444',
+            minWidth: 14,
+            height: 14,
+            padding: '0 2px',
+          }}
         >
           {badge > 99 ? '99+' : badge}
         </span>
@@ -223,14 +228,20 @@ export default function ChatPanelHeader({
           onTouchEnd={isExpanded ? onExpandedTouchEnd : undefined}
           onTouchCancel={isExpanded ? onExpandedTouchEnd : undefined}
           className={`${inSubThread ? 'hidden md:flex' : 'flex'} items-center gap-1 px-3 py-2 flex-shrink-0`}
-          style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
+          style={{
+            borderBottom: '1px solid var(--border)',
+            touchAction: isExpanded ? 'none' : undefined,
+          }}
         >
           {/* pt-1.5 gives the unread badges (positioned -top-0.5 on each tab button, i.e.
               slightly overlapping the button's top-right corner) room to render - without it,
               this row's own overflow-x-auto forces overflow-y to 'auto' too (browsers coerce a
               'visible' cross-axis to 'auto' whenever the other axis isn't 'visible'), which was
               clipping the badges' top edge since they had zero slack above the buttons. */}
-          <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto pt-1.5" style={{ scrollbarWidth: 'none' }}>
+          <div
+            className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto pt-1.5"
+            style={{ scrollbarWidth: 'none' }}
+          >
             {tabBtn('messages', isAdminChat ? 'Admin' : 'Project', unreadByTask.general)}
             {isAdminChat && (
               <button
@@ -268,7 +279,12 @@ export default function ChatPanelHeader({
               {totalDmUnread > 0 && tab !== 'people' && (
                 <span
                   className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+                  style={{
+                    background: '#ef4444',
+                    minWidth: 14,
+                    height: 14,
+                    padding: '0 2px',
+                  }}
                 >
                   {totalDmUnread > 99 ? '99+' : totalDmUnread}
                 </span>
@@ -291,7 +307,12 @@ export default function ChatPanelHeader({
               {totalGroupUnread > 0 && tab !== 'groups' && (
                 <span
                   className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+                  style={{
+                    background: '#ef4444',
+                    minWidth: 14,
+                    height: 14,
+                    padding: '0 2px',
+                  }}
                 >
                   {totalGroupUnread > 99 ? '99+' : totalGroupUnread}
                 </span>

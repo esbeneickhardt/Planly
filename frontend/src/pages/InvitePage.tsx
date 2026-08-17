@@ -65,18 +65,16 @@ export default function InvitePage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-2xl overflow-hidden mx-auto mb-4">
-            <img
-              src="/icons/p.png"
-              alt="Planly"
-              className="w-full h-full object-contain"
-             
-            />
+            <img src="/icons/p.png" alt="Planly" className="w-full h-full object-contain" />
           </div>
         </div>
 
         <div
           className="rounded-2xl p-6 space-y-4 text-center"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
         >
           {done ? (
             <>

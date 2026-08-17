@@ -19,7 +19,11 @@ export interface ReplyingTo {
   id: string;
   content: string;
   attachments: MessageAttachment[];
-  author: { username: string; realName: string | null; avatarEmoji: string | null };
+  author: {
+    username: string;
+    realName: string | null;
+    avatarEmoji: string | null;
+  };
 }
 
 export interface TeamMemberEntry {
@@ -127,7 +131,11 @@ export default function ChatComposeBox({
     return (
       <div
         className="min-h-[80px] max-h-40 overflow-y-auto px-3 py-2 rounded-lg mb-2 text-sm"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+        style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
+        }}
       >
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkBreaks]}
@@ -153,7 +161,10 @@ export default function ChatComposeBox({
       {replyingTo && (
         <div
           className="flex items-center gap-2 mb-2 px-2.5 py-1.5 rounded-lg"
-          style={{ background: 'var(--surface-2)', borderLeft: '2px solid var(--brand)' }}
+          style={{
+            background: 'var(--surface-2)',
+            borderLeft: '2px solid var(--brand)',
+          }}
         >
           {(() => {
             const img = replyingTo.attachments.find((a) => a.type?.startsWith('image/'));
@@ -180,7 +191,10 @@ export default function ChatComposeBox({
       {mentionSearch !== null && mentionCandidates.length > 0 && (
         <div
           className="absolute left-4 right-4 bottom-full mb-1 rounded-xl overflow-hidden shadow-xl z-10"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
         >
           <div className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--border)' }}>
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>
@@ -195,12 +209,17 @@ export default function ChatComposeBox({
                 insertMention(m.username);
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
-              style={{ background: i === mentionHighlight ? 'var(--surface-2)' : 'transparent' }}
+              style={{
+                background: i === mentionHighlight ? 'var(--surface-2)' : 'transparent',
+              }}
               onMouseEnter={() => setMentionHighlight(i)}
             >
               <span
                 className="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 {m.avatarEmoji ?? '👤'}
               </span>
@@ -212,7 +231,9 @@ export default function ChatComposeBox({
                 )}
                 <span
                   className={m.realName?.trim() ? 'text-xs leading-tight' : 'text-sm font-medium'}
-                  style={{ color: m.realName?.trim() ? 'var(--text-3)' : 'var(--text)' }}
+                  style={{
+                    color: m.realName?.trim() ? 'var(--text-3)' : 'var(--text)',
+                  }}
                 >
                   @{m.username}
                 </span>
@@ -228,7 +249,10 @@ export default function ChatComposeBox({
         <div
           data-emoji-picker
           className="fixed left-2 right-2 bottom-4 md:absolute md:left-4 md:right-auto md:bottom-full md:mb-1 z-50 p-2 rounded-xl shadow-xl"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
         >
           {/* onMouseDown+preventDefault here (not inside EmojiPicker itself) keeps the textarea
               focused through the tap, same fix as the Send button - otherwise the click steals
@@ -261,11 +285,18 @@ export default function ChatComposeBox({
       {showMarkdownHelp && (
         <div
           className="absolute left-0 right-0 bottom-full mb-1 z-50 rounded-xl shadow-xl overflow-y-auto"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: 380 }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            maxHeight: 380,
+          }}
         >
           <div
             className="flex items-center justify-between px-4 py-2.5 sticky top-0"
-            style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface)',
+              borderBottom: '1px solid var(--border)',
+            }}
           >
             <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
               Markdown reference
@@ -291,7 +322,10 @@ export default function ChatComposeBox({
               ] as [string, string][]
             ).map(([label, syntax]) => (
               <div key={label}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-3)' }}>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
+                  style={{ color: 'var(--text-3)' }}
+                >
                   {label}
                 </p>
                 {/* div, not <pre> - jsx-a11y disallows an interactive role on <pre>; the
@@ -352,11 +386,19 @@ export default function ChatComposeBox({
               {attachments.map((att, i) => (
                 <div key={i} className="relative">
                   {att.type?.startsWith('image/') ? (
-                    <img src={att.thumbnailUrl ?? att.url} alt={att.name} className="h-14 w-14 rounded-lg object-cover" />
+                    <img
+                      src={att.thumbnailUrl ?? att.url}
+                      alt={att.name}
+                      className="h-14 w-14 rounded-lg object-cover"
+                    />
                   ) : (
                     <div
                       className="h-14 px-3 flex items-center text-xs rounded-lg"
-                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}
+                      style={{
+                        background: 'var(--surface-2)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-2)',
+                      }}
                     >
                       📎 {att.name}
                     </div>
@@ -406,7 +448,11 @@ export default function ChatComposeBox({
                     />
                     <div
                       className="absolute left-0 bottom-full mb-2 z-20 rounded-2xl shadow-xl p-3 grid grid-cols-4 gap-3 animate-dropdown-in"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 236 }}
+                      style={{
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        width: 236,
+                      }}
                     >
                       {[
                         {
@@ -481,7 +527,12 @@ export default function ChatComposeBox({
                 readOnly={!chatWritable}
                 placeholder={chatWritable ? 'Message…' : 'This project is read-only'}
                 className="input text-sm flex-1 resize-none rounded-full py-2"
-                style={{ maxHeight: 100, overflowY: 'auto', boxSizing: 'border-box', lineHeight: '20px' }}
+                style={{
+                  maxHeight: 100,
+                  overflowY: 'auto',
+                  boxSizing: 'border-box',
+                  lineHeight: '20px',
+                }}
               />
               <button
                 onClick={onSend}
@@ -503,7 +554,10 @@ export default function ChatComposeBox({
                 <button
                   onClick={() => setPreview(false)}
                   className="text-xs px-3 py-1.5 rounded-lg"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-2)',
+                  }}
                 >
                   ✎ Edit
                 </button>
@@ -539,7 +593,10 @@ export default function ChatComposeBox({
               onClick={() => fileRef.current?.click()}
               disabled={uploading || !chatWritable}
               className="text-xs px-2 py-0.5 rounded-md transition-colors"
-              style={{ background: 'var(--surface-2)', color: uploading ? 'var(--text-3)' : 'var(--text-2)' }}
+              style={{
+                background: 'var(--surface-2)',
+                color: uploading ? 'var(--text-3)' : 'var(--text-2)',
+              }}
             >
               {uploading ? '⏳' : '📎'} Attach
             </button>
@@ -587,11 +644,19 @@ export default function ChatComposeBox({
               {attachments.map((att, i) => (
                 <div key={i} className="relative group/att">
                   {att.type?.startsWith('image/') ? (
-                    <img src={att.thumbnailUrl ?? att.url} alt={att.name} className="h-14 w-14 rounded-lg object-cover" />
+                    <img
+                      src={att.thumbnailUrl ?? att.url}
+                      alt={att.name}
+                      className="h-14 w-14 rounded-lg object-cover"
+                    />
                   ) : (
                     <div
                       className="h-14 px-3 flex items-center text-xs rounded-lg"
-                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}
+                      style={{
+                        background: 'var(--surface-2)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-2)',
+                      }}
                     >
                       📎 {att.name}
                     </div>

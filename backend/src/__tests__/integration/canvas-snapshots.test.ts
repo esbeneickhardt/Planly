@@ -21,7 +21,10 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
 
   beforeAll(async () => {
     app = await buildTestApp();
-    const owner = await createTestUser({ username: `snap_owner_${suffix}`, email: `snap_owner_${suffix}@example.com` });
+    const owner = await createTestUser({
+      username: `snap_owner_${suffix}`,
+      email: `snap_owner_${suffix}@example.com`,
+    });
     ownerId = owner.id;
     const team = await createTestTeam(ownerId);
     teamId = team.id;
@@ -31,7 +34,10 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { identifier: `snap_owner_${suffix}@example.com`, password: 'test-password-123' },
+      payload: {
+        identifier: `snap_owner_${suffix}@example.com`,
+        password: 'test-password-123',
+      },
     });
     cookie = loginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
   });
@@ -61,7 +67,11 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
       method: 'POST',
       url: `/api/products/${productId}/canvas-snapshots`,
       headers: { cookie },
-      payload: { name: 'Snapshot v1', positions: {}, viewport: { x: 0, y: 0, zoom: 1 } },
+      payload: {
+        name: 'Snapshot v1',
+        positions: {},
+        viewport: { x: 0, y: 0, zoom: 1 },
+      },
     });
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.body);
@@ -74,7 +84,11 @@ describe.skipIf(!HAS_DB)('Canvas snapshot routes smoke', () => {
       method: 'POST',
       url: `/api/products/${productId}/canvas-snapshots`,
       headers: { cookie },
-      payload: { name: 'To Delete', positions: {}, viewport: { x: 0, y: 0, zoom: 1 } },
+      payload: {
+        name: 'To Delete',
+        positions: {},
+        viewport: { x: 0, y: 0, zoom: 1 },
+      },
     });
     const snap = JSON.parse(createRes.body);
 

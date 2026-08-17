@@ -45,7 +45,10 @@ export default function CanvasContextMenu({
         <>
           <div
             className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}
+            style={{
+              color: 'var(--text-3)',
+              borderBottom: '1px solid var(--border)',
+            }}
           >
             {isProductEdge(ctxMenu.srcId!, ctxMenu.tgtId!) ? 'Product link' : 'Dependency'}
           </div>
@@ -66,7 +69,10 @@ export default function CanvasContextMenu({
             <>
               <div
                 className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}
+                style={{
+                  color: 'var(--text-3)',
+                  borderBottom: '1px solid var(--border)',
+                }}
               >
                 Set status
               </div>
@@ -75,7 +81,9 @@ export default function CanvasContextMenu({
                   key={s.key}
                   onClick={() => onQuickSetStatus(ctxTask.id, s.key)}
                   className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors"
-                  style={{ color: ctxTask.status === s.key ? 'var(--brand)' : 'var(--text)' }}
+                  style={{
+                    color: ctxTask.status === s.key ? 'var(--brand)' : 'var(--text)',
+                  }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
@@ -90,7 +98,11 @@ export default function CanvasContextMenu({
               ))}
             </>
           )}
-          <div style={{ borderTop: canWriteCanvas ? '1px solid var(--border)' : undefined }}>
+          <div
+            style={{
+              borderTop: canWriteCanvas ? '1px solid var(--border)' : undefined,
+            }}
+          >
             <button
               className="w-full text-left px-3 py-2 text-sm transition-colors"
               style={{ color: 'var(--text-2)' }}

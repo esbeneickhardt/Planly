@@ -199,7 +199,10 @@ export default function ChatMessageList({
                     <button
                       onClick={onCancelEdit}
                       className="text-xs px-2 py-1 rounded-lg"
-                      style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+                      style={{
+                        background: 'var(--surface-2)',
+                        color: 'var(--text-3)',
+                      }}
                     >
                       Cancel
                     </button>

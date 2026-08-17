@@ -50,7 +50,10 @@ export default function ChangePasswordPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
       <div
         className="w-full max-w-sm p-8 rounded-2xl shadow-lg"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+        }}
       >
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0">
@@ -68,14 +71,22 @@ export default function ChangePasswordPage() {
 
         <div
           className="mb-5 p-3 rounded-lg text-xs"
-          style={{ background: '#f59e0b18', border: '1px solid #f59e0b44', color: '#f59e0b' }}
+          style={{
+            background: '#f59e0b18',
+            border: '1px solid #f59e0b44',
+            color: '#f59e0b',
+          }}
         >
           Your account was created with a temporary password. Please set a new one before continuing.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="change-pw-page-new">
+            <label
+              className="block text-xs font-medium mb-1"
+              style={{ color: 'var(--text-2)' }}
+              htmlFor="change-pw-page-new"
+            >
               New password
             </label>
             <input
@@ -90,7 +101,11 @@ export default function ChangePasswordPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-2)' }} htmlFor="change-pw-page-confirm">
+            <label
+              className="block text-xs font-medium mb-1"
+              style={{ color: 'var(--text-2)' }}
+              htmlFor="change-pw-page-confirm"
+            >
               Confirm password
             </label>
             <input

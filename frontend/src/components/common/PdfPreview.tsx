@@ -20,7 +20,11 @@ export default function PdfPreview({ url, name }: Props) {
       <button
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
-        style={{ background: 'var(--brand-subtle)', color: 'var(--brand)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--brand-subtle)',
+          color: 'var(--brand)',
+          border: '1px solid var(--border)',
+        }}
         title={`Preview ${name}`}
       >
         👁 Preview
@@ -34,12 +38,21 @@ export default function PdfPreview({ url, name }: Props) {
                 href={url}
                 download={name}
                 className="text-xs px-3 py-1.5 rounded-lg"
-                style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  color: 'var(--text-2)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 ↓ Download
               </a>
             </div>
-            <embed src={url} type="application/pdf" className="flex-1 w-full rounded-lg" style={{ border: '1px solid var(--border)' }} />
+            <embed
+              src={url}
+              type="application/pdf"
+              className="flex-1 w-full rounded-lg"
+              style={{ border: '1px solid var(--border)' }}
+            />
           </div>
         </Modal>
       )}

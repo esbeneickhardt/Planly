@@ -18,7 +18,9 @@ const mockWebhookDeliveryCreate = vi.fn().mockResolvedValue({});
 vi.mock('../../db/client', () => ({
   default: {
     webhook: { findMany: (...args: unknown[]) => mockWebhookFindMany(...args) },
-    webhookDelivery: { create: (...args: unknown[]) => mockWebhookDeliveryCreate(...args) },
+    webhookDelivery: {
+      create: (...args: unknown[]) => mockWebhookDeliveryCreate(...args),
+    },
   },
 }));
 
@@ -76,7 +78,9 @@ describe('dispatchWebhooks - SSRF via redirect-following', () => {
     fetchMock.mockResolvedValue({
       status: 302,
       ok: false,
-      headers: { get: (name: string) => (name.toLowerCase() === 'location' ? 'http://169.254.169.254/latest/meta-data/' : null) },
+      headers: {
+        get: (name: string) => (name.toLowerCase() === 'location' ? 'http://169.254.169.254/latest/meta-data/' : null),
+      },
       text: async () => '',
     });
 

@@ -77,7 +77,12 @@ const NAV = [
   { to: '/kanban', label: 'Execute', Icon: ExecuteIcon, tab: 'kanban' },
   { to: '/gantt', label: 'Progress', Icon: ProgressIcon, tab: 'gantt' },
   { to: '/backlog', label: 'Tasks', Icon: TasksIcon, tab: 'backlog' },
-  { to: '/analytics', label: 'Analytics', Icon: BarChartIcon, tab: 'analytics' },
+  {
+    to: '/analytics',
+    label: 'Analytics',
+    Icon: BarChartIcon,
+    tab: 'analytics',
+  },
   { to: '/about', label: 'About', Icon: AboutIcon, tab: 'about' },
 ];
 
@@ -198,7 +203,10 @@ export default function TopBar({
             : Promise.resolve(0),
           !chatIsAdmin && activeProduct?.id
             ? api.notifications.unreadByTask(activeProduct.id).catch(() => ({ general: 0, byTask: {} }))
-            : Promise.resolve({ general: 0, byTask: {} as Record<string, number> }),
+            : Promise.resolve({
+                general: 0,
+                byTask: {} as Record<string, number>,
+              }),
         ]);
         const mentionCount = mentions.general + Object.values(mentions.byTask).reduce((s, n) => s + n, 0);
         if (!cancelled) setChatUnread(convCount + mentionCount);
@@ -295,16 +303,16 @@ export default function TopBar({
             title="Go to Kanban"
             aria-label="Planly - go to Kanban"
           >
-            <img
-              src="/icons/p.png"
-              alt=""
-              className="w-full h-full object-contain"
-            />
+            <img src="/icons/p.png" alt="" className="w-full h-full object-contain" />
           </button>
           <button
             onClick={onOpenSearch}
             className="hidden lg:flex items-center gap-2 flex-1 h-9 px-3 rounded-full text-sm transition-all"
-            style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              color: 'var(--text-3)',
+              border: '1px solid var(--border)',
+            }}
             onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
           >
@@ -312,7 +320,11 @@ export default function TopBar({
             <span className="flex-1 text-left text-xs">Search in Planly</span>
             <kbd
               className="text-[10px] px-1.5 py-0.5 rounded"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-3)' }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-3)',
+              }}
             >
               ⌘K
             </kbd>
@@ -374,7 +386,12 @@ export default function TopBar({
                           {badge > 0 && (
                             <span
                               className="absolute -top-1.5 -right-2.5 text-white rounded-full text-[9px] font-bold leading-none flex items-center justify-center"
-                              style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 3px' }}
+                              style={{
+                                background: '#ef4444',
+                                minWidth: 14,
+                                height: 14,
+                                padding: '0 3px',
+                              }}
                             >
                               {badge > 99 ? '99+' : badge}
                             </span>
@@ -400,7 +417,9 @@ export default function TopBar({
                   className={({ isActive }) =>
                     `relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[60px] max-w-24 text-[11px] font-medium tracking-wide transition-colors ${isActive ? 'text-[var(--text)]' : 'text-[var(--text-3)]'}`
                   }
-                  style={({ isActive }) => ({ color: isActive ? 'var(--text)' : undefined })}
+                  style={({ isActive }) => ({
+                    color: isActive ? 'var(--text)' : undefined,
+                  })}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = 'var(--text)';
                     e.currentTarget.style.background = 'var(--surface-2)';
@@ -530,11 +549,7 @@ export default function TopBar({
               longer appear in the notification bell (NotificationBell.tsx), just here as a count.
               Clicking only opens the panel; clearing now happens granularly inside ChatPanel as
               the user actually visits each tab/thread, not all at once here. */}
-          <Tooltip
-            content={chatIsAdmin ? 'Admin chat' : 'Project chat'}
-            side="bottom"
-            className="inline-flex relative"
-          >
+          <Tooltip content={chatIsAdmin ? 'Admin chat' : 'Project chat'} side="bottom" className="inline-flex relative">
             <button
               onClick={onOpenChat}
               title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
@@ -558,7 +573,12 @@ export default function TopBar({
               {chatUnread > 0 && (
                 <span
                   className="absolute -top-1 -right-1 text-white rounded-full text-[9px] font-bold leading-none flex items-center justify-center"
-                  style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 3px' }}
+                  style={{
+                    background: '#ef4444',
+                    minWidth: 14,
+                    height: 14,
+                    padding: '0 3px',
+                  }}
                 >
                   {chatUnread > 99 ? '99+' : chatUnread}
                 </span>
@@ -629,17 +649,26 @@ export default function TopBar({
                 border: `1px solid ${chatIsAdmin ? 'var(--brand)' : 'transparent'}`,
               }}
               title={chatIsAdmin ? 'Admin' : (activeProduct?.name ?? 'Project')}
-              aria-label={chatIsAdmin ? 'Admin mode' : `Switch project (current: ${activeProduct?.name ?? 'none selected'})`}
+              aria-label={
+                chatIsAdmin ? 'Admin mode' : `Switch project (current: ${activeProduct?.name ?? 'none selected'})`
+              }
             >
               {chatIsAdmin ? (
-                <span aria-hidden="true" style={{ fontSize: 14 }}>A</span>
+                <span aria-hidden="true" style={{ fontSize: 14 }}>
+                  A
+                </span>
               ) : (
                 <span aria-hidden="true">{activeProduct?.emoji ?? '🎯'}</span>
               )}
               {notifTotal > 0 && (
                 <span
                   className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                  style={{ background: '#ef4444', minWidth: 16, height: 16, padding: '0 3px' }}
+                  style={{
+                    background: '#ef4444',
+                    minWidth: 16,
+                    height: 16,
+                    padding: '0 3px',
+                  }}
                 >
                   {notifTotal > 99 ? '99+' : notifTotal}
                 </span>
@@ -828,7 +857,10 @@ export default function TopBar({
                       setShowProductEmojiPicker(false);
                     }}
                     className="mt-1 w-full text-xs py-1 rounded-lg"
-                    style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
+                    style={{
+                      color: 'var(--text-3)',
+                      background: 'var(--surface-2)',
+                    }}
                   >
                     Remove icon
                   </button>
@@ -843,11 +875,18 @@ export default function TopBar({
                 fallback={
                   <div
                     className="rounded-lg flex items-center justify-center"
-                    style={{ height: 96, background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                    style={{
+                      height: 96,
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border)',
+                    }}
                   >
                     <div
                       className="w-4 h-4 border-2 rounded-full animate-spin"
-                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                      style={{
+                        borderColor: 'var(--brand)',
+                        borderTopColor: 'transparent',
+                      }}
                     />
                   </div>
                 }

@@ -25,9 +25,13 @@ export default function ProjectsSection({ items, activeProductId, highlightIdx, 
             data-idx={i}
             onClick={() => onSelect(product)}
             className="w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors"
-            style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
+            style={{
+              background: isHighlighted ? 'var(--brand-subtle)' : 'transparent',
+            }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
+            }
           >
             <span className="text-base flex-shrink-0 mt-0.5">{product.emoji ?? '🎯'}</span>
             <span className="flex-1 min-w-0">
@@ -38,7 +42,10 @@ export default function ProjectsSection({ items, activeProductId, highlightIdx, 
                 {isActive && (
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                    style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                    style={{
+                      background: 'var(--brand-subtle)',
+                      color: 'var(--brand)',
+                    }}
                   >
                     Active
                   </span>
