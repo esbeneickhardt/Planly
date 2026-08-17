@@ -159,7 +159,15 @@ export default function MessageBubble({
         if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;
         if (String(children).includes('\n'))
           return (
-            <pre style={{ margin: '6px -4px', borderRadius: 6, overflow: 'auto', fontSize: 12, ...mdTouchProps(isMobile) }}>
+            <pre
+              style={{
+                margin: '6px -4px',
+                borderRadius: 6,
+                overflow: 'auto',
+                fontSize: 12,
+                ...mdTouchProps(isMobile),
+              }}
+            >
               <code className={className} {...props}>
                 {children}
               </code>
@@ -195,32 +203,85 @@ export default function MessageBubble({
           {children}
         </a>
       ),
-      p: ({ children }: { children?: React.ReactNode }) => <p style={{ margin: '2px 0', ...mdTouchProps(isMobile) }}>{children}</p>,
+      p: ({ children }: { children?: React.ReactNode }) => (
+        <p style={{ margin: '2px 0', ...mdTouchProps(isMobile) }}>{children}</p>
+      ),
       h1: ({ children }: { children?: React.ReactNode }) => (
-        <h1 style={{ margin: '6px 0 2px', fontSize: '1.3em', fontWeight: 700, lineHeight: 1.3, ...mdTouchProps(isMobile) }}>
+        <h1
+          style={{
+            margin: '6px 0 2px',
+            fontSize: '1.3em',
+            fontWeight: 700,
+            lineHeight: 1.3,
+            ...mdTouchProps(isMobile),
+          }}
+        >
           {children}
         </h1>
       ),
       h2: ({ children }: { children?: React.ReactNode }) => (
-        <h2 style={{ margin: '5px 0 2px', fontSize: '1.15em', fontWeight: 700, lineHeight: 1.3, ...mdTouchProps(isMobile) }}>
+        <h2
+          style={{
+            margin: '5px 0 2px',
+            fontSize: '1.15em',
+            fontWeight: 700,
+            lineHeight: 1.3,
+            ...mdTouchProps(isMobile),
+          }}
+        >
           {children}
         </h2>
       ),
       h3: ({ children }: { children?: React.ReactNode }) => (
-        <h3 style={{ margin: '4px 0 2px', fontSize: '1.05em', fontWeight: 600, lineHeight: 1.3, ...mdTouchProps(isMobile) }}>
+        <h3
+          style={{
+            margin: '4px 0 2px',
+            fontSize: '1.05em',
+            fontWeight: 600,
+            lineHeight: 1.3,
+            ...mdTouchProps(isMobile),
+          }}
+        >
           {children}
         </h3>
       ),
       h4: ({ children }: { children?: React.ReactNode }) => (
-        <h4 style={{ margin: '3px 0 2px', fontSize: '1em', fontWeight: 600, ...mdTouchProps(isMobile) }}>{children}</h4>
+        <h4
+          style={{
+            margin: '3px 0 2px',
+            fontSize: '1em',
+            fontWeight: 600,
+            ...mdTouchProps(isMobile),
+          }}
+        >
+          {children}
+        </h4>
       ),
       ul: ({ children }: { children?: React.ReactNode }) => (
-        <ul style={{ margin: '4px 0', paddingLeft: 16, ...mdTouchProps(isMobile) }}>{children}</ul>
+        <ul
+          style={{
+            margin: '4px 0',
+            paddingLeft: 16,
+            ...mdTouchProps(isMobile),
+          }}
+        >
+          {children}
+        </ul>
       ),
       ol: ({ children }: { children?: React.ReactNode }) => (
-        <ol style={{ margin: '4px 0', paddingLeft: 16, ...mdTouchProps(isMobile) }}>{children}</ol>
+        <ol
+          style={{
+            margin: '4px 0',
+            paddingLeft: 16,
+            ...mdTouchProps(isMobile),
+          }}
+        >
+          {children}
+        </ol>
       ),
-      li: ({ children }: { children?: React.ReactNode }) => <li style={{ margin: '2px 0', ...mdTouchProps(isMobile) }}>{children}</li>,
+      li: ({ children }: { children?: React.ReactNode }) => (
+        <li style={{ margin: '2px 0', ...mdTouchProps(isMobile) }}>{children}</li>
+      ),
       blockquote: ({ children }: { children?: React.ReactNode }) => (
         <blockquote
           style={{
@@ -240,7 +301,11 @@ export default function MessageBubble({
 
   const renderContent = (content: string) => (
     <div className="chat-markdown" style={{ fontSize: 13, lineHeight: 1.5, ...mdTouchProps(isMobile) }}>
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]} components={mdComponents}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks]}
+        rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
+        components={mdComponents}
+      >
         {content}
       </ReactMarkdown>
     </div>
@@ -287,7 +352,9 @@ export default function MessageBubble({
   // downward instead whenever there isn't enough room above.
   const reactBtnRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({
+    visibility: 'hidden',
+  });
   useLayoutEffect(() => {
     if (isMobile || !reactionPickerOpen) return;
     const btn = reactBtnRef.current;
@@ -482,7 +549,11 @@ export default function MessageBubble({
     if (directionRef.current === 'unknown') {
       if (Math.abs(dx) < DIRECTION_LOCK_DISTANCE && Math.abs(dy) < DIRECTION_LOCK_DISTANCE) return;
       directionRef.current = Math.abs(dy) > Math.abs(dx) * VERTICAL_BIAS ? 'vertical' : 'horizontal';
-      logTouch(msg.id, isOwn, 'directionLocked', { dir: directionRef.current, dx: Math.round(dx), dy: Math.round(dy) });
+      logTouch(msg.id, isOwn, 'directionLocked', {
+        dir: directionRef.current,
+        dx: Math.round(dx),
+        dy: Math.round(dy),
+      });
       if (directionRef.current === 'vertical') {
         setDragging(false);
         setDragX(0);
@@ -585,7 +656,10 @@ export default function MessageBubble({
       if (finalTouch) {
         const finalDx = finalTouch.clientX - gestureStart.x;
         const finalDy = finalTouch.clientY - gestureStart.y;
-        logTouch(msg.id, isOwn, 'groundTruthCheck', { finalDx: Math.round(finalDx), finalDy: Math.round(finalDy) });
+        logTouch(msg.id, isOwn, 'groundTruthCheck', {
+          finalDx: Math.round(finalDx),
+          finalDy: Math.round(finalDy),
+        });
         if (finalDx >= SWIPE_THRESHOLD && Math.abs(finalDy) <= Math.abs(finalDx) * VERTICAL_BIAS) {
           if (longPressFiredRef.current) {
             longPressFiredRef.current = false;
@@ -610,10 +684,14 @@ export default function MessageBubble({
     setDragging(false);
     if (dragX > SWIPE_TAP_TOLERANCE) suppressNextClickRef.current = true;
     if (dragX >= SWIPE_THRESHOLD) {
-      logTouch(msg.id, isOwn, 'onReply-fired-dragXFallback', { dragX: Math.round(dragX) });
+      logTouch(msg.id, isOwn, 'onReply-fired-dragXFallback', {
+        dragX: Math.round(dragX),
+      });
       onReply?.();
     } else {
-      logTouch(msg.id, isOwn, 'end-belowThreshold', { dragX: Math.round(dragX) });
+      logTouch(msg.id, isOwn, 'end-belowThreshold', {
+        dragX: Math.round(dragX),
+      });
     }
     setDragX(0);
   }
@@ -704,7 +782,10 @@ export default function MessageBubble({
           {authorRole && (
             <span
               className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-              style={{ ...(ROLE_STYLE[authorRole] ?? ROLE_STYLE['Server Admin']), lineHeight: 1.2 }}
+              style={{
+                ...(ROLE_STYLE[authorRole] ?? ROLE_STYLE['Server Admin']),
+                lineHeight: 1.2,
+              }}
             >
               {authorRole}
             </span>
@@ -718,129 +799,138 @@ export default function MessageBubble({
             overlap the bottom corner of whichever is last, instead of taking a full row below -
             same "badge hangs off the message" pattern most chat apps use. */}
         <div className="relative" style={{ touchAction: 'pan-y' }}>
-        {(msg.content || msg.replyTo) && (
-          <div
-            className={`px-3 py-2 rounded-2xl text-sm max-w-[320px] ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
-            style={{
-              background: isOwn ? 'var(--brand)' : 'var(--surface-2)',
-              color: isOwn ? 'white' : 'var(--text)',
-              border: isOwn ? 'none' : '1px solid var(--border)',
-              wordBreak: 'break-word',
-              touchAction: 'pan-y',
-              // Repeated here (not just on the outer wrapper) for the same reason touchAction is
-              // repeated: user-select doesn't reliably compute down from an ancestor across
-              // browsers, and this bubble - a full selectable paragraph of text - is exactly where
-              // Android's native long-press-to-select is most eager to kick in.
-              WebkitUserSelect: isMobile ? 'none' : undefined,
-              userSelect: isMobile ? 'none' : undefined,
-            }}
-          >
-            {/* Quote block inside the bubble, clicking jumps to original (not the tap-for-actions
+          {(msg.content || msg.replyTo) && (
+            <div
+              className={`px-3 py-2 rounded-2xl text-sm max-w-[320px] ${isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
+              style={{
+                background: isOwn ? 'var(--brand)' : 'var(--surface-2)',
+                color: isOwn ? 'white' : 'var(--text)',
+                border: isOwn ? 'none' : '1px solid var(--border)',
+                wordBreak: 'break-word',
+                touchAction: 'pan-y',
+                // Repeated here (not just on the outer wrapper) for the same reason touchAction is
+                // repeated: user-select doesn't reliably compute down from an ancestor across
+                // browsers, and this bubble - a full selectable paragraph of text - is exactly where
+                // Android's native long-press-to-select is most eager to kick in.
+                WebkitUserSelect: isMobile ? 'none' : undefined,
+                userSelect: isMobile ? 'none' : undefined,
+              }}
+            >
+              {/* Quote block inside the bubble, clicking jumps to original (not the tap-for-actions
                 toggle above - this is specifically about the quote, not the message itself) */}
-            {msg.replyTo && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onScrollToReply?.(msg.replyTo!.id);
-                }}
-                className="w-full text-left mb-2 px-2 py-1.5 rounded-lg flex items-center gap-2"
-                style={{
-                  background: isOwn ? 'rgba(0,0,0,0.15)' : 'var(--surface)',
-                  borderLeft: `3px solid ${isOwn ? 'rgba(255,255,255,0.5)' : 'var(--brand)'}`,
-                }}
-                title="Jump to original message"
-              >
-                {(() => {
-                  const img = msg.replyTo!.attachments.find((a) => a.type?.startsWith('image/'));
-                  return img ? (
-                    <img
-                      src={img.thumbnailUrl ?? img.url}
-                      alt=""
-                      className="w-8 h-8 rounded object-cover flex-shrink-0"
-                    />
-                  ) : null;
-                })()}
-                <div className="min-w-0">
-                  <span
-                    className="text-[10px] font-semibold block"
-                    style={{ color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--brand)' }}
-                  >
-                    {displayName(msg.replyTo.author)}
-                  </span>
-                  <span
-                    className="text-[10px] block truncate"
-                    style={{ color: isOwn ? 'rgba(255,255,255,0.65)' : 'var(--text-3)', maxWidth: 220 }}
-                  >
-                    {msg.replyTo.content
-                      ? msg.replyTo.content.slice(0, 120)
-                      : msg.replyTo.attachments.length > 0
-                        ? '📷 Photo'
-                        : ''}
-                  </span>
-                </div>
-              </button>
-            )}
-            {msg.content && renderContent(msg.content)}
-          </div>
-        )}
-        {msg.attachments.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {msg.attachments.map((att, i) =>
-              att.type?.startsWith('image/') ? (
-                <button key={i} onClick={() => onImageClick(att.url)} className="block">
-                  <img
-                    src={att.thumbnailUrl ?? att.url}
-                    alt={att.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="rounded-lg object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
-                    style={{ maxWidth: 200, maxHeight: 160 }}
-                  />
-                </button>
-              ) : (
-                <a
-                  key={i}
-                  href={att.url}
-                  download={att.name}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs"
-                  style={{ background: 'var(--surface-2)', color: 'var(--brand)', border: '1px solid var(--border)' }}
+              {msg.replyTo && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onScrollToReply?.(msg.replyTo!.id);
+                  }}
+                  className="w-full text-left mb-2 px-2 py-1.5 rounded-lg flex items-center gap-2"
+                  style={{
+                    background: isOwn ? 'rgba(0,0,0,0.15)' : 'var(--surface)',
+                    borderLeft: `3px solid ${isOwn ? 'rgba(255,255,255,0.5)' : 'var(--brand)'}`,
+                  }}
+                  title="Jump to original message"
                 >
-                  📎 {att.name}
-                </a>
-              ),
-            )}
-          </div>
-        )}
+                  {(() => {
+                    const img = msg.replyTo!.attachments.find((a) => a.type?.startsWith('image/'));
+                    return img ? (
+                      <img
+                        src={img.thumbnailUrl ?? img.url}
+                        alt=""
+                        className="w-8 h-8 rounded object-cover flex-shrink-0"
+                      />
+                    ) : null;
+                  })()}
+                  <div className="min-w-0">
+                    <span
+                      className="text-[10px] font-semibold block"
+                      style={{
+                        color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--brand)',
+                      }}
+                    >
+                      {displayName(msg.replyTo.author)}
+                    </span>
+                    <span
+                      className="text-[10px] block truncate"
+                      style={{
+                        color: isOwn ? 'rgba(255,255,255,0.65)' : 'var(--text-3)',
+                        maxWidth: 220,
+                      }}
+                    >
+                      {msg.replyTo.content
+                        ? msg.replyTo.content.slice(0, 120)
+                        : msg.replyTo.attachments.length > 0
+                          ? '📷 Photo'
+                          : ''}
+                    </span>
+                  </div>
+                </button>
+              )}
+              {msg.content && renderContent(msg.content)}
+            </div>
+          )}
+          {msg.attachments.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {msg.attachments.map((att, i) =>
+                att.type?.startsWith('image/') ? (
+                  <button key={i} onClick={() => onImageClick(att.url)} className="block">
+                    <img
+                      src={att.thumbnailUrl ?? att.url}
+                      alt={att.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="rounded-lg object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                      style={{ maxWidth: 200, maxHeight: 160 }}
+                    />
+                  </button>
+                ) : (
+                  <a
+                    key={i}
+                    href={att.url}
+                    download={att.name}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs"
+                    style={{
+                      background: 'var(--surface-2)',
+                      color: 'var(--brand)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    📎 {att.name}
+                  </a>
+                ),
+              )}
+            </div>
+          )}
 
-        {/* Reactions - overlap the bottom corner of the bubble/attachments above (like Messenger,
+          {/* Reactions - overlap the bottom corner of the bubble/attachments above (like Messenger,
             WhatsApp, etc.) instead of taking a full row below, so a reacted-to message costs no
             extra vertical space beyond the badge peeking over the corner. Only rendered once at
             least one exists (adding a reaction is done from the action menu, not from here). */}
-        {hasReactions && (
-          <div className={`absolute -bottom-2.5 flex items-center gap-1 ${isOwn ? 'right-1' : 'left-1'}`}>
-            {Object.entries(reactionGroups).map(([emoji, userIds]) => {
-              const mine = currentUserId ? userIds.includes(currentUserId) : false;
-              return (
-                <button
-                  key={emoji}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onReact(emoji);
-                  }}
-                  title={userIds.length > 3 ? userIds.join(', ') : undefined}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs shadow-sm transition-colors"
-                  style={{
-                    background: mine ? 'var(--brand-subtle)' : 'var(--surface-2)',
-                    border: `1px solid ${mine ? 'var(--brand)' : 'var(--border)'}`,
-                    color: mine ? 'var(--brand)' : 'var(--text-2)',
-                  }}
-                >
-                  {emoji} <span>{userIds.length}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+          {hasReactions && (
+            <div className={`absolute -bottom-2.5 flex items-center gap-1 ${isOwn ? 'right-1' : 'left-1'}`}>
+              {Object.entries(reactionGroups).map(([emoji, userIds]) => {
+                const mine = currentUserId ? userIds.includes(currentUserId) : false;
+                return (
+                  <button
+                    key={emoji}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReact(emoji);
+                    }}
+                    title={userIds.length > 3 ? userIds.join(', ') : undefined}
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs shadow-sm transition-colors"
+                    style={{
+                      background: mine ? 'var(--brand-subtle)' : 'var(--surface-2)',
+                      border: `1px solid ${mine ? 'var(--brand)' : 'var(--border)'}`,
+                      color: mine ? 'var(--brand)' : 'var(--text-2)',
+                    }}
+                  >
+                    {emoji} <span>{userIds.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Desktop: emoji picker for reactions, anchored next to the bubble. Mobile has its own
@@ -883,7 +973,10 @@ export default function MessageBubble({
             className={`absolute -top-2 flex gap-0.5 p-1 rounded-lg shadow-lg transition-opacity z-10 ${
               isOwn ? 'right-0 flex-row-reverse' : 'left-0'
             } ${actionsOpen ? 'opacity-100' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'}`}
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
           >
             {onReply && (
               <button
@@ -996,7 +1089,12 @@ export default function MessageBubble({
                       onClick={onToggleReactionPicker}
                       aria-label="More emoji"
                       className="flex items-center justify-center rounded-full text-lg flex-shrink-0"
-                      style={{ width: 40, height: 40, background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        background: 'var(--surface-2)',
+                        color: 'var(--text-2)',
+                      }}
                     >
                       +
                     </button>

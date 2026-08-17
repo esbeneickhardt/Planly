@@ -57,7 +57,13 @@ export type Stats = {
 export type EmailStatus = {
   enabled: boolean;
   from: string | null;
-  config: { host: string; port: number; secure: boolean; user: string; from: string } | null;
+  config: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    from: string;
+  } | null;
 };
 
 export type IpRule = {

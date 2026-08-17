@@ -103,12 +103,26 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
       <Handle
         type="target"
         position={Position.Left}
-        style={{ width: 12, height: 12, background: 'var(--surface)', border: '2px solid var(--brand)', left: -7 }}
+        style={{
+          width: 12,
+          height: 12,
+          background: 'var(--surface)',
+          border: '2px solid var(--brand)',
+          left: -7,
+        }}
       />
 
       {/* Sprint membership badge - shown read-only when a sprint is active */}
       {inSprint && (
-        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, pointerEvents: 'none' }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 10,
+            pointerEvents: 'none',
+          }}
+        >
           <div
             style={{
               width: 20,
@@ -122,7 +136,16 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
               boxShadow: '0 1px 4px rgba(16,185,129,0.4)',
             }}
           >
-            <span style={{ color: 'white', fontSize: 12, lineHeight: 1, fontWeight: 700 }}>✓</span>
+            <span
+              style={{
+                color: 'white',
+                fontSize: 12,
+                lineHeight: 1,
+                fontWeight: 700,
+              }}
+            >
+              ✓
+            </span>
           </div>
         </div>
       )}
@@ -130,8 +153,23 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
       <div style={{ padding: '10px 12px', paddingRight: inSprint ? 34 : 12 }}>
         {/* Status row - hidden in simple mode */}
         {!simpleMode && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              marginBottom: 4,
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: statusColor,
+                flexShrink: 0,
+              }}
+            />
             <span style={{ fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>
               {data.statusLabel ?? STATUS_LABEL[data.status] ?? data.status}
             </span>
@@ -157,14 +195,29 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
 
         {/* Milestone deadline - hidden in simple mode */}
         {!simpleMode && isMilestone && (
-          <p style={{ fontSize: 10, marginTop: 4, color: isOverdue ? '#ef4444' : '#d97706', fontWeight: 600 }}>
+          <p
+            style={{
+              fontSize: 10,
+              marginTop: 4,
+              color: isOverdue ? '#ef4444' : '#d97706',
+              fontWeight: 600,
+            }}
+          >
             📅 {new Date(data.deadline!).toLocaleDateString()}
           </p>
         )}
 
         {/* Owner + Reviewer - hidden in simple mode */}
         {!simpleMode && (data.owner || data.reviewer) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 6,
+              flexWrap: 'wrap',
+            }}
+          >
             {data.owner && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <span style={{ fontSize: 12 }}>{data.owner.avatarEmoji ?? '👤'}</span>
@@ -184,7 +237,14 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
         {/* Subtask progress bar */}
         {data.subtasks && data.subtasks.length > 0 && (
           <div style={{ marginTop: 6 }}>
-            <div style={{ height: 3, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: 3,
+                borderRadius: 2,
+                background: 'var(--border)',
+                overflow: 'hidden',
+              }}
+            >
               <div
                 style={{
                   height: '100%',
@@ -201,7 +261,13 @@ export default memo(function TaskNode({ data, selected }: NodeProps<TaskNodeData
       <Handle
         type="source"
         position={Position.Right}
-        style={{ width: 12, height: 12, background: 'var(--surface)', border: '2px solid var(--brand)', right: -7 }}
+        style={{
+          width: 12,
+          height: 12,
+          background: 'var(--surface)',
+          border: '2px solid var(--brand)',
+          right: -7,
+        }}
       />
     </div>
   );

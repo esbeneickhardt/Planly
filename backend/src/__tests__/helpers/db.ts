@@ -97,7 +97,13 @@ export async function createTestAppRegistration(ownerId: string, opts: { product
   const raw = randomBytes(32).toString('hex');
   const tokenHash = createHash('sha256').update(raw).digest('hex');
   await prisma.apiToken.create({
-    data: { userId: ownerId, tokenHash, name: 'default', appId: app.id, productId: opts.productId ?? null },
+    data: {
+      userId: ownerId,
+      tokenHash,
+      name: 'default',
+      appId: app.id,
+      productId: opts.productId ?? null,
+    },
   });
   return { app, raw };
 }

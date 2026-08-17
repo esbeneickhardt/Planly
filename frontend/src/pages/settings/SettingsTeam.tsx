@@ -17,7 +17,12 @@ type AccessRequestRow = {
   status: string;
   note: string | null;
   createdAt: string;
-  user: { id: string; username: string; avatarEmoji: string | null; realName: string | null };
+  user: {
+    id: string;
+    username: string;
+    avatarEmoji: string | null;
+    realName: string | null;
+  };
 };
 
 type ListUser = {
@@ -32,7 +37,11 @@ function PendingBadge() {
   return (
     <span
       className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-      style={{ background: 'rgba(234,179,8,0.15)', color: '#ca8a04', border: '1px solid rgba(234,179,8,0.3)' }}
+      style={{
+        background: 'rgba(234,179,8,0.15)',
+        color: '#ca8a04',
+        border: '1px solid rgba(234,179,8,0.3)',
+      }}
     >
       Pending
     </span>
@@ -211,7 +220,10 @@ export default function SettingsTeam({
           {suggestions.length > 0 && (
             <div
               className="absolute top-full left-0 mt-1 w-72 rounded-xl overflow-hidden z-10 shadow-lg"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+              }}
             >
               {suggestions.map((u) => (
                 <div
@@ -223,7 +235,12 @@ export default function SettingsTeam({
                     {u.avatarEmoji ?? '👤'}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm" style={{ color: u.acceptsInvites ? 'var(--text)' : 'var(--text-3)' }}>
+                    <span
+                      className="text-sm"
+                      style={{
+                        color: u.acceptsInvites ? 'var(--text)' : 'var(--text-3)',
+                      }}
+                    >
                       {displayName(u)}
                     </span>
                     {u.realName?.trim() && (
@@ -271,121 +288,129 @@ export default function SettingsTeam({
               leaving action buttons landing at a different horizontal position per row instead of
               a shared right edge. Names now truncate instead, and every row shares this width. */}
           <div style={{ minWidth: 460 }}>
-          {totalRows === 0 && (
-            <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-3)' }}>
-              No members yet.
-            </div>
-          )}
+            {totalRows === 0 && (
+              <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-3)' }}>
+                No members yet.
+              </div>
+            )}
 
-          {/* Active members */}
-          {members.map(({ userId, user, role }, idx) => {
-            const isProductOwner = userId === activeProduct.ownerId;
-            const isCoOwner = role === 'co_owner';
-            return (
-              <div
-                key={userId}
-                className="flex items-center gap-3 px-4 py-3"
-                style={{
-                  background: idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
-                  borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setProfileUserId(userId)}
-                  className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                  style={{ background: 'none', border: 'none', padding: 0 }}
+            {/* Active members */}
+            {members.map(({ userId, user, role }, idx) => {
+              const isProductOwner = userId === activeProduct.ownerId;
+              const isCoOwner = role === 'co_owner';
+              return (
+                <div
+                  key={userId}
+                  className="flex items-center gap-3 px-4 py-3"
+                  style={{
+                    background: idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
+                    borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
+                  }}
                 >
-                  <span className="text-xl flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
+                  <button
+                    type="button"
+                    onClick={() => setProfileUserId(userId)}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                    style={{ background: 'none', border: 'none', padding: 0 }}
+                  >
+                    <span className="text-xl flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium hover:underline truncate" style={{ color: 'var(--text)' }}>
+                          {displayName(user)}
+                        </span>
+                        {isProductOwner && <RoleBadge kind="owner" />}
+                        {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
+                        {userId === currentUser?.id && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0"
+                            style={{
+                              background: 'var(--surface-2)',
+                              color: 'var(--text-3)',
+                              border: '1px solid var(--border)',
+                            }}
+                          >
+                            You
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  {isOwner && !isProductOwner && userId !== currentUser?.id && (
+                    <button
+                      onClick={() => handleToggleCoOwner(userId, role ?? 'member')}
+                      disabled={togglingRole === userId}
+                      className="text-xs px-2.5 py-1 rounded-lg transition-colors flex-shrink-0"
+                      style={{
+                        background: isCoOwner ? 'rgba(139,92,246,0.1)' : 'var(--surface-2)',
+                        color: isCoOwner ? '#8b5cf6' : 'var(--text-3)',
+                        border: `1px solid ${isCoOwner ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                      }}
+                    >
+                      {togglingRole === userId ? '…' : isCoOwner ? 'Remove co-owner' : 'Make co-owner'}
+                    </button>
+                  )}
+                  {canManage && !isProductOwner && userId !== currentUser?.id && (
+                    <button
+                      onClick={() => handleRemoveMember(userId, user.username)}
+                      className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
+                      style={{
+                        color: '#ef4444',
+                        border: '1px solid rgba(239,68,68,0.25)',
+                        background: 'transparent',
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Pending invites */}
+            {pendingInvites.map((inv, idx) => {
+              const rowIdx = members.length + idx;
+              return (
+                <div
+                  key={inv.id}
+                  className="flex items-center gap-3 px-4 py-3"
+                  style={{
+                    background: rowIdx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
+                    borderTop: rowIdx > 0 ? '1px solid var(--border)' : 'none',
+                    opacity: 0.85,
+                  }}
+                >
+                  <span className="text-xl flex-shrink-0" style={{ opacity: 0.6 }}>
+                    {inv.toUser!.avatarEmoji ?? '👤'}
+                  </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium hover:underline truncate" style={{ color: 'var(--text)' }}>
-                        {displayName(user)}
+                      <span className="text-sm font-medium truncate" style={{ color: 'var(--text-2)' }}>
+                        {displayName(inv.toUser!)}
                       </span>
-                      {isProductOwner && <RoleBadge kind="owner" />}
-                      {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
-                      {userId === currentUser?.id && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0"
-                          style={{
-                            background: 'var(--surface-2)',
-                            color: 'var(--text-3)',
-                            border: '1px solid var(--border)',
-                          }}
-                        >
-                          You
-                        </span>
-                      )}
+                      <PendingBadge />
                     </div>
+                    <p className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
+                      Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                    </p>
                   </div>
-                </button>
-                {isOwner && !isProductOwner && userId !== currentUser?.id && (
-                  <button
-                    onClick={() => handleToggleCoOwner(userId, role ?? 'member')}
-                    disabled={togglingRole === userId}
-                    className="text-xs px-2.5 py-1 rounded-lg transition-colors flex-shrink-0"
-                    style={{
-                      background: isCoOwner ? 'rgba(139,92,246,0.1)' : 'var(--surface-2)',
-                      color: isCoOwner ? '#8b5cf6' : 'var(--text-3)',
-                      border: `1px solid ${isCoOwner ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
-                    }}
-                  >
-                    {togglingRole === userId ? '…' : isCoOwner ? 'Remove co-owner' : 'Make co-owner'}
-                  </button>
-                )}
-                {canManage && !isProductOwner && userId !== currentUser?.id && (
-                  <button
-                    onClick={() => handleRemoveMember(userId, user.username)}
-                    className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
-                    style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', background: 'transparent' }}
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Pending invites */}
-          {pendingInvites.map((inv, idx) => {
-            const rowIdx = members.length + idx;
-            return (
-              <div
-                key={inv.id}
-                className="flex items-center gap-3 px-4 py-3"
-                style={{
-                  background: rowIdx % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)',
-                  borderTop: rowIdx > 0 ? '1px solid var(--border)' : 'none',
-                  opacity: 0.85,
-                }}
-              >
-                <span className="text-xl flex-shrink-0" style={{ opacity: 0.6 }}>
-                  {inv.toUser!.avatarEmoji ?? '👤'}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium truncate" style={{ color: 'var(--text-2)' }}>
-                      {displayName(inv.toUser!)}
-                    </span>
-                    <PendingBadge />
-                  </div>
-                  <p className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
-                    Expires {new Date(inv.expiresAt).toLocaleDateString()}
-                  </p>
+                  {canManage && (
+                    <button
+                      onClick={() => handleUninvite(inv.id, inv.toUser!.username)}
+                      disabled={uninvitingId === inv.id}
+                      className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
+                      style={{
+                        color: '#ef4444',
+                        border: '1px solid rgba(239,68,68,0.25)',
+                        background: 'transparent',
+                      }}
+                    >
+                      {uninvitingId === inv.id ? '…' : 'Uninvite'}
+                    </button>
+                  )}
                 </div>
-                {canManage && (
-                  <button
-                    onClick={() => handleUninvite(inv.id, inv.toUser!.username)}
-                    disabled={uninvitingId === inv.id}
-                    className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
-                    style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', background: 'transparent' }}
-                  >
-                    {uninvitingId === inv.id ? '…' : 'Uninvite'}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -452,7 +477,11 @@ export default function SettingsTeam({
                   </div>
                   <button
                     className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0"
-                    style={{ color: 'var(--brand)', border: '1px solid var(--brand)', background: 'transparent' }}
+                    style={{
+                      color: 'var(--brand)',
+                      border: '1px solid var(--brand)',
+                      background: 'transparent',
+                    }}
                     onClick={() => {
                       navigator.clipboard.writeText(inv.inviteUrl).catch(() => {});
                       showToast('Copied!', 'success');
@@ -462,7 +491,11 @@ export default function SettingsTeam({
                   </button>
                   <button
                     className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 ml-1"
-                    style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', background: 'transparent' }}
+                    style={{
+                      color: '#ef4444',
+                      border: '1px solid rgba(239,68,68,0.25)',
+                      background: 'transparent',
+                    }}
                     onClick={async () => {
                       await api.invites.revoke(team.id, inv.id).catch(() => {});
                       await loadInvites();
@@ -508,7 +541,10 @@ export default function SettingsTeam({
               <div
                 key={req.id}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                }}
               >
                 <span className="text-xl flex-shrink-0">{req.user.avatarEmoji ?? '👤'}</span>
                 <div className="flex-1 min-w-0">
@@ -538,7 +574,10 @@ export default function SettingsTeam({
                     onClick={() => handleDecideRequest(req.id, 'reject')}
                     disabled={decidingId === req.id}
                     className="btn-secondary text-xs px-3 py-1"
-                    style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                    style={{
+                      color: '#ef4444',
+                      borderColor: 'rgba(239,68,68,0.3)',
+                    }}
                   >
                     Reject
                   </button>

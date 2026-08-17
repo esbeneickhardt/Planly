@@ -14,7 +14,13 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const next = searchParams.get('next') ?? '/kanban';
-  const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '', realName: '' });
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    realName: '',
+  });
   const [tosAccepted, setTosAccepted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -59,12 +65,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
-            <img
-              src="/icons/p.png"
-              alt="Planly"
-              className="w-full h-full object-contain"
-             
-            />
+            <img src="/icons/p.png" alt="Planly" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
             Create account

@@ -116,7 +116,11 @@ export function useCanvasGraph({
   // filter change (a real one, made after that point) goes on to trigger the actual relayout.
   const filterEffectPrimedRef = useRef(false);
   const productConnectionsRef = useRef<Set<string>>(new Set());
-  const savedViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
+  const savedViewportRef = useRef<{
+    x: number;
+    y: number;
+    zoom: number;
+  } | null>(null);
   // Always-current node/edge/height refs so the debounced auto-relayout effect (below) never
   // relays out a render-stale snapshot of the graph once its timer actually fires
   const nodesRef = useRef(nodes);
@@ -210,7 +214,10 @@ export function useCanvasGraph({
         let col = 0;
         const laid = n.map((node) => {
           if (!unpositioned.find((t) => t.id === node.id)) return node;
-          const pos = { x: maxX + 260 + col * 220, y: midY + (col % 2 === 0 ? -60 : 60) };
+          const pos = {
+            x: maxX + 260 + col * 220,
+            y: midY + (col % 2 === 0 ? -60 : 60),
+          };
           col++;
           return { ...node, position: pos };
         });
@@ -223,7 +230,13 @@ export function useCanvasGraph({
           const laid = runAutoLayout(n, e, nodeHeights);
           setNodes(laid);
           const productNode = laid.find((nd) => nd.id.startsWith('product-'));
-          if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
+          if (productNode)
+            save({
+              productNodePosition: {
+                x: productNode.position.x,
+                y: productNode.position.y,
+              },
+            });
           savePositions(laid);
         } else {
           setNodes(n);
@@ -269,12 +282,25 @@ export function useCanvasGraph({
   // runs dagre against the given node/edge/height snapshot, persists the new positions, and refits
   // the viewport. Takes explicit snapshots rather than reading state/refs itself so both callers
   // control exactly which product/graph state it applies to.
-  const relayoutGraph = (prod: NonNullable<typeof activeProduct>, curNodes: Node[], curEdges: Edge[], heights: Map<string, number>) => {
+  const relayoutGraph = (
+    prod: NonNullable<typeof activeProduct>,
+    curNodes: Node[],
+    curEdges: Edge[],
+    heights: Map<string, number>,
+  ) => {
     const laid = runAutoLayout(curNodes, curEdges, heights);
     setNodes(laid);
     const productNode = laid.find((nd) => nd.id.startsWith('product-'));
-    if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
-    const newLp: Record<string, { x: number; y: number }> = { ...(loadState(prod.id).positions ?? {}) };
+    if (productNode)
+      save({
+        productNodePosition: {
+          x: productNode.position.x,
+          y: productNode.position.y,
+        },
+      });
+    const newLp: Record<string, { x: number; y: number }> = {
+      ...(loadState(prod.id).positions ?? {}),
+    };
     laid
       .filter((nd) => !nd.id.startsWith('product-'))
       .forEach((nd) => {

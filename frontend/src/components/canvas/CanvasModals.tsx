@@ -192,7 +192,12 @@ export default function CanvasModals({
                   required
                   type="date"
                   value={sprintForm.startDate}
-                  onChange={(e) => onSprintFormChange((p) => ({ ...p, startDate: e.target.value }))}
+                  onChange={(e) =>
+                    onSprintFormChange((p) => ({
+                      ...p,
+                      startDate: e.target.value,
+                    }))
+                  }
                   className="input"
                 />
               </div>
@@ -205,7 +210,12 @@ export default function CanvasModals({
                   required
                   type="date"
                   value={sprintForm.endDate}
-                  onChange={(e) => onSprintFormChange((p) => ({ ...p, endDate: e.target.value }))}
+                  onChange={(e) =>
+                    onSprintFormChange((p) => ({
+                      ...p,
+                      endDate: e.target.value,
+                    }))
+                  }
                   className="input"
                 />
               </div>
@@ -236,7 +246,12 @@ export default function CanvasModals({
                 required
                 type="text"
                 value={editSprintForm.name}
-                onChange={(e) => onEditSprintFormChange((p) => ({ ...p, name: e.target.value }))}
+                onChange={(e) =>
+                  onEditSprintFormChange((p) => ({
+                    ...p,
+                    name: e.target.value,
+                  }))
+                }
                 className="input"
               />
             </div>
@@ -345,16 +360,25 @@ export default function CanvasModals({
                 ) : (
                   <div
                     className="divide-y rounded-lg overflow-hidden"
-                    style={{ border: '1px solid var(--border)', maxHeight: 360, overflowY: 'auto' }}
+                    style={{
+                      border: '1px solid var(--border)',
+                      maxHeight: 360,
+                      overflowY: 'auto',
+                    }}
                   >
                     {snapshots.map((snap) => (
-                      <div key={snap.id} className="flex items-center gap-3 px-4 py-3" style={{ background: 'var(--surface)' }}>
+                      <div
+                        key={snap.id}
+                        className="flex items-center gap-3 px-4 py-3"
+                        style={{ background: 'var(--surface)' }}
+                      >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
                             {snap.name}
                           </p>
                           <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                            {snap.user.avatarEmoji ?? '👤'} {displayName(snap.user)} · {new Date(snap.updatedAt).toLocaleDateString()}
+                            {snap.user.avatarEmoji ?? '👤'} {displayName(snap.user)} ·{' '}
+                            {new Date(snap.updatedAt).toLocaleDateString()}
                           </p>
                         </div>
                         <button

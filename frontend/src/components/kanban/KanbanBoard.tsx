@@ -75,7 +75,10 @@ export default function KanbanBoard() {
   const [compact, setCompact] = useState(() => localStorage.getItem('planly_kanban_compact') === '1');
   // Dense card display: title only, no owner/reviewer/milestone/subtasks (board view only)
   const [simpleMode, setSimpleMode] = useState(() => localStorage.getItem('planly_kanban_simple') === '1');
-  const [compactSort, setCompactSort] = useState<{ key: 'name' | 'status' | 'owner' | 'deadline'; dir: 1 | -1 }>(() => {
+  const [compactSort, setCompactSort] = useState<{
+    key: 'name' | 'status' | 'owner' | 'deadline';
+    dir: 1 | -1;
+  }>(() => {
     try {
       const s = localStorage.getItem('planly_kanban_sort');
       return s ? JSON.parse(s) : { key: 'status', dir: 1 };
@@ -380,14 +383,7 @@ export default function KanbanBoard() {
 
   // dnd-kit wiring for all three drag types (milestone-header reorder, column reorder, task drag)
   // - see useKanbanDnd's own header comment for why they share one hook/DndContext.
-  const {
-    sensors,
-    activeTask,
-    activeColumn,
-    activeMilestoneHeader,
-    onDragStart,
-    handleDragEnd,
-  } = useKanbanDnd({
+  const { sensors, activeTask, activeColumn, activeMilestoneHeader, onDragStart, handleDragEnd } = useKanbanDnd({
     activeProduct,
     tasks,
     columns,
@@ -557,7 +553,10 @@ export default function KanbanBoard() {
     if (target.closest('.kanban-col') || target.closest('.kanban-card-wrap')) return;
     if (e.button !== 0) return;
     isPanning.current = true;
-    panStart.current = { x: e.pageX, scrollLeft: boardRef.current?.scrollLeft ?? 0 };
+    panStart.current = {
+      x: e.pageX,
+      scrollLeft: boardRef.current?.scrollLeft ?? 0,
+    };
     if (boardRef.current) boardRef.current.style.cursor = 'grabbing';
     e.preventDefault();
   }
@@ -606,7 +605,10 @@ export default function KanbanBoard() {
 
   async function handleQuickAddTask(statusKey: string, name: string) {
     if (!activeProduct) return;
-    const task = await api.tasks.create(activeProduct.id, { name, status: statusKey });
+    const task = await api.tasks.create(activeProduct.id, {
+      name,
+      status: statusKey,
+    });
     if (sprintFilter) {
       await api.sprints.addTasks(activeProduct.id, sprintFilter, [task.id]);
     }
@@ -1009,7 +1011,10 @@ export default function KanbanBoard() {
                     border: `1px solid ${activeMilestoneHeader.color}`,
                   }}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: activeMilestoneHeader.color }} />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ background: activeMilestoneHeader.color }}
+                  />
                   {activeMilestoneHeader.name}
                 </div>
               ) : null}

@@ -76,19 +76,27 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
       username: `uploader_${suffix}`,
       password: 'pass1234',
     });
-    await createTestUser({ email: otherEmail, username: `other_up_${suffix}`, password: 'pass1234' });
+    await createTestUser({
+      email: otherEmail,
+      username: `other_up_${suffix}`,
+      password: 'pass1234',
+    });
     uploaderId = uploader.id;
 
     uploaderToken = await loginAs(app, uploaderEmail, 'pass1234');
     otherToken = await loginAs(app, otherEmail, 'pass1234');
 
-    const { raw } = await createTestApiToken(uploader.id, { name: 'upload-test-pat' });
+    const { raw } = await createTestApiToken(uploader.id, {
+      name: 'upload-test-pat',
+    });
     uploaderPat = raw;
   });
 
   afterAll(async () => {
     await prisma.fileUpload.deleteMany({ where: { uploaderId } });
-    await prisma.user.deleteMany({ where: { email: { in: [uploaderEmail, otherEmail] } } });
+    await prisma.user.deleteMany({
+      where: { email: { in: [uploaderEmail, otherEmail] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
@@ -161,7 +169,10 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/upload',
-        headers: { ...bearerHeaders(uploaderPat), 'content-type': 'multipart/form-data; boundary=empty' },
+        headers: {
+          ...bearerHeaders(uploaderPat),
+          'content-type': 'multipart/form-data; boundary=empty',
+        },
         payload: Buffer.from('--empty--\r\n'),
       });
       expect(res.statusCode).toBe(400);
@@ -186,7 +197,10 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
     });
 
     it('returns 401 when unauthenticated', async () => {
-      const res = await app.inject({ method: 'GET', url: `/api/uploads/${uploadedFilename}` });
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/uploads/${uploadedFilename}`,
+      });
       expect(res.statusCode).toBe(401);
     });
 
@@ -246,7 +260,10 @@ describe.skipIf(!HAS_DB)('File upload endpoints', () => {
     });
 
     it('returns 401 when unauthenticated', async () => {
-      const res = await app.inject({ method: 'DELETE', url: `/api/uploads/${filename}` });
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/api/uploads/${filename}`,
+      });
       expect(res.statusCode).toBe(401);
     });
 

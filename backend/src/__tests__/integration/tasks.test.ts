@@ -22,7 +22,11 @@ describe.skipIf(!HAS_DB)('Task CRUD integration', () => {
   beforeAll(async () => {
     app = await buildTestApp();
 
-    const owner = await createTestUser({ email: ownerEmail, username: `task_owner_${suffix}`, password: 'pass1234' });
+    const owner = await createTestUser({
+      email: ownerEmail,
+      username: `task_owner_${suffix}`,
+      password: 'pass1234',
+    });
     ownerId = owner.id;
     const team = await createTestTeam(ownerId);
     teamId = team.id;

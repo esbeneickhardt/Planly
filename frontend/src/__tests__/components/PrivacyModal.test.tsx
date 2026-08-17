@@ -19,7 +19,12 @@ vi.mock('../../api/client', () => ({
 
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'u1', username: 'testuser', acceptsInvites: true, showProjectsOnProfile: true },
+    user: {
+      id: 'u1',
+      username: 'testuser',
+      acceptsInvites: true,
+      showProjectsOnProfile: true,
+    },
     refreshUser: mockRefreshUser,
   }),
 }));
@@ -65,7 +70,9 @@ describe('PrivacyModal', () => {
 
     await user.click(showProjectsButton());
 
-    expect(mockUpdate).toHaveBeenCalledWith('u1', { showProjectsOnProfile: false });
+    expect(mockUpdate).toHaveBeenCalledWith('u1', {
+      showProjectsOnProfile: false,
+    });
     await waitFor(() => expect(mockRefreshUser).toHaveBeenCalled());
   });
 

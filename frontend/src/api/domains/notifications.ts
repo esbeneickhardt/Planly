@@ -12,9 +12,10 @@ export const notifications = {
     if (cursor) params.set('cursor', cursor);
     if (productId) params.set('productId', productId);
     const qs = params.toString();
-    return request<{ notifications: Notification[]; nextCursor: string | null }>(
-      `/api/notifications${qs ? `?${qs}` : ''}`,
-    );
+    return request<{
+      notifications: Notification[];
+      nextCursor: string | null;
+    }>(`/api/notifications${qs ? `?${qs}` : ''}`);
   },
   unreadCount: (productId?: string, opts?: { types?: string[]; excludeTypes?: string[] }) => {
     const params = new URLSearchParams();
@@ -38,7 +39,11 @@ export const notifications = {
       `/api/notifications/unread-by-product${qs ? `?${qs}` : ''}`,
     );
   },
-  markRead: (ids: string[]) => request<{ ok: boolean }>('/api/notifications/read', { method: 'PATCH', body: json({ ids }) }),
+  markRead: (ids: string[]) =>
+    request<{ ok: boolean }>('/api/notifications/read', {
+      method: 'PATCH',
+      body: json({ ids }),
+    }),
   markAllRead: (opts?: { types?: string[]; excludeTypes?: string[]; taskId?: string | null }) =>
     request<{ ok: boolean }>('/api/notifications/read-all', {
       method: 'POST',

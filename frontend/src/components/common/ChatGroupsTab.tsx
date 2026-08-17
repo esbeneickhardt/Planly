@@ -10,7 +10,10 @@ import ChatMessageList from './ChatMessageList';
 import ChatComposeBox, { type ChatComposeBoxProps } from './ChatComposeBox';
 
 /** Display name for a group: its custom name, or a comma-joined list of participant names. */
-export function groupTitle(conv: { name: string | null; participants: { username: string; realName?: string | null }[] }) {
+export function groupTitle(conv: {
+  name: string | null;
+  participants: { username: string; realName?: string | null }[];
+}) {
   if (conv.name) return conv.name;
   if (conv.participants.length === 0) return 'Group';
   return conv.participants.map((p) => p.realName || p.username).join(', ');
@@ -61,7 +64,10 @@ export default function ChatGroupsTab({
           onTouchEnd={isExpanded ? onExpandedTouchEnd : undefined}
           onTouchCancel={isExpanded ? onExpandedTouchEnd : undefined}
           className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
+          style={{
+            borderBottom: '1px solid var(--border)',
+            touchAction: isExpanded ? 'none' : undefined,
+          }}
         >
           <button
             onClick={onBack}
@@ -94,7 +100,10 @@ export default function ChatGroupsTab({
           <div className="flex-1 flex items-center justify-center">
             <div
               className="w-5 h-5 border-2 rounded-full animate-spin"
-              style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+              style={{
+                borderColor: 'var(--brand)',
+                borderTopColor: 'transparent',
+              }}
             />
           </div>
         ) : (
@@ -103,7 +112,10 @@ export default function ChatGroupsTab({
         {conv?.closed ? (
           <div
             className="px-4 py-3 text-xs text-center flex-shrink-0"
-            style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}
+            style={{
+              borderTop: '1px solid var(--border)',
+              color: 'var(--text-3)',
+            }}
           >
             This conversation has been closed.
           </div>
@@ -136,13 +148,21 @@ export default function ChatGroupsTab({
               >
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold relative"
-                  style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                  style={{
+                    background: 'var(--brand-subtle)',
+                    color: 'var(--brand)',
+                  }}
                 >
                   👥
                   {conv.unread > 0 && (
                     <span
                       className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                      style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+                      style={{
+                        background: '#ef4444',
+                        minWidth: 14,
+                        height: 14,
+                        padding: '0 2px',
+                      }}
                     >
                       {conv.unread}
                     </span>

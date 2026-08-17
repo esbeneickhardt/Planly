@@ -27,7 +27,12 @@ export function useChatPeople({ isAdminChat, productId }: Options) {
   const [dmMessages, setDmMessages] = useState<DirectMessage[]>([]);
   const [dmLoading, setDmLoading] = useState(false);
   const [allUsers, setAllUsers] = useState<
-    { id: string; username: string; avatarEmoji: string | null; isAdmin: boolean }[]
+    {
+      id: string;
+      username: string;
+      avatarEmoji: string | null;
+      isAdmin: boolean;
+    }[]
   >([]);
   // The conversation id most recently *requested* by loadDmMessages - guards against a stale,
   // slow-to-resolve fetch for a previous conversation overwriting a fresher one if it lands after
@@ -93,7 +98,12 @@ export function useChatPeople({ isAdminChat, productId }: Options) {
   const openDm = useCallback(
     async (
       userId: string,
-      other?: { id: string; username: string; realName: string | null; avatarEmoji: string | null } | null,
+      other?: {
+        id: string;
+        username: string;
+        realName: string | null;
+        avatarEmoji: string | null;
+      } | null,
       onDraftClear?: () => void,
     ) => {
       if (!isAdminChat && !productId) return;

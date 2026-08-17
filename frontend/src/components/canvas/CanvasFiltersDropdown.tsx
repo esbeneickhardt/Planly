@@ -44,7 +44,9 @@ export default function CanvasFiltersDropdown({
           <>
             <span
               className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: STATUS_OPTIONS.find((s) => s.key === statusFilter)?.color }}
+              style={{
+                background: STATUS_OPTIONS.find((s) => s.key === statusFilter)?.color,
+              }}
             />
             {STATUS_OPTIONS.find((s) => s.key === statusFilter)?.label}
           </>
@@ -59,10 +61,17 @@ export default function CanvasFiltersDropdown({
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
         <div
           className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 220 }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            minWidth: 220,
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
+          <div
+            className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide"
+            style={{ color: 'var(--text-3)' }}
+          >
             Status
           </div>
           <button
@@ -83,7 +92,9 @@ export default function CanvasFiltersDropdown({
               key={s.key}
               onClick={() => onSetStatusFilter(statusFilter === s.key ? null : s.key)}
               className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
-              style={{ color: statusFilter === s.key ? 'var(--brand)' : 'var(--text-2)' }}
+              style={{
+                color: statusFilter === s.key ? 'var(--brand)' : 'var(--text-2)',
+              }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'var(--surface-2)';
               }}
@@ -99,7 +110,10 @@ export default function CanvasFiltersDropdown({
             <>
               <div
                 className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}
+                style={{
+                  color: 'var(--text-3)',
+                  borderTop: '1px solid var(--border)',
+                }}
               >
                 Milestone focus
               </div>
@@ -112,7 +126,11 @@ export default function CanvasFiltersDropdown({
                     onClick={(e) => e.stopPropagation()}
                     placeholder="Search milestones…"
                     className="w-full text-xs px-2 py-1 rounded outline-none"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                    style={{
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                    }}
                   />
                 </div>
               )}
@@ -120,7 +138,9 @@ export default function CanvasFiltersDropdown({
                 <button
                   onClick={() => onSetMilestoneIds([])}
                   className="w-full text-left px-3 py-1.5 text-xs transition-colors"
-                  style={{ color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)' }}
+                  style={{
+                    color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)',
+                  }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--surface-2)';
                   }}
@@ -142,7 +162,9 @@ export default function CanvasFiltersDropdown({
                     <button
                       key={t.id}
                       onClick={() =>
-                        onSetMilestoneIds(sel ? selectedMilestoneIds.filter((id) => id !== t.id) : [...selectedMilestoneIds, t.id])
+                        onSetMilestoneIds(
+                          sel ? selectedMilestoneIds.filter((id) => id !== t.id) : [...selectedMilestoneIds, t.id],
+                        )
                       }
                       className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
                       style={{ color: 'var(--text-2)' }}
@@ -169,7 +191,13 @@ export default function CanvasFiltersDropdown({
                         {sel && <span style={{ color: 'white', fontSize: 8 }}>✓</span>}
                       </span>
                       <span className="flex-1 truncate">{t.name}</span>
-                      <span style={{ color: overdue ? '#ef4444' : 'var(--text-3)', flexShrink: 0, fontSize: 10 }}>
+                      <span
+                        style={{
+                          color: overdue ? '#ef4444' : 'var(--text-3)',
+                          flexShrink: 0,
+                          fontSize: 10,
+                        }}
+                      >
                         {new Date(t.deadline!).toLocaleDateString()}
                       </span>
                     </button>

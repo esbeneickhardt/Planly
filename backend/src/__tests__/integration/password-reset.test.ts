@@ -18,7 +18,11 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
 
   beforeAll(async () => {
     app = await buildTestApp();
-    const user = await createTestUser({ email, username: `pwreset_${suffix}`, password: 'old-password' });
+    const user = await createTestUser({
+      email,
+      username: `pwreset_${suffix}`,
+      password: 'old-password',
+    });
     userId = user.id;
   });
 
@@ -34,7 +38,10 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/reset-password',
-      payload: { token: 'definitely-not-a-valid-token', password: 'NewPass123!' },
+      payload: {
+        token: 'definitely-not-a-valid-token',
+        password: 'NewPass123!',
+      },
     });
     expect(res.statusCode).toBe(400);
     expect(JSON.parse(res.body).error).toMatch(/invalid|expired/i);
@@ -81,7 +88,9 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
     expect(JSON.parse(res.body).ok).toBe(true);
 
     // Token is now marked as used
-    const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+    const record = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
     expect(record?.usedAt).not.toBeNull();
   });
 

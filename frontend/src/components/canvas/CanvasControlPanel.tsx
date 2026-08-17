@@ -134,10 +134,17 @@ export default function CanvasControlPanel({
             // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
             <div
               className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 260 }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                minWidth: 260,
+              }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div
+                className="px-3 py-2 flex items-center justify-between"
+                style={{ borderBottom: '1px solid var(--border)' }}
+              >
                 <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
                   Sub-plans
                 </span>
@@ -148,7 +155,10 @@ export default function CanvasControlPanel({
                       onNewSprint();
                     }}
                     className="text-xs font-medium px-2 py-0.5 rounded-lg transition-colors"
-                    style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                    style={{
+                      background: 'var(--brand-subtle)',
+                      color: 'var(--brand)',
+                    }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.opacity = '0.8';
                     }}
@@ -167,7 +177,9 @@ export default function CanvasControlPanel({
                   setShowSprintPicker(false);
                 }}
                 className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2 transition-colors"
-                style={{ borderBottom: sortedSprints.length > 0 ? '1px solid var(--border)' : 'none' }}
+                style={{
+                  borderBottom: sortedSprints.length > 0 ? '1px solid var(--border)' : 'none',
+                }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'var(--surface-2)';
                 }}
@@ -184,7 +196,11 @@ export default function CanvasControlPanel({
                     flexShrink: 0,
                   }}
                 />
-                <span style={{ color: !selectedSprintFilter ? 'var(--brand)' : 'var(--text-2)' }}>
+                <span
+                  style={{
+                    color: !selectedSprintFilter ? 'var(--brand)' : 'var(--text-2)',
+                  }}
+                >
                   No sub-plan (exit sub-plan mode)
                 </span>
                 {!selectedSprintFilter && (
@@ -206,7 +222,9 @@ export default function CanvasControlPanel({
                     role="button"
                     tabIndex={0}
                     className="flex items-center gap-2 px-3 py-2.5 group transition-colors cursor-pointer"
-                    style={{ background: isActive ? 'var(--brand-subtle)' : 'transparent' }}
+                    style={{
+                      background: isActive ? 'var(--brand-subtle)' : 'transparent',
+                    }}
                     onMouseEnter={(e) => {
                       if (!isActive) e.currentTarget.style.background = 'var(--surface-2)';
                     }}
@@ -224,9 +242,22 @@ export default function CanvasControlPanel({
                       setShowSprintPicker(false);
                     }}
                   >
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: s.color,
+                        flexShrink: 0,
+                      }}
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate" style={{ color: isActive ? 'var(--brand)' : 'var(--text)' }}>
+                      <p
+                        className="text-xs font-semibold truncate"
+                        style={{
+                          color: isActive ? 'var(--brand)' : 'var(--text)',
+                        }}
+                      >
                         {s.name}
                       </p>
                       <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>
@@ -234,7 +265,17 @@ export default function CanvasControlPanel({
                         {s.taskIds.length} tasks
                       </p>
                     </div>
-                    {isActive && <span style={{ color: 'var(--brand)', fontSize: 11, flexShrink: 0 }}>✓</span>}
+                    {isActive && (
+                      <span
+                        style={{
+                          color: 'var(--brand)',
+                          fontSize: 11,
+                          flexShrink: 0,
+                        }}
+                      >
+                        ✓
+                      </span>
+                    )}
                     {canWriteCanvas && (
                       <>
                         <button

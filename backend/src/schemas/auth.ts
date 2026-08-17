@@ -30,7 +30,9 @@ export const registerSchema = z.object({
   realName: z.string().max(100).optional(),
   phone: z.string().max(30).optional(),
   avatarEmoji: z.string().max(10).optional(),
-  tosAccepted: z.literal(true, { error: 'You must accept the Terms of Service to register' }),
+  tosAccepted: z.literal(true, {
+    error: 'You must accept the Terms of Service to register',
+  }),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

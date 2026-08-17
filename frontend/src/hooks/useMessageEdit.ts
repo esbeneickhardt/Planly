@@ -37,5 +37,12 @@ export function useMessageEdit({ isAdminChat, productId, setAllMessages }: Optio
     cancelEdit();
   }
 
-  return { editingId, editDraft, setEditDraft, startEdit, cancelEdit, saveEdit };
+  return {
+    editingId,
+    editDraft,
+    setEditDraft,
+    startEdit,
+    cancelEdit,
+    saveEdit,
+  };
 }

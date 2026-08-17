@@ -16,7 +16,10 @@ import { validate } from '../../utils/validate';
 import { handleConflict } from '../../utils/prisma-errors';
 
 // Validates an email pattern (full address or @domain) and its allow/deny type
-const addWhitelistSchema = z.object({ pattern: z.string().min(1), type: z.enum(['allow', 'deny']).optional() });
+const addWhitelistSchema = z.object({
+  pattern: z.string().min(1),
+  type: z.enum(['allow', 'deny']).optional(),
+});
 // Partial update shape for the singleton ServerConfig row
 const serverConfigSchema = z.object({
   requireEmailVerification: z.boolean().optional(),
@@ -42,13 +45,15 @@ export async function adminConfigRoutes(app: FastifyInstance) {
     if (!wlBody) return;
     const p = wlBody.pattern.trim().toLowerCase();
     if (!p.startsWith('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)) {
-      return reply
-        .status(400)
-        .send({ error: 'Pattern must be an email address or a domain starting with @ (e.g. @company.com)' });
+      return reply.status(400).send({
+        error: 'Pattern must be an email address or a domain starting with @ (e.g. @company.com)',
+      });
     }
     const type = wlBody.type ?? 'allow';
     try {
-      const entry = await prisma.emailWhitelist.create({ data: { pattern: p, type } });
+      const entry = await prisma.emailWhitelist.create({
+        data: { pattern: p, type },
+      });
       reply.status(201).send(entry);
     } catch (e) {
       handleConflict(e, reply, 'Pattern already exists');
@@ -141,7 +146,11 @@ export async function adminConfigRoutes(app: FastifyInstance) {
             const raw = randomBytes(32).toString('hex');
             const tokenHash = createHash('sha256').update(raw).digest('hex');
             await prisma.emailVerifyToken.create({
-              data: { userId: u.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+              data: {
+                userId: u.id,
+                tokenHash,
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+              },
             });
             await sendEmail({
               to: u.email,
@@ -154,7 +163,9 @@ export async function adminConfigRoutes(app: FastifyInstance) {
         const failed = results.filter((r) => r.status === 'rejected');
         if (failed.length > 0)
           req.log.error(
-            { errors: failed.map((r) => (r as PromiseRejectedResult).reason) },
+            {
+              errors: failed.map((r) => (r as PromiseRejectedResult).reason),
+            },
             `[email-verification] ${failed.length} failed`,
           );
       } else {

@@ -18,7 +18,13 @@ type LogEntry = Record<string, unknown>;
 export function logTouch(msgId: string, isOwn: boolean, phase: string, extra?: LogEntry) {
   if (!TOUCH_DEBUG) return;
   const w = window as unknown as { __touchDebug?: LogEntry[] };
-  const entry: LogEntry = { t: Date.now() % 100000, id: msgId.slice(-4), side: isOwn ? 'R' : 'L', phase, ...extra };
+  const entry: LogEntry = {
+    t: Date.now() % 100000,
+    id: msgId.slice(-4),
+    side: isOwn ? 'R' : 'L',
+    phase,
+    ...extra,
+  };
   w.__touchDebug = w.__touchDebug ?? [];
   w.__touchDebug.push(entry);
   if (w.__touchDebug.length > 40) w.__touchDebug.shift();
@@ -31,7 +37,13 @@ export default function TouchDebugOverlay() {
     const iv = setInterval(() => {
       const w = window as unknown as { __touchDebug?: LogEntry[] };
       const log = w.__touchDebug ?? [];
-      setLines(log.slice(-14).map((e) => Object.entries(e).map(([k, v]) => `${k}:${v}`).join(' ')));
+      setLines(
+        log.slice(-14).map((e) =>
+          Object.entries(e)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(' '),
+        ),
+      );
     }, 150);
     return () => clearInterval(iv);
   }, []);
@@ -57,7 +69,9 @@ export default function TouchDebugOverlay() {
         wordBreak: 'break-word',
       }}
     >
-      {lines.length === 0 ? 'touchdebug: waiting for a touch on a message…' : lines.map((l, i) => <div key={i}>{l}</div>)}
+      {lines.length === 0
+        ? 'touchdebug: waiting for a touch on a message…'
+        : lines.map((l, i) => <div key={i}>{l}</div>)}
     </div>
   );
 }

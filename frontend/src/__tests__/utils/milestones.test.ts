@@ -42,7 +42,11 @@ describe('assignMilestoneColors', () => {
   });
 
   it('keeps an explicit task.color instead of overriding it, and does not consume a cycle slot', () => {
-    const explicit = makeTask({ id: 'm1', deadline: '2024-01-01', color: '#123456' });
+    const explicit = makeTask({
+      id: 'm1',
+      deadline: '2024-01-01',
+      color: '#123456',
+    });
     const auto = makeTask({ id: 'm2', deadline: '2024-02-01' });
     const colors = assignMilestoneColors([explicit, auto]);
     expect(colors.get('m1')).toBe('#123456');
@@ -51,7 +55,10 @@ describe('assignMilestoneColors', () => {
 
   it('cycles through the palette when there are more milestones than preset colors', () => {
     const milestones = Array.from({ length: PRESET_COLORS.length + 2 }, (_, i) =>
-      makeTask({ id: `m${i}`, deadline: new Date(2024, 0, i + 1).toISOString() }),
+      makeTask({
+        id: `m${i}`,
+        deadline: new Date(2024, 0, i + 1).toISOString(),
+      }),
     );
     const colors = assignMilestoneColors(milestones);
     expect(colors.get(`m${PRESET_COLORS.length}`)).toBe(PRESET_COLORS[0]);

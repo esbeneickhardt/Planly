@@ -44,12 +44,16 @@ export async function issueRefreshToken(userId: string): Promise<string> {
 //   - Token is past its expiresAt
 export async function rotateRefreshToken(rawValue: string): Promise<{ raw: string; userId: string } | null> {
   const tokenHash = hashToken(rawValue);
-  const existing = await prisma.refreshToken.findUnique({ where: { tokenHash } });
+  const existing = await prisma.refreshToken.findUnique({
+    where: { tokenHash },
+  });
   if (!existing) return null;
 
   // Reuse detection - token was already rotated; revoke every token in the family
   if (existing.rotatedAt !== null) {
-    await prisma.refreshToken.deleteMany({ where: { familyId: existing.familyId } });
+    await prisma.refreshToken.deleteMany({
+      where: { familyId: existing.familyId },
+    });
     return null;
   }
 
@@ -61,7 +65,10 @@ export async function rotateRefreshToken(rawValue: string): Promise<{ raw: strin
   const newRaw = rawToken();
   await prisma.$transaction([
     // Mark old token as consumed
-    prisma.refreshToken.update({ where: { id: existing.id }, data: { rotatedAt: new Date() } }),
+    prisma.refreshToken.update({
+      where: { id: existing.id },
+      data: { rotatedAt: new Date() },
+    }),
     // Issue successor in the same family
     prisma.refreshToken.create({
       data: {
@@ -79,7 +86,12 @@ export async function rotateRefreshToken(rawValue: string): Promise<{ raw: strin
 // Deletes all tokens in the same family as the given raw token (logout / forced revocation).
 export async function revokeRefreshFamily(rawValue: string): Promise<void> {
   const tokenHash = hashToken(rawValue);
-  const existing = await prisma.refreshToken.findUnique({ where: { tokenHash }, select: { familyId: true } });
+  const existing = await prisma.refreshToken.findUnique({
+    where: { tokenHash },
+    select: { familyId: true },
+  });
   if (!existing) return;
-  await prisma.refreshToken.deleteMany({ where: { familyId: existing.familyId } });
+  await prisma.refreshToken.deleteMany({
+    where: { familyId: existing.familyId },
+  });
 }

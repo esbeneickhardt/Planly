@@ -24,7 +24,10 @@ export async function accessRequestRoutes(app: FastifyInstance) {
   // Discover: products the current user is NOT a member of
   // Only returns public-facing fields (name, emoji) to avoid leaking sensitive project metadata
   app.get('/api/products/discover', { preHandler: requireAuth }, async (req, reply) => {
-    const { cursor, limit = '50' } = req.query as { cursor?: string; limit?: string };
+    const { cursor, limit = '50' } = req.query as {
+      cursor?: string;
+      limit?: string;
+    };
     const take = Math.min(parseInt(limit) || 50, 100);
     const products = await prisma.product.findMany({
       where: {
@@ -45,14 +48,23 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     });
     // Also include the user's pending request status for each
     const requests = await prisma.accessRequest.findMany({
-      where: { userId: req.user.userId, productId: { in: products.map((p) => p.id) } },
+      where: {
+        userId: req.user.userId,
+        productId: { in: products.map((p) => p.id) },
+      },
     });
     // Only surface 'pending' status - 'approved' is stale (user was removed) and 'rejected' should allow re-request
     const requestMap = Object.fromEntries(
       requests.filter((r) => r.status === 'pending').map((r) => [r.productId, r.status]),
     );
     const nextCursor = products.length === take ? (products[products.length - 1]?.id ?? null) : null;
-    reply.send({ products: products.map((p) => ({ ...p, requestStatus: requestMap[p.id] ?? null })), nextCursor });
+    reply.send({
+      products: products.map((p) => ({
+        ...p,
+        requestStatus: requestMap[p.id] ?? null,
+      })),
+      nextCursor,
+    });
   });
 
   // Request access to a product
@@ -64,7 +76,9 @@ export async function accessRequestRoutes(app: FastifyInstance) {
 
     const product = await prisma.product.findFirst({
       where: { id: productId, deletedAt: null },
-      include: { team: { include: { members: { where: { role: 'co_owner' } } } } },
+      include: {
+        team: { include: { members: { where: { role: 'co_owner' } } } },
+      },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
 
@@ -77,7 +91,10 @@ export async function accessRequestRoutes(app: FastifyInstance) {
         existing.status === 'rejected' ||
         (existing.status === 'approved' &&
           !(await prisma.teamMember.findFirst({
-            where: { userId: req.user.userId, team: { products: { some: { id: productId } } } },
+            where: {
+              userId: req.user.userId,
+              team: { products: { some: { id: productId } } },
+            },
           })));
       if (canReapply) {
         const updated = await prisma.accessRequest.update({
@@ -151,7 +168,16 @@ export async function accessRequestRoutes(app: FastifyInstance) {
     if (!(await requireProductCoOwner(productId, req.user.userId, reply))) return;
     const requests = await prisma.accessRequest.findMany({
       where: { productId, status: 'pending' },
-      include: { user: { select: { id: true, username: true, avatarEmoji: true, realName: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            avatarEmoji: true,
+            realName: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
     reply.send(requests.map((r) => ({ ...r, user: decryptUserPii(r.user) })));
@@ -159,7 +185,10 @@ export async function accessRequestRoutes(app: FastifyInstance) {
 
   // Approve or reject a request (owner or co-owner only)
   app.patch('/api/products/:productId/access-requests/:requestId', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, requestId } = req.params as { productId: string; requestId: string };
+    const { productId, requestId } = req.params as {
+      productId: string;
+      requestId: string;
+    };
     const actionBody = validate(reviewRequestSchema, req.body, reply);
     if (!actionBody) return;
     const { action } = actionBody;
@@ -169,17 +198,24 @@ export async function accessRequestRoutes(app: FastifyInstance) {
       select: { teamId: true, name: true },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
-    const accessReq = await prisma.accessRequest.findFirst({ where: { id: requestId, productId } });
+    const accessReq = await prisma.accessRequest.findFirst({
+      where: { id: requestId, productId },
+    });
     if (!accessReq) return reply.status(404).send({ error: 'Not found' });
 
     if (action === 'approve') {
       // Grant team membership and mark request approved
       await prisma.teamMember.upsert({
-        where: { teamId_userId: { teamId: product.teamId, userId: accessReq.userId } },
+        where: {
+          teamId_userId: { teamId: product.teamId, userId: accessReq.userId },
+        },
         create: { teamId: product.teamId, userId: accessReq.userId },
         update: {},
       });
-      await prisma.accessRequest.update({ where: { id: requestId }, data: { status: 'approved' } });
+      await prisma.accessRequest.update({
+        where: { id: requestId },
+        data: { status: 'approved' },
+      });
       createNotification({
         userId: accessReq.userId,
         type: 'access_approved',
@@ -188,7 +224,10 @@ export async function accessRequestRoutes(app: FastifyInstance) {
       });
     } else {
       // Mark rejected and notify requester
-      await prisma.accessRequest.update({ where: { id: requestId }, data: { status: 'rejected' } });
+      await prisma.accessRequest.update({
+        where: { id: requestId },
+        data: { status: 'rejected' },
+      });
       createNotification({
         userId: accessReq.userId,
         type: 'access_rejected',

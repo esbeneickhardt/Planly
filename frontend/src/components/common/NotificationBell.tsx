@@ -99,7 +99,9 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
   // instead (see TopBar.tsx) - excluded here so the bell's own count/list are app-event-only.
   const refreshNormal = useCallback(async () => {
     try {
-      const { count } = await api.notifications.unreadCount(productId, { excludeTypes: MESSAGE_NOTIFICATION_TYPES });
+      const { count } = await api.notifications.unreadCount(productId, {
+        excludeTypes: MESSAGE_NOTIFICATION_TYPES,
+      });
       setUnread(count);
     } catch {}
   }, [productId]);
@@ -321,7 +323,12 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
         {displayUnread > 0 && (
           <span
             className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-            style={{ background: '#ef4444', minWidth: 16, height: 16, padding: '0 3px' }}
+            style={{
+              background: '#ef4444',
+              minWidth: 16,
+              height: 16,
+              padding: '0 3px',
+            }}
           >
             {displayUnread > 99 ? '99+' : displayUnread}
           </span>
@@ -331,7 +338,11 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
       {open && (
         <div
           className="fixed left-2 right-2 top-16 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-80 rounded-2xl shadow-2xl overflow-hidden"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', zIndex: 50 }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            zIndex: 50,
+          }}
         >
           <div
             className="flex items-center justify-between px-4 py-3"
@@ -411,7 +422,10 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                   <div className="flex justify-center py-8">
                     <div
                       className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                      style={{
+                        borderColor: 'var(--brand)',
+                        borderTopColor: 'transparent',
+                      }}
                     />
                   </div>
                 )}
@@ -463,7 +477,10 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                   <div className="flex justify-center py-8">
                     <div
                       className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-                      style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+                      style={{
+                        borderColor: 'var(--brand)',
+                        borderTopColor: 'transparent',
+                      }}
                     />
                   </div>
                 )}

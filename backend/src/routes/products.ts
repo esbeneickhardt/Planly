@@ -66,17 +66,23 @@ export async function productRoutes(app: FastifyInstance) {
     // A scoped token is bounded to operate within its one existing project - creating a brand new,
     // unrelated project isn't something scope can narrow, so it's rejected outright rather than
     // silently narrowed like the read routes above.
-    if (req.user.scopedProductId) return reply.status(403).send({ error: 'This token is not authorized to create projects' });
+    if (req.user.scopedProductId)
+      return reply.status(403).send({ error: 'This token is not authorized to create projects' });
     const body = validate(createProductSchema, req.body, reply);
     if (!body) return;
     const { name, emoji, description, deadline, teamId } = body;
 
     // Check server-level project creation permission (admins are always allowed)
-    const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { isAdmin: true },
+    });
     if (!requestingUser?.isAdmin) {
       const cfg = await getServerConfig();
       if (!cfg.allowProjectCreation)
-        return reply.status(403).send({ error: 'Project creation is restricted to admins on this server.' });
+        return reply.status(403).send({
+          error: 'Project creation is restricted to admins on this server.',
+        });
     }
 
     // Verify the requester is a member of the target team
@@ -86,7 +92,14 @@ export async function productRoutes(app: FastifyInstance) {
     if (!membership) return reply.status(403).send({ error: 'Not a member of this team' });
 
     const product = await prisma.product.create({
-      data: { name, emoji, description, deadline: new Date(deadline), teamId, ownerId: req.user.userId },
+      data: {
+        name,
+        emoji,
+        description,
+        deadline: new Date(deadline),
+        teamId,
+        ownerId: req.user.userId,
+      },
       include: { team: { select: { id: true, name: true } } },
     });
     reply.status(201).send(product);
@@ -113,7 +126,13 @@ export async function productRoutes(app: FastifyInstance) {
         status: true,
         team: {
           select: {
-            members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } },
+            members: {
+              include: {
+                user: {
+                  select: { id: true, username: true, avatarEmoji: true },
+                },
+              },
+            },
           },
         },
       },
@@ -145,7 +164,15 @@ export async function productRoutes(app: FastifyInstance) {
       where: { id, deletedAt: null },
       include: {
         team: {
-          include: { members: { include: { user: { select: { id: true, username: true, avatarEmoji: true } } } } },
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: { id: true, username: true, avatarEmoji: true },
+                },
+              },
+            },
+          },
         },
       },
     });
@@ -165,7 +192,16 @@ export async function productRoutes(app: FastifyInstance) {
     // Verify the caller is a member and load their role
     const product = await prisma.product.findFirst({
       where: { id, deletedAt: null },
-      include: { team: { select: { members: { where: { userId: req.user.userId }, select: { role: true } } } } },
+      include: {
+        team: {
+          select: {
+            members: {
+              where: { userId: req.user.userId },
+              select: { role: true },
+            },
+          },
+        },
+      },
     });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     const membership = product.team.members[0];
@@ -186,11 +222,15 @@ export async function productRoutes(app: FastifyInstance) {
       analyticsEnabled !== undefined ||
       discoverable !== undefined;
     if (product.status === 'archived' && touchesNonStatusField) {
-      return reply.status(403).send({ error: 'This project is archived - only its status can be changed.' });
+      return reply.status(403).send({
+        error: 'This project is archived - only its status can be changed.',
+      });
     }
 
     if ((name !== undefined || emoji !== undefined || description !== undefined) && !isProductOwner && !isCoOwner) {
-      return reply.status(403).send({ error: 'Only the owner or co-owners can update project details' });
+      return reply.status(403).send({
+        error: 'Only the owner or co-owners can update project details',
+      });
     }
     if (ownerId !== undefined && !isProductOwner) {
       return reply.status(403).send({ error: 'Only the owner can transfer ownership' });
@@ -208,13 +248,18 @@ export async function productRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: 'Only the owner can change project discoverability' });
     }
     if (status !== undefined && !isProductOwner && !isCoOwner) {
-      return reply.status(403).send({ error: 'Only the owner or co-owners can change project status' });
+      return reply.status(403).send({
+        error: 'Only the owner or co-owners can change project status',
+      });
     }
 
     // Sync team name if project name changes, then persist product fields
     try {
       if (name !== undefined) {
-        await prisma.team.update({ where: { id: product.teamId }, data: { name } });
+        await prisma.team.update({
+          where: { id: product.teamId },
+          data: { name },
+        });
       }
       const updated = await prisma.product.update({
         where: { id },
@@ -264,7 +309,10 @@ export async function productRoutes(app: FastifyInstance) {
     const source = await prisma.product.findFirst({
       where: { id, deletedAt: null },
       include: {
-        tasks: { where: { deletedAt: null }, include: { subtasks: true, dependsOn: true } },
+        tasks: {
+          where: { deletedAt: null },
+          include: { subtasks: true, dependsOn: true },
+        },
         kanbanColumns: true,
         colorLegendEntries: true,
       },
@@ -275,11 +323,16 @@ export async function productRoutes(app: FastifyInstance) {
     }
 
     // Same server-level project-creation gate as creating a brand-new project from scratch.
-    const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isAdmin: true } });
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { isAdmin: true },
+    });
     if (!requestingUser?.isAdmin) {
       const cfg = await getServerConfig();
       if (!cfg.allowProjectCreation)
-        return reply.status(403).send({ error: 'Project creation is restricted to admins on this server.' });
+        return reply.status(403).send({
+          error: 'Project creation is restricted to admins on this server.',
+        });
     }
 
     const FAR_FUTURE_YEARS = 2;
@@ -292,7 +345,10 @@ export async function productRoutes(app: FastifyInstance) {
       // new project (see ProductContext.tsx's createProduct) - the new team's only member is
       // whoever duplicated the project, exactly like starting a brand-new one.
       const team = await tx.team.create({
-        data: { name: `${source.name} Team`, members: { create: [{ userId: req.user.userId }] } },
+        data: {
+          name: `${source.name} Team`,
+          members: { create: [{ userId: req.user.userId }] },
+        },
       });
 
       const product = await tx.product.create({
@@ -354,7 +410,12 @@ export async function productRoutes(app: FastifyInstance) {
       }
 
       const subtaskRows = source.tasks.flatMap((t) =>
-        t.subtasks.map((s) => ({ taskId: idMap.get(t.id)!, name: s.name, completed: false, order: s.order })),
+        t.subtasks.map((s) => ({
+          taskId: idMap.get(t.id)!,
+          name: s.name,
+          completed: false,
+          order: s.order,
+        })),
       );
       if (subtaskRows.length > 0) await tx.subtask.createMany({ data: subtaskRows });
 
@@ -380,11 +441,16 @@ export async function productRoutes(app: FastifyInstance) {
   // an admin can restore it via POST /api/admin/products/:id/restore (see admin/stats.ts).
   app.delete('/api/products/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
+    const product = await prisma.product.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!product) return reply.status(404).send({ error: 'Not found' });
     if (product.ownerId !== req.user.userId)
       return reply.status(403).send({ error: 'Only the owner can delete this product' });
-    await prisma.product.update({ where: { id }, data: { deletedAt: new Date() } });
+    await prisma.product.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     reply.send({ ok: true });
   });
 }

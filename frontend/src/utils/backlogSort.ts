@@ -9,7 +9,13 @@ export type SortColumn = 'name' | 'status' | 'owner' | 'milestone' | 'deadline' 
 export type SortDir = 'asc' | 'desc';
 
 // Matches the pipeline order used elsewhere (e.g. BacklogPage's STATUS_TABS) - done ranks last
-const STATUS_RANK: Record<string, number> = { backlog: 0, todo: 1, in_progress: 2, blocked: 3, done: 4 };
+const STATUS_RANK: Record<string, number> = {
+  backlog: 0,
+  todo: 1,
+  in_progress: 2,
+  blocked: 3,
+  done: 4,
+};
 
 function ownerLabel(t: Task): string {
   return t.owner?.realName ?? t.owner?.username ?? '';
@@ -56,8 +62,7 @@ export function compareTasks(
       if (!bMilestone) return -1;
       if (aMilestone.id === bMilestone.id) return 0;
       return (
-        sign *
-        (aMilestone.milestoneOrder - bMilestone.milestoneOrder || aMilestone.name.localeCompare(bMilestone.name))
+        sign * (aMilestone.milestoneOrder - bMilestone.milestoneOrder || aMilestone.name.localeCompare(bMilestone.name))
       );
     }
     case 'deadline':

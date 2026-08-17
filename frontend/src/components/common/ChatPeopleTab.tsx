@@ -17,7 +17,12 @@ interface Props {
   onExpandedTouchMove: (e: React.TouchEvent) => void;
   onExpandedTouchEnd: () => void;
   activeConvId: string | null;
-  activeConvOther: { id: string; username: string; realName: string | null; avatarEmoji: string | null } | null;
+  activeConvOther: {
+    id: string;
+    username: string;
+    realName: string | null;
+    avatarEmoji: string | null;
+  } | null;
   conversations: ConversationSummary[];
   setConversations: React.Dispatch<React.SetStateAction<ConversationSummary[]>>;
   /** Resets the open DM thread (id/other/messages/draft) and reloads the conversation list. */
@@ -26,11 +31,21 @@ interface Props {
   messages: Message[];
   dmUserSearch: string;
   setDmUserSearch: React.Dispatch<React.SetStateAction<string>>;
-  allUsers: { id: string; username: string; avatarEmoji: string | null; isAdmin: boolean }[];
+  allUsers: {
+    id: string;
+    username: string;
+    avatarEmoji: string | null;
+    isAdmin: boolean;
+  }[];
   teamMembers: TeamMemberEntry[];
   openDm: (
     userId: string,
-    other?: { id: string; username: string; realName: string | null; avatarEmoji: string | null } | null,
+    other?: {
+      id: string;
+      username: string;
+      realName: string | null;
+      avatarEmoji: string | null;
+    } | null,
   ) => void;
   composeBoxProps: ChatComposeBoxProps;
   messageListProps: Omit<React.ComponentProps<typeof ChatMessageList>, 'messages' | 'showLoadOlder'>;
@@ -71,7 +86,10 @@ export default function ChatPeopleTab({
           onTouchEnd={isExpanded ? onExpandedTouchEnd : undefined}
           onTouchCancel={isExpanded ? onExpandedTouchEnd : undefined}
           className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--border)', touchAction: isExpanded ? 'none' : undefined }}
+          style={{
+            borderBottom: '1px solid var(--border)',
+            touchAction: isExpanded ? 'none' : undefined,
+          }}
         >
           <button
             onClick={onBack}
@@ -114,7 +132,10 @@ export default function ChatPeopleTab({
           <div className="flex-1 flex items-center justify-center">
             <div
               className="w-5 h-5 border-2 rounded-full animate-spin"
-              style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
+              style={{
+                borderColor: 'var(--brand)',
+                borderTopColor: 'transparent',
+              }}
             />
           </div>
         ) : (
@@ -123,7 +144,10 @@ export default function ChatPeopleTab({
         {conv?.closed && !isAdminChat ? (
           <div
             className="px-4 py-3 text-xs text-center flex-shrink-0"
-            style={{ borderTop: '1px solid var(--border)', color: 'var(--text-3)' }}
+            style={{
+              borderTop: '1px solid var(--border)',
+              color: 'var(--text-3)',
+            }}
           >
             This conversation has been closed. Contact us to reopen.
           </div>
@@ -165,13 +189,21 @@ export default function ChatPeopleTab({
                 >
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold relative"
-                    style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                    style={{
+                      background: 'var(--brand-subtle)',
+                      color: 'var(--brand)',
+                    }}
                   >
                     {conv.other?.avatarEmoji ?? conv.other?.username[0]?.toUpperCase() ?? '?'}
                     {conv.unread > 0 && (
                       <span
                         className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white text-[9px] font-bold"
-                        style={{ background: '#ef4444', minWidth: 14, height: 14, padding: '0 2px' }}
+                        style={{
+                          background: '#ef4444',
+                          minWidth: 14,
+                          height: 14,
+                          padding: '0 2px',
+                        }}
                       >
                         {conv.unread}
                       </span>
@@ -209,7 +241,10 @@ export default function ChatPeopleTab({
             );
             if (filtered.length === 0)
               return (
-                <div className="flex flex-col items-center justify-center h-24 gap-1" style={{ color: 'var(--text-3)' }}>
+                <div
+                  className="flex flex-col items-center justify-center h-24 gap-1"
+                  style={{ color: 'var(--text-3)' }}
+                >
                   <p className="text-sm">No users found.</p>
                 </div>
               );
@@ -229,7 +264,10 @@ export default function ChatPeopleTab({
                   >
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold"
-                      style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+                      style={{
+                        background: 'var(--surface-2)',
+                        color: 'var(--text-2)',
+                      }}
                     >
                       {m.avatarEmoji ?? m.username[0]?.toUpperCase()}
                     </div>

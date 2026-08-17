@@ -80,14 +80,23 @@ const USER_PUBLIC_SELECT = {
 export async function userRoutes(app: FastifyInstance) {
   // Global user search: minimal fields only (used for team member lookup)
   app.get('/api/users', { preHandler: requireAuth }, async (req, reply) => {
-    const { cursor, limit = '200' } = req.query as { cursor?: string; limit?: string };
+    const { cursor, limit = '200' } = req.query as {
+      cursor?: string;
+      limit?: string;
+    };
     const take = Math.min(parseInt(limit) || 200, 500);
     const users = await prisma.user.findMany({
       select: USER_PUBLIC_SELECT,
       // A scoped token only ever needs its own project's teammates (e.g. an @mention picker),
       // not a directory of every account on the server.
       where: req.user.scopedProductId
-        ? { teams: { some: { team: { products: { some: { id: req.user.scopedProductId } } } } } }
+        ? {
+            teams: {
+              some: {
+                team: { products: { some: { id: req.user.scopedProductId } } },
+              },
+            },
+          }
         : undefined,
       orderBy: { username: 'asc' },
       take,
@@ -118,17 +127,17 @@ export async function userRoutes(app: FastifyInstance) {
         if (serverConfig.requireBlocklist) {
           const isDenied = emailRules.filter((r) => r.type === 'deny').some((r) => matches(r.pattern));
           if (isDenied) {
-            return reply
-              .status(403)
-              .send({ error: 'This email address is not permitted to register. Contact the server administrator.' });
+            return reply.status(403).send({
+              error: 'This email address is not permitted to register. Contact the server administrator.',
+            });
           }
         }
         if (serverConfig.requireWhitelist) {
           const isAllowed = emailRules.filter((r) => r.type === 'allow').some((r) => matches(r.pattern));
           if (!isAllowed) {
-            return reply
-              .status(403)
-              .send({ error: 'This email address is not on the allowed list. Contact the server administrator.' });
+            return reply.status(403).send({
+              error: 'This email address is not on the allowed list. Contact the server administrator.',
+            });
           }
         }
       }
@@ -178,7 +187,11 @@ export async function userRoutes(app: FastifyInstance) {
           const { createHash } = await import('crypto');
           const tokenHash = createHash('sha256').update(rawToken).digest('hex');
           await prisma.emailVerifyToken.create({
-            data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+            data: {
+              userId: user.id,
+              tokenHash,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            },
           });
           const verifyUrl = `${config.appUrl}/verify-email?token=${rawToken}`;
           await sendEmail({
@@ -198,7 +211,11 @@ export async function userRoutes(app: FastifyInstance) {
       }
 
       await prisma.adminLog.create({
-        data: { action: 'USER_REGISTERED', actorName: user.username, targetName: user.username },
+        data: {
+          action: 'USER_REGISTERED',
+          actorName: user.username,
+          targetName: user.username,
+        },
       });
       reply.status(201).send(decryptUserPii(user));
     },
@@ -213,12 +230,23 @@ export async function userRoutes(app: FastifyInstance) {
     const isSelf = id === req.user.userId;
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, username: true, realName: true, avatarEmoji: true, showProjectsOnProfile: true },
+      select: {
+        id: true,
+        username: true,
+        realName: true,
+        avatarEmoji: true,
+        showProjectsOnProfile: true,
+      },
     });
     if (!user) return reply.status(404).send({ error: 'Not found' });
 
     const projectsVisible = isSelf || user.showProjectsOnProfile;
-    let projects: { id: string; name: string; emoji: string | null; role: string }[] = [];
+    let projects: {
+      id: string;
+      name: string;
+      emoji: string | null;
+      role: string;
+    }[] = [];
     if (projectsVisible) {
       // Only the teams the target user belongs to - a caller with no relationship to the target
       // still only sees the target's OWN membership list, never anything scoped to the caller.
@@ -229,8 +257,17 @@ export async function userRoutes(app: FastifyInstance) {
       const targetTeamMap = Object.fromEntries(targetMemberships.map((m) => [m.teamId, m.role]));
 
       const products = await prisma.product.findMany({
-        where: { deletedAt: null, teamId: { in: Object.keys(targetTeamMap) } },
-        select: { id: true, name: true, emoji: true, ownerId: true, teamId: true },
+        where: {
+          deletedAt: null,
+          teamId: { in: Object.keys(targetTeamMap) },
+        },
+        select: {
+          id: true,
+          name: true,
+          emoji: true,
+          ownerId: true,
+          teamId: true,
+        },
         orderBy: { createdAt: 'asc' },
       });
 
@@ -243,7 +280,12 @@ export async function userRoutes(app: FastifyInstance) {
     }
 
     reply.send({
-      ...decryptUserPii({ id: user.id, username: user.username, realName: user.realName, avatarEmoji: user.avatarEmoji }),
+      ...decryptUserPii({
+        id: user.id,
+        username: user.username,
+        realName: user.realName,
+        avatarEmoji: user.avatarEmoji,
+      }),
       projects,
       projectsVisible,
     });
@@ -314,7 +356,10 @@ export async function userRoutes(app: FastifyInstance) {
     if (id !== req.user.userId) return reply.status(403).send({ error: 'Forbidden' });
     try {
       await prisma.user.delete({ where: { id } });
-      logAdminEvent('USER_SELF_DELETED', { actorName: req.user.username, targetName: req.user.username });
+      logAdminEvent('USER_SELF_DELETED', {
+        actorName: req.user.username,
+        targetName: req.user.username,
+      });
       reply.send({ ok: true });
     } catch (e) {
       handleNotFound(e, reply);

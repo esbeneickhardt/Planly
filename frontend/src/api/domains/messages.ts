@@ -24,7 +24,11 @@ export const messages = {
       attachments?: { url: string; name: string; type: string }[];
       postedAsRole?: string | null;
     },
-  ) => request<Message>(`/api/products/${productId}/messages`, { method: 'POST', body: json(data) }),
+  ) =>
+    request<Message>(`/api/products/${productId}/messages`, {
+      method: 'POST',
+      body: json(data),
+    }),
   update: (productId: string, messageId: string, content: string) =>
     request<Message>(`/api/products/${productId}/messages/${messageId}`, {
       method: 'PATCH',

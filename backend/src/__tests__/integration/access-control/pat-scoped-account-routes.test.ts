@@ -39,7 +39,10 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
 
   beforeAll(async () => {
     app = await buildTestApp();
-    const owner = await createTestUser({ username: `pat_owner_${suffix}`, email: `pat_owner_${suffix}@example.com` });
+    const owner = await createTestUser({
+      username: `pat_owner_${suffix}`,
+      email: `pat_owner_${suffix}@example.com`,
+    });
     ownerId = owner.id;
     const team = await createTestTeam(ownerId);
     teamId = team.id;
@@ -59,23 +62,43 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
     otherTeamId = otherTeam.id;
     await createTestProduct(ownerId, otherTeamId);
 
-    const { raw } = await createTestApiToken(ownerId, { productId: productAId, name: 'scoped-to-A' });
+    const { raw } = await createTestApiToken(ownerId, {
+      productId: productAId,
+      name: 'scoped-to-A',
+    });
     scopedToken = raw;
 
-    const appReg = await createTestAppRegistration(ownerId, { productId: productAId, name: 'scoped-app' });
+    const appReg = await createTestAppRegistration(ownerId, {
+      productId: productAId,
+      name: 'scoped-app',
+    });
     appRegId = appReg.app.id;
 
     // A DM conversation scoped to product B - the A-scoped token must never reach it
     const conv = await prisma.conversation.create({
-      data: { isGroup: false, productId: productBId, participants: { create: [{ userId: ownerId }] } },
+      data: {
+        isGroup: false,
+        productId: productBId,
+        participants: { create: [{ userId: ownerId }] },
+      },
     });
     dmConversationId = conv.id;
 
     // One notification per project so cross-project leakage is checkable
     await prisma.notification.createMany({
       data: [
-        { userId: ownerId, productId: productAId, type: 'test', title: 'A notification' },
-        { userId: ownerId, productId: productBId, type: 'test', title: 'B notification' },
+        {
+          userId: ownerId,
+          productId: productAId,
+          type: 'test',
+          title: 'A notification',
+        },
+        {
+          userId: ownerId,
+          productId: productBId,
+          type: 'test',
+          title: 'B notification',
+        },
       ],
     });
   });
@@ -85,9 +108,15 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
     await prisma.conversation.deleteMany({ where: { id: dmConversationId } });
     await prisma.apiToken.deleteMany({ where: { userId: ownerId } });
     await prisma.appRegistration.deleteMany({ where: { id: appRegId } });
-    await prisma.product.deleteMany({ where: { teamId: { in: [teamId, otherTeamId] } } });
-    await prisma.team.deleteMany({ where: { id: { in: [teamId, otherTeamId] } } });
-    await prisma.user.deleteMany({ where: { id: { in: [ownerId, otherTeamMemberId] } } });
+    await prisma.product.deleteMany({
+      where: { teamId: { in: [teamId, otherTeamId] } },
+    });
+    await prisma.team.deleteMany({
+      where: { id: { in: [teamId, otherTeamId] } },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [ownerId, otherTeamMemberId] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
@@ -137,7 +166,12 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
       method: 'POST',
       url: '/api/products',
       headers: { authorization: `Bearer ${scopedToken}` },
-      payload: { name: 'escape project', emoji: '🚀', deadline: new Date(Date.now() + 86400000).toISOString(), teamId },
+      payload: {
+        name: 'escape project',
+        emoji: '🚀',
+        deadline: new Date(Date.now() + 86400000).toISOString(),
+        teamId,
+      },
     });
     expect(res.statusCode).toBe(403);
   });
@@ -164,7 +198,7 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
     expect(perms.map((p: { productId: string }) => p.productId)).toEqual([productAId]);
   });
 
-  it('a scoped PAT only sees its own project\'s notifications', async () => {
+  it("a scoped PAT only sees its own project's notifications", async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/notifications',
@@ -265,7 +299,7 @@ describe.skipIf(!HAS_DB)('Scoped PAT/App-token enforcement', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('a scoped PAT only sees its own project\'s teammates when listing users', async () => {
+  it("a scoped PAT only sees its own project's teammates when listing users", async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/users',

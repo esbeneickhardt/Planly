@@ -62,14 +62,23 @@ export function decryptUserPii<T extends { realName?: string | null; phone?: str
 // Decrypt the author's realName on a message before sending to the client.
 // Also decrypts replyTo.author.realName so quoted message previews show the correct name.
 export function decryptMessageAuthor<
-  T extends { author: { realName: string | null }; replyTo?: { author: { realName: string | null } } | null },
+  T extends {
+    author: { realName: string | null };
+    replyTo?: { author: { realName: string | null } } | null;
+  },
 >(msg: T): T {
   const decName = (n: string | null) => (n ? safeDecryptValue(n) : null);
   return {
     ...msg,
     author: { ...msg.author, realName: decName(msg.author.realName) },
     replyTo: msg.replyTo
-      ? { ...msg.replyTo, author: { ...msg.replyTo.author, realName: decName(msg.replyTo.author.realName) } }
+      ? {
+          ...msg.replyTo,
+          author: {
+            ...msg.replyTo.author,
+            realName: decName(msg.replyTo.author.realName),
+          },
+        }
       : msg.replyTo,
   };
 }

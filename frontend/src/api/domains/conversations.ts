@@ -17,7 +17,11 @@ export const conversations = {
   findOrCreate: (participantId: string, isAdminChat?: boolean, productId?: string) =>
     request<{ id: string }>('/api/conversations', {
       method: 'POST',
-      body: json({ participantId, isAdminChat: isAdminChat ?? false, productId }),
+      body: json({
+        participantId,
+        isAdminChat: isAdminChat ?? false,
+        productId,
+      }),
     }),
   messages: (id: string) => request<{ messages: DirectMessage[] }>(`/api/conversations/${id}/messages`),
   send: (id: string, content: string, replyToId?: string | null) =>
@@ -25,7 +29,11 @@ export const conversations = {
       method: 'POST',
       body: json({ content, replyToId: replyToId ?? null }),
     }),
-  markRead: (id: string) => request<{ ok: boolean }>(`/api/conversations/${id}/read`, { method: 'PATCH', body: json({}) }),
+  markRead: (id: string) =>
+    request<{ ok: boolean }>(`/api/conversations/${id}/read`, {
+      method: 'PATCH',
+      body: json({}),
+    }),
   close: (id: string) =>
     request<{ ok: boolean; closed: boolean }>(`/api/conversations/${id}/close`, { method: 'PATCH', body: json({}) }),
   unreadCount: (adminChat?: boolean, productId?: string) =>
@@ -35,12 +43,23 @@ export const conversations = {
   createGroup: (participantIds: string[], name?: string, isAdminChat?: boolean, productId?: string) =>
     request<{ id: string }>('/api/conversations/group', {
       method: 'POST',
-      body: json({ participantIds, name, isAdminChat: isAdminChat ?? false, productId }),
+      body: json({
+        participantIds,
+        name,
+        isAdminChat: isAdminChat ?? false,
+        productId,
+      }),
     }),
   rename: (id: string, name: string) =>
-    request<{ ok: boolean }>(`/api/conversations/${id}/rename`, { method: 'PATCH', body: json({ name }) }),
+    request<{ ok: boolean }>(`/api/conversations/${id}/rename`, {
+      method: 'PATCH',
+      body: json({ name }),
+    }),
   addParticipants: (id: string, userIds: string[]) =>
-    request<{ ok: boolean }>(`/api/conversations/${id}/participants`, { method: 'POST', body: json({ userIds }) }),
+    request<{ ok: boolean }>(`/api/conversations/${id}/participants`, {
+      method: 'POST',
+      body: json({ userIds }),
+    }),
   removeParticipant: (id: string, userId: string) =>
     request<{ ok: boolean }>(`/api/conversations/${id}/participants/${userId}`, { method: 'DELETE' }),
 };

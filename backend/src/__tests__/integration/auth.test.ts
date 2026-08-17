@@ -29,7 +29,11 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     const suffix = randomSuffix();
     const email = `login_${suffix}@example.com`;
     createdEmails.push(email);
-    await createTestUser({ email, username: `loginuser_${suffix}`, password: 'correct-horse' });
+    await createTestUser({
+      email,
+      username: `loginuser_${suffix}`,
+      password: 'correct-horse',
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -47,7 +51,11 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     const suffix = randomSuffix();
     const email = `wrongpw_${suffix}@example.com`;
     createdEmails.push(email);
-    await createTestUser({ email, username: `wrongpw_${suffix}`, password: 'correct-horse' });
+    await createTestUser({
+      email,
+      username: `wrongpw_${suffix}`,
+      password: 'correct-horse',
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -78,7 +86,11 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     const suffix = randomSuffix();
     const email = `me_${suffix}@example.com`;
     createdEmails.push(email);
-    await createTestUser({ email, username: `me_${suffix}`, password: 'pass1234' });
+    await createTestUser({
+      email,
+      username: `me_${suffix}`,
+      password: 'pass1234',
+    });
 
     const loginRes = await app.inject({
       method: 'POST',
@@ -102,7 +114,11 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     const suffix = randomSuffix();
     const email = `tv_${suffix}@example.com`;
     createdEmails.push(email);
-    await createTestUser({ email, username: `tv_${suffix}`, password: 'old-password' });
+    await createTestUser({
+      email,
+      username: `tv_${suffix}`,
+      password: 'old-password',
+    });
 
     // Login to get a cookie
     const loginRes = await app.inject({
@@ -118,7 +134,10 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
       method: 'POST',
       url: '/api/auth/change-password',
       cookies: { token },
-      payload: { currentPassword: 'old-password', newPassword: 'new-password-456' },
+      payload: {
+        currentPassword: 'old-password',
+        newPassword: 'new-password-456',
+      },
     });
 
     // Old token should now be invalid

@@ -34,7 +34,10 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
             <div className="space-y-4">
               {images.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>
+                  <p
+                    className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+                    style={{ color: 'var(--text-3)' }}
+                  >
                     Images ({images.length})
                   </p>
                   <div className="grid grid-cols-3 gap-1.5">
@@ -82,7 +85,10 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                           disabled={deletingFile === att.url}
                           title="Delete file"
                           className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-auto"
-                          style={{ background: 'rgba(239,68,68,0.9)', color: 'white' }}
+                          style={{
+                            background: 'rgba(239,68,68,0.9)',
+                            color: 'white',
+                          }}
                         >
                           <svg
                             width="8"
@@ -107,7 +113,10 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
               )}
               {docs.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>
+                  <p
+                    className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+                    style={{ color: 'var(--text-3)' }}
+                  >
                     Documents ({docs.length})
                   </p>
                   <div className="space-y-1.5">
@@ -115,7 +124,10 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                       <div
                         key={i}
                         className="flex items-center gap-3 px-3 py-2 rounded-lg group/doc"
-                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                        style={{
+                          background: 'var(--surface-2)',
+                          border: '1px solid var(--border)',
+                        }}
                       >
                         <span className="text-lg flex-shrink-0">{att.type === 'application/pdf' ? '📄' : '📁'}</span>
                         <div className="min-w-0 flex-1">
@@ -132,7 +144,10 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                             href={att.url}
                             download={att.name}
                             className="text-xs px-2 py-1 rounded-lg"
-                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
+                            style={{
+                              background: 'var(--brand-subtle)',
+                              color: 'var(--brand)',
+                            }}
                           >
                             ↓
                           </a>
@@ -141,7 +156,10 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                             disabled={deletingFile === att.url}
                             title="Delete file"
                             className="text-xs px-2 py-1 rounded-lg transition-colors"
-                            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}
+                            style={{
+                              background: 'rgba(239,68,68,0.1)',
+                              color: '#ef4444',
+                            }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.2)')}
                             onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
                           >

@@ -42,11 +42,21 @@ export default function GanttToolbar({
   onFit,
 }: Props) {
   return (
-    <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+    <div
+      className="flex flex-shrink-0"
+      style={{
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--surface)',
+      }}
+    >
       {/* Left: view toggle + hide-done */}
       <div
         className="flex-shrink-0 px-3 flex flex-col justify-center gap-1"
-        style={{ width: sidebarWidth, borderRight: '1px solid var(--border)', minHeight: 44 }}
+        style={{
+          width: sidebarWidth,
+          borderRight: '1px solid var(--border)',
+          minHeight: 44,
+        }}
       >
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--surface-2)' }}>
@@ -140,8 +150,18 @@ export default function GanttToolbar({
           );
         })}
         {todayPct > 0 && todayPct < 1 && (
-          <div className="absolute top-0 h-full flex items-end pb-1.5" style={{ left: `${todayPct * 100}%`, zIndex: 2, pointerEvents: 'none' }}>
-            <span className="text-[10px] font-semibold px-1 rounded" style={{ background: 'var(--brand)', color: 'white' }}>
+          <div
+            className="absolute top-0 h-full flex items-end pb-1.5"
+            style={{
+              left: `${todayPct * 100}%`,
+              zIndex: 2,
+              pointerEvents: 'none',
+            }}
+          >
+            <span
+              className="text-[10px] font-semibold px-1 rounded"
+              style={{ background: 'var(--brand)', color: 'white' }}
+            >
               Today
             </span>
           </div>

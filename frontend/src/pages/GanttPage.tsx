@@ -145,7 +145,9 @@ export default function GanttPage() {
 
   const milestoneDragSensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
   );
 
   // Width of the left name column, draggable via a handle between it and the timeline; persisted
@@ -154,7 +156,10 @@ export default function GanttPage() {
   const [sidebarWidth, setSidebarWidth] = useState(224);
   const sidebarWidthRef = useRef(sidebarWidth);
   sidebarWidthRef.current = sidebarWidth;
-  const sidebarResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const sidebarResizeRef = useRef<{
+    startX: number;
+    startWidth: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!activeProduct) return;
@@ -218,7 +223,10 @@ export default function GanttPage() {
         <div className="flex flex-col items-center gap-3 max-w-sm text-center">
           <div
             className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
           >
             📅
           </div>
@@ -233,7 +241,11 @@ export default function GanttPage() {
           {tasks.length === 0 ? (
             <div
               className="rounded-xl px-4 py-3 text-xs leading-relaxed w-full"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-3)',
+              }}
             >
               Start by adding tasks in <strong style={{ color: 'var(--text-2)' }}>Execute</strong> or{' '}
               <strong style={{ color: 'var(--text-2)' }}>Tasks</strong>, then set a deadline to create a milestone.
@@ -241,11 +253,16 @@ export default function GanttPage() {
           ) : tasksWithoutDeadline > 0 ? (
             <div
               className="rounded-xl px-4 py-3 text-xs leading-relaxed w-full"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-3)',
+              }}
             >
               You have{' '}
               <strong style={{ color: 'var(--text-2)' }}>
-                {tasksWithoutDeadline} task{tasksWithoutDeadline !== 1 ? 's' : ''}
+                {tasksWithoutDeadline} task
+                {tasksWithoutDeadline !== 1 ? 's' : ''}
               </strong>{' '}
               without a deadline. Open any task and set a deadline to add it here.
             </div>

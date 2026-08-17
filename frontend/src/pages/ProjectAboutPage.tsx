@@ -14,11 +14,27 @@ import { api, displayName } from '../api/client';
 
 type PublicProduct = Awaited<ReturnType<typeof api.products.getAbout>>;
 
-const ROLE_LABEL: Record<string, string> = { owner: 'Owner', co_owner: 'Co-owner', member: 'Member' };
+const ROLE_LABEL: Record<string, string> = {
+  owner: 'Owner',
+  co_owner: 'Co-owner',
+  member: 'Member',
+};
 const ROLE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  owner: { bg: 'var(--brand-subtle)', color: 'var(--brand)', border: 'var(--brand)' },
-  co_owner: { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6', border: 'rgba(139,92,246,0.3)' },
-  member: { bg: 'var(--surface)', color: 'var(--text-3)', border: 'var(--border)' },
+  owner: {
+    bg: 'var(--brand-subtle)',
+    color: 'var(--brand)',
+    border: 'var(--brand)',
+  },
+  co_owner: {
+    bg: 'rgba(139,92,246,0.1)',
+    color: '#8b5cf6',
+    border: 'rgba(139,92,246,0.3)',
+  },
+  member: {
+    bg: 'var(--surface)',
+    color: 'var(--text-3)',
+    border: 'var(--border)',
+  },
 };
 
 export default function ProjectAboutPage() {
@@ -59,7 +75,11 @@ export default function ProjectAboutPage() {
         <button
           onClick={() => navigate(-1)}
           className="text-xs px-3 py-1.5 rounded-lg"
-          style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+          style={{
+            background: 'var(--surface-2)',
+            color: 'var(--text-2)',
+            border: '1px solid var(--border)',
+          }}
         >
           ← Back
         </button>
@@ -88,7 +108,11 @@ export default function ProjectAboutPage() {
             than justify-content on its own children. */}
         <div
           className="flex gap-1 p-1 rounded-xl mx-auto"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', width: 'fit-content' }}
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            width: 'fit-content',
+          }}
         >
           {(['description', 'members'] as const).map((t) => (
             <button
@@ -108,7 +132,13 @@ export default function ProjectAboutPage() {
 
         {/* Tab: Description */}
         {tab === 'description' && (
-          <div className="rounded-xl p-6 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div
+            className="rounded-xl p-6 shadow-sm"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+          >
             {product.description ? (
               <div style={{ color: 'var(--text)', fontSize: 14 }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
@@ -135,7 +165,10 @@ export default function ProjectAboutPage() {
                   type="button"
                   onClick={() => setProfileUserId(m.userId)}
                   className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors w-full shadow-sm"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                  }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                 >
@@ -145,7 +178,11 @@ export default function ProjectAboutPage() {
                   </span>
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-medium"
-                    style={{ background: style.bg, color: style.color, border: `1px solid ${style.border}` }}
+                    style={{
+                      background: style.bg,
+                      color: style.color,
+                      border: `1px solid ${style.border}`,
+                    }}
                   >
                     {ROLE_LABEL[m.role] ?? m.role}
                   </span>

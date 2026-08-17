@@ -12,7 +12,12 @@ import KanbanMilestoneFilter from './KanbanMilestoneFilter';
 import type { MilestoneOption } from './KanbanMilestoneFilter';
 import KanbanBackgroundPicker from './KanbanBackgroundPicker';
 
-type User = { id: string; username: string; avatarEmoji?: string | null; realName?: string | null };
+type User = {
+  id: string;
+  username: string;
+  avatarEmoji?: string | null;
+  realName?: string | null;
+};
 
 interface Props {
   taskCount: number;
@@ -174,7 +179,11 @@ function OwnerFilterSection({
       {open && (
         <div
           className="absolute left-0 top-full mt-1 rounded-lg shadow-xl z-40 overflow-hidden flex flex-col w-full"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: 240 }}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            maxHeight: 240,
+          }}
         >
           <input
             ref={inputRef}
@@ -182,7 +191,10 @@ function OwnerFilterSection({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search people…"
             className="text-xs px-2.5 py-2 bg-transparent outline-none flex-shrink-0"
-            style={{ color: 'var(--text)', borderBottom: '1px solid var(--border)' }}
+            style={{
+              color: 'var(--text)',
+              borderBottom: '1px solid var(--border)',
+            }}
           />
           <div className="overflow-y-auto py-1">
             {filtered.length === 0 && (
@@ -255,15 +267,18 @@ export default function KanbanFiltersBar({
   onToggleViewMenu,
 }: Props) {
   const hasFilterOptions =
-    taskOwners.length > 0 || taskColors.length > 0 || statuses.length > 0 || sprints.length > 0 || milestones.length > 0;
+    taskOwners.length > 0 ||
+    taskColors.length > 0 ||
+    statuses.length > 0 ||
+    sprints.length > 0 ||
+    milestones.length > 0;
   const activeFilterCount =
     ownerFilters.size +
     colorFilters.size +
     statusFilters.size +
     (sprintFilter !== null ? 1 : 0) +
     (milestoneFilter !== null ? 1 : 0);
-  const viewCustomized =
-    compact || simpleMode || viewMode === 'milestone' || groupByMilestone || bgImage !== null;
+  const viewCustomized = compact || simpleMode || viewMode === 'milestone' || groupByMilestone || bgImage !== null;
 
   return (
     <div className="px-4 md:px-6 pt-3 md:pt-4 pb-3 flex-shrink-0 flex items-center gap-2 md:gap-3 flex-wrap">
@@ -299,7 +314,11 @@ export default function KanbanFiltersBar({
           onClick={onReset}
           aria-label="Reset filters"
           className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
-          style={{ color: 'var(--brand)', background: 'var(--brand-subtle)', border: '1px solid var(--brand)' }}
+          style={{
+            color: 'var(--brand)',
+            background: 'var(--brand-subtle)',
+            border: '1px solid var(--brand)',
+          }}
         >
           ↺ <span className="hidden md:inline">Reset</span>
         </button>
@@ -333,11 +352,18 @@ export default function KanbanFiltersBar({
           {showFiltersMenu && (
             <div
               className="fixed left-2 right-2 top-14 md:absolute md:left-0 md:right-auto md:top-full md:mt-1 md:w-64 rounded-xl shadow-xl z-40 p-3 space-y-3 overflow-y-auto animate-dropdown-in"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '70vh' }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                maxHeight: '70vh',
+              }}
             >
               {statuses.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-widest"
+                    style={{ color: 'var(--text-3)' }}
+                  >
                     Status
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -365,7 +391,10 @@ export default function KanbanFiltersBar({
 
               {taskColors.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-widest"
+                    style={{ color: 'var(--text-3)' }}
+                  >
                     Color
                   </span>
                   <div className="flex items-center gap-2 flex-wrap mt-1.5">
@@ -401,7 +430,10 @@ export default function KanbanFiltersBar({
 
               {sprints.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-widest"
+                    style={{ color: 'var(--text-3)' }}
+                  >
                     Sub-plan
                   </span>
                   <div className="flex items-center gap-1.5 mt-1.5">
@@ -423,11 +455,18 @@ export default function KanbanFiltersBar({
 
               {milestones.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-widest"
+                    style={{ color: 'var(--text-3)' }}
+                  >
                     Milestone
                   </span>
                   <div className="mt-1.5">
-                    <KanbanMilestoneFilter milestones={milestones} selectedId={milestoneFilter} onChange={onMilestoneChange} />
+                    <KanbanMilestoneFilter
+                      milestones={milestones}
+                      selectedId={milestoneFilter}
+                      onChange={onMilestoneChange}
+                    />
                   </div>
                 </div>
               )}
@@ -439,7 +478,11 @@ export default function KanbanFiltersBar({
       {toast && (
         <div
           className="text-xs px-2 py-1 rounded-lg"
-          style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+          style={{
+            background: 'rgba(239,68,68,0.1)',
+            color: '#ef4444',
+            border: '1px solid rgba(239,68,68,0.2)',
+          }}
         >
           {toast}
         </div>
@@ -470,7 +513,11 @@ export default function KanbanFiltersBar({
           {showViewMenu && (
             <div
               className="fixed left-2 right-2 top-14 md:absolute md:left-auto md:right-0 md:top-full md:mt-1 md:w-56 rounded-xl shadow-xl z-40 p-2 space-y-1 overflow-y-auto animate-dropdown-in"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '70vh' }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                maxHeight: '70vh',
+              }}
             >
               <ViewMenuRow active={compact} onClick={onToggleCompact} desktopOnly>
                 {compact ? '▦ Board view' : '☰ Compact list view'}

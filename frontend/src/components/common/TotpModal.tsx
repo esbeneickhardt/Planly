@@ -219,7 +219,10 @@ export default function TotpModal({ onClose }: Props) {
                 <code
                   key={c}
                   className="text-sm font-mono px-3 py-2 rounded-lg text-center"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    color: 'var(--text)',
+                  }}
                 >
                   {c}
                 </code>

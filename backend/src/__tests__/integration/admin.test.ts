@@ -26,8 +26,15 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
       password: 'pass1234',
       isAdmin: true,
     });
-    await prisma.user.update({ where: { id: adminUser.id }, data: { isFoundingAdmin: true } });
-    const target = await createTestUser({ email: targetEmail, username: `target_${suffix}`, password: 'pass1234' });
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: { isFoundingAdmin: true },
+    });
+    const target = await createTestUser({
+      email: targetEmail,
+      username: `target_${suffix}`,
+      password: 'pass1234',
+    });
     targetId = target.id;
 
     const loginRes = await app.inject({
@@ -40,7 +47,9 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { email: { in: [adminEmail, targetEmail] } } });
+    await prisma.user.deleteMany({
+      where: { email: { in: [adminEmail, targetEmail] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
@@ -79,7 +88,10 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
   // Demotion sets isAdmin=false; pre-set to true in DB to decouple from the promote test
   it('PUT /api/admin/users/:id/demote demotes a user from admin', async () => {
     // Ensure target is admin first
-    await prisma.user.update({ where: { id: targetId }, data: { isAdmin: true } });
+    await prisma.user.update({
+      where: { id: targetId },
+      data: { isAdmin: true },
+    });
 
     const res = await app.inject({
       method: 'PUT',
@@ -93,7 +105,10 @@ describe.skipIf(!HAS_DB)('Admin user management', () => {
 
   // Deletion returns 204 and the record is gone from the DB
   it('DELETE /api/admin/users/:id deletes a user', async () => {
-    const del = await createTestUser({ email: `del_${suffix}@example.com`, username: `del_${suffix}` });
+    const del = await createTestUser({
+      email: `del_${suffix}@example.com`,
+      username: `del_${suffix}`,
+    });
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/admin/users/${del.id}`,
@@ -123,7 +138,11 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
       password: 'pass1234',
       isAdmin: true,
     });
-    const member = await createTestUser({ email: memberEmail, username: `member2_${suffix}`, password: 'pass1234' });
+    const member = await createTestUser({
+      email: memberEmail,
+      username: `member2_${suffix}`,
+      password: 'pass1234',
+    });
 
     const team = await prisma.team.create({
       data: {
@@ -167,7 +186,9 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
     // Products must be deleted before the team due to the FK constraint
     await prisma.product.deleteMany({ where: { teamId } });
     await prisma.team.deleteMany({ where: { id: teamId } });
-    await prisma.user.deleteMany({ where: { email: { in: [adminEmail, memberEmail] } } });
+    await prisma.user.deleteMany({
+      where: { email: { in: [adminEmail, memberEmail] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
@@ -178,7 +199,11 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
       method: 'POST',
       url: '/api/products',
       cookies: { token: memberToken },
-      payload: { name: 'Blocked', teamId, deadline: '2030-01-01T00:00:00.000Z' },
+      payload: {
+        name: 'Blocked',
+        teamId,
+        deadline: '2030-01-01T00:00:00.000Z',
+      },
     });
     expect(res.statusCode).toBe(403);
   });
@@ -189,7 +214,11 @@ describe.skipIf(!HAS_DB)('allowProjectCreation gate', () => {
       method: 'POST',
       url: '/api/products',
       cookies: { token: adminToken },
-      payload: { name: 'Admin product', teamId, deadline: '2030-01-01T00:00:00.000Z' },
+      payload: {
+        name: 'Admin product',
+        teamId,
+        deadline: '2030-01-01T00:00:00.000Z',
+      },
     });
     expect(res.statusCode).toBe(201);
     if (res.statusCode === 201) {

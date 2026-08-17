@@ -77,12 +77,14 @@ describe.skipIf(!HAS_DB)('Project discoverability', () => {
   afterAll(async () => {
     await prisma.product.deleteMany({ where: { id: productId } });
     await prisma.team.deleteMany({ where: { id: teamId } });
-    await prisma.user.deleteMany({ where: { id: { in: [ownerId, coOwnerId, memberId, outsiderId] } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [ownerId, coOwnerId, memberId, outsiderId] } },
+    });
     await app.close();
     await prisma.$disconnect();
   });
 
-  it('defaults to discoverable: true and appears in an outsider\'s discover list', async () => {
+  it("defaults to discoverable: true and appears in an outsider's discover list", async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/products/discover',

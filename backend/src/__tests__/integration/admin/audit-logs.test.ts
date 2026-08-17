@@ -68,23 +68,41 @@ describe.skipIf(!HAS_DB)('Admin audit logs', () => {
   });
 
   it('GET /api/admin/logs returns 403 for regular user', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/admin/logs', cookies: cookieJar(userCookie) });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/logs',
+      cookies: cookieJar(userCookie),
+    });
     expect(res.statusCode).toBe(403);
   });
 
   // ── Pagination ─────────────────────────────────────────────────────────────
 
   it('returns paginated log entries for admin', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/admin/logs?limit=10', cookies: cookieJar(adminCookie) });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/logs?limit=10',
+      cookies: cookieJar(adminCookie),
+    });
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body) as { logs: unknown[]; nextCursor: string | null };
+    const body = JSON.parse(res.body) as {
+      logs: unknown[];
+      nextCursor: string | null;
+    };
     expect(Array.isArray(body.logs)).toBe(true);
     expect('nextCursor' in body).toBe(true);
   });
 
   it('accepts a cursor for page 2', async () => {
-    const page1 = await app.inject({ method: 'GET', url: '/api/admin/logs?limit=1', cookies: cookieJar(adminCookie) });
-    const { logs, nextCursor } = JSON.parse(page1.body) as { logs: { id: string }[]; nextCursor: string | null };
+    const page1 = await app.inject({
+      method: 'GET',
+      url: '/api/admin/logs?limit=1',
+      cookies: cookieJar(adminCookie),
+    });
+    const { logs, nextCursor } = JSON.parse(page1.body) as {
+      logs: { id: string }[];
+      nextCursor: string | null;
+    };
 
     if (!nextCursor) return; // not enough log entries to page - skip gracefully
 

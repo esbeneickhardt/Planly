@@ -74,7 +74,10 @@ export default function PrivacyModal({ onClose }: Props) {
           </div>
         </button>
 
-        <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1 mt-3" style={{ color: 'var(--text-3)' }}>
+        <p
+          className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1 mt-3"
+          style={{ color: 'var(--text-3)' }}
+        >
           Profile
         </p>
         <button

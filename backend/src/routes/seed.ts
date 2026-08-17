@@ -21,7 +21,9 @@ export async function seedRoutes(app: FastifyInstance) {
     const userId = req.user.userId;
 
     // Create a second demo user with a random unguessable password (never revealed)
-    let demoUser = await prisma.user.findUnique({ where: { username: 'prof_korolev' } });
+    let demoUser = await prisma.user.findUnique({
+      where: { username: 'prof_korolev' },
+    });
     if (!demoUser) {
       const demoPassword = randomBytes(32).toString('hex');
       demoUser = await prisma.user.create({
@@ -41,7 +43,10 @@ export async function seedRoutes(app: FastifyInstance) {
 
     // ── Product 1: Podcast Launch ──────────────────────────────────────
     const team1 = await prisma.team.create({
-      data: { name: 'Podcast Team', members: { create: [{ userId }, { userId: demoUser.id }] } },
+      data: {
+        name: 'Podcast Team',
+        members: { create: [{ userId }, { userId: demoUser.id }] },
+      },
     });
     const p1deadline = new Date();
     p1deadline.setDate(p1deadline.getDate() + 14);
@@ -78,7 +83,10 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
       },
     });
 
-    const t1 = (data: TaskInput) => prisma.task.create({ data: { ...data, productId: p1.id, createdBy: userId } });
+    const t1 = (data: TaskInput) =>
+      prisma.task.create({
+        data: { ...data, productId: p1.id, createdBy: userId },
+      });
 
     // ── Setup phase (done / in progress) ── purple / blue / green ─────
     const s1 = await t1({
@@ -90,13 +98,43 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
       completedBy: userId,
     });
     // ── Prep for recording ── blue ─────────────────────────────────────
-    const p1a = await t1({ name: 'Identify topic', status: 'todo', ownerId: userId, color: '#3b82f6' });
-    const p1b = await t1({ name: 'Find guest', status: 'todo', ownerId: userId, color: '#3b82f6' });
+    const p1a = await t1({
+      name: 'Identify topic',
+      status: 'todo',
+      ownerId: userId,
+      color: '#3b82f6',
+    });
+    const p1b = await t1({
+      name: 'Find guest',
+      status: 'todo',
+      ownerId: userId,
+      color: '#3b82f6',
+    });
     // Three parallel tracks after finding the guest
-    const p1c = await t1({ name: 'Research topic', status: 'backlog', ownerId: demoUser.id, color: '#3b82f6' });
-    const p1d = await t1({ name: 'Prepare questions', status: 'backlog', ownerId: userId, color: '#3b82f6' });
-    const p1e = await t1({ name: 'Find date', status: 'backlog', ownerId: demoUser.id, color: '#3b82f6' });
-    const p1f = await t1({ name: 'Buy snacks & supplies', status: 'backlog', ownerId: demoUser.id, color: '#3b82f6' });
+    const p1c = await t1({
+      name: 'Research topic',
+      status: 'backlog',
+      ownerId: demoUser.id,
+      color: '#3b82f6',
+    });
+    const p1d = await t1({
+      name: 'Prepare questions',
+      status: 'backlog',
+      ownerId: userId,
+      color: '#3b82f6',
+    });
+    const p1e = await t1({
+      name: 'Find date',
+      status: 'backlog',
+      ownerId: demoUser.id,
+      color: '#3b82f6',
+    });
+    const p1f = await t1({
+      name: 'Buy snacks & supplies',
+      status: 'backlog',
+      ownerId: demoUser.id,
+      color: '#3b82f6',
+    });
 
     // ── Episode production - Record episode is the milestone ───────────
     const rdRec = new Date();
@@ -108,10 +146,30 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
       deadline: rdRec,
       color: '#f59e0b',
     });
-    const prod2 = await t1({ name: 'Edit audio', status: 'backlog', ownerId: demoUser.id, color: '#10b981' });
-    const prod3 = await t1({ name: 'Guest approval on final cut', status: 'backlog', ownerId: userId, color: '#10b981' });
-    const prod4 = await t1({ name: 'Create thumbnail', status: 'backlog', ownerId: demoUser.id, color: '#10b981' });
-    const prod5 = await t1({ name: 'Write description & show notes', status: 'backlog', ownerId: userId, color: '#10b981' });
+    const prod2 = await t1({
+      name: 'Edit audio',
+      status: 'backlog',
+      ownerId: demoUser.id,
+      color: '#10b981',
+    });
+    const prod3 = await t1({
+      name: 'Guest approval on final cut',
+      status: 'backlog',
+      ownerId: userId,
+      color: '#10b981',
+    });
+    const prod4 = await t1({
+      name: 'Create thumbnail',
+      status: 'backlog',
+      ownerId: demoUser.id,
+      color: '#10b981',
+    });
+    const prod5 = await t1({
+      name: 'Write description & show notes',
+      status: 'backlog',
+      ownerId: userId,
+      color: '#10b981',
+    });
 
     // Milestone: Episode Produced
     const rdProd = new Date();
@@ -125,11 +183,36 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
     });
 
     // ── Publishing ── amber ────────────────────────────────────────────
-    const pub1 = await t1({ name: 'Upload to hosting (Buzzsprout)', status: 'backlog', ownerId: userId, color: '#f59e0b' });
-    const pub2 = await t1({ name: 'Submit to Apple Podcasts', status: 'backlog', ownerId: demoUser.id, color: '#f59e0b' });
-    const pub3 = await t1({ name: 'Submit to Spotify', status: 'backlog', ownerId: userId, color: '#f59e0b' });
-    const pub4 = await t1({ name: 'Submit to YouTube & Google', status: 'backlog', ownerId: demoUser.id, color: '#f59e0b' });
-    const pub5 = await t1({ name: 'Announce on social media', status: 'backlog', ownerId: userId, color: '#f59e0b' });
+    const pub1 = await t1({
+      name: 'Upload to hosting (Buzzsprout)',
+      status: 'backlog',
+      ownerId: userId,
+      color: '#f59e0b',
+    });
+    const pub2 = await t1({
+      name: 'Submit to Apple Podcasts',
+      status: 'backlog',
+      ownerId: demoUser.id,
+      color: '#f59e0b',
+    });
+    const pub3 = await t1({
+      name: 'Submit to Spotify',
+      status: 'backlog',
+      ownerId: userId,
+      color: '#f59e0b',
+    });
+    const pub4 = await t1({
+      name: 'Submit to YouTube & Google',
+      status: 'backlog',
+      ownerId: demoUser.id,
+      color: '#f59e0b',
+    });
+    const pub5 = await t1({
+      name: 'Announce on social media',
+      status: 'backlog',
+      ownerId: userId,
+      color: '#f59e0b',
+    });
 
     // Milestone: Episode 1 Live
     const rdLive = new Date();
@@ -144,23 +227,53 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
 
     await prisma.subtask.createMany({
       data: [
-        { taskId: prod2.id, name: 'Trim dead air & filler words', completed: false, order: 0 },
-        { taskId: prod2.id, name: 'Normalise loudness (LUFS -16)', completed: false, order: 1 },
-        { taskId: prod2.id, name: 'Add intro / outro music', completed: false, order: 2 },
-        { taskId: pub1.id, name: 'Write episode title & tags', completed: false, order: 0 },
-        { taskId: pub1.id, name: 'Set explicit flag & category', completed: false, order: 1 },
-        { taskId: pub1.id, name: 'Schedule release date', completed: false, order: 2 },
+        {
+          taskId: prod2.id,
+          name: 'Trim dead air & filler words',
+          completed: false,
+          order: 0,
+        },
+        {
+          taskId: prod2.id,
+          name: 'Normalise loudness (LUFS -16)',
+          completed: false,
+          order: 1,
+        },
+        {
+          taskId: prod2.id,
+          name: 'Add intro / outro music',
+          completed: false,
+          order: 2,
+        },
+        {
+          taskId: pub1.id,
+          name: 'Write episode title & tags',
+          completed: false,
+          order: 0,
+        },
+        {
+          taskId: pub1.id,
+          name: 'Set explicit flag & category',
+          completed: false,
+          order: 1,
+        },
+        {
+          taskId: pub1.id,
+          name: 'Schedule release date',
+          completed: false,
+          order: 2,
+        },
       ],
     });
 
     // Prep deps
-    await dep(p1a.id, s1.id);       // identify topic after knowing the niche
-    await dep(p1b.id, p1a.id);      // find guest after identifying topic
+    await dep(p1a.id, s1.id); // identify topic after knowing the niche
+    await dep(p1b.id, p1a.id); // find guest after identifying topic
     // Three parallel tracks once a guest is confirmed
-    await dep(p1c.id, p1b.id);      // research topic
-    await dep(p1d.id, p1c.id);      // prepare questions after research
-    await dep(p1e.id, p1b.id);      // find date
-    await dep(p1f.id, p1b.id);      // buy snacks
+    await dep(p1c.id, p1b.id); // research topic
+    await dep(p1d.id, p1c.id); // prepare questions after research
+    await dep(p1e.id, p1b.id); // find date
+    await dep(p1f.id, p1b.id); // buy snacks
 
     // Record episode milestone - all three tracks must be done
     await dep(prod1.id, p1d.id);
@@ -193,14 +306,22 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
     await dep(sm1.id, pub4.id);
     await dep(sm1.id, pub5.id);
 
-    await prisma.productConnection.create({ data: { productId: p1.id, taskId: sm1.id } });
+    await prisma.productConnection.create({
+      data: { productId: p1.id, taskId: sm1.id },
+    });
 
     // ── Podcast: Sub-plan 1 - Episode 1 (active) ──────────────────────
     const sp1Start = new Date();
     const sp1End = new Date();
     sp1End.setDate(sp1End.getDate() + 14);
     const sp1 = await prisma.sprint.create({
-      data: { productId: p1.id, name: 'Episode 1', color: '#7c3aed', startDate: sp1Start, endDate: sp1End },
+      data: {
+        productId: p1.id,
+        name: 'Episode 1',
+        color: '#7c3aed',
+        startDate: sp1Start,
+        endDate: sp1End,
+      },
     });
     await prisma.sprintTask.createMany({
       data: [
@@ -216,7 +337,10 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
 
     // ── Product 2: Rocket Build ────────────────────────────────────────
     const team2 = await prisma.team.create({
-      data: { name: 'Rocket Team', members: { create: [{ userId }, { userId: demoUser.id }] } },
+      data: {
+        name: 'Rocket Team',
+        members: { create: [{ userId }, { userId: demoUser.id }] },
+      },
     });
     const p2deadline = new Date();
     p2deadline.setDate(p2deadline.getDate() + 90); // project started 90 days ago, 90 days to go
@@ -312,7 +436,9 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
     });
 
     const t2 = (data: TaskInput & { canvasX?: number; canvasY?: number }) =>
-      prisma.task.create({ data: { ...data, productId: p2.id, createdBy: userId } });
+      prisma.task.create({
+        data: { ...data, productId: p2.id, createdBy: userId },
+      });
 
     // Phase 1 - Concept & Design (done) ── purple
     const r1 = await t2({
@@ -610,15 +736,60 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
 
     await prisma.subtask.createMany({
       data: [
-        { taskId: r3.id, name: 'Calculate orbit & delta-v budget', completed: true, order: 0 },
-        { taskId: r3.id, name: 'Re-entry heating analysis', completed: true, order: 1 },
-        { taskId: r3.id, name: 'Apogee & recovery zone mapping', completed: true, order: 2 },
-        { taskId: r7.id, name: 'Machine combustion chamber', completed: true, order: 0 },
-        { taskId: r7.id, name: 'Injector plate design', completed: true, order: 1 },
-        { taskId: r7.id, name: 'Nozzle fabrication', completed: true, order: 2 },
-        { taskId: r22.id, name: 'Go/No-go systems checklist', completed: false, order: 0 },
-        { taskId: r22.id, name: 'Countdown simulation', completed: false, order: 1 },
-        { taskId: r22.id, name: 'Post-test inspection & sign-off', completed: false, order: 2 },
+        {
+          taskId: r3.id,
+          name: 'Calculate orbit & delta-v budget',
+          completed: true,
+          order: 0,
+        },
+        {
+          taskId: r3.id,
+          name: 'Re-entry heating analysis',
+          completed: true,
+          order: 1,
+        },
+        {
+          taskId: r3.id,
+          name: 'Apogee & recovery zone mapping',
+          completed: true,
+          order: 2,
+        },
+        {
+          taskId: r7.id,
+          name: 'Machine combustion chamber',
+          completed: true,
+          order: 0,
+        },
+        {
+          taskId: r7.id,
+          name: 'Injector plate design',
+          completed: true,
+          order: 1,
+        },
+        {
+          taskId: r7.id,
+          name: 'Nozzle fabrication',
+          completed: true,
+          order: 2,
+        },
+        {
+          taskId: r22.id,
+          name: 'Go/No-go systems checklist',
+          completed: false,
+          order: 0,
+        },
+        {
+          taskId: r22.id,
+          name: 'Countdown simulation',
+          completed: false,
+          order: 1,
+        },
+        {
+          taskId: r22.id,
+          name: 'Post-test inspection & sign-off',
+          completed: false,
+          order: 2,
+        },
       ],
     });
 
@@ -677,13 +848,23 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
     await dep(rm5.id, r23.id);
     await dep(rm6.id, rm5.id);
 
-    await prisma.productConnection.create({ data: { productId: p2.id, taskId: rm6.id } });
+    await prisma.productConnection.create({
+      data: { productId: p2.id, taskId: rm6.id },
+    });
 
     // ── Rocket: Sub-plan 1 - Design & Concept (completed, -90 to -60 days) ──
-    const rsp1s = new Date(); rsp1s.setDate(rsp1s.getDate() - 90);
-    const rsp1e = new Date(); rsp1e.setDate(rsp1e.getDate() - 60);
+    const rsp1s = new Date();
+    rsp1s.setDate(rsp1s.getDate() - 90);
+    const rsp1e = new Date();
+    rsp1e.setDate(rsp1e.getDate() - 60);
     const rsp1 = await prisma.sprint.create({
-      data: { productId: p2.id, name: 'Design & Concept', color: '#7c3aed', startDate: rsp1s, endDate: rsp1e },
+      data: {
+        productId: p2.id,
+        name: 'Design & Concept',
+        color: '#7c3aed',
+        startDate: rsp1s,
+        endDate: rsp1e,
+      },
     });
     await prisma.sprintTask.createMany({
       data: [
@@ -696,10 +877,18 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
     });
 
     // ── Rocket: Sub-plan 2 - Propulsion Build (completed, -60 to -30 days) ──
-    const rsp2s = new Date(); rsp2s.setDate(rsp2s.getDate() - 60);
-    const rsp2e = new Date(); rsp2e.setDate(rsp2e.getDate() - 30);
+    const rsp2s = new Date();
+    rsp2s.setDate(rsp2s.getDate() - 60);
+    const rsp2e = new Date();
+    rsp2e.setDate(rsp2e.getDate() - 30);
     const rsp2 = await prisma.sprint.create({
-      data: { productId: p2.id, name: 'Propulsion Build', color: '#ef4444', startDate: rsp2s, endDate: rsp2e },
+      data: {
+        productId: p2.id,
+        name: 'Propulsion Build',
+        color: '#ef4444',
+        startDate: rsp2s,
+        endDate: rsp2e,
+      },
     });
     await prisma.sprintTask.createMany({
       data: [
@@ -712,10 +901,18 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
     });
 
     // ── Rocket: Sub-plan 3 - Structural Build (active, -30 days to +20 days) ──
-    const rsp3s = new Date(); rsp3s.setDate(rsp3s.getDate() - 30);
-    const rsp3e = new Date(); rsp3e.setDate(rsp3e.getDate() + 20);
+    const rsp3s = new Date();
+    rsp3s.setDate(rsp3s.getDate() - 30);
+    const rsp3e = new Date();
+    rsp3e.setDate(rsp3e.getDate() + 20);
     const rsp3 = await prisma.sprint.create({
-      data: { productId: p2.id, name: 'Structural Build', color: '#3b82f6', startDate: rsp3s, endDate: rsp3e },
+      data: {
+        productId: p2.id,
+        name: 'Structural Build',
+        color: '#3b82f6',
+        startDate: rsp3s,
+        endDate: rsp3e,
+      },
     });
     await prisma.sprintTask.createMany({
       data: [

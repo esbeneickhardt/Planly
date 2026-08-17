@@ -52,16 +52,18 @@ export async function dispatchWebhooksBatch(productId: string, event: string, pa
   });
   if (webhooks.length === 0) return;
 
-  await Promise.allSettled(
-    webhooks.flatMap((wh) => payloads.map((payload) => deliverToWebhook(wh, event, payload))),
-  );
+  await Promise.allSettled(webhooks.flatMap((wh) => payloads.map((payload) => deliverToWebhook(wh, event, payload))));
 }
 
 // Delivers one event payload to one webhook and records the outcome. Never throws - all failure
 // modes (SSRF re-check, network error, non-2xx, redirect) resolve to a recorded, unsuccessful
 // WebhookDelivery row instead.
 async function deliverToWebhook(wh: Webhook, event: string, payload: object): Promise<void> {
-  const body = JSON.stringify({ event, payload, timestamp: new Date().toISOString() });
+  const body = JSON.stringify({
+    event,
+    payload,
+    timestamp: new Date().toISOString(),
+  });
   // Sign the serialized body with HMAC-SHA256 using the decrypted per-webhook secret
   const sig = createHmac('sha256', decryptValue(wh.secret)).update(body).digest('hex');
   let statusCode: number | undefined;
@@ -107,7 +109,12 @@ async function deliverToWebhook(wh: Webhook, event: string, payload: object): Pr
     statusCode = res.status;
     if (res.status >= 300 && res.status < 400) {
       logger.warn(
-        { webhookId: wh.id, url: wh.url, status: res.status, location: res.headers.get('location') ?? undefined },
+        {
+          webhookId: wh.id,
+          url: wh.url,
+          status: res.status,
+          location: res.headers.get('location') ?? undefined,
+        },
         'webhook delivery blocked: redirect responses are not followed',
       );
       responseBody = `Blocked: redirect response (${res.status}) not followed`;
@@ -123,7 +130,14 @@ async function deliverToWebhook(wh: Webhook, event: string, payload: object): Pr
   // Record the delivery outcome regardless of success or failure
   await prisma.webhookDelivery
     .create({
-      data: { webhookId: wh.id, event, payload, statusCode, responseBody, success },
+      data: {
+        webhookId: wh.id,
+        event,
+        payload,
+        statusCode,
+        responseBody,
+        success,
+      },
     })
     .catch((err) => {
       logger.warn({ err: (err as Error).message, webhookId: wh.id, event }, 'webhook delivery record failed');

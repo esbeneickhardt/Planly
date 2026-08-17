@@ -28,7 +28,12 @@ function makeTask(id: string, deps: string[] = [], overrides: Partial<Task> = {}
   } as unknown as Task;
 }
 
-const PRODUCT = { id: 'prod-1', name: 'My Product', emoji: '🚀', deadline: '2026-12-31' };
+const PRODUCT = {
+  id: 'prod-1',
+  name: 'My Product',
+  emoji: '🚀',
+  deadline: '2026-12-31',
+};
 
 // ── buildGraph ───────────────────────────────────────────────────────────────
 

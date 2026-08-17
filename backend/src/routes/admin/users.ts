@@ -47,13 +47,22 @@ export async function adminUserRoutes(app: FastifyInstance) {
     if (id === req.user.userId) return reply.status(400).send({ error: 'Cannot modify your own admin status.' });
     // Same founding-admin-only gate as /promote and /demote below - this generic handler can set
     // isAdmin to either value and must not be usable to bypass their protection.
-    const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { isFoundingAdmin: true } });
+    const actor = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { isFoundingAdmin: true },
+    });
     if (!actor?.isFoundingAdmin)
       return reply.status(403).send({ error: 'Only the founding admin can change admin status.' });
-    const target = await prisma.user.findUnique({ where: { id }, select: { isFoundingAdmin: true } });
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { isFoundingAdmin: true },
+    });
     if (!target) return reply.status(404).send({ error: 'User not found' });
     if (target.isFoundingAdmin) return reply.status(403).send({ error: 'Cannot modify the founding admin.' });
-    const updated = await prisma.user.update({ where: { id }, data: { isAdmin: body.isAdmin } });
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { isAdmin: body.isAdmin },
+    });
     reply.send({ id: updated.id, isAdmin: updated.isAdmin });
   });
 
@@ -65,7 +74,9 @@ export async function adminUserRoutes(app: FastifyInstance) {
       select: { isFoundingAdmin: true },
     });
     if (!actor?.isFoundingAdmin)
-      return reply.status(403).send({ error: 'Only the founding admin can promote users to admin.' });
+      return reply.status(403).send({
+        error: 'Only the founding admin can promote users to admin.',
+      });
     const target = await prisma.user.findUnique({
       where: { id },
       select: { username: true, email: true, isAdmin: true },
@@ -74,7 +85,11 @@ export async function adminUserRoutes(app: FastifyInstance) {
     if (target.isAdmin) return reply.status(400).send({ error: 'User is already an admin' });
     await prisma.user.update({ where: { id }, data: { isAdmin: true } });
     await prisma.adminLog.create({
-      data: { action: 'USER_PROMOTED', actorName: req.user.username, targetName: target.username },
+      data: {
+        action: 'USER_PROMOTED',
+        actorName: req.user.username,
+        targetName: target.username,
+      },
     });
     sendSecurityAlert({
       event: 'ADMIN_GRANTED',
@@ -100,14 +115,20 @@ export async function adminUserRoutes(app: FastifyInstance) {
     if (!target) return reply.status(404).send({ error: 'User not found' });
     if (!target.isAdmin) return reply.status(400).send({ error: 'User is not an admin' });
     if (target.isFoundingAdmin)
-      return reply.status(403).send({ error: 'The founding admin cannot be demoted. Use "Transfer crown" first.' });
+      return reply.status(403).send({
+        error: 'The founding admin cannot be demoted. Use "Transfer crown" first.',
+      });
     if (!actor?.isFoundingAdmin)
       return reply.status(403).send({ error: 'Only the founding admin can demote other admins.' });
     const adminCount = await prisma.user.count({ where: { isAdmin: true } });
     if (adminCount <= 1) return reply.status(400).send({ error: 'Cannot remove the last admin' });
     await prisma.user.update({ where: { id }, data: { isAdmin: false } });
     await prisma.adminLog.create({
-      data: { action: 'USER_DEMOTED', actorName: req.user.username, targetName: target.username },
+      data: {
+        action: 'USER_DEMOTED',
+        actorName: req.user.username,
+        targetName: target.username,
+      },
     });
     sendSecurityAlert({
       event: 'ADMIN_REVOKED',
@@ -131,22 +152,39 @@ export async function adminUserRoutes(app: FastifyInstance) {
       select: { isFoundingAdmin: true },
     });
     if (!actor?.isFoundingAdmin)
-      return reply.status(403).send({ error: 'Only the current founding admin can transfer the crown.' });
+      return reply.status(403).send({
+        error: 'Only the current founding admin can transfer the crown.',
+      });
 
-    const target = await prisma.user.findUnique({ where: { id: targetId }, select: { username: true, isAdmin: true } });
+    const target = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: { username: true, isAdmin: true },
+    });
     if (!target) return reply.status(404).send({ error: 'User not found' });
     // Target must already be an admin so they land in admin state after the transfer
     if (!target.isAdmin)
-      return reply.status(400).send({ error: 'Target must be an admin before receiving the crown.' });
+      return reply.status(400).send({
+        error: 'Target must be an admin before receiving the crown.',
+      });
     if (targetId === actorId) return reply.status(400).send({ error: 'You already hold the crown.' });
 
     // Swap the isFoundingAdmin flag atomically so there is always exactly one founding admin
     await prisma.$transaction([
-      prisma.user.update({ where: { id: actorId }, data: { isFoundingAdmin: false } }),
-      prisma.user.update({ where: { id: targetId }, data: { isFoundingAdmin: true } }),
+      prisma.user.update({
+        where: { id: actorId },
+        data: { isFoundingAdmin: false },
+      }),
+      prisma.user.update({
+        where: { id: targetId },
+        data: { isFoundingAdmin: true },
+      }),
     ]);
     await prisma.adminLog.create({
-      data: { action: 'CROWN_TRANSFERRED', actorName: req.user.username, targetName: target.username },
+      data: {
+        action: 'CROWN_TRANSFERRED',
+        actorName: req.user.username,
+        targetName: target.username,
+      },
     });
     sendSecurityAlert({
       event: 'CROWN_TRANSFERRED',
@@ -161,12 +199,22 @@ export async function adminUserRoutes(app: FastifyInstance) {
   // Clear a login lockout without resetting loginLockCount (progressive escalation is preserved)
   app.put('/api/admin/users/:id/unlock', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const target = await prisma.user.findUnique({ where: { id }, select: { username: true } });
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { username: true },
+    });
     if (!target) return reply.status(404).send({ error: 'User not found' });
     // Preserve loginLockCount so the progressive escalation schedule is maintained
-    await prisma.user.update({ where: { id }, data: { failedLoginAttempts: 0, loginLockedUntil: null } });
+    await prisma.user.update({
+      where: { id },
+      data: { failedLoginAttempts: 0, loginLockedUntil: null },
+    });
     await prisma.adminLog.create({
-      data: { action: 'LOGIN_UNLOCKED', actorName: req.user.username, targetName: target.username },
+      data: {
+        action: 'LOGIN_UNLOCKED',
+        actorName: req.user.username,
+        targetName: target.username,
+      },
     });
     reply.send({ ok: true });
   });
@@ -175,12 +223,22 @@ export async function adminUserRoutes(app: FastifyInstance) {
   app.put('/api/admin/users/:id/force-logout', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (id === req.user.userId) return reply.status(400).send({ error: 'Cannot force-logout yourself.' });
-    const target = await prisma.user.findUnique({ where: { id }, select: { username: true } });
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { username: true },
+    });
     if (!target) return reply.status(404).send({ error: 'User not found' });
-    await prisma.user.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
+    await prisma.user.update({
+      where: { id },
+      data: { tokenVersion: { increment: 1 } },
+    });
     invalidateCachedTokenVersion(id);
     await prisma.adminLog.create({
-      data: { action: 'USER_FORCE_LOGGED_OUT', actorName: req.user.username, targetName: target.username },
+      data: {
+        action: 'USER_FORCE_LOGGED_OUT',
+        actorName: req.user.username,
+        targetName: target.username,
+      },
     });
     reply.send({ ok: true });
   });
@@ -188,11 +246,21 @@ export async function adminUserRoutes(app: FastifyInstance) {
   // Manually mark a user's email as verified (bypasses the email link flow)
   app.put('/api/admin/users/:id/verify-email', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const target = await prisma.user.findUnique({ where: { id }, select: { username: true } });
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { username: true },
+    });
     if (!target) return reply.status(404).send({ error: 'User not found' });
-    await prisma.user.update({ where: { id }, data: { emailVerified: true } });
+    await prisma.user.update({
+      where: { id },
+      data: { emailVerified: true },
+    });
     await prisma.adminLog.create({
-      data: { action: 'EMAIL_VERIFIED_BY_ADMIN', actorName: req.user.username, targetName: target.username },
+      data: {
+        action: 'EMAIL_VERIFIED_BY_ADMIN',
+        actorName: req.user.username,
+        targetName: target.username,
+      },
     });
     reply.send({ ok: true });
   });
@@ -202,7 +270,10 @@ export async function adminUserRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     if (id === req.user.userId)
       return reply.status(400).send({ error: 'Cannot reset your own password via admin panel.' });
-    const target = await prisma.user.findUnique({ where: { id }, select: { username: true, isFoundingAdmin: true } });
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { username: true, isFoundingAdmin: true },
+    });
     if (!target) return reply.status(404).send({ error: 'User not found' });
     if (target.isFoundingAdmin) return reply.status(403).send({ error: "Cannot reset the founding admin's password." });
     // 12-char random password (letters + digits) - readable enough to relay verbally or via DM
@@ -210,11 +281,19 @@ export async function adminUserRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(tempPassword, 12);
     await prisma.user.update({
       where: { id },
-      data: { passwordHash, mustChangePassword: true, tokenVersion: { increment: 1 } },
+      data: {
+        passwordHash,
+        mustChangePassword: true,
+        tokenVersion: { increment: 1 },
+      },
     });
     invalidateCachedTokenVersion(id);
     await prisma.adminLog.create({
-      data: { action: 'PASSWORD_RESET_BY_ADMIN', actorName: req.user.username, targetName: target.username },
+      data: {
+        action: 'PASSWORD_RESET_BY_ADMIN',
+        actorName: req.user.username,
+        targetName: target.username,
+      },
     });
     sendSecurityAlert({
       event: 'PASSWORD_RESET_BY_ADMIN',
@@ -236,13 +315,20 @@ export async function adminUserRoutes(app: FastifyInstance) {
       where: { id: req.user.userId },
       select: { isFoundingAdmin: true },
     });
-    const target = await prisma.user.findUnique({ where: { id }, select: { username: true, isFoundingAdmin: true } });
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { username: true, isFoundingAdmin: true },
+    });
     if (!target) return reply.status(404).send({ error: 'User not found' });
     if (target.isFoundingAdmin) return reply.status(403).send({ error: 'Cannot delete the founding admin.' });
     if (!actor?.isFoundingAdmin) return reply.status(403).send({ error: 'Only the founding admin can delete users.' });
     await prisma.user.delete({ where: { id } });
     await prisma.adminLog.create({
-      data: { action: 'USER_DELETED', actorName: req.user.username, targetName: target.username },
+      data: {
+        action: 'USER_DELETED',
+        actorName: req.user.username,
+        targetName: target.username,
+      },
     });
     reply.status(204).send();
   });

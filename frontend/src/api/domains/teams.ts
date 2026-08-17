@@ -12,9 +12,14 @@ export const teams = {
   update: (id: string, data: { name?: string }) =>
     request<Team>(`/api/teams/${id}`, { method: 'PATCH', body: json(data) }),
   addMember: (id: string, userId: string) =>
-    request<{ ok: boolean }>(`/api/teams/${id}/members`, { method: 'POST', body: json({ userId }) }),
+    request<{ ok: boolean }>(`/api/teams/${id}/members`, {
+      method: 'POST',
+      body: json({ userId }),
+    }),
   removeMember: (id: string, userId: string) =>
-    request<{ ok: boolean }>(`/api/teams/${id}/members/${userId}`, { method: 'DELETE' }),
+    request<{ ok: boolean }>(`/api/teams/${id}/members/${userId}`, {
+      method: 'DELETE',
+    }),
   setMemberRole: (teamId: string, userId: string, role: 'member' | 'co_owner') =>
     request<{ ok: boolean }>(`/api/teams/${teamId}/members/${userId}/role`, {
       method: 'PATCH',

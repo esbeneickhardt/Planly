@@ -105,7 +105,14 @@ export default function BacklogTable({
 
   return (
     <table className="w-full min-w-[640px] text-sm border-collapse">
-      <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
+      <thead
+        style={{
+          position: 'sticky',
+          top: 0,
+          background: 'var(--surface)',
+          zIndex: 1,
+        }}
+      >
         <tr style={{ borderBottom: '1px solid var(--border)' }}>
           {!readOnly && (
             <th className="w-10 px-4 py-3">
@@ -127,10 +134,17 @@ export default function BacklogTable({
                 <button
                   onClick={() => onSort(column)}
                   className="flex items-center gap-1 uppercase tracking-wide font-semibold"
-                  style={{ color: sortColumn === column ? 'var(--text)' : 'var(--text-3)' }}
+                  style={{
+                    color: sortColumn === column ? 'var(--text)' : 'var(--text-3)',
+                  }}
                 >
                   {label}
-                  <span style={{ opacity: sortColumn === column ? 1 : 0.3, fontSize: 9 }}>
+                  <span
+                    style={{
+                      opacity: sortColumn === column ? 1 : 0.3,
+                      fontSize: 9,
+                    }}
+                  >
                     {sortColumn === column && sortDir === 'desc' ? '▼' : '▲'}
                   </span>
                 </button>
@@ -160,7 +174,12 @@ export default function BacklogTable({
                 >
                   <td colSpan={readOnly ? 8 : 9} className="px-4 py-2">
                     <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-                      <span style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.1s' }}>
+                      <span
+                        style={{
+                          transform: collapsed ? 'rotate(-90deg)' : 'none',
+                          transition: 'transform 0.1s',
+                        }}
+                      >
                         ▾
                       </span>
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
@@ -177,8 +196,17 @@ export default function BacklogTable({
           })}
           {milestoneGroups.ungrouped.length > 0 && (
             <tbody>
-              <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-                <td colSpan={readOnly ? 8 : 9} className="px-4 py-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+              <tr
+                style={{
+                  background: 'var(--surface-2)',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <td
+                  colSpan={readOnly ? 8 : 9}
+                  className="px-4 py-2 text-xs font-semibold"
+                  style={{ color: 'var(--text-2)' }}
+                >
                   Ungrouped
                 </td>
               </tr>
@@ -278,7 +306,10 @@ function QuickTaskMenu({
         <button
           onClick={onOpenChat}
           className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left transition-colors"
-          style={{ color: 'var(--text)', borderBottom: onSelect ? '1px solid var(--border)' : 'none' }}
+          style={{
+            color: 'var(--text)',
+            borderBottom: onSelect ? '1px solid var(--border)' : 'none',
+          }}
         >
           <span className="flex-shrink-0">💬</span>
           <span className="flex-1">Open chat</span>
@@ -349,7 +380,9 @@ export function BacklogRow({
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const statusBtnRef = useRef<HTMLButtonElement>(null);
   const statusMenuRef = useRef<HTMLDivElement>(null);
-  const [statusMenuStyle, setStatusMenuStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  const [statusMenuStyle, setStatusMenuStyle] = useState<React.CSSProperties>({
+    visibility: 'hidden',
+  });
   useLayoutEffect(() => {
     if (!showStatusMenu) return;
     const btn = statusBtnRef.current;
@@ -458,7 +491,12 @@ export function BacklogRow({
               <div
                 ref={statusMenuRef}
                 className="rounded-xl shadow-xl overflow-hidden animate-dropdown-in"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: 170, ...statusMenuStyle }}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  width: 170,
+                  ...statusMenuStyle,
+                }}
               >
                 {STATUS_TABS.filter((t) => t.key !== 'all').map((t) => (
                   <button
@@ -517,7 +555,10 @@ export function BacklogRow({
       >
         {milestoneName ? (
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: milestoneColor ?? 'var(--text-3)' }} />
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: milestoneColor ?? 'var(--text-3)' }}
+            />
             {milestoneName}
           </span>
         ) : (

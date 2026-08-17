@@ -33,7 +33,10 @@ export function getTimeMarkers(start: Date, end: Date): { date: Date; label: str
         label:
           monthStep >= 12
             ? cur.getFullYear().toString()
-            : cur.toLocaleDateString('en', { month: 'short', ...(monthStep >= 3 ? { year: '2-digit' } : {}) }),
+            : cur.toLocaleDateString('en', {
+                month: 'short',
+                ...(monthStep >= 3 ? { year: '2-digit' } : {}),
+              }),
       });
       cur.setMonth(cur.getMonth() + monthStep);
     }
@@ -50,7 +53,10 @@ export function getTimeMarkers(start: Date, end: Date): { date: Date; label: str
   const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
   if (intervalDays >= 7) cur.setDate(cur.getDate() + ((1 - cur.getDay() + 7) % 7)); // snap to Monday
   while (cur <= end) {
-    out.push({ date: new Date(cur), label: cur.toLocaleDateString('en', { month: 'short', day: 'numeric' }) });
+    out.push({
+      date: new Date(cur),
+      label: cur.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+    });
     cur.setDate(cur.getDate() + intervalDays);
   }
   return out;

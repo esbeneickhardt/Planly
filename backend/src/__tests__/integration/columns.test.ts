@@ -21,7 +21,10 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
 
   beforeAll(async () => {
     app = await buildTestApp();
-    const owner = await createTestUser({ username: `col_owner_${suffix}`, email: `col_owner_${suffix}@example.com` });
+    const owner = await createTestUser({
+      username: `col_owner_${suffix}`,
+      email: `col_owner_${suffix}@example.com`,
+    });
     ownerId = owner.id;
     const team = await createTestTeam(ownerId);
     teamId = team.id;
@@ -31,7 +34,10 @@ describe.skipIf(!HAS_DB)('Column routes smoke', () => {
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { identifier: `col_owner_${suffix}@example.com`, password: 'test-password-123' },
+      payload: {
+        identifier: `col_owner_${suffix}@example.com`,
+        password: 'test-password-123',
+      },
     });
     cookie = loginRes.headers['set-cookie']?.[0]?.split(';')[0] ?? '';
   });

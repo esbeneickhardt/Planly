@@ -50,7 +50,10 @@ export async function analyticsRoutes(app: FastifyInstance) {
       const key = t.completedAt.toISOString().slice(0, 10);
       dayMap.set(key, (dayMap.get(key) ?? 0) + 1);
     }
-    const tasksByDay = Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }));
+    const tasksByDay = Array.from(dayMap.entries()).map(([date, count]) => ({
+      date,
+      count,
+    }));
 
     // Average cycle time: creation-to-completion across all completed tasks
     const cycleTimeTasks = await prisma.task.findMany({
@@ -69,7 +72,10 @@ export async function analyticsRoutes(app: FastifyInstance) {
       where: { productId, deletedAt: null, completedAt: null },
       _count: { _all: true },
     });
-    const statusBreakdown = statusGroups.map((g) => ({ status: g.status, count: g._count._all }));
+    const statusBreakdown = statusGroups.map((g) => ({
+      status: g.status,
+      count: g._count._all,
+    }));
 
     // Sprint velocity: tasks completed per sprint. Reuses cycleTimeTasks' completedAt timestamps
     // (already fetched above for the cycle-time stat, and unbounded by the 90-day window that
@@ -77,7 +83,13 @@ export async function analyticsRoutes(app: FastifyInstance) {
     // of a prisma.task.count() query per sprint.
     const sprints = await prisma.sprint.findMany({
       where: { productId },
-      select: { id: true, name: true, startDate: true, endDate: true, color: true },
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        endDate: true,
+        color: true,
+      },
       orderBy: { startDate: 'asc' },
     });
     const sprintVelocity = sprints.map((s) => {
@@ -96,11 +108,22 @@ export async function analyticsRoutes(app: FastifyInstance) {
 
     // Totals
     const [totalCompleted, totalActive] = await Promise.all([
-      prisma.task.count({ where: { productId, deletedAt: null, completedAt: { not: null } } }),
-      prisma.task.count({ where: { productId, deletedAt: null, completedAt: null } }),
+      prisma.task.count({
+        where: { productId, deletedAt: null, completedAt: { not: null } },
+      }),
+      prisma.task.count({
+        where: { productId, deletedAt: null, completedAt: null },
+      }),
     ]);
 
-    reply.send({ tasksByDay, cycleTimeAvgDays, totalCompleted, totalActive, statusBreakdown, sprintVelocity });
+    reply.send({
+      tasksByDay,
+      cycleTimeAvgDays,
+      totalCompleted,
+      totalActive,
+      statusBreakdown,
+      sprintVelocity,
+    });
   });
 
   // Personal workload - returns only the requesting user's own tasks, nobody else's
@@ -114,7 +137,12 @@ export async function analyticsRoutes(app: FastifyInstance) {
     const [activeGroups, completedRecent, totalCompleted] = await Promise.all([
       prisma.task.groupBy({
         by: ['status'],
-        where: { productId, ownerId: userId, deletedAt: null, completedAt: null },
+        where: {
+          productId,
+          ownerId: userId,
+          deletedAt: null,
+          completedAt: null,
+        },
         _count: { _all: true },
       }),
       prisma.task.findMany({
@@ -126,10 +154,20 @@ export async function analyticsRoutes(app: FastifyInstance) {
         },
         select: { completedAt: true },
       }),
-      prisma.task.count({ where: { productId, ownerId: userId, deletedAt: null, completedAt: { not: null } } }),
+      prisma.task.count({
+        where: {
+          productId,
+          ownerId: userId,
+          deletedAt: null,
+          completedAt: { not: null },
+        },
+      }),
     ]);
 
-    const statusBreakdown = activeGroups.map((g) => ({ status: g.status, count: g._count._all }));
+    const statusBreakdown = activeGroups.map((g) => ({
+      status: g.status,
+      count: g._count._all,
+    }));
     const totalActive = activeGroups.reduce((s, g) => s + g._count._all, 0);
 
     // 30-day completion trend
@@ -147,6 +185,11 @@ export async function analyticsRoutes(app: FastifyInstance) {
     }
     const completionsByDay = Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }));
 
-    reply.send({ statusBreakdown, totalActive, totalCompleted, completionsByDay });
+    reply.send({
+      statusBreakdown,
+      totalActive,
+      totalCompleted,
+      completionsByDay,
+    });
   });
 }

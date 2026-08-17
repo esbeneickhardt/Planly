@@ -68,7 +68,12 @@ export function useChatPanelLayout({ onClose }: Options) {
   chatPosRef.current = chatPos;
   const isSidebarRef = useRef(isSidebar);
   isSidebarRef.current = isSidebar;
-  const headerDragRef = useRef<{ startX: number; startY: number; px: number; py: number } | null>(null);
+  const headerDragRef = useRef<{
+    startX: number;
+    startY: number;
+    px: number;
+    py: number;
+  } | null>(null);
 
   // On small screens always use fullscreen mode; also re-check on resize. `isMobile` is tracked
   // separately from `isExpanded` because the latter can also be true on desktop (manual fullscreen
@@ -138,7 +143,12 @@ export function useChatPanelLayout({ onClose }: Options) {
     e.preventDefault();
     const startPX = isSidebarRef.current ? window.innerWidth - panelWidthRef.current : chatPosRef.current.x;
     const startPY = isSidebarRef.current ? 0 : chatPosRef.current.y;
-    headerDragRef.current = { startX: e.clientX, startY: e.clientY, px: startPX, py: startPY };
+    headerDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      px: startPX,
+      py: startPY,
+    };
     function onMove(ev: PointerEvent) {
       if (!headerDragRef.current) return;
       const x = Math.max(

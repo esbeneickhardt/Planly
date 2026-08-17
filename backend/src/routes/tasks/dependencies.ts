@@ -22,7 +22,10 @@ const addDependencySchema = z.object({ prerequisiteId: z.string() });
 export async function dependencyRoutes(app: FastifyInstance) {
   // Add a prerequisite edge from taskId ← prerequisiteId, with cycle detection
   app.post('/api/products/:productId/tasks/:taskId/dependencies', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, taskId } = req.params as { productId: string; taskId: string };
+    const { productId, taskId } = req.params as {
+      productId: string;
+      taskId: string;
+    };
     // requireTabWrite already re-verifies membership internally (see product-guard.ts), so a
     // preceding requireProductMember call would be pure overhead.
     if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
@@ -32,8 +35,12 @@ export async function dependencyRoutes(app: FastifyInstance) {
 
     // Verify both tasks exist and belong to this product
     const [task, prereq] = await Promise.all([
-      prisma.task.findFirst({ where: { id: taskId, productId, ...TASK_WHERE_ACTIVE } }),
-      prisma.task.findFirst({ where: { id: prerequisiteId, productId, ...TASK_WHERE_ACTIVE } }),
+      prisma.task.findFirst({
+        where: { id: taskId, productId, ...TASK_WHERE_ACTIVE },
+      }),
+      prisma.task.findFirst({
+        where: { id: prerequisiteId, productId, ...TASK_WHERE_ACTIVE },
+      }),
     ]);
     if (!task || !prereq) return reply.status(404).send({ error: 'Task not found in this product' });
 
@@ -49,7 +56,9 @@ export async function dependencyRoutes(app: FastifyInstance) {
     if (rows.length > 0) return reply.status(400).send({ error: 'This dependency would create a cycle' });
 
     try {
-      await prisma.taskDependency.create({ data: { dependentId: taskId, prerequisiteId } });
+      await prisma.taskDependency.create({
+        data: { dependentId: taskId, prerequisiteId },
+      });
       reply.status(201).send({ ok: true });
     } catch (e) {
       handleConflict(e, reply, 'Dependency already exists');
@@ -69,7 +78,9 @@ export async function dependencyRoutes(app: FastifyInstance) {
       if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;
       try {
         await prisma.taskDependency.delete({
-          where: { dependentId_prerequisiteId: { dependentId: taskId, prerequisiteId } },
+          where: {
+            dependentId_prerequisiteId: { dependentId: taskId, prerequisiteId },
+          },
         });
         reply.send({ ok: true });
       } catch (e) {
@@ -84,8 +95,13 @@ export async function dependencyRoutes(app: FastifyInstance) {
     if (!(await requireProductMember(productId, req.user, reply))) return;
     // Load all active tasks and their dependency edges for canvas graph rendering
     const [tasks, deps] = await Promise.all([
-      prisma.task.findMany({ where: { productId, ...TASK_WHERE_ACTIVE }, include: TASK_INCLUDE }),
-      prisma.taskDependency.findMany({ where: { dependent: { productId, deletedAt: null } } }),
+      prisma.task.findMany({
+        where: { productId, ...TASK_WHERE_ACTIVE },
+        include: TASK_INCLUDE,
+      }),
+      prisma.taskDependency.findMany({
+        where: { dependent: { productId, deletedAt: null } },
+      }),
     ]);
     reply.send({ tasks, edges: deps });
   });

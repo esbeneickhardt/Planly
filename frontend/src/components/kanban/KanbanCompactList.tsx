@@ -5,7 +5,12 @@
 import type { Task, KanbanColumn } from '../../types';
 import { displayName } from '../../api/client';
 
-type User = { id: string; username: string; avatarEmoji?: string | null; realName?: string | null };
+type User = {
+  id: string;
+  username: string;
+  avatarEmoji?: string | null;
+  realName?: string | null;
+};
 type SortKey = 'name' | 'status' | 'owner' | 'deadline';
 type SortDir = 1 | -1;
 
@@ -40,7 +45,10 @@ function SortHeader({
     <button
       onClick={() => onSort(sortKey)}
       className="flex items-center gap-1 text-left"
-      style={{ color: active ? 'var(--brand)' : 'var(--text-3)', fontWeight: active ? 600 : 400 }}
+      style={{
+        color: active ? 'var(--brand)' : 'var(--text-3)',
+        fontWeight: active ? 600 : 400,
+      }}
     >
       {label}
       <span className="text-[10px]">{active ? (dir === 1 ? '▲' : '▼') : '⇅'}</span>
@@ -136,7 +144,10 @@ export default function KanbanCompactList({
                   {readOnly ? (
                     <span
                       className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                      style={{ background: `${col?.color ?? '#64748b'}20`, color: col?.color ?? '#64748b' }}
+                      style={{
+                        background: `${col?.color ?? '#64748b'}20`,
+                        color: col?.color ?? '#64748b',
+                      }}
                     >
                       {col?.label ?? task.status}
                     </span>
@@ -179,7 +190,10 @@ export default function KanbanCompactList({
                     {(task.subtasks?.length ?? 0) > 0 && (
                       <span
                         className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+                        style={{
+                          background: 'var(--surface-2)',
+                          color: 'var(--text-3)',
+                        }}
                       >
                         {task.subtasks!.filter((s) => s.completed).length}/{task.subtasks!.length}
                       </span>
@@ -206,7 +220,10 @@ export default function KanbanCompactList({
                   {task.deadline ? (
                     <span className="text-xs" style={{ color: isOverdue ? '#ef4444' : 'var(--text-3)' }}>
                       {isOverdue && '⚠ '}
-                      {new Date(task.deadline).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      {new Date(task.deadline).toLocaleDateString([], {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
                     </span>
                   ) : (
                     <span className="text-xs" style={{ color: 'var(--text-3)', opacity: 0.5 }}>

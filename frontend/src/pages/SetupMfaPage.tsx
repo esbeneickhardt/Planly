@@ -65,7 +65,10 @@ export default function SetupMfaPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
       <div
         className="w-full max-w-sm p-8 rounded-2xl shadow-lg"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+        }}
       >
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0">
@@ -84,7 +87,11 @@ export default function SetupMfaPage() {
         {error && (
           <div
             className="mb-4 text-sm p-3 rounded-lg"
-            style={{ background: '#ef444418', border: '1px solid #ef444444', color: '#ef4444' }}
+            style={{
+              background: '#ef444418',
+              border: '1px solid #ef444444',
+              color: '#ef4444',
+            }}
           >
             {error}
           </div>
@@ -94,7 +101,11 @@ export default function SetupMfaPage() {
           <div className="space-y-4">
             <div
               className="p-3 rounded-lg text-xs"
-              style={{ background: '#6366f118', border: '1px solid #6366f144', color: 'var(--text-2)' }}
+              style={{
+                background: '#6366f118',
+                border: '1px solid #6366f144',
+                color: 'var(--text-2)',
+              }}
             >
               This server requires all users to protect their account with an authenticator app (Google Authenticator,
               Authy, 1Password, etc.). You'll need your app before you can continue.
@@ -186,7 +197,10 @@ export default function SetupMfaPage() {
                 <code
                   key={c}
                   className="text-sm font-mono px-3 py-2 rounded-lg text-center"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+                  style={{
+                    background: 'var(--surface-2)',
+                    color: 'var(--text)',
+                  }}
                 >
                   {c}
                 </code>

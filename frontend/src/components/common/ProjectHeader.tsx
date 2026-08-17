@@ -16,13 +16,21 @@ interface ProjectHeaderProps {
   name: string;
   deadline: string;
   status: ProductStatus;
-  owner?: { avatarEmoji?: string | null; username: string; realName?: string | null } | null;
+  owner?: {
+    avatarEmoji?: string | null;
+    username: string;
+    realName?: string | null;
+  } | null;
 }
 
 export default function ProjectHeader({ emoji, name, deadline, status, owner }: ProjectHeaderProps) {
   const deadlineDate = new Date(deadline);
   const isOverdue = isBeforeToday(deadlineDate);
-  const deadlineStr = deadlineDate.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
+  const deadlineStr = deadlineDate.toLocaleDateString([], {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
     <div className="space-y-2">

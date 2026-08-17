@@ -32,7 +32,11 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
 
   beforeAll(async () => {
     app = await buildTestApp();
-    const user = await createTestUser({ email, username, password: 'pass1234' });
+    const user = await createTestUser({
+      email,
+      username,
+      password: 'pass1234',
+    });
     userId = user.id;
 
     const loginRes = await app.inject({
@@ -46,7 +50,10 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
 
   afterAll(async () => {
     await prisma.totpBackupCode.deleteMany({ where: { userId } });
-    await prisma.user.update({ where: { id: userId }, data: { totpEnabled: false, totpSecret: null } });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { totpEnabled: false, totpSecret: null },
+    });
     await prisma.user.deleteMany({ where: { email } });
     await app.close();
     await prisma.$disconnect();
@@ -68,7 +75,11 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
   // Confirm with a live code activates TOTP and returns 8 one-time backup codes
   it('POST /api/auth/totp/confirm activates TOTP with a valid code', async () => {
     // Re-run setup to get a fresh secret
-    const setupRes = await app.inject({ method: 'POST', url: '/api/auth/totp/setup', cookies: { token } });
+    const setupRes = await app.inject({
+      method: 'POST',
+      url: '/api/auth/totp/setup',
+      cookies: { token },
+    });
     const { secret } = JSON.parse(setupRes.body);
 
     const code = generateCode(secret, username);
@@ -90,7 +101,11 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
 
   // Calling setup again after TOTP is active returns 409; re-enrollment must go through disable first
   it('POST /api/auth/totp/confirm rejects after TOTP is already enabled', async () => {
-    const setupRes = await app.inject({ method: 'POST', url: '/api/auth/totp/setup', cookies: { token } });
+    const setupRes = await app.inject({
+      method: 'POST',
+      url: '/api/auth/totp/setup',
+      cookies: { token },
+    });
     expect(setupRes.statusCode).toBe(409);
   });
 
@@ -124,7 +139,11 @@ describe.skipIf(!HAS_DB)('TOTP flow', () => {
 
   // Status endpoint lets the client know whether to show the TOTP prompt on login
   it('GET /api/auth/totp/status reports current TOTP state', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/auth/totp/status', cookies: { token } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/auth/totp/status',
+      cookies: { token },
+    });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(typeof body.totpEnabled).toBe('boolean');

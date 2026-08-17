@@ -77,7 +77,11 @@ export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, 
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the backdrop's onClick */}
       <div
         className="fixed right-0 top-0 h-full z-50 flex flex-col shadow-2xl overflow-hidden"
-        style={{ width: 640, background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}
+        style={{
+          width: 640,
+          background: 'var(--surface)',
+          borderLeft: '1px solid var(--border)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -92,8 +96,15 @@ export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, 
                 {sprint.name}
               </h2>
               <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                {new Date(sprint.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} –{' '}
-                {new Date(sprint.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                {new Date(sprint.startDate).toLocaleDateString('en', {
+                  month: 'short',
+                  day: 'numeric',
+                })}{' '}
+                –{' '}
+                {new Date(sprint.endDate).toLocaleDateString('en', {
+                  month: 'short',
+                  day: 'numeric',
+                })}
               </p>
             </div>
           </div>
@@ -121,7 +132,11 @@ export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, 
               </span>
               <span
                 className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: 'var(--brand-subtle)', color: 'var(--brand)', fontWeight: 600 }}
+                style={{
+                  background: 'var(--brand-subtle)',
+                  color: 'var(--brand)',
+                  fontWeight: 600,
+                }}
               >
                 {sprintTasks.length}
               </span>
@@ -155,7 +170,11 @@ export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, 
               </span>
               <span
                 className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: 'var(--surface-2)', color: 'var(--text-3)', fontWeight: 600 }}
+                style={{
+                  background: 'var(--surface-2)',
+                  color: 'var(--text-3)',
+                  fontWeight: 600,
+                }}
               >
                 {backlogTasks.length}
               </span>

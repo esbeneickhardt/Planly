@@ -114,7 +114,12 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   const panelHeightRef = useRef(panelHeight);
   const panelPosRef = useRef(panelPos);
   const isSidebarRef = useRef(isSidebar);
-  const headerDragRef = useRef<{ startX: number; startY: number; px: number; py: number } | null>(null);
+  const headerDragRef = useRef<{
+    startX: number;
+    startY: number;
+    px: number;
+    py: number;
+  } | null>(null);
 
   // Subtask state
   const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks ?? []);
@@ -159,7 +164,11 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     columns && columns.length > 0
       ? [
           { statusKey: 'backlog', label: 'Not started', color: '#64748b' },
-          ...columns.map((c) => ({ statusKey: c.statusKey, label: c.label, color: c.color })),
+          ...columns.map((c) => ({
+            statusKey: c.statusKey,
+            label: c.label,
+            color: c.color,
+          })),
         ]
       : DEFAULT_STATUSES;
 
@@ -171,7 +180,10 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
 
   async function handleClose() {
     if (saving) return;
-    if (isDirty) { await save(); return; }
+    if (isDirty) {
+      await save();
+      return;
+    }
     onClose();
   }
 
@@ -269,7 +281,9 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
   }
 
   // Keep ref current so Ctrl+Enter handler always calls the latest save(false) without stale closure
-  useEffect(() => { saveRef.current = () => save(false); });
+  useEffect(() => {
+    saveRef.current = () => save(false);
+  });
 
   async function toggleSubtask(s: Subtask) {
     if (!activeProduct) return;
@@ -364,7 +378,12 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     e.preventDefault();
     const startPX = isSidebarRef.current ? window.innerWidth - panelWidthRef.current : panelPosRef.current.x;
     const startPY = isSidebarRef.current ? 0 : panelPosRef.current.y;
-    headerDragRef.current = { startX: e.clientX, startY: e.clientY, px: startPX, py: startPY };
+    headerDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      px: startPX,
+      py: startPY,
+    };
     function onMove(ev: PointerEvent) {
       if (!headerDragRef.current) return;
       const x = Math.max(
@@ -412,7 +431,11 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     return (
       <div
         className="fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-xl cursor-pointer"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxWidth: 280 }}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          maxWidth: 280,
+        }}
         role="button"
         tabIndex={0}
         onClick={() => setMinimized(false)}
@@ -467,7 +490,11 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       {isDirty && (
         <span
           className="text-xs px-1.5 py-0.5 rounded"
-          style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+          style={{
+            background: 'rgba(245,158,11,0.15)',
+            color: '#f59e0b',
+            border: '1px solid rgba(245,158,11,0.3)',
+          }}
         >
           Unsaved
         </span>
@@ -605,7 +632,10 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             onTouchEnd={handleFsTouchEnd}
             onTouchCancel={handleFsTouchEnd}
             className="flex items-center justify-between px-4 md:px-8 py-4 flex-shrink-0"
-            style={{ borderBottom: '1px solid var(--border)', touchAction: 'none' }}
+            style={{
+              borderBottom: '1px solid var(--border)',
+              touchAction: 'none',
+            }}
           >
             {headerLeft}
             <div className="flex items-center gap-1">
@@ -705,7 +735,15 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           <>
             <div
               onPointerDown={(e) => startResizeDir(e, 'n')}
-              style={{ position: 'absolute', top: 0, left: 12, right: 12, height: 5, cursor: 'n-resize', zIndex: 10 }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 12,
+                right: 12,
+                height: 5,
+                cursor: 'n-resize',
+                zIndex: 10,
+              }}
             />
             <div
               onPointerDown={(e) => startResizeDir(e, 's')}
@@ -721,19 +759,51 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             />
             <div
               onPointerDown={(e) => startResizeDir(e, 'e')}
-              style={{ position: 'absolute', top: 12, right: 0, bottom: 12, width: 5, cursor: 'e-resize', zIndex: 10 }}
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 0,
+                bottom: 12,
+                width: 5,
+                cursor: 'e-resize',
+                zIndex: 10,
+              }}
             />
             <div
               onPointerDown={(e) => startResizeDir(e, 'w')}
-              style={{ position: 'absolute', top: 12, left: 0, bottom: 12, width: 5, cursor: 'w-resize', zIndex: 10 }}
+              style={{
+                position: 'absolute',
+                top: 12,
+                left: 0,
+                bottom: 12,
+                width: 5,
+                cursor: 'w-resize',
+                zIndex: 10,
+              }}
             />
             <div
               onPointerDown={(e) => startResizeDir(e, 'nw')}
-              style={{ position: 'absolute', top: 0, left: 0, width: 12, height: 12, cursor: 'nw-resize', zIndex: 11 }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: 12,
+                height: 12,
+                cursor: 'nw-resize',
+                zIndex: 11,
+              }}
             />
             <div
               onPointerDown={(e) => startResizeDir(e, 'ne')}
-              style={{ position: 'absolute', top: 0, right: 0, width: 12, height: 12, cursor: 'ne-resize', zIndex: 11 }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: 12,
+                height: 12,
+                cursor: 'ne-resize',
+                zIndex: 11,
+              }}
             />
             <div
               onPointerDown={(e) => startResizeDir(e, 'sw')}
@@ -765,7 +835,15 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
         {isSidebar && (
           <div
             onPointerDown={(e) => startResizeDir(e, 'w')}
-            style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 5, cursor: 'w-resize', zIndex: 10 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 5,
+              cursor: 'w-resize',
+              zIndex: 10,
+            }}
           />
         )}
         {/* Header - drag to detach / move */}

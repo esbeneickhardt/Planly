@@ -23,8 +23,14 @@ export const adminChat = {
     postedAsRole?: string | null;
   }) => request<Message>('/api/admin/chat', { method: 'POST', body: json(data) }),
   update: (messageId: string, content: string) =>
-    request<Message>(`/api/admin/chat/${messageId}`, { method: 'PATCH', body: json({ content }) }),
-  delete: (messageId: string) => request<{ ok: boolean }>(`/api/admin/chat/${messageId}`, { method: 'DELETE' }),
+    request<Message>(`/api/admin/chat/${messageId}`, {
+      method: 'PATCH',
+      body: json({ content }),
+    }),
+  delete: (messageId: string) =>
+    request<{ ok: boolean }>(`/api/admin/chat/${messageId}`, {
+      method: 'DELETE',
+    }),
   toggleReaction: (messageId: string, emoji: string) =>
     request<{ reactions: { emoji: string; userId: string }[] }>(`/api/admin/chat/${messageId}/reactions`, {
       method: 'POST',

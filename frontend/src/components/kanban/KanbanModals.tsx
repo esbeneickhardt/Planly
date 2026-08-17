@@ -131,7 +131,10 @@ export default function KanbanModals({
           <div className="space-y-4">
             <div
               className="flex items-center gap-3 p-3 rounded-lg"
-              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
+              style={{
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.2)',
+              }}
             >
               <span className="text-lg">⚠️</span>
               <p className="text-sm" style={{ color: 'var(--text)' }}>

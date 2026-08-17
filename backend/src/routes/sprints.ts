@@ -63,7 +63,12 @@ export async function sprintRoutes(app: FastifyInstance) {
       include: SPRINT_INCLUDE,
       orderBy: { startDate: 'asc' },
     });
-    reply.send(sprints.map((s) => ({ ...s, taskIds: s.sprintTasks.map((st) => st.taskId) })));
+    reply.send(
+      sprints.map((s) => ({
+        ...s,
+        taskIds: s.sprintTasks.map((st) => st.taskId),
+      })),
+    );
   });
 
   // Create a sprint, optionally pre-assigning tasks in the same write
@@ -86,7 +91,10 @@ export async function sprintRoutes(app: FastifyInstance) {
       },
       include: SPRINT_INCLUDE,
     });
-    const result = { ...sprint, taskIds: sprint.sprintTasks.map((st) => st.taskId) };
+    const result = {
+      ...sprint,
+      taskIds: sprint.sprintTasks.map((st) => st.taskId),
+    };
     dispatchWebhooks(productId, 'subplan.created', result).catch((err) => {
       logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
     });
@@ -95,7 +103,10 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   // Update sprint name, dates, or color
   app.patch('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, sprintId } = req.params as { productId: string; sprintId: string };
+    const { productId, sprintId } = req.params as {
+      productId: string;
+      sprintId: string;
+    };
     if (!(await requireTabWrite(productId, req.user, ['backlog'], reply))) return;
     const body = validate(updateSprintSchema, req.body, reply);
     if (!body) return;
@@ -111,7 +122,10 @@ export async function sprintRoutes(app: FastifyInstance) {
         },
         include: SPRINT_INCLUDE,
       });
-      const result = { ...sprint, taskIds: sprint.sprintTasks.map((st) => st.taskId) };
+      const result = {
+        ...sprint,
+        taskIds: sprint.sprintTasks.map((st) => st.taskId),
+      };
       dispatchWebhooks(productId, 'subplan.updated', result).catch((err) => {
         logger.warn({ err: (err as Error).message }, 'webhook dispatch failed');
       });
@@ -123,7 +137,10 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   // Delete a sprint (cascade removes its task assignments, tasks themselves are unaffected)
   app.delete('/api/products/:productId/sprints/:sprintId', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, sprintId } = req.params as { productId: string; sprintId: string };
+    const { productId, sprintId } = req.params as {
+      productId: string;
+      sprintId: string;
+    };
     if (!(await requireTabWrite(productId, req.user, ['backlog'], reply))) return;
     try {
       await prisma.sprint.delete({ where: { id: sprintId, productId } });
@@ -138,7 +155,10 @@ export async function sprintRoutes(app: FastifyInstance) {
 
   // Assign a batch of tasks to a sprint (silently skips tasks already assigned)
   app.post('/api/products/:productId/sprints/:sprintId/tasks', { preHandler: requireAuth }, async (req, reply) => {
-    const { productId, sprintId } = req.params as { productId: string; sprintId: string };
+    const { productId, sprintId } = req.params as {
+      productId: string;
+      sprintId: string;
+    };
     if (!(await requireTabWrite(productId, req.user, ['backlog'], reply))) return;
     const body = validate(sprintTasksSchema, req.body, reply);
     if (!body) return;
@@ -153,7 +173,10 @@ export async function sprintRoutes(app: FastifyInstance) {
       data: validTasks.map(({ id: taskId }) => ({ sprintId, taskId })),
       skipDuplicates: true,
     });
-    const updated = await prisma.sprint.findUnique({ where: { id: sprintId }, include: SPRINT_INCLUDE });
+    const updated = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      include: SPRINT_INCLUDE,
+    });
     if (updated)
       dispatchWebhooks(productId, 'subplan.updated', {
         ...updated,
@@ -169,11 +192,20 @@ export async function sprintRoutes(app: FastifyInstance) {
     '/api/products/:productId/sprints/:sprintId/tasks/:taskId',
     { preHandler: requireAuth },
     async (req, reply) => {
-      const { productId, sprintId, taskId } = req.params as { productId: string; sprintId: string; taskId: string };
+      const { productId, sprintId, taskId } = req.params as {
+        productId: string;
+        sprintId: string;
+        taskId: string;
+      };
       if (!(await requireTabWrite(productId, req.user, ['backlog'], reply))) return;
       try {
-        await prisma.sprintTask.delete({ where: { sprintId_taskId: { sprintId, taskId } } });
-        const updated = await prisma.sprint.findUnique({ where: { id: sprintId }, include: SPRINT_INCLUDE });
+        await prisma.sprintTask.delete({
+          where: { sprintId_taskId: { sprintId, taskId } },
+        });
+        const updated = await prisma.sprint.findUnique({
+          where: { id: sprintId },
+          include: SPRINT_INCLUDE,
+        });
         if (updated)
           dispatchWebhooks(productId, 'subplan.updated', {
             ...updated,

@@ -54,9 +54,15 @@ describe.skipIf(!HAS_DB)('PAT scoping', () => {
     productAId = productA.id;
     productBId = productB.id;
 
-    const scoped = await createTestApiToken(userId, { productId: productAId, name: 'scoped-to-A' });
+    const scoped = await createTestApiToken(userId, {
+      productId: productAId,
+      name: 'scoped-to-A',
+    });
     const unscoped = await createTestApiToken(userId, { name: 'unscoped' });
-    const expired = await createTestApiToken(userId, { name: 'expired', expiresAt: new Date(Date.now() - 1000) });
+    const expired = await createTestApiToken(userId, {
+      name: 'expired',
+      expiresAt: new Date(Date.now() - 1000),
+    });
 
     scopedToken = scoped.raw;
     unscopedToken = unscoped.raw;
@@ -65,7 +71,9 @@ describe.skipIf(!HAS_DB)('PAT scoping', () => {
 
   afterAll(async () => {
     await prisma.apiToken.deleteMany({ where: { userId } });
-    await prisma.product.deleteMany({ where: { id: { in: [productAId, productBId] } } });
+    await prisma.product.deleteMany({
+      where: { id: { in: [productAId, productBId] } },
+    });
     await prisma.user.deleteMany({ where: { id: userId } });
     await app.close();
     await prisma.$disconnect();

@@ -42,9 +42,17 @@ const SIZE_CLASSES: Record<NonNullable<Props['size']>, string> = {
 export default function StatusPill({ tone, size = 'md', title, className, children }: Props) {
   const style =
     tone === 'brand'
-      ? { background: 'var(--brand-subtle)', color: 'var(--brand)', border: '1px solid var(--brand)' }
+      ? {
+          background: 'var(--brand-subtle)',
+          color: 'var(--brand)',
+          border: '1px solid var(--brand)',
+        }
       : tone === 'neutral'
-        ? { background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }
+        ? {
+            background: 'var(--surface-2)',
+            color: 'var(--text-3)',
+            border: '1px solid var(--border)',
+          }
         : {
             background: tint(TONE_HEX[tone], 0.12),
             color: TONE_HEX[tone],

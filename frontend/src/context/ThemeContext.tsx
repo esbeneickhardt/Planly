@@ -30,67 +30,122 @@ export const THEMES: ThemeMeta[] = [
     id: 'dark',
     label: 'Midnight',
     dark: true,
-    swatch: { bg: '#0c0c18', surface: '#131320', brand: '#8b5cf6', text: '#f0f0ff' },
+    swatch: {
+      bg: '#0c0c18',
+      surface: '#131320',
+      brand: '#8b5cf6',
+      text: '#f0f0ff',
+    },
   },
   {
     id: 'night-lair',
     label: 'Night Lair',
     dark: true,
-    swatch: { bg: '#191920', surface: '#21222c', brand: '#bd93f9', text: '#f8f8f2' },
+    swatch: {
+      bg: '#191920',
+      surface: '#21222c',
+      brand: '#bd93f9',
+      text: '#f8f8f2',
+    },
   },
   {
     id: 'ember',
     label: 'Ember',
     dark: true,
-    swatch: { bg: '#1e1c1e', surface: '#2d2a2e', brand: '#fc9867', text: '#fcfcfa' },
+    swatch: {
+      bg: '#1e1c1e',
+      surface: '#2d2a2e',
+      brand: '#fc9867',
+      text: '#fcfcfa',
+    },
   },
   {
     id: 'deep-sea',
     label: 'Deep Sea',
     dark: true,
-    swatch: { bg: '#011627', surface: '#0b2942', brand: '#82aaff', text: '#d6deeb' },
+    swatch: {
+      bg: '#011627',
+      surface: '#0b2942',
+      brand: '#82aaff',
+      text: '#d6deeb',
+    },
   },
   {
     id: 'neon-tokyo',
     label: 'Neon Tokyo',
     dark: true,
-    swatch: { bg: '#13141f', surface: '#1a1b2e', brand: '#7aa2f7', text: '#c0caf5' },
+    swatch: {
+      bg: '#13141f',
+      surface: '#1a1b2e',
+      brand: '#7aa2f7',
+      text: '#c0caf5',
+    },
   },
   {
     id: 'carbon',
     label: 'Carbon',
     dark: true,
-    swatch: { bg: '#1b2028', surface: '#222932', brand: '#61afef', text: '#abb2bf' },
+    swatch: {
+      bg: '#1b2028',
+      surface: '#222932',
+      brand: '#61afef',
+      text: '#abb2bf',
+    },
   },
   {
     id: 'antique',
     label: 'Antique',
     dark: true,
-    swatch: { bg: '#1d2021', surface: '#282828', brand: '#d79921', text: '#ebdbb2' },
+    swatch: {
+      bg: '#1d2021',
+      surface: '#282828',
+      brand: '#d79921',
+      text: '#ebdbb2',
+    },
   },
   {
     id: 'vice-city',
     label: 'Vice City',
     dark: true,
-    swatch: { bg: '#0d0821', surface: '#16102e', brand: '#ff2d9a', text: '#ffd6f8' },
+    swatch: {
+      bg: '#0d0821',
+      surface: '#16102e',
+      brand: '#ff2d9a',
+      text: '#ffd6f8',
+    },
   },
   {
     id: 'sakura',
     label: 'Sakura',
     dark: true,
-    swatch: { bg: '#0a0f10', surface: '#111a1c', brand: '#6abf88', text: '#d4ead8' },
+    swatch: {
+      bg: '#0a0f10',
+      surface: '#111a1c',
+      brand: '#6abf88',
+      text: '#d4ead8',
+    },
   },
   {
     id: 'arctic',
     label: 'Arctic',
     dark: true,
-    swatch: { bg: '#030508', surface: '#070e1a', brand: '#88c8f0', text: '#c8dff0' },
+    swatch: {
+      bg: '#030508',
+      surface: '#070e1a',
+      brand: '#88c8f0',
+      text: '#c8dff0',
+    },
   },
   {
     id: 'light',
     label: 'Daylight',
     dark: false,
-    swatch: { bg: '#f4f4f8', surface: '#ffffff', brand: '#7c3aed', text: '#111128' },
+    swatch: {
+      bg: '#f4f4f8',
+      surface: '#ffffff',
+      brand: '#7c3aed',
+      text: '#111128',
+    },
   },
 ];
 
@@ -149,7 +204,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // `setThemeId`/`setMobileNavPosition` are useState setters (referentially stable by React's own
   // guarantee) but included in the deps array anyway for clarity/lint-completeness.
   const value = useMemo(
-    () => ({ themeId, isDark, setTheme: setThemeId, mobileNavPosition, setMobileNavPosition }),
+    () => ({
+      themeId,
+      isDark,
+      setTheme: setThemeId,
+      mobileNavPosition,
+      setMobileNavPosition,
+    }),
     [themeId, isDark, mobileNavPosition, setMobileNavPosition],
   );
 
