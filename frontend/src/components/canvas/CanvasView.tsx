@@ -1,6 +1,7 @@
 /**
  * ReactFlow-based dependency canvas that visualises tasks and their prerequisite relationships as a directed graph.
- * Pure graph utilities live in canvasUtils.ts; sprint state lives in useCanvasSprints.ts.
+ * Pure graph utilities live in canvasUtils.ts; sprint state lives in useCanvasSprints.ts; the build+layout pipeline
+ * and its fragile guard refs live in useCanvasGraph.ts (see that file's header comment before touching it).
  * `buildGraph` converts tasks to nodes+edges; `runAutoLayout` arranges them with dagre LR layout.
  * All view options (viewMode, simpleMode, sprint filter, viewport) are persisted per product to localStorage via `loadState`/`patchState`.
  */
@@ -26,29 +27,23 @@ import { useProduct } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useToast } from '../../context/ToastContext';
-import { api, displayName } from '../../api/client';
+import { api } from '../../api/client';
 import { useColorLegend } from '../../hooks/useColorLegend';
-import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
+import { useCanvasGraph } from '../../hooks/useCanvasGraph';
 import type { Task } from '../../types';
 import TaskNode from './nodes/TaskNode';
 import ProductNode from './nodes/ProductNode';
 import TaskDetailPanel from '../common/TaskDetailPanel';
-import Modal from '../common/Modal';
 import EmptyState from '../common/EmptyState';
 import LegendModal from './LegendModal';
+import CanvasControlPanel from './CanvasControlPanel';
+import CanvasBulkActionBar from './CanvasBulkActionBar';
+import CanvasContextMenu from './CanvasContextMenu';
+import CanvasModals from './CanvasModals';
 import { useCanvasSnapshots } from '../../hooks/useCanvasSnapshots';
 import { useCanvasSprints } from './useCanvasSprints';
-import {
-  CanvasContext,
-  STATUS_OPTIONS,
-  SPRINT_PALETTE,
-  loadState,
-  patchState,
-  buildGraph,
-  runAutoLayout,
-  getAncestorIds,
-} from './canvasUtils';
-import type { ViewMode, CanvasState, CtxMenu } from './canvasUtils';
+import { CanvasContext, loadState, patchState, getAncestorIds } from './canvasUtils';
+import type { ViewMode, CtxMenu, CanvasState } from './canvasUtils';
 
 // nodeTypes must be defined outside the component to avoid ReactFlow re-mounting nodes on every render
 const nodeTypes = { task: TaskNode, product: ProductNode };
@@ -81,7 +76,6 @@ function CanvasInner() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [selectedSprintFilter, setSelectedSprintFilter] = useState<string | null>(null);
   const [selectedMilestoneIds, setSelectedMilestoneIds] = useState<string[]>([]);
-  const [autoLayoutEnabled, setAutoLayoutEnabled] = useState(false);
   const [showSprintAura, setShowSprintAura] = useState(false);
   const [simpleMode, setSimpleMode] = useState(false);
 
@@ -95,17 +89,6 @@ function CanvasInner() {
   // Columns (for label resolution of custom statusKeys)
   const [columnLabelMap, setColumnLabelMap] = useState<Map<string, string>>(new Map());
 
-  const [layoutReady, setLayoutReady] = useState(false);
-  // Guards the "build + layout nodes" effect against running its once-per-product first-load
-  // logic against default filter values. Loading persisted viewMode/filters is itself an async
-  // state update (applies on the NEXT render), so without this the layout effect's first pass -
-  // in the SAME commit, before that render happens - sees `filteredTasks` computed from the
-  // pre-persisted defaults. Existing manually-positioned tasks are unaffected (their saved
-  // position is read straight from localStorage, not from filteredTasks), but a genuinely new,
-  // never-positioned task can get placed using the wrong filtered set and have that wrong
-  // position persisted. Mirrors the existing !tasksLoaded guard just below.
-  const [filtersReady, setFiltersReady] = useState(false);
-  const [connectionsVersion, setConnectionsVersion] = useState(0);
   // Undo stack for accidental canvas deletions (last 10 ops)
   type DeletedSnapshot = { name: string; description: string | null; status: string; ownerId: string | null; color: string | null; deadline: string | null; position: { x: number; y: number } }[];
   const [undoStack, setUndoStack] = useState<DeletedSnapshot[]>([]);
@@ -120,26 +103,15 @@ function CanvasInner() {
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const { legend: bulkColorLegend, enabledColors: bulkEnabledColors } = useColorLegend(activeProduct?.id ?? '');
 
-  const initializedRef = useRef<string | null>(null);
   // Set right before a programmatic (not user-picked) change to viewMode/selectedSprintFilter -
-  // e.g. entering "add tasks to this sub-plan" mode after creating one - so the filter-relayout
-  // effect further down treats that one change as a no-op instead of scheduling a relayout.
+  // e.g. entering "add tasks to this sub-plan" mode after creating one - so useCanvasGraph's
+  // filter-relayout effect treats that one change as a no-op instead of scheduling a relayout.
   const skipNextFilterRelayoutRef = useRef(false);
   const suppressNextFilterRelayout = useCallback(() => {
     skipNextFilterRelayoutRef.current = true;
   }, []);
-  // Guards the filter-relayout effect against firing right after (re)initializing this product -
-  // e.g. leaving the Canvas and coming back remounts this component, and restoring the persisted
-  // viewMode/statusFilter/etc from localStorage changes those exact same state values that effect
-  // watches, even though the user didn't touch anything. Reset to false alongside initializedRef
-  // whenever the product changes; the first time the filter-relayout effect observes the board as
-  // initialized for this product, it just arms this flag instead of relaying out - only a LATER
-  // filter change (a real one, made after that point) goes on to trigger the actual relayout.
-  const filterEffectPrimedRef = useRef(false);
-  const productConnectionsRef = useRef<Set<string>>(new Set());
   const activeProductRef = useRef(activeProduct);
   activeProductRef.current = activeProduct;
-  const savedViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
   // Always-current ref so onNodeClick never reads stale sprint state from a closure
   const sprintClickRef = useRef<{ filter: string | null; toggle: (id: string) => Promise<void> }>({
     filter: null,
@@ -148,12 +120,6 @@ function CanvasInner() {
   // Always-current tasks ref so onNodesDelete captures latest task data without stale closure
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
-  // Always-current node/edge refs so the debounced auto-relayout effect (below) never relays out
-  // a render-stale snapshot of the graph once its timer actually fires
-  const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
-  const edgesRef = useRef(edges);
-  edgesRef.current = edges;
   // Stable ref so the Ctrl+Z keydown handler always calls the latest undoDelete without re-registering
   const undoRef = useRef<() => void>(() => {});
   const bulkOwnerRef = useRef<HTMLDivElement>(null);
@@ -262,50 +228,6 @@ function CanvasInner() {
     showToast,
   });
 
-  // Load persisted state on product change
-  useEffect(() => {
-    if (!activeProduct) return;
-    initializedRef.current = null;
-    filterEffectPrimedRef.current = false;
-    setLayoutReady(false);
-    setFiltersReady(false);
-    productConnectionsRef.current = new Set();
-    const s = loadState(activeProduct.id);
-    setViewMode(s.viewMode ?? 'all');
-    setStatusFilter(s.statusFilter ?? null);
-    setSelectedSprintFilter(s.selectedSprintFilter ?? null);
-    setSelectedMilestoneIds(s.selectedMilestoneIds ?? []);
-    setAutoLayoutEnabled(s.autoLayoutEnabled ?? false);
-    setShowSprintAura(s.showSprintAura ?? false);
-    setSimpleMode(s.simpleMode ?? false);
-    savedViewportRef.current = s.viewport ?? null;
-    setFiltersReady(true);
-    // activeProduct: only `.id` drives this effect; object identity changes on every context
-    // re-render regardless of which product is active.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProduct?.id]);
-
-  const onMoveEnd = useCallback((_: unknown, vp: { x: number; y: number; zoom: number }) => {
-    save({ viewport: vp });
-  }, []);
-
-  // Load sprints + product connections + column labels
-  async function loadConnections() {
-    if (!activeProduct) return;
-    productConnectionsRef.current = new Set(await api.connections.list(activeProduct.id).catch(() => []));
-    setConnectionsVersion((v) => v + 1);
-  }
-  useEffect(() => {
-    if (!activeProduct) return;
-    loadSprints();
-    loadConnections();
-    api.columns
-      .list(activeProduct.id)
-      .then((cols) => setColumnLabelMap(new Map(cols.map((c) => [c.statusKey, c.label]))))
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProduct?.id]);
-
   // Sorted sprints + color mapping
   const sortedSprints = useMemo(() => [...sprints].sort((a, b) => a.startDate.localeCompare(b.startDate)), [sprints]);
 
@@ -361,192 +283,59 @@ function CanvasInner() {
     }
     return heights;
   }, [filteredTasks, simpleMode]);
-  const nodeHeightsRef = useRef(nodeHeights);
-  nodeHeightsRef.current = nodeHeights;
 
-  // Build + layout nodes
-  useEffect(() => {
-    if (!activeProduct) return;
-    const lp = loadState(activeProduct.id).positions ?? {};
-    const sprintCheckbox = selectedSprintFilter
-      ? { sprintId: selectedSprintFilter, taskIds: localSprintMemberIds }
-      : null;
-    const auraCols = showSprintAura ? sprintColorsMap : new Map<string, string[]>();
-    const savedProductPos = loadState(activeProduct.id).productNodePosition;
-    const { nodes: n, edges: e } = buildGraph(
-      filteredTasks,
-      activeProduct,
-      productConnectionsRef.current,
-      sprintCheckbox,
-      auraCols,
-      savedProductPos,
-      columnLabelMap,
-      lp,
-    );
-    setEdges(e);
-
-    if (initializedRef.current !== activeProduct.id) {
-      if (!tasksLoaded || !filtersReady) {
-        setNodes(n);
-        return;
-      }
-      initializedRef.current = activeProduct.id;
-      const unpositioned = filteredTasks.filter((t) => !lp[t.id] && t.canvasX == null);
-      const allUnpositioned = unpositioned.length === filteredTasks.length && filteredTasks.length > 0;
-
-      const savePositions = (nodes: { id: string; position: { x: number; y: number } }[]) => {
-        const next = { ...lp };
-        nodes
-          .filter((nd) => !nd.id.startsWith('product-'))
-          .forEach((nd) => {
-            next[nd.id] = { x: nd.position.x, y: nd.position.y };
-          });
-        patchState(activeProduct.id, { positions: next });
-      };
-
-      if (allUnpositioned) {
-        const laid = runAutoLayout(n, e, nodeHeights);
-        setNodes(laid);
-        savePositions(laid);
-      } else if (unpositioned.length > 0) {
-        const positioned = n.filter((nd) => !unpositioned.find((t) => t.id === nd.id) && !nd.id.startsWith('product-'));
-        const maxX = positioned.length > 0 ? Math.max(...positioned.map((nd) => nd.position.x)) : 0;
-        const midY =
-          positioned.length > 0 ? positioned.reduce((s, nd) => s + nd.position.y, 0) / positioned.length : 200;
-        let col = 0;
-        const laid = n.map((node) => {
-          if (!unpositioned.find((t) => t.id === node.id)) return node;
-          const pos = { x: maxX + 260 + col * 220, y: midY + (col % 2 === 0 ? -60 : 60) };
-          col++;
-          return { ...node, position: pos };
-        });
-        setNodes(laid);
-        savePositions(laid);
-      } else {
-        const hasLocalPositions = Object.keys(lp).length > 0;
-        const hasVisited = !!loadState(activeProduct.id).viewport;
-        if (!hasVisited && !hasLocalPositions && filteredTasks.length > 0) {
-          const laid = runAutoLayout(n, e, nodeHeights);
-          setNodes(laid);
-          const productNode = laid.find((nd) => nd.id.startsWith('product-'));
-          if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
-          savePositions(laid);
-        } else {
-          setNodes(n);
-        }
-      }
-
-      setTimeout(() => {
-        const vp = loadState(activeProduct.id).viewport;
-        if (vp) setViewport(vp);
-        else {
-          fitView({ padding: 0.2 });
-          setTimeout(() => save({ viewport: getViewport() }), 60);
-        }
-        setLayoutReady(true);
-      }, 80);
-    } else {
-      setLayoutReady(true);
-      setNodes((curr) => {
-        const byId = new Map(curr.map((nd) => [nd.id, nd]));
-        return n.map((nn) => {
-          const ex = byId.get(nn.id);
-          return ex ? { ...ex, data: nn.data } : nn;
-        });
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    filteredTasks,
+  // ── Build+layout pipeline (extracted hook - see useCanvasGraph.ts's header comment before
+  // touching anything here or inside it) ────────────────────────────────────────────────────
+  const { layoutReady, productConnectionsRef, loadConnections, setAutoLayoutSave } = useCanvasGraph({
     activeProduct,
-    autoLayoutEnabled,
+    activeProductRef,
+    skipNextFilterRelayoutRef,
+    tasksLoaded,
+    filteredTasks,
+    nodeHeights,
+    columnLabelMap,
     sprints,
     selectedSprintFilter,
+    localSprintMemberIds,
     showSprintAura,
     sprintColorsMap,
-    localSprintMemberIds,
-    tasksLoaded,
-    filtersReady,
-    connectionsVersion,
-    columnLabelMap,
-  ]);
+    viewMode,
+    statusFilter,
+    selectedMilestoneIds,
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    getViewport,
+    setViewport,
+    fitView,
+    save,
+    setViewMode,
+    setStatusFilter,
+    setSelectedSprintFilter,
+    setSelectedMilestoneIds,
+    setShowSprintAura,
+    setSimpleMode,
+  });
+
+  const onMoveEnd = useCallback((_: unknown, vp: { x: number; y: number; zoom: number }) => {
+    save({ viewport: vp });
+  }, []);
+
+  // Load sprints + product connections + column labels
+  useEffect(() => {
+    if (!activeProduct) return;
+    loadSprints();
+    loadConnections();
+    api.columns
+      .list(activeProduct.id)
+      .then((cols) => setColumnLabelMap(new Map(cols.map((c) => [c.statusKey, c.label]))))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProduct?.id]);
 
   // Keep ref current so onNodeClick always reads latest sprint state without stale closures
   sprintClickRef.current = { filter: selectedSprintFilter, toggle: toggleSprintMembership };
-
-  // Shared by the manual "Re-layout graph" button and the debounced auto-relayout effect below -
-  // runs dagre against the given node/edge/height snapshot, persists the new positions, and refits
-  // the viewport. Takes explicit snapshots rather than reading state/refs itself so both callers
-  // control exactly which product/graph state it applies to.
-  const relayoutGraph = (prod: NonNullable<typeof activeProduct>, curNodes: Node[], curEdges: Edge[], heights: Map<string, number>) => {
-    const laid = runAutoLayout(curNodes, curEdges, heights);
-    setNodes(laid);
-    const productNode = laid.find((nd) => nd.id.startsWith('product-'));
-    if (productNode) save({ productNodePosition: { x: productNode.position.x, y: productNode.position.y } });
-    const newLp: Record<string, { x: number; y: number }> = { ...(loadState(prod.id).positions ?? {}) };
-    laid
-      .filter((nd) => !nd.id.startsWith('product-'))
-      .forEach((nd) => {
-        newLp[nd.id] = { x: nd.position.x, y: nd.position.y };
-      });
-    patchState(prod.id, { positions: newLp });
-    setTimeout(() => {
-      fitView({ padding: 0.15 });
-      save({ viewport: getViewport() });
-    }, 50);
-  };
-
-  const setAutoLayoutSave = (v: boolean) => {
-    setAutoLayoutEnabled(v);
-    save({ autoLayoutEnabled: v });
-    if (v && activeProduct) {
-      relayoutGraph(activeProduct, nodes, edges, nodeHeights);
-    }
-  };
-
-  // Auto re-layout shortly after any filter changes, so users don't have to remember to click
-  // "Re-layout graph" every time. Deliberately scoped to ONLY the filter values below - not
-  // tasks/sprints/other realtime-driven state - so a teammate's unrelated edit elsewhere never
-  // triggers an unwanted relayout here. Debounced so toggling several milestone checkboxes in a
-  // row only relays out once, after the user stops.
-  //
-  // viewMode/selectedSprintFilter are also set programmatically (not by the user picking a
-  // filter) when creating or deleting a sub-plan, to land in/out of "add tasks to this sub-plan"
-  // mode - see useCanvasSprints' handleCreateSprint/deleteSprint. Those callers call
-  // suppressNextFilterRelayout() first so that mode switch doesn't masquerade as a filter change.
-  // `prod` is passed as an explicit argument (not closed over) specifically so the "did the active
-  // product change while we were waiting" check below compares against the product that was active
-  // when THIS relayout was scheduled, not whatever's active when the debounced call fires.
-  const [scheduleRelayout, cancelRelayout] = useDebouncedCallback((prod: NonNullable<typeof activeProduct>) => {
-    const currentProd = activeProductRef.current;
-    // Bail if the product changed (or hasn't finished initializing) during the wait, so a
-    // relayout meant for the old product/filters never lands on whatever's showing now.
-    if (!currentProd || currentProd.id !== prod.id || initializedRef.current !== currentProd.id) return;
-    relayoutGraph(currentProd, nodesRef.current, edgesRef.current, nodeHeightsRef.current);
-  }, 500);
-  useEffect(() => {
-    // Unconditional, before the guards below - cancels a relayout still pending from a previous
-    // run of this effect even when this run's own guards end up skipping scheduling a new one
-    // (e.g. a suppressed programmatic filter change shouldn't let an earlier real one still land).
-    cancelRelayout();
-    if (skipNextFilterRelayoutRef.current) {
-      skipNextFilterRelayoutRef.current = false;
-      return;
-    }
-    const prod = activeProduct;
-    if (!prod || initializedRef.current !== prod.id) return; // skip initial load for this product
-    if (!filterEffectPrimedRef.current) {
-      // First time this effect sees the board as initialized for this product - this fires either
-      // on a genuine first-ever visit, or right after restoring the persisted viewMode/filters on
-      // a remount (leaving Canvas and coming back), both of which change these same state values
-      // without the user actually touching a filter. Arm the guard instead of relaying out now; a
-      // later change made after this point is a real one and should go on to relayout as normal.
-      filterEffectPrimedRef.current = true;
-      return;
-    }
-    scheduleRelayout(prod);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, statusFilter, selectedSprintFilter, selectedMilestoneIds, scheduleRelayout, cancelRelayout]);
 
   // ReactFlow callbacks
   const onPaneClick = useCallback(() => {
@@ -627,7 +416,7 @@ function CanvasInner() {
         showToast((err as Error).message, 'error');
       }
     },
-    [activeProduct, setEdges, refreshTasks, tasks, showToast, canWriteCanvas],
+    [activeProduct, setEdges, refreshTasks, tasks, showToast, canWriteCanvas, productConnectionsRef],
   );
 
   const onEdgeContextMenu = useCallback((e: React.MouseEvent, edge: Edge) => {
@@ -688,7 +477,7 @@ function CanvasInner() {
         }
       }
     },
-    [activeProduct, refreshTasks, canWriteCanvas],
+    [activeProduct, refreshTasks, canWriteCanvas, productConnectionsRef],
   );
 
   async function quickSetStatus(taskId: string, status: string) {
@@ -743,7 +532,7 @@ function CanvasInner() {
         await api.tasks.bulkDelete(activeProduct.id, taskNodes.map((n) => n.id));
         await refreshTasks();
         showToast(
-          `${taskNodes.length} task${taskNodes.length > 1 ? 's' : ''} deleted — press Ctrl+Z to undo`,
+          `${taskNodes.length} task${taskNodes.length > 1 ? 's' : ''} deleted - press Ctrl+Z to undo`,
           'info',
         );
       } catch (err) {
@@ -776,7 +565,7 @@ function CanvasInner() {
 
   undoRef.current = undoDelete;
 
-  // Ctrl+Z — only fires when focus is outside an input/textarea
+  // Ctrl+Z - only fires when focus is outside an input/textarea
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey)) return;
@@ -940,24 +729,8 @@ function CanvasInner() {
     return <EmptyState icon="◈" size="lg" description="Create a product to get started" className="h-full" />;
   }
 
-  const isProductEdge = (s: string, t: string) => s.startsWith('product-') || t.startsWith('product-');
   const ctxTask = ctxMenu?.type === 'node' && ctxMenu.taskId ? tasks.find((t) => t.id === ctxMenu.taskId) : null;
   const activeSprint = sortedSprints.find((s) => s.id === selectedSprintFilter);
-
-  const chip = (active: boolean, accentColor?: string) =>
-    ({
-      background: active ? (accentColor ? `${accentColor}20` : 'var(--brand-subtle)') : 'var(--surface)',
-      color: active ? (accentColor ?? 'var(--brand)') : 'var(--text-3)',
-      border: `1px solid ${active ? (accentColor ? `${accentColor}55` : 'var(--brand)') : 'var(--border)'}`,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-    }) as React.CSSProperties;
-
-  const segBtn = (key: ViewMode) =>
-    ({
-      background: viewMode === key ? 'var(--surface)' : 'transparent',
-      color: viewMode === key ? 'var(--text)' : 'var(--text-3)',
-      boxShadow: viewMode === key ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
-    }) as React.CSSProperties;
 
   return (
     <CanvasContext.Provider value={{ showSprintAura, simpleMode }}>
@@ -1016,557 +789,51 @@ function CanvasInner() {
 
           {/* ── Top-left ────────────────────────────────────────────────── */}
           <Panel position="top-left">
-            <div className="flex flex-col gap-2">
-              {/* Row 1 - view mode segmented control */}
-              <div
-                className="flex items-center p-1 gap-0.5 rounded-xl"
-                style={{
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--border)',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                }}
-              >
-                {(['all', 'active', 'milestones'] as ViewMode[]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => setViewModeSave(key)}
-                    className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all capitalize"
-                    style={segBtn(key)}
-                  >
-                    {key === 'milestones' ? '⭐ Milestones' : key === 'active' ? 'Active' : 'All'}
-                  </button>
-                ))}
-
-                {/* Sprint view mode + picker */}
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setViewModeSave('sprint');
-                      setShowSprintPicker((v) => !v);
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                    style={segBtn('sprint')}
-                  >
-                    ⚡ {viewMode === 'sprint' && activeSprint ? activeSprint.name : 'Sub-plan'}
-                    <span className="text-[10px] opacity-50">▾</span>
-                  </button>
-                  {showSprintPicker && (
-                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
-                    <div
-                      className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 260 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div
-                        className="px-3 py-2 flex items-center justify-between"
-                        style={{ borderBottom: '1px solid var(--border)' }}
-                      >
-                        <span
-                          className="text-[10px] font-semibold uppercase tracking-wide"
-                          style={{ color: 'var(--text-3)' }}
-                        >
-                          Sub-plans
-                        </span>
-                        {canWriteCanvas && (
-                          <button
-                            onClick={() => {
-                              setShowSprintPicker(false);
-                              setShowNewSprint(true);
-                            }}
-                            className="text-xs font-medium px-2 py-0.5 rounded-lg transition-colors"
-                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.opacity = '0.8';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.opacity = '1';
-                            }}
-                          >
-                            + New
-                          </button>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => {
-                          setSprintFilterSave(null);
-                          setViewModeSave('all');
-                          setShowSprintPicker(false);
-                        }}
-                        className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2 transition-colors"
-                        style={{ borderBottom: sortedSprints.length > 0 ? '1px solid var(--border)' : 'none' }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--surface-2)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: 'var(--border)',
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span style={{ color: !selectedSprintFilter ? 'var(--brand)' : 'var(--text-2)' }}>
-                          No sub-plan (exit sub-plan mode)
-                        </span>
-                        {!selectedSprintFilter && (
-                          <span className="ml-auto" style={{ color: 'var(--brand)' }}>
-                            ✓
-                          </span>
-                        )}
-                      </button>
-                      {sortedSprints.length === 0 && (
-                        <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-3)' }}>
-                          No sub-plans yet - create one to start planning.
-                        </p>
-                      )}
-                      {sortedSprints.map((s) => {
-                        const isActive = selectedSprintFilter === s.id;
-                        return (
-                          <div
-                            key={s.id}
-                            role="button"
-                            tabIndex={0}
-                            className="flex items-center gap-2 px-3 py-2.5 group transition-colors cursor-pointer"
-                            style={{ background: isActive ? 'var(--brand-subtle)' : 'transparent' }}
-                            onMouseEnter={(e) => {
-                              if (!isActive) e.currentTarget.style.background = 'var(--surface-2)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = isActive ? 'var(--brand-subtle)' : 'transparent';
-                            }}
-                            onClick={() => {
-                              setSprintFilterSave(isActive ? null : s.id);
-                              setShowSprintPicker(false);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key !== 'Enter' && e.key !== ' ') return;
-                              e.preventDefault();
-                              setSprintFilterSave(isActive ? null : s.id);
-                              setShowSprintPicker(false);
-                            }}
-                          >
-                            <span
-                              style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p
-                                className="text-xs font-semibold truncate"
-                                style={{ color: isActive ? 'var(--brand)' : 'var(--text)' }}
-                              >
-                                {s.name}
-                              </p>
-                              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>
-                                {new Date(s.startDate).toLocaleDateString()} →{' '}
-                                {new Date(s.endDate).toLocaleDateString()} · {s.taskIds.length} tasks
-                              </p>
-                            </div>
-                            {isActive && <span style={{ color: 'var(--brand)', fontSize: 11, flexShrink: 0 }}>✓</span>}
-                            {canWriteCanvas && (
-                              <>
-                                <button
-                                  className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
-                                  style={{ color: 'var(--text-3)' }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = 'var(--text)';
-                                    e.currentTarget.style.background = 'var(--surface-2)';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = 'var(--text-3)';
-                                    e.currentTarget.style.background = 'transparent';
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingSprint(s);
-                                    setEditSprintForm({ name: s.name, color: s.color });
-                                    setShowSprintPicker(false);
-                                  }}
-                                  title="Edit sub-plan"
-                                >
-                                  ✎
-                                </button>
-                                <button
-                                  className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
-                                  style={{ color: 'var(--text-3)' }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = '#ef4444';
-                                    e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = 'var(--text-3)';
-                                    e.currentTarget.style.background = 'transparent';
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteSprint(s.id);
-                                  }}
-                                  title="Delete sub-plan"
-                                >
-                                  ✕
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Row 2 - grouped control dropdowns */}
-              <div className="flex items-center gap-1.5 flex-wrap" style={{ maxWidth: 'calc(100vw - 2rem)' }}>
-                {/* Filters dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setShowFiltersDropdown((v) => !v);
-                      setShowDisplayDropdown(false);
-                      setShowLayoutDropdown(false);
-                      setMilestoneSearch('');
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                    style={chip(!!statusFilter || selectedMilestoneIds.length > 0)}
-                  >
-                    {statusFilter ? (
-                      <>
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ background: STATUS_OPTIONS.find((s) => s.key === statusFilter)?.color }}
-                        />
-                        {STATUS_OPTIONS.find((s) => s.key === statusFilter)?.label}
-                      </>
-                    ) : selectedMilestoneIds.length > 0 ? (
-                      `⭐ ${selectedMilestoneIds.length} milestone${selectedMilestoneIds.length > 1 ? 's' : ''}`
-                    ) : (
-                      'Filters'
-                    )}
-                    <span className="text-[10px] opacity-50">▾</span>
-                  </button>
-                  {showFiltersDropdown && (
-                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
-                    <div
-                      className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 220 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div
-                        className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide"
-                        style={{ color: 'var(--text-3)' }}
-                      >
-                        Status
-                      </div>
-                      <button
-                        onClick={() => setStatusFilterSave(null)}
-                        className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
-                        style={{ color: !statusFilter ? 'var(--brand)' : 'var(--text-2)' }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--surface-2)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        All statuses {!statusFilter && <span className="ml-auto">✓</span>}
-                      </button>
-                      {STATUS_OPTIONS.map((s) => (
-                        <button
-                          key={s.key}
-                          onClick={() => setStatusFilterSave(statusFilter === s.key ? null : s.key)}
-                          className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
-                          style={{ color: statusFilter === s.key ? 'var(--brand)' : 'var(--text-2)' }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--surface-2)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                        >
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
-                          {s.label} {statusFilter === s.key && <span className="ml-auto">✓</span>}
-                        </button>
-                      ))}
-                      {milestoneTasks.length > 0 && (
-                        <>
-                          <div
-                            className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wide"
-                            style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}
-                          >
-                            Milestone focus
-                          </div>
-                          {milestoneTasks.length > 5 && (
-                            <div className="px-3 pb-1.5">
-                              <input
-                                type="text"
-                                value={milestoneSearch}
-                                onChange={(e) => setMilestoneSearch(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                placeholder="Search milestones…"
-                                className="w-full text-xs px-2 py-1 rounded outline-none"
-                                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
-                              />
-                            </div>
-                          )}
-                          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-                            <button
-                              onClick={() => setMilestoneIdsSave([])}
-                              className="w-full text-left px-3 py-1.5 text-xs transition-colors"
-                              style={{ color: selectedMilestoneIds.length === 0 ? '#f59e0b' : 'var(--text-2)' }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'var(--surface-2)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'transparent';
-                              }}
-                            >
-                              Show all {selectedMilestoneIds.length === 0 && '✓'}
-                            </button>
-                            {filteredMilestoneTasks.length === 0 && (
-                              <p className="px-3 py-2 text-xs" style={{ color: 'var(--text-3)' }}>
-                                No matches
-                              </p>
-                            )}
-                            {filteredMilestoneTasks.map((t) => {
-                              const sel = selectedMilestoneIds.includes(t.id);
-                              const overdue = new Date(t.deadline!) < new Date() && t.status !== 'done';
-                              return (
-                                <button
-                                  key={t.id}
-                                  onClick={() =>
-                                    setMilestoneIdsSave(
-                                      sel
-                                        ? selectedMilestoneIds.filter((id) => id !== t.id)
-                                        : [...selectedMilestoneIds, t.id],
-                                    )
-                                  }
-                                  className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
-                                  style={{ color: 'var(--text-2)' }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = 'var(--surface-2)';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = 'transparent';
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      width: 12,
-                                      height: 12,
-                                      borderRadius: 3,
-                                      flexShrink: 0,
-                                      background: sel ? (overdue ? '#ef4444' : '#f59e0b') : 'transparent',
-                                      border: `1.5px solid ${overdue ? 'rgba(239,68,68,0.5)' : 'rgba(245,158,11,0.5)'}`,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                    }}
-                                  >
-                                    {sel && <span style={{ color: 'white', fontSize: 8 }}>✓</span>}
-                                  </span>
-                                  <span className="flex-1 truncate">{t.name}</span>
-                                  <span
-                                    style={{ color: overdue ? '#ef4444' : 'var(--text-3)', flexShrink: 0, fontSize: 10 }}
-                                  >
-                                    {new Date(t.deadline!).toLocaleDateString()}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
-                      {(statusFilter || selectedMilestoneIds.length > 0) && (
-                        <div style={{ borderTop: '1px solid var(--border)' }}>
-                          <button
-                            onClick={() => {
-                              setStatusFilterSave(null);
-                              setMilestoneIdsSave([]);
-                              setShowFiltersDropdown(false);
-                              setMilestoneSearch('');
-                            }}
-                            className="w-full text-left px-3 py-2 text-xs font-medium transition-colors"
-                            style={{ color: '#ef4444' }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'var(--surface-2)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'transparent';
-                            }}
-                          >
-                            Clear all filters
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Display dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setShowDisplayDropdown((v) => !v);
-                      setShowFiltersDropdown(false);
-                      setShowLayoutDropdown(false);
-                      setMilestoneSearch('');
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                    style={chip(showSprintAura || simpleMode)}
-                  >
-                    Display{showSprintAura || simpleMode ? ' ●' : ''}
-                    <span className="text-[10px] opacity-50">▾</span>
-                  </button>
-                  {showDisplayDropdown && (
-                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
-                    <div
-                      className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        onClick={() => {
-                          setAutoLayoutSave(true);
-                          setShowDisplayDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--surface-2)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <span style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 14 }}>◫</span>
-                        <div className="flex-1">
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Re-layout graph</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>
-                            Auto-arrange using DAG layout
-                          </p>
-                        </div>
-                      </button>
-                      <div style={{ borderTop: '1px solid var(--border)' }} />
-                      <button
-                        onClick={() => setSprintAuraSave(!showSprintAura)}
-                        className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--surface-2)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <span style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 14 }}>🎨</span>
-                        <div className="flex-1">
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Sub-plan colour map</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>
-                            Colour tasks by sub-plan membership
-                          </p>
-                        </div>
-                        {showSprintAura && <span style={{ color: 'var(--brand)', fontSize: 12 }}>✓</span>}
-                      </button>
-                      <button
-                        onClick={() => setSimpleModeSave(!simpleMode)}
-                        className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--surface-2)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <span style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 14 }}>◻</span>
-                        <div className="flex-1">
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Simple mode</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>Show task names only</p>
-                        </div>
-                        {simpleMode && <span style={{ color: 'var(--brand)', fontSize: 12 }}>✓</span>}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Layouts dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setShowLayoutDropdown((v) => !v);
-                      setShowFiltersDropdown(false);
-                      setShowDisplayDropdown(false);
-                      setMilestoneSearch('');
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                    style={chip(false)}
-                  >
-                    Layouts <span className="text-[10px] opacity-50">▾</span>
-                  </button>
-                  {showLayoutDropdown && (
-                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
-                    <div
-                      className="absolute left-0 top-full mt-1 rounded-xl shadow-xl z-50 overflow-hidden"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 200 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {canWriteCanvas && (
-                        <button
-                          onClick={() => {
-                            openShareModal();
-                            setShowLayoutDropdown(false);
-                          }}
-                          className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors"
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--surface-2)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                        >
-                          <span style={{ fontSize: 15 }}>↑</span>
-                          <div>
-                            <p style={{ color: 'var(--text)', fontWeight: 500 }}>Save layout</p>
-                            <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>
-                              Share current positions with team
-                            </p>
-                          </div>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          openLoadModal();
-                          setShowLayoutDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2.5 text-xs flex items-center gap-2.5 transition-colors"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--surface-2)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <span style={{ fontSize: 15 }}>↓</span>
-                        <div>
-                          <p style={{ color: 'var(--text)', fontWeight: 500 }}>Load layout</p>
-                          <p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 1 }}>
-                            Apply a saved team snapshot
-                          </p>
-                        </div>
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowLegend(true)}
-                  title="Visual guide"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
-                  style={chip(false)}
-                >
-                  ?
-                </button>
-              </div>
-            </div>
+            <CanvasControlPanel
+              viewMode={viewMode}
+              onSetViewMode={setViewModeSave}
+              canWriteCanvas={canWriteCanvas}
+              selectedSprintFilter={selectedSprintFilter}
+              onSetSprintFilter={setSprintFilterSave}
+              activeSprint={activeSprint}
+              sortedSprints={sortedSprints}
+              showSprintPicker={showSprintPicker}
+              setShowSprintPicker={setShowSprintPicker}
+              onNewSprint={() => setShowNewSprint(true)}
+              onEditSprint={(s) => {
+                setEditingSprint(s);
+                setEditSprintForm({ name: s.name, color: s.color });
+              }}
+              onDeleteSprint={deleteSprint}
+              showFiltersDropdown={showFiltersDropdown}
+              setShowFiltersDropdown={setShowFiltersDropdown}
+              setShowDisplayDropdown={setShowDisplayDropdown}
+              setShowLayoutDropdown={setShowLayoutDropdown}
+              statusFilter={statusFilter}
+              onSetStatusFilter={setStatusFilterSave}
+              selectedMilestoneIds={selectedMilestoneIds}
+              onSetMilestoneIds={setMilestoneIdsSave}
+              milestoneTasks={milestoneTasks}
+              filteredMilestoneTasks={filteredMilestoneTasks}
+              milestoneSearch={milestoneSearch}
+              onMilestoneSearchChange={setMilestoneSearch}
+              showDisplayDropdown={showDisplayDropdown}
+              onRelayout={() => setAutoLayoutSave(true)}
+              showSprintAura={showSprintAura}
+              onToggleSprintAura={() => setSprintAuraSave(!showSprintAura)}
+              simpleMode={simpleMode}
+              onToggleSimpleMode={() => setSimpleModeSave(!simpleMode)}
+              showLayoutDropdown={showLayoutDropdown}
+              onOpenShareModal={() => {
+                openShareModal();
+                setShowLayoutDropdown(false);
+              }}
+              onOpenLoadModal={() => {
+                openLoadModal();
+                setShowLayoutDropdown(false);
+              }}
+              onShowLegend={() => setShowLegend(true)}
+            />
           </Panel>
 
           {/* ── Sprint mode banner ─────────────────────────────────────── */}
@@ -1654,211 +921,32 @@ function CanvasInner() {
             </div>
           </Panel>
 
-          {/* ── Bulk action bar — appears when 2+ task nodes are selected ──── */}
+          {/* ── Bulk action bar - appears when 2+ task nodes are selected ──── */}
           {selectedNodeIds.length >= 2 && canWriteCanvas && (
             <Panel position="bottom-center">
-              <div
-                className="flex items-center gap-4 px-4 py-2.5 rounded-xl text-xs"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
-                  marginBottom: 12,
-                }}
-              >
-                <span style={{ color: 'var(--text-3)' }}>{selectedNodeIds.length} selected</span>
-
-                {/* Assign owner */}
-                <div ref={bulkOwnerRef} style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setShowBulkOwner((v) => !v)}
-                    disabled={bulkAssigning}
-                    className="font-medium transition-opacity"
-                    style={{ color: 'var(--brand)', opacity: bulkAssigning ? 0.5 : 1 }}
-                  >
-                    {bulkAssigning ? 'Updating…' : 'Assign owner ▾'}
-                  </button>
-                  {showBulkOwner && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: 0,
-                        marginBottom: 6,
-                        background: 'var(--surface)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                        minWidth: 180,
-                        zIndex: 50,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {canvasMembers.length === 0 ? (
-                        <div className="px-3 py-2" style={{ color: 'var(--text-3)' }}>Loading…</div>
-                      ) : (
-                        canvasMembers.map((m) => (
-                          <button
-                            key={m.userId}
-                            onClick={() => bulkCanvasAssignOwner(m.userId)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-left"
-                            style={{ color: 'var(--text)' }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                          >
-                            <span>{m.user.avatarEmoji ?? '👤'}</span>
-                            <span>{m.user.realName ?? m.user.username}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Assign reviewer */}
-                <div ref={bulkReviewerRef} style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setShowBulkReviewer((v) => !v)}
-                    disabled={bulkAssigning}
-                    className="font-medium transition-opacity"
-                    style={{ color: 'var(--brand)', opacity: bulkAssigning ? 0.5 : 1 }}
-                  >
-                    {bulkAssigning ? 'Updating…' : 'Assign reviewer ▾'}
-                  </button>
-                  {showBulkReviewer && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: 0,
-                        marginBottom: 6,
-                        background: 'var(--surface)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                        minWidth: 180,
-                        zIndex: 50,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {canvasMembers.length === 0 ? (
-                        <div className="px-3 py-2" style={{ color: 'var(--text-3)' }}>Loading…</div>
-                      ) : (
-                        canvasMembers.map((m) => (
-                          <button
-                            key={m.userId}
-                            onClick={() => bulkCanvasAssignReviewer(m.userId)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-left"
-                            style={{ color: 'var(--text)' }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                          >
-                            <span>{m.user.avatarEmoji ?? '👤'}</span>
-                            <span>{m.user.realName ?? m.user.username}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Set status */}
-                <div ref={bulkStatusRef} style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setShowBulkStatus((v) => !v)}
-                    disabled={bulkAssigning}
-                    className="font-medium transition-opacity"
-                    style={{ color: 'var(--brand)', opacity: bulkAssigning ? 0.5 : 1 }}
-                  >
-                    Set status ▾
-                  </button>
-                  {showBulkStatus && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: 0,
-                        marginBottom: 6,
-                        background: 'var(--surface)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                        minWidth: 160,
-                        zIndex: 50,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {[
-                        { key: 'backlog', label: 'Not started', color: '#64748b' },
-                        { key: 'todo', label: 'To Do', color: '#3b82f6' },
-                        { key: 'in_progress', label: 'In Progress', color: '#f59e0b' },
-                        { key: 'blocked', label: 'Blocked', color: '#ef4444' },
-                        { key: 'done', label: 'Done', color: '#10b981' },
-                      ].map((s) => (
-                        <button
-                          key={s.key}
-                          onClick={() => bulkCanvasSetStatus(s.key)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-left"
-                          style={{ color: 'var(--text)' }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
-                          <span>{s.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div ref={bulkColorRef} style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setShowBulkColor((v) => !v)}
-                    disabled={bulkAssigning}
-                    className="font-medium transition-opacity"
-                    style={{ color: 'var(--brand)', opacity: bulkAssigning ? 0.5 : 1 }}
-                  >
-                    Set color ▾
-                  </button>
-                  {showBulkColor && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: 0,
-                        marginBottom: 6,
-                        background: 'var(--surface)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                        minWidth: 180,
-                        zIndex: 50,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div className="flex items-center gap-2 flex-wrap p-2.5">
-                        {bulkEnabledColors.map((c) => (
-                          <button
-                            key={c}
-                            onClick={() => bulkCanvasSetColor(c)}
-                            title={bulkColorLegend[c] || c}
-                            className="w-6 h-6 rounded-full transition-transform"
-                            style={{ background: c }}
-                          />
-                        ))}
-                      </div>
-                      <button
-                        onClick={() => bulkCanvasSetColor(null)}
-                        className="w-full text-left px-3 py-2 text-xs"
-                        style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        Clear color
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <CanvasBulkActionBar
+                selectedCount={selectedNodeIds.length}
+                canvasMembers={canvasMembers}
+                bulkAssigning={bulkAssigning}
+                bulkOwnerRef={bulkOwnerRef}
+                showBulkOwner={showBulkOwner}
+                setShowBulkOwner={setShowBulkOwner}
+                onAssignOwner={bulkCanvasAssignOwner}
+                bulkReviewerRef={bulkReviewerRef}
+                showBulkReviewer={showBulkReviewer}
+                setShowBulkReviewer={setShowBulkReviewer}
+                onAssignReviewer={bulkCanvasAssignReviewer}
+                bulkStatusRef={bulkStatusRef}
+                showBulkStatus={showBulkStatus}
+                setShowBulkStatus={setShowBulkStatus}
+                onSetStatus={bulkCanvasSetStatus}
+                bulkColorRef={bulkColorRef}
+                showBulkColor={showBulkColor}
+                setShowBulkColor={setShowBulkColor}
+                bulkColorLegend={bulkColorLegend}
+                bulkEnabledColors={bulkEnabledColors}
+                onSetColor={bulkCanvasSetColor}
+              />
             </Panel>
           )}
         </ReactFlow>
@@ -1925,94 +1013,15 @@ function CanvasInner() {
 
         {/* Context menu */}
         {ctxMenu && (
-          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the parent's outside-click dismiss; not a keyboard-operable action
-          <div
-            className="fixed rounded-xl shadow-xl z-50 py-1 overflow-hidden"
-            style={{
-              left: ctxMenu.x,
-              top: ctxMenu.y,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              minWidth: 180,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {ctxMenu.type === 'edge' && canWriteCanvas && (
-              <>
-                <div
-                  className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}
-                >
-                  {isProductEdge(ctxMenu.srcId!, ctxMenu.tgtId!) ? 'Product link' : 'Dependency'}
-                </div>
-                <button
-                  className="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2"
-                  style={{ color: '#ef4444' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  onClick={() => deleteEdge(ctxMenu.srcId!, ctxMenu.tgtId!, ctxMenu.edgeId!)}
-                >
-                  ✕ Remove {isProductEdge(ctxMenu.srcId!, ctxMenu.tgtId!) ? 'link' : 'dependency'}
-                </button>
-              </>
-            )}
-            {ctxMenu.type === 'node' && ctxTask && (
-              <>
-                {canWriteCanvas && (
-                  <>
-                    <div
-                      className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                      style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border)' }}
-                    >
-                      Set status
-                    </div>
-                    {STATUS_OPTIONS.map((s) => (
-                      <button
-                        key={s.key}
-                        onClick={() => quickSetStatus(ctxTask.id, s.key)}
-                        className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors"
-                        style={{ color: ctxTask.status === s.key ? 'var(--brand)' : 'var(--text)' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
-                        {s.label}
-                        {ctxTask.status === s.key && (
-                          <span className="ml-auto" style={{ color: 'var(--brand)' }}>
-                            ✓
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </>
-                )}
-                <div style={{ borderTop: canWriteCanvas ? '1px solid var(--border)' : undefined }}>
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm transition-colors"
-                    style={{ color: 'var(--text-2)' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                    onClick={() => {
-                      setCtxMenu(null);
-                      const t = tasks.find((x) => x.id === ctxTask.id);
-                      if (t) setSelectedTask(t);
-                    }}
-                  >
-                    Open detail…
-                  </button>
-                </div>
-              </>
-            )}
-            <button
-              className="w-full text-left px-3 py-1.5 text-xs transition-colors"
-              style={{ color: 'var(--text-3)', borderTop: '1px solid var(--border)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-              onClick={() => setCtxMenu(null)}
-            >
-              Cancel
-            </button>
-          </div>
+          <CanvasContextMenu
+            ctxMenu={ctxMenu}
+            canWriteCanvas={canWriteCanvas}
+            ctxTask={ctxTask}
+            onDeleteEdge={deleteEdge}
+            onQuickSetStatus={quickSetStatus}
+            onOpenDetail={(t) => setSelectedTask(t)}
+            onClose={() => setCtxMenu(null)}
+          />
         )}
 
         {selectedTask && (
@@ -2031,177 +1040,40 @@ function CanvasInner() {
           />
         )}
 
-        {showNewTask && (
-          <Modal title="New task" onClose={() => setShowNewTask(false)} width="max-w-sm">
-            <form onSubmit={handleCreateTask} className="space-y-4">
-              <div>
-                <label className="label" htmlFor="canvas-new-task-name">
-                  Task name
-                </label>
-                <input
-                  id="canvas-new-task-name"
-                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
-                  autoFocus
-                  required
-                  type="text"
-                  value={newTaskName}
-                  onChange={(e) => setNewTaskName(e.target.value)}
-                  className="input"
-                  placeholder="What needs to be done?"
-                />
-              </div>
-              <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                Task appears at the centre of your viewport. Drag it into position then connect edges to link
-                dependencies.
-              </p>
-              <div className="flex gap-3">
-                <button type="submit" disabled={creating} className="btn-primary flex-1 flex justify-center">
-                  {creating ? (
-                    <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    'Create task'
-                  )}
-                </button>
-                <button type="button" onClick={() => setShowNewTask(false)} className="btn-secondary">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </Modal>
-        )}
-
-        {showNewSprint && (
-          <Modal title="New sub-plan" onClose={() => setShowNewSprint(false)} width="max-w-sm">
-            <form onSubmit={handleCreateSprint} className="space-y-4">
-              <div>
-                <label className="label" htmlFor="canvas-new-sprint-name">
-                  Sub-plan name
-                </label>
-                <input
-                  id="canvas-new-sprint-name"
-                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
-                  autoFocus
-                  required
-                  type="text"
-                  value={sprintForm.name}
-                  onChange={(e) => setSprintForm((p) => ({ ...p, name: e.target.value }))}
-                  className="input"
-                  placeholder="e.g. Sub-plan 1, MVP, Beta…"
-                />
-              </div>
-              <div>
-                {/* Not a real label - it's a heading for the color swatch grid below, no single associated control */}
-                <span className="label">Colour</span>
-                <div className="flex gap-2 flex-wrap mt-1">
-                  {SPRINT_PALETTE.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setSprintForm((p) => ({ ...p, color: c }))}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: '50%',
-                        background: c,
-                        border: sprintForm.color === c ? '3px solid var(--text)' : '2px solid transparent',
-                        outline: sprintForm.color === c ? '2px solid ' + c : 'none',
-                        outlineOffset: 2,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label" htmlFor="canvas-new-sprint-start">
-                    Start date
-                  </label>
-                  <input
-                    id="canvas-new-sprint-start"
-                    required
-                    type="date"
-                    value={sprintForm.startDate}
-                    onChange={(e) => setSprintForm((p) => ({ ...p, startDate: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="canvas-new-sprint-end">
-                    End date
-                  </label>
-                  <input
-                    id="canvas-new-sprint-end"
-                    required
-                    type="date"
-                    value={sprintForm.endDate}
-                    onChange={(e) => setSprintForm((p) => ({ ...p, endDate: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button type="submit" className="btn-primary flex-1">
-                  Create sub-plan
-                </button>
-                <button type="button" onClick={() => setShowNewSprint(false)} className="btn-secondary">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </Modal>
-        )}
-
-        {editingSprint && (
-          <Modal title="Edit sub-plan" onClose={() => setEditingSprint(null)} width="max-w-sm">
-            <form onSubmit={handleEditSprint} className="space-y-4">
-              <div>
-                <label className="label" htmlFor="canvas-edit-sprint-name">
-                  Sub-plan name
-                </label>
-                <input
-                  id="canvas-edit-sprint-name"
-                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
-                  autoFocus
-                  required
-                  type="text"
-                  value={editSprintForm.name}
-                  onChange={(e) => setEditSprintForm((p) => ({ ...p, name: e.target.value }))}
-                  className="input"
-                />
-              </div>
-              <div>
-                {/* Not a real label - it's a heading for the color swatch grid below, no single associated control */}
-                <span className="label">Colour</span>
-                <div className="flex gap-2 flex-wrap mt-1">
-                  {SPRINT_PALETTE.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setEditSprintForm((p) => ({ ...p, color: c }))}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: '50%',
-                        background: c,
-                        border: editSprintForm.color === c ? '3px solid var(--text)' : '2px solid transparent',
-                        outline: editSprintForm.color === c ? '2px solid ' + c : 'none',
-                        outlineOffset: 2,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button type="submit" className="btn-primary flex-1">
-                  Save changes
-                </button>
-                <button type="button" onClick={() => setEditingSprint(null)} className="btn-secondary">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </Modal>
-        )}
+        <CanvasModals
+          showNewTask={showNewTask}
+          onCloseNewTask={() => setShowNewTask(false)}
+          newTaskName={newTaskName}
+          onNewTaskNameChange={setNewTaskName}
+          onSubmitNewTask={handleCreateTask}
+          creatingTask={creating}
+          showNewSprint={showNewSprint}
+          onCloseNewSprint={() => setShowNewSprint(false)}
+          sprintForm={sprintForm}
+          onSprintFormChange={setSprintForm}
+          onSubmitNewSprint={handleCreateSprint}
+          editingSprint={editingSprint}
+          onCloseEditSprint={() => setEditingSprint(null)}
+          editSprintForm={editSprintForm}
+          onEditSprintFormChange={setEditSprintForm}
+          onSubmitEditSprint={handleEditSprint}
+          showShareModal={showShareModal}
+          onCloseShareModal={() => setShowShareModal(false)}
+          snapshotName={snapshotName}
+          onSnapshotNameChange={setSnapshotName}
+          onSaveSnapshot={saveSnapshot}
+          savingSnapshot={savingSnapshot}
+          showLoadModal={showLoadModal}
+          onCloseLoadModal={() => setShowLoadModal(false)}
+          totalSnapshotCount={totalSnapshotCount}
+          snapshots={snapshots}
+          snapshotSearch={snapshotSearch}
+          onSnapshotSearchChange={setSnapshotSearch}
+          onApplySnapshot={applySnapshot}
+          onUpdateSnapshot={updateSnapshot}
+          onDeleteSnapshot={deleteSnapshot}
+          currentUserId={currentUser?.id}
+        />
 
         {showLegend && <LegendModal onClose={() => setShowLegend(false)} />}
 
@@ -2219,140 +1091,6 @@ function CanvasInner() {
               <span className="text-xs">Loading canvas…</span>
             </div>
           </div>
-        )}
-
-        {showShareModal && (
-          <Modal title="Share layout" onClose={() => setShowShareModal(false)} width="max-w-sm">
-            <div className="space-y-4">
-              <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                Save the current node positions and zoom level so teammates can apply the same view.
-              </p>
-              <div>
-                <label className="label" htmlFor="canvas-snapshot-name">
-                  Snapshot name
-                </label>
-                <input
-                  id="canvas-snapshot-name"
-                  // eslint-disable-next-line jsx-a11y/no-autofocus -- first field in a freshly-opened modal
-                  autoFocus
-                  type="text"
-                  value={snapshotName}
-                  onChange={(e) => setSnapshotName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveSnapshot();
-                  }}
-                  className="input"
-                  placeholder="e.g. Sub-plan 1 kickoff, QA review…"
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={saveSnapshot}
-                  disabled={savingSnapshot || !snapshotName.trim()}
-                  className="btn-primary flex-1 flex justify-center"
-                >
-                  {savingSnapshot ? (
-                    <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    'Save snapshot'
-                  )}
-                </button>
-                <button onClick={() => setShowShareModal(false)} className="btn-secondary">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </Modal>
-        )}
-
-        {showLoadModal && (
-          <Modal title="Load layout" onClose={() => setShowLoadModal(false)} width="max-w-md">
-            <div className="space-y-3">
-              {totalSnapshotCount === 0 ? (
-                <p className="text-sm py-4 text-center" style={{ color: 'var(--text-3)' }}>
-                  No saved layouts yet. Use "Share layout" to create one.
-                </p>
-              ) : (
-                <>
-                  {totalSnapshotCount > 5 && (
-                    <input
-                      // eslint-disable-next-line jsx-a11y/no-autofocus -- search field in a freshly-opened modal
-                      autoFocus
-                      type="text"
-                      value={snapshotSearch}
-                      onChange={(e) => setSnapshotSearch(e.target.value)}
-                      placeholder="Search by name or creator…"
-                      className="input text-sm"
-                    />
-                  )}
-                  {snapshots.length === 0 ? (
-                    <p className="text-sm py-4 text-center" style={{ color: 'var(--text-3)' }}>
-                      No layouts match "{snapshotSearch}"
-                    </p>
-                  ) : (
-                    <div
-                      className="divide-y rounded-lg overflow-hidden"
-                      style={{ border: '1px solid var(--border)', maxHeight: 360, overflowY: 'auto' }}
-                    >
-                      {snapshots.map((snap) => (
-                        <div
-                          key={snap.id}
-                          className="flex items-center gap-3 px-4 py-3"
-                          style={{ background: 'var(--surface)' }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
-                              {snap.name}
-                            </p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                              {snap.user.avatarEmoji ?? '👤'} {displayName(snap.user)} ·{' '}
-                              {new Date(snap.updatedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => applySnapshot(snap)}
-                            className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                            style={{ background: 'var(--brand)', color: 'white' }}
-                            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-                            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                          >
-                            Apply
-                          </button>
-                          {snap.userId === currentUser?.id && (
-                            <>
-                              <button
-                                onClick={() => updateSnapshot(snap)}
-                                className="flex-shrink-0 text-xs transition-colors"
-                                style={{ color: 'var(--text-3)' }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                                title="Overwrite with the current layout"
-                              >
-                                ↻
-                              </button>
-                              <button
-                                onClick={() => deleteSnapshot(snap)}
-                                className="flex-shrink-0 text-xs transition-colors"
-                                style={{ color: 'var(--text-3)' }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-                                title="Delete snapshot"
-                              >
-                                ✕
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-              <button onClick={() => setShowLoadModal(false)} className="btn-secondary w-full">
-                Close
-              </button>
-            </div>
-          </Modal>
         )}
       </div>
     </CanvasContext.Provider>
