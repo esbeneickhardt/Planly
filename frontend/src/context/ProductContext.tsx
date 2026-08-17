@@ -126,7 +126,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   const [refreshTasksQuick] = useDebouncedCallback(refreshTasks, 80);
 
   // Realtime: refresh task list on task events and on reconnect (to catch up on missed broadcasts).
-  // Both paths are debounced — API events at 300ms (import floods), browser events at 80ms
+  // Both paths are debounced - API events at 300ms (import floods), browser events at 80ms
   // (single actions still feel instant; bulk parallel updates collapse into one fetch).
   // ws.reconnected always refreshes immediately to catch up on missed broadcasts.
   useRealtimeUpdates(

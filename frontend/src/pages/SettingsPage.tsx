@@ -104,7 +104,7 @@ export default function SettingsPage() {
   }, [loadTeam]);
 
   if (!activeProduct) {
-    // Still loading — show spinner rather than the empty-state message so the UI
+    // Still loading - show spinner rather than the empty-state message so the UI
     // doesn't flash "Select a project" during the auth→products→permissions chain.
     if (!productsLoaded) {
       return (

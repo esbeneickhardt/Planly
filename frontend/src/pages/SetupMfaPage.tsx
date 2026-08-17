@@ -1,6 +1,6 @@
 /**
  * Forced MFA setup screen shown when the server requires MFA and the user hasn't set it up.
- * No dismiss button — the user must complete setup or log out to leave this screen.
+ * No dismiss button - the user must complete setup or log out to leave this screen.
  * Adapts the same setup flow as TotpModal but as a full-page experience.
  */
 import { useState, useEffect } from 'react';
@@ -201,7 +201,7 @@ export default function SetupMfaPage() {
               Copy all codes
             </button>
             <button onClick={handleDone} className="btn-primary w-full justify-center flex">
-              I've saved my codes — continue →
+              I've saved my codes - continue →
             </button>
           </div>
         )}

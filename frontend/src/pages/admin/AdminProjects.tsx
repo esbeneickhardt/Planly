@@ -190,7 +190,7 @@ export default function AdminProjects({ showToast }: Props) {
                   className="py-2.5 pr-4 text-xs"
                   style={{ color: p.deadline && isBeforeToday(p.deadline) ? '#ef4444' : 'var(--text-3)' }}
                 >
-                  {p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}
+                  {p.deadline ? new Date(p.deadline).toLocaleDateString() : '-'}
                 </td>
                 <td className="py-2.5 pr-4 text-xs" style={{ color: 'var(--text-3)' }}>
                   {new Date(p.createdAt).toLocaleDateString()}

@@ -1,5 +1,5 @@
 /**
- * Modal showing a user's public profile — display name, avatar, and all their project memberships with role badges.
+ * Modal showing a user's public profile - display name, avatar, and all their project memberships with role badges.
  */
 import { useState, useEffect } from 'react';
 import { api, displayName } from '../../api/client';

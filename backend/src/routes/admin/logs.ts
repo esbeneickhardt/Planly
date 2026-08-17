@@ -10,7 +10,7 @@ import { requireAdmin } from '../../middleware/auth';
 import prisma from '../../db/client';
 import { validate } from '../../utils/validate';
 
-// Validates the prune request — defaults to 90 days if olderThanDays is omitted
+// Validates the prune request - defaults to 90 days if olderThanDays is omitted
 const pruneLogsSchema = z.object({ olderThanDays: z.number().int().min(1).optional() });
 
 // Builds the Prisma where clause for log queries shared by GET and export routes

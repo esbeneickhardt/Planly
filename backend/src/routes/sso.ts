@@ -25,7 +25,7 @@ import { encryptOptional } from '../utils/crypto';
 // Whether OIDC/SSO is active for this deployment (requires all three env vars to be set)
 const SSO_ENABLED = !!(config.oidc.issuer && config.oidc.clientId && config.oidc.clientSecret);
 
-// Cached OIDC discovery result — initialized lazily on first authorize request
+// Cached OIDC discovery result - initialized lazily on first authorize request
 let _oidcConfig: oidcClient.Configuration | null = null;
 
 // Fetches (and caches) the OIDC provider configuration via discovery endpoint

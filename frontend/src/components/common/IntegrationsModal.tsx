@@ -287,7 +287,7 @@ export default function IntegrationsModal({ onClose }: Props) {
                 className="rounded"
               />
               <span className="text-xs" style={{ color: 'var(--text-2)' }}>
-                Read-only (GET requests only — cannot create, update, or delete)
+                Read-only (GET requests only - cannot create, update, or delete)
               </span>
             </label>
             {error && (

@@ -1,10 +1,10 @@
 /**
  * Unit tests for the storage utility module.
  *
- * verifyMimeBytes  — guards against MIME spoofing by comparing magic bytes to the declared type.
- * fileExtFromMime / mimeFromExt — bidirectional MIME ↔ extension mapping.
- * generateFilename — deterministic content-hash-based filename to prevent collisions.
- * storeFile / getFileBuffer / deleteFile — local disk and S3 storage modes.
+ * verifyMimeBytes  - guards against MIME spoofing by comparing magic bytes to the declared type.
+ * fileExtFromMime / mimeFromExt - bidirectional MIME ↔ extension mapping.
+ * generateFilename - deterministic content-hash-based filename to prevent collisions.
+ * storeFile / getFileBuffer / deleteFile - local disk and S3 storage modes.
  *
  * All FS calls and S3 SDK calls are mocked; no actual files are written.
  */

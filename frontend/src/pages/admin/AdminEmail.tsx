@@ -412,7 +412,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                   </div>
                   {entries.length === 0 ? (
                     <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-                      No entries yet — all registrations are blocked while this is empty.
+                      No entries yet - all registrations are blocked while this is empty.
                     </p>
                   ) : (
                     <>

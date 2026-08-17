@@ -114,7 +114,7 @@ async function ensureAdminAccount() {
   const passwordHash = await bcrypt.hash(initialPassword, 12);
 
   // Derive a username from the email local-part. If someone has already claimed it, append a
-  // numeric suffix — this is cosmetic only; admin rights come from isFoundingAdmin, not the username.
+  // numeric suffix - this is cosmetic only; admin rights come from isFoundingAdmin, not the username.
   const base =
     (adminEmail.split('@')[0] ?? '')
       .toLowerCase()
@@ -161,7 +161,7 @@ async function ensureAdminAccount() {
   }
 }
 
-// Transfers the founding-admin crown to RECROWN_EMAIL if set — use when the current founding admin is unavailable
+// Transfers the founding-admin crown to RECROWN_EMAIL if set - use when the current founding admin is unavailable
 async function emergencyRecrown() {
   const email = (process.env.RECROWN_EMAIL ?? '').toLowerCase().trim();
   if (!email) return;
@@ -228,9 +228,9 @@ async function main() {
   });
 
   // Content-Security-Policy (CSP) is a browser security header that restricts which scripts, styles,
-  // and images the browser is allowed to load — a key defence against cross-site scripting (XSS).
+  // and images the browser is allowed to load - a key defence against cross-site scripting (XSS).
   // Helmet's global CSP is disabled here because:
-  //   • API responses are JSON — browsers never execute them, so a CSP header is meaningless.
+  //   • API responses are JSON - browsers never execute them, so a CSP header is meaningless.
   //   • The React frontend is served by Nginx, which sets its own CSP for those HTML/JS/CSS files.
   // The only HTML this server ever returns is Fastify error pages; those get a narrow CSP in the onSend hook below.
   await app.register(helmet, {
@@ -270,7 +270,7 @@ async function main() {
   });
 
   // Echo the request ID so the client can correlate errors with server logs;
-  // also inject a narrow Content-Security-Policy (CSP) on any HTML responses (Fastify error pages only — the SPA is served by Nginx)
+  // also inject a narrow Content-Security-Policy (CSP) on any HTML responses (Fastify error pages only - the SPA is served by Nginx)
   app.addHook('onSend', (_req, reply, _payload, done) => {
     reply.header('X-Request-Id', _req.id as string);
     const ct = reply.getHeader('content-type');
@@ -305,7 +305,7 @@ async function main() {
     done();
   });
 
-  // Sec-Fetch-* header validation — defence-in-depth against CSRF.
+  // Sec-Fetch-* header validation - defence-in-depth against CSRF.
   // Modern browsers attach these headers on every request and they cannot be forged by JS.
   // If Sec-Fetch-Site is present and says 'cross-site', reject non-GET/HEAD mutating requests.
   // Requests from API clients (curl, PATs, mobile) omit the header entirely and pass through.
@@ -324,7 +324,7 @@ async function main() {
     done();
   });
 
-  // CSP violation reports from the browser — no auth, logged at warn level for review.
+  // CSP violation reports from the browser - no auth, logged at warn level for review.
   // Violations appear when injected scripts or rogue resources are blocked by the CSP.
   // Set SECURITY_ALERT_WEBHOOK_URL to route high-frequency violations to Slack/Discord.
   app.addContentTypeParser('application/csp-report', { parseAs: 'string' }, (_req, body, done) => {
@@ -364,7 +364,7 @@ async function main() {
           if (user?.isAdmin) return;
         }
       } catch {
-        /* invalid / expired token — apply IP rules */
+        /* invalid / expired token - apply IP rules */
       }
     }
 

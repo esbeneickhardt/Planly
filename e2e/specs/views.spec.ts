@@ -3,7 +3,7 @@
  *
  * Verifies that both view routes render without crashing for an authenticated
  * user. Tests that seeded tasks and asserted their appearance in Gantt bars /
- * Canvas cards were removed — they required project + task creation via mixed
+ * Canvas cards were removed - they required project + task creation via mixed
  * browser-navigation and page.request API calls, which is unreliable in
  * Playwright 1.61 due to cookie-store isolation differences between
  * page.request and page.evaluate(fetch).

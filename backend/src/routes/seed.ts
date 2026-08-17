@@ -51,11 +51,11 @@ export async function seedRoutes(app: FastifyInstance) {
         emoji: '🎙️',
         description: `# 🎙️ Podcast Launch
 
-A weekly show at the intersection of **AI, software engineering, and building in public**. Honest conversations about making real things with new tools — recorded, edited, and shipped every week.
+A weekly show at the intersection of **AI, software engineering, and building in public**. Honest conversations about making real things with new tools - recorded, edited, and shipped every week.
 
 ## Why this exists
 
-Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each episode follows a real project in progress, with real code, real decisions, and honest post-mortems. No hype, no "the future of work" takes — just builders talking to builders.
+Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each episode follows a real project in progress, with real code, real decisions, and honest post-mortems. No hype, no "the future of work" takes - just builders talking to builders.
 
 ## Episode format
 
@@ -64,14 +64,14 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
 | Cold open | 3 min | The problem we're solving this week |
 | Deep dive | 25 min | One technical topic, zero hand-waving |
 | Live demo | 15 min | Actual code, actual output, actual errors |
-| Retro | 7 min | What surprised us — good and bad |
+| Retro | 7 min | What surprised us - good and bad |
 
 ## Distribution
 
-- **Spotify** — primary platform, auto-published via RSS
-- **Apple Podcasts** — submitted through Podcasters Connect
-- **YouTube** — full video recording of every session, live within 24 h of audio release
-- **Show website** — episode notes, code links, and searchable transcripts`,
+- **Spotify** - primary platform, auto-published via RSS
+- **Apple Podcasts** - submitted through Podcasters Connect
+- **YouTube** - full video recording of every session, live within 24 h of audio release
+- **Show website** - episode notes, code links, and searchable transcripts`,
         deadline: p1deadline,
         teamId: team1.id,
         ownerId: userId,
@@ -98,7 +98,7 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
     const p1e = await t1({ name: 'Find date', status: 'backlog', ownerId: demoUser.id, color: '#3b82f6' });
     const p1f = await t1({ name: 'Buy snacks & supplies', status: 'backlog', ownerId: demoUser.id, color: '#3b82f6' });
 
-    // ── Episode production — Record episode is the milestone ───────────
+    // ── Episode production - Record episode is the milestone ───────────
     const rdRec = new Date();
     rdRec.setDate(rdRec.getDate() + 7);
     const prod1 = await t1({
@@ -162,7 +162,7 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
     await dep(p1e.id, p1b.id);      // find date
     await dep(p1f.id, p1b.id);      // buy snacks
 
-    // Record episode milestone — all three tracks must be done
+    // Record episode milestone - all three tracks must be done
     await dep(prod1.id, p1d.id);
     await dep(prod1.id, p1e.id);
     await dep(prod1.id, p1f.id);
@@ -195,7 +195,7 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
 
     await prisma.productConnection.create({ data: { productId: p1.id, taskId: sm1.id } });
 
-    // ── Podcast: Sub-plan 1 — Episode 1 (active) ──────────────────────
+    // ── Podcast: Sub-plan 1 - Episode 1 (active) ──────────────────────
     const sp1Start = new Date();
     const sp1End = new Date();
     sp1End.setDate(sp1End.getDate() + 14);
@@ -226,7 +226,7 @@ Most tech podcasts talk *about* AI from a safe distance. We go hands-on: each ep
         emoji: '🚀',
         description: `# 🚀 Build a Rocket
 
-A **180-day project** to design, build, and launch a single-stage rocket from first principles — concept to launch in six engineering phases.
+A **180-day project** to design, build, and launch a single-stage rocket from first principles - concept to launch in six engineering phases.
 
 ## Mission parameters
 
@@ -235,7 +235,7 @@ A **180-day project** to design, build, and launch a single-stage rocket from fi
 | Target altitude | 3,000 m AGL |
 | Payload | 500 g inert mass |
 | Recovery system | Dual-deploy parachute (drogue @ apogee, main @ 300 m) |
-| Propulsion | Hybrid motor — HTPB fuel / N₂O oxidiser |
+| Propulsion | Hybrid motor - HTPB fuel / N₂O oxidiser |
 | Airframe material | Carbon fibre overwrap on aluminium tube |
 | Launch window | Day 180 |
 
@@ -243,7 +243,7 @@ A **180-day project** to design, build, and launch a single-stage rocket from fi
 
 \`\`\`mermaid
 gantt
-  title Rocket Build — 180-Day Roadmap
+  title Rocket Build - 180-Day Roadmap
   dateFormat  YYYY-MM-DD
   section Design
   Concept & design freeze    :done,    p1, 2025-01-01, 20d
@@ -262,16 +262,16 @@ gantt
 ## Engineering workstreams
 
 ### 🔴 Propulsion
-Custom hybrid motor designed in-house. Engine specification drives everything downstream — thrust curve determines fin sizing, which determines airframe loads, which determines material selection. Static fire test on Day 60 is the first hard gate.
+Custom hybrid motor designed in-house. Engine specification drives everything downstream - thrust curve determines fin sizing, which determines airframe loads, which determines material selection. Static fire test on Day 60 is the first hard gate.
 
 ### 🔵 Structural
 Carbon fibre airframe, aluminium coupler, fibreglass nose cone, trapezoidal fins. Material selection trade-off (CF vs. fibreglass) is still open pending final mass budget from propulsion. Fin geometry must survive max-Q at ~Mach 0.8.
 
 ### 🟢 Avionics
-Dual-redundant flight computers (primary + backup). GPS logging at 10 Hz. Telemetry downlink over 433 MHz. Flight software implements dual-deploy ejection logic with barometric + accelerometer cross-check — both sensors must agree before firing any charge.
+Dual-redundant flight computers (primary + backup). GPS logging at 10 Hz. Telemetry downlink over 433 MHz. Flight software implements dual-deploy ejection logic with barometric + accelerometer cross-check - both sensors must agree before firing any charge.
 
 ### 🟡 Ground systems
-Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressure relief and remote vent. Range safety system with RF arm/disarm and independent flight-termination charge — **no range approval without a working safety system, no exceptions**.
+Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressure relief and remote vent. Range safety system with RF arm/disarm and independent flight-termination charge - **no range approval without a working safety system, no exceptions**.
 
 ## Key milestones
 
@@ -300,11 +300,11 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
 - Re-entry heating on nose cone at apogee
 - Apogee location and recovery drift zone (critical for site selection)
 
-**Thrust chamber fabrication** (Phase 2) is the longest single task — combustion chamber machining, injector plate, and nozzle are each multi-day jobs with external vendor dependencies.
+**Thrust chamber fabrication** (Phase 2) is the longest single task - combustion chamber machining, injector plate, and nozzle are each multi-day jobs with external vendor dependencies.
 
 ---
 
-> *"Simplicity is the ultimate sophistication — especially when the thing has to survive Mach 0.8 and come back in one piece."*`,
+> *"Simplicity is the ultimate sophistication - especially when the thing has to survive Mach 0.8 and come back in one piece."*`,
         deadline: p2deadline,
         teamId: team2.id,
         ownerId: userId,
@@ -593,7 +593,7 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
       canvasY: 380,
     });
 
-    // Design Freeze milestone — completed 70 days ago
+    // Design Freeze milestone - completed 70 days ago
     const rd20 = new Date();
     rd20.setDate(rd20.getDate() - 70);
     const rm1 = await t2({
@@ -679,7 +679,7 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
 
     await prisma.productConnection.create({ data: { productId: p2.id, taskId: rm6.id } });
 
-    // ── Rocket: Sub-plan 1 — Design & Concept (completed, -90 to -60 days) ──
+    // ── Rocket: Sub-plan 1 - Design & Concept (completed, -90 to -60 days) ──
     const rsp1s = new Date(); rsp1s.setDate(rsp1s.getDate() - 90);
     const rsp1e = new Date(); rsp1e.setDate(rsp1e.getDate() - 60);
     const rsp1 = await prisma.sprint.create({
@@ -695,7 +695,7 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
       ],
     });
 
-    // ── Rocket: Sub-plan 2 — Propulsion Build (completed, -60 to -30 days) ──
+    // ── Rocket: Sub-plan 2 - Propulsion Build (completed, -60 to -30 days) ──
     const rsp2s = new Date(); rsp2s.setDate(rsp2s.getDate() - 60);
     const rsp2e = new Date(); rsp2e.setDate(rsp2e.getDate() - 30);
     const rsp2 = await prisma.sprint.create({
@@ -711,7 +711,7 @@ Mobile launch pad rated to 2 kN peak thrust. Oxidiser filling system with pressu
       ],
     });
 
-    // ── Rocket: Sub-plan 3 — Structural Build (active, -30 days to +20 days) ──
+    // ── Rocket: Sub-plan 3 - Structural Build (active, -30 days to +20 days) ──
     const rsp3s = new Date(); rsp3s.setDate(rsp3s.getDate() - 30);
     const rsp3e = new Date(); rsp3e.setDate(rsp3e.getDate() + 20);
     const rsp3 = await prisma.sprint.create({

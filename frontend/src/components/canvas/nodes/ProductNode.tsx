@@ -1,6 +1,6 @@
 /**
  * ReactFlow node representing the root product on the canvas.
- * Only has a `target` handle (left side) — dependency edges connect FROM tasks TO this node.
+ * Only has a `target` handle (left side) - dependency edges connect FROM tasks TO this node.
  * Marked non-deletable in `buildGraph`; `memo` prevents re-renders when unrelated nodes update.
  */
 import { memo } from 'react';

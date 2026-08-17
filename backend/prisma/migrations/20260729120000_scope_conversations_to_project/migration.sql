@@ -15,7 +15,7 @@ CREATE INDEX "Conversation_productId_isAdminChat_idx" ON "Conversation"("product
 -- for each one, find every active (non-deleted) project whose team contains ALL of its
 -- participants. If exactly one such project exists, assign it. Ambiguous conversations (no
 -- matching project, or more than one) are left with productId = NULL, which the app now treats
--- as "not visible under any project" — safer than guessing wrong and leaving cross-project chat
+-- as "not visible under any project" - safer than guessing wrong and leaving cross-project chat
 -- leakage in place.
 WITH conv_size AS (
   SELECT "conversationId", COUNT(*)::int AS n

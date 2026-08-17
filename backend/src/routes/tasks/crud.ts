@@ -33,7 +33,7 @@ const milestoneReorderSchema = z.object({
 // Validation schema for canvas drag position updates
 const positionSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
 
-// Shared Prisma include shape returned by every task read — keeps all routes consistent
+// Shared Prisma include shape returned by every task read - keeps all routes consistent
 export const TASK_INCLUDE = {
   owner: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
   reviewer: { select: { id: true, username: true, realName: true, avatarEmoji: true } },
@@ -465,7 +465,7 @@ export async function taskCrudRoutes(app: FastifyInstance) {
     reply.status(204).send();
   });
 
-  // Update a task's canvas (x, y) coordinates — separate from main PATCH to avoid triggering webhooks on drag
+  // Update a task's canvas (x, y) coordinates - separate from main PATCH to avoid triggering webhooks on drag
   app.patch('/api/products/:productId/tasks/:taskId/position', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, taskId } = req.params as { productId: string; taskId: string };
     if (!(await requireTabWrite(productId, req.user, ['canvas'], reply))) return;

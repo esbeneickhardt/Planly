@@ -1,7 +1,7 @@
 /**
  * Right-side drawer for managing which tasks belong to a sprint (sub-plan).
  * Shows two columns: tasks in the sprint (left) and all other non-done tasks (right).
- * Add/remove operations are optimistic — the UI updates immediately and rolls back on API failure.
+ * Add/remove operations are optimistic - the UI updates immediately and rolls back on API failure.
  */
 import { useState } from 'react';
 import type { Task } from '../../types';

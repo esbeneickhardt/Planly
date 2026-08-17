@@ -6,7 +6,7 @@ global:
 rule_files:
   - 'alerts.yml'
 
-# Alertmanager is optional — remove this block if you don't run one
+# Alertmanager is optional - remove this block if you don't run one
 # alerting:
 #   alertmanagers:
 #     - static_configs:

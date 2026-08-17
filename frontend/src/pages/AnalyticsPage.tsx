@@ -1,6 +1,6 @@
 /**
  * Analytics dashboard showing task throughput, status breakdown, cumulative completions,
- * weekday distribution, sprint velocity, and a personal workload panel — all for the active product.
+ * weekday distribution, sprint velocity, and a personal workload panel - all for the active product.
  * Chart period preferences are persisted per-product in localStorage.  The page redirects to /kanban
  * if analytics is disabled and the viewer is not a manager.
  */

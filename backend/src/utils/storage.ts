@@ -105,7 +105,7 @@ export function fileExtFromMime(mime: string): string | null {
   return ALLOWED_MIME_TYPES[mime] ?? null;
 }
 
-// Timestamp + sanitised original name — human-readable and sortable on disk
+// Timestamp + sanitised original name - human-readable and sortable on disk
 export function generateFilename(originalName: string, ext: string): string {
   const now = new Date();
   const ts =

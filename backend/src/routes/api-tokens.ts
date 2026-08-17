@@ -28,7 +28,7 @@ function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
-// Fields returned for token listings — never includes tokenHash
+// Fields returned for token listings - never includes tokenHash
 const TOKEN_SELECT = {
   id: true,
   name: true,

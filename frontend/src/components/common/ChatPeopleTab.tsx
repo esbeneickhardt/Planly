@@ -60,7 +60,7 @@ export default function ChatPeopleTab({
   const { user } = useAuth();
 
   if (activeConvId) {
-    // DM thread — same visual identity as project/admin chat
+    // DM thread - same visual identity as project/admin chat
     const conv = conversations.find((c) => c.id === activeConvId);
     const closed = conv?.closed ?? false;
     return (
@@ -134,7 +134,7 @@ export default function ChatPeopleTab({
     );
   }
 
-  // People list — search input + recent conversations
+  // People list - search input + recent conversations
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="px-4 pt-3 pb-2 flex-shrink-0 space-y-2">
@@ -147,7 +147,7 @@ export default function ChatPeopleTab({
         />
       </div>
       <div className="flex-1 overflow-y-auto">
-        {/* Recent conversations — always shown when no search query */}
+        {/* Recent conversations - always shown when no search query */}
         {!dmUserSearch && conversations.length > 0 && (
           <div className="px-4 pb-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-3)' }}>
@@ -242,7 +242,7 @@ export default function ChatPeopleTab({
             );
           })()}
 
-        {/* Empty state — no search and no conversations yet */}
+        {/* Empty state - no search and no conversations yet */}
         {!dmUserSearch && conversations.length === 0 && (
           <div className="flex flex-col items-center justify-center h-32 gap-2" style={{ color: 'var(--text-3)' }}>
             <span className="text-3xl opacity-30">💬</span>

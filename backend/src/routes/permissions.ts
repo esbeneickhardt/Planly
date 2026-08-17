@@ -16,7 +16,7 @@ import { logAdminEvent } from '../utils/audit';
 
 const GOVERNED_TABS = ['kanban', 'backlog', 'gantt', 'canvas', 'messages', 'analytics', 'settings'] as const;
 
-// Validates a batch permission update — up to 100 user+tab+level tuples per request
+// Validates a batch permission update - up to 100 user+tab+level tuples per request
 const permissionUpdateSchema = z
   .array(
     z.object({

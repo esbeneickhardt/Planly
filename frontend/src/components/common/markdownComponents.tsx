@@ -55,7 +55,7 @@ export const markdownComponents = {
       {children}
     </blockquote>
   ),
-  // pre is always transparent — the code renderer below owns the block wrapper, to avoid double-<pre>
+  // pre is always transparent - the code renderer below owns the block wrapper, to avoid double-<pre>
   pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
   code: ({ children, className }: { children?: React.ReactNode; className?: string }) => {
     if (className?.includes('language-mermaid')) return <MermaidBlock code={String(children).trimEnd()} />;

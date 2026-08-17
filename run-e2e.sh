@@ -5,13 +5,13 @@
 # deletes it afterwards. No manual credential setup needed.
 #
 # Optional env vars:
-#   E2E_BASE_URL — override the app URL (default: http://frontend via planly_default network)
+#   E2E_BASE_URL - override the app URL (default: http://frontend via planly_default network)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 IMAGE="planly-e2e"
 
-# Unique credentials for this run — readable only for the duration of the script
+# Unique credentials for this run - readable only for the duration of the script
 SUFFIX=$(date +%s)
 ADMIN_EMAIL="e2e_admin_${SUFFIX}@planly.test"
 ADMIN_USER="e2eadmin${SUFFIX}"

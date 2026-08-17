@@ -42,7 +42,7 @@ vi.mock('ioredis', () => ({
   },
 }));
 
-// Static import — resolves AFTER the hoisted vi.hoisted + vi.mock have run
+// Static import - resolves AFTER the hoisted vi.hoisted + vi.mock have run
 import { canJoin, joinRoom, leaveRoom, broadcast, checkWsRateLimit } from '../../realtime/manager';
 
 // ── Helpers ───────────────────────────────────────────────────────────────

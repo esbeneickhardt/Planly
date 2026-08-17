@@ -1,5 +1,5 @@
 /**
- * IP restriction routes — two independent rule sets per scope (user / admin).
+ * IP restriction routes - two independent rule sets per scope (user / admin).
  *
  * Each scope has an allowlist and a blocklist that work together:
  *   - Blocklist entries are always denied.

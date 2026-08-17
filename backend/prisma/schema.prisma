@@ -390,7 +390,7 @@ model ApiToken {
 
 // ── Refresh token rotation ────────────────────────────────────────────────────
 // Short-lived JWTs (1 h) are paired with long-lived refresh tokens (30 d).
-// All tokens derived from a single login share a familyId — if a rotated
+// All tokens derived from a single login share a familyId - if a rotated
 // token is ever re-used, the entire family is revoked (stolen-token detection).
 
 model RefreshToken {
