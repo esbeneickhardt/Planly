@@ -1,128 +1,101 @@
-Planly Community License v1.1
+Business Source License 1.1
 
-Copyright (c) 2026 Esben Eickhardt. All rights reserved.
+Parameters
 
-────────────────────────────────────────────────────────────────────────────────
+Licensor:             Esben Eickhardt
+Licensed Work:        Planly
+                       The Licensed Work is (c) 2026 Esben Eickhardt
+Additional Use Grant:  You may make production use of the Licensed Work for any
+                       personal, academic, internal business, or commercial
+                       purpose - including self-hosting an unmodified or
+                       modified copy for your own organization's use -
+                       provided that You do not:
 
-DEFINITIONS
+                       (a) offer the Licensed Work, in whole or substantial
+                           part, or a Modified Version of it, as a hosted or
+                           managed service to third parties in exchange for
+                           payment or other compensation;
 
-"Software" means the Planly source code, documentation, and any associated
-files in this repository.
+                       (b) use the Licensed Work as the primary basis for a
+                           separate product or service that competes with
+                           Planly, whether offered commercially or not; or
 
-"Licensor" means the copyright holder named above.
+                       (c) use the Licensed Work's source code, documentation,
+                           or any part thereof as training data, fine-tuning
+                           data, or in any dataset used to train, evaluate, or
+                           improve artificial intelligence or machine learning
+                           models of any kind.
 
-"You" means the individual or organization exercising rights under this license.
+Change Date:           The fourth anniversary of the first publicly available
+                       distribution of this version of the Licensed Work.
 
-"Use" means running, copying, studying, or modifying the Software for any
-purpose other than what is expressly prohibited below.
-
-"Modified Version" means any work derived from or based on the Software in
-which one or more files have been altered, added, or removed.
-
-"Distribute" means to make the Software or a Modified Version available to
-any third party, whether as source code, compiled binaries, or any other form,
-including providing access over a network.
-
-────────────────────────────────────────────────────────────────────────────────
-
-GRANT OF RIGHTS
-
-Subject to the terms and conditions of this license, the Licensor hereby
-grants You a worldwide, royalty-free, non-exclusive, non-transferable license
-to:
-
-  1. Use the Software for any personal, academic, internal business, or
-     commercial purpose.
-
-  2. Copy and modify the Software for Your own use.
-
-  3. Contribute modifications back to the original project under the terms of
-     this license.
-
-  4. Distribute unmodified copies of the Software as long as this license file
-     is included in full and no charge is made beyond reasonable distribution
-     costs.
+Change License:        Apache License, Version 2.0
 
 ────────────────────────────────────────────────────────────────────────────────
 
-PATENT LICENSE
+Terms
 
-Each contributor to this Software hereby grants You a perpetual, worldwide,
-royalty-free, non-exclusive, irrevocable patent license to make, use, sell,
-offer for sale, import, and otherwise run, modify, and propagate the Software,
-where such license applies only to those patent claims licensable by that
-contributor that are necessarily infringed by their contribution(s) alone or
-by combination of their contribution(s) with the Software.
+The Licensor hereby grants you the right to copy, modify, create derivative
+works, redistribute, and make non-production use of the Licensed Work. The
+Licensor may make an Additional Use Grant, above, permitting limited
+production use.
 
-If You institute patent litigation against any entity (including a cross-claim
-or counterclaim) alleging that the Software or a contribution incorporated
-within it constitutes direct or contributory patent infringement, then any
-patent licenses granted to You under this license for that Software shall
-terminate as of the date such litigation is filed.
+Effective on the Change Date, or the fourth anniversary of the first publicly
+available distribution of a specific version of the Licensed Work under this
+License, whichever comes first, the Licensor hereby grants you rights under
+the terms of the Change License, and the rights granted in the paragraph
+above terminate.
 
-────────────────────────────────────────────────────────────────────────────────
+If your use of the Licensed Work does not comply with the requirements
+currently in effect as described in this License, you must purchase a
+commercial license from the Licensor or refrain from using the Licensed Work.
 
-RESTRICTIONS
+All copies of the original and modified Licensed Work, and derivative works
+of the Licensed Work, are subject to this License. This License applies
+separately for each version of the Licensed Work and the Change Date may vary
+for each version of the Licensed Work released by Licensor.
 
-The following are expressly prohibited:
+You must conspicuously display this License on each original or modified
+copy of the Licensed Work. If you receive the Licensed Work in original or
+modified form from a third party, the terms and conditions set forth in this
+License apply to your use of that work.
 
-  1. COMMERCIAL SALE
-     You may not sell, sublicense, rent, lease, or otherwise transfer the
-     Software or any substantial portion of it in exchange for money or any
-     other form of compensation. This includes selling hosted access to an
-     instance that is primarily built on this Software.
+Any use of the Licensed Work in violation of this License will automatically
+terminate your rights under this License for the current and all other
+versions of the Licensed Work.
 
-  2. COMPETING PRODUCTS
-     You may not fork, modify, or use this Software as the primary basis for
-     a separate product, service, or project that competes with Planly -
-     whether offered commercially or not.
+This License does not grant you any right in any trademark or logo of
+Licensor (provided that you may use a trademark or logo of Licensor as
+expressly required by this License for attribution purposes).
 
-  3. AI AND MACHINE LEARNING TRAINING
-     You may not use the Software's source code, documentation, or any part
-     thereof as training data, fine-tuning data, or in any dataset used to
-     train, evaluate, or improve artificial intelligence or machine learning
-     models of any kind.
-
-  4. MISREPRESENTATION
-     You may not represent Modified Versions of this Software as the original
-     Planly project or imply endorsement by the Licensor without written
-     permission.
-
-  5. NO ADDITIONAL RESTRICTIONS
-     You may not impose any further legal terms or technological measures on
-     recipients of the Software that restrict rights granted by this license.
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON
+AN "AS IS" BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS,
+EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
+TITLE.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-PRESERVATION OF NOTICES
+Patent License
 
-When copying or Distributing the Software or any Modified Version You must:
+Each contributor to the Licensed Work hereby grants You a perpetual,
+worldwide, royalty-free, non-exclusive, irrevocable patent license to make,
+use, sell, offer for sale, import, and otherwise run, modify, and propagate
+the Licensed Work, where such license applies only to those patent claims
+licensable by that contributor that are necessarily infringed by their
+contribution(s) alone or by combination of their contribution(s) with the
+Licensed Work.
 
-  a. Retain all existing copyright, patent, trademark, and attribution notices
-     present in the Software's source files.
-
-  b. Include this license file in full.
-
-  c. Include a prominent notice in any Modified Version stating that You have
-     changed the files and the date of any changes.
-
-────────────────────────────────────────────────────────────────────────────────
-
-NETWORK USE
-
-If You deploy a Modified Version to provide a service to third parties over a
-network (including as a hosted or SaaS offering), You must make the complete
-corresponding source code of that Modified Version available to those users
-under the terms of this license, at no charge, via a publicly accessible URL
-stated prominently in the interface or documentation of that service.
-
-This requirement does not apply to unmodified deployments of the Software.
+If You institute patent litigation against any entity alleging that the
+Licensed Work or a contribution incorporated within it constitutes direct or
+contributory patent infringement, then any patent licenses granted to You
+under this License shall terminate as of the date such litigation is filed.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-ATTRIBUTION
+Attribution
 
-Any distribution or public deployment of this Software must include clear
+Any distribution or public deployment of the Licensed Work must include clear
 attribution to the original project:
 
   Planly - https://github.com/esbeneickhardt/Planly
@@ -130,37 +103,27 @@ attribution to the original project:
 
 ────────────────────────────────────────────────────────────────────────────────
 
-CONTRIBUTIONS
+Contributions
 
 By submitting a contribution (pull request, patch, or similar) to this
 repository You agree that your contribution is licensed under the same terms
-as this license, and you grant the Licensor a perpetual, irrevocable,
+as this License, and you grant the Licensor a perpetual, irrevocable,
 worldwide, royalty-free license to use, reproduce, modify, distribute, and
-sublicense your contribution as part of this project.
+sublicense your contribution as part of the Licensed Work - including under
+the Change License once the Change Date for the relevant version has passed.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-DISCLAIMER OF WARRANTIES
+Notice
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN
-ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The Business Source License (this document, or the "License") is not an Open
+Source license. However, the Licensed Work will eventually be made available
+under an Open Source License (the Change License, above), as stated in this
+License, on the Change Date.
 
-────────────────────────────────────────────────────────────────────────────────
+License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
+"Business Source License" is a trademark of MariaDB Corporation Ab.
 
-TERMINATION
-
-Your rights under this license terminate automatically if you violate any of
-its terms. Upon termination you must cease all use and distribution of the
-Software and destroy all copies in your possession.
-
-The Licensor may reinstate your rights at their sole discretion upon written
-notice.
-
-────────────────────────────────────────────────────────────────────────────────
-
-For commercial licensing inquiries or explicit written permission for uses not
-covered by this license, contact: esbeneickhardt@gmail.com
+For commercial licensing inquiries, or explicit written permission for a use
+not covered by the Additional Use Grant above, contact:
+esbeneickhardt@gmail.com

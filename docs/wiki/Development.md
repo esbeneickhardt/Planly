@@ -282,7 +282,7 @@ It reads a Trello board's JSON export (in Trello: **Menu → Print, export, and 
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for the current status of external contributions and how to report bugs or request features.
 
-If you're forking the repository for your own use under the [Planly Community License](../../LICENSE), run the TypeScript checks before building on the codebase:
+If you're forking the repository for your own use under the [Business Source License 1.1](../../LICENSE), run the TypeScript checks before building on the codebase:
 
 ```bash
 cd backend && npx tsc --noEmit
