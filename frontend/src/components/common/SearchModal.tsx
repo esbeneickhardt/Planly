@@ -11,33 +11,19 @@ import { useChat } from '../../context/ChatContext';
 import { useProfileModals } from '../../context/ProfileModalsContext';
 import { usePermission } from '../../context/PermissionContext';
 import { useAuth } from '../../context/AuthContext';
-import { api, displayName } from '../../api/client';
+import { api } from '../../api/client';
 import type { Task, Product } from '../../types';
 import type { SearchResults, Sprint } from '../../api/client';
 import TaskDetailPanel from './TaskDetailPanel';
-import { groupTitle } from './ChatGroupsTab';
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
+import NavSection from './search/NavSection';
+import TasksSection from './search/TasksSection';
+import MessagesSection from './search/MessagesSection';
+import ProjectsSection from './search/ProjectsSection';
+import QuickNavSection from './search/QuickNavSection';
+import { isSettingsNav, type NavItem, type TabFilter } from './search/types';
 
 type MsgResult = SearchResults['messages'][number];
-type TabFilter = 'all' | 'tasks' | 'messages' | 'settings' | 'projects';
-
-type NavItem = {
-  label: string;
-  subtitle: string;
-  /** Only used as a React key and as the destination when `action` is absent - personal/profile
-   * items that open a modal instead of navigating use a unique `#`-prefixed placeholder here. */
-  path: string;
-  icon: string;
-  keywords: string[];
-  /** When present, runs instead of `navigate(path)` - used for items that open a modal
-   * (personal settings, chat) or need to do something before navigating (create new task). */
-  action?: () => void;
-};
-
-/** Returns true for settings/admin nav items so they can be separated into the Settings tab. */
-function isSettingsNav(item: NavItem): boolean {
-  return item.label.startsWith('Settings') || item.label.startsWith('Profile') || item.label === 'Admin Panel';
-}
 
 function buildNavItems(
   canRead: (tab: string) => boolean,
@@ -178,20 +164,6 @@ function buildNavItems(
   return items;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  backlog: '#64748b',
-  todo: '#3b82f6',
-  in_progress: '#f59e0b',
-  done: '#10b981',
-  blocked: '#ef4444',
-};
-const STATUS_LABEL: Record<string, string> = {
-  backlog: 'Not started',
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  done: 'Done',
-  blocked: 'Blocked',
-};
 // Reduces clutter in a large result set: active/queued work surfaces above done tasks
 const STATUS_PRIORITY: Record<string, number> = {
   todo: 0,
@@ -587,8 +559,11 @@ export default function SearchModal({ onClose }: Props) {
       (results?.tasks.length ?? 0) > 0 ||
       (results?.messages.length ?? 0) > 0);
 
-  // Running index that mirrors allItems order - used to assign data-idx to every row
+  // Running index that mirrors allItems order - used to assign data-idx to every row. Section
+  // components call nextIdx() once per row they render, in the same left-to-right JSX order as
+  // this file's own render pass, so the shared counter stays correct across component boundaries.
   let rowIdx = -1;
+  const nextIdx = () => ++rowIdx;
 
   const TAB_LABELS: Record<TabFilter, string> = {
     all: 'All',
@@ -651,7 +626,7 @@ export default function SearchModal({ onClose }: Props) {
           </kbd>
         </div>
 
-        {/* Type filter tabs — shown as soon as any results exist */}
+        {/* Type filter tabs - shown as soon as any results exist */}
         {showTabs && (
           <div className="flex items-center gap-1 px-4 pt-2 pb-0" style={{ borderBottom: '1px solid var(--border)' }}>
             {TAB_ORDER.map((t) => {
@@ -688,326 +663,45 @@ export default function SearchModal({ onClose }: Props) {
             </div>
           )}
 
-          {/* Nav destinations + sprints (shown in 'all' and 'settings' tabs) */}
-          {(showNav.length > 0 || showSprints.length > 0) && (
-            <div className="py-1">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                {tab === 'settings' ? 'Settings' : 'Go to'}
-              </div>
-              {showNav.map((item) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={item.path}
-                    data-idx={i}
-                    onClick={() => activateNav(item)}
-                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span className="text-base flex-shrink-0 w-5 text-center">{item.icon}</span>
-                    <span className="flex-1 min-w-0">
-                      <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>
-                        {item.label}
-                      </span>
-                      <span className="text-xs block" style={{ color: 'var(--text-3)' }}>
-                        {item.subtitle}
-                      </span>
-                    </span>
-                    <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
-                      →
-                    </span>
-                  </button>
-                );
-              })}
-              {showSprints.map((cycle) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={cycle.id}
-                    data-idx={i}
-                    onClick={() => goToView('/gantt')}
-                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span className="w-3 h-3 rounded-full flex-shrink-0 ml-1" style={{ background: cycle.color }} />
-                    <span className="flex-1 min-w-0">
-                      <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>
-                        {cycle.name}
-                      </span>
-                      <span className="text-xs block" style={{ color: 'var(--text-3)' }}>
-                        Sub-plan ·{' '}
-                        {new Date(cycle.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} –{' '}
-                        {new Date(cycle.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })} ·
-                        Progress
-                      </span>
-                    </span>
-                    <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
-                      →
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <NavSection
+            navItems={showNav}
+            sprintItems={showSprints}
+            tab={tab}
+            highlightIdx={highlightIdx}
+            nextIdx={nextIdx}
+            onActivateNav={activateNav}
+            onGoToGantt={() => goToView('/gantt')}
+          />
 
-          {/* Milestones */}
-          {milestones.length > 0 && (
-            <div className="py-1">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                Milestones
-              </div>
-              {milestones.map((task) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={task.id}
-                    data-idx={i}
-                    onClick={() => handleTaskClick(task)}
-                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span className="text-xs flex-shrink-0">🏁</span>
-                    <span className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate block" style={{ color: 'var(--text)' }}>
-                        {task.name}
-                      </span>
-                      <span className="text-xs truncate block" style={{ color: 'var(--text-3)' }}>
-                        {STATUS_LABEL[task.status] ?? task.status}
-                        {task.deadline &&
-                          ` · due ${new Date(task.deadline).toLocaleDateString('en', { month: 'short', day: 'numeric' })}`}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <TasksSection
+            milestones={milestones}
+            regular={regular}
+            highlightIdx={highlightIdx}
+            nextIdx={nextIdx}
+            onTaskClick={handleTaskClick}
+          />
 
-          {/* Regular tasks */}
-          {regular.length > 0 && (
-            <div className="py-1">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                Tasks
-              </div>
-              {regular.map((task) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={task.id}
-                    data-idx={i}
-                    onClick={() => handleTaskClick(task)}
-                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: STATUS_COLOR[task.status] ?? '#64748b' }}
-                    />
-                    <span className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate block" style={{ color: 'var(--text)' }}>
-                        {task.name}
-                      </span>
-                      <span className="text-xs truncate block" style={{ color: 'var(--text-3)' }}>
-                        {STATUS_LABEL[task.status] ?? task.status}
-                        {task.owner && ` · ${displayName(task.owner)}`}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <MessagesSection
+            items={showMsgs}
+            highlightIdx={highlightIdx}
+            nextIdx={nextIdx}
+            loading={loadingMsg}
+            onMessageClick={handleMessageClick}
+          />
 
-          {/* Messages */}
-          {showMsgs.length > 0 && (
-            <div className="py-1">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                Messages
-              </div>
-              {showMsgs.map((msg) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={msg.id}
-                    data-idx={i}
-                    onClick={() => handleMessageClick(msg)}
-                    disabled={loadingMsg}
-                    className="w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span className="text-base flex-shrink-0 mt-0.5">{msg.author.avatarEmoji ?? '👤'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-                        {displayName(msg.author)}
-                        {msg.task && <span style={{ color: 'var(--text-3)' }}> · {msg.task.name}</span>}
-                        {msg.conversation && (
-                          <span style={{ color: 'var(--text-3)' }}>
-                            {' '}
-                            ·{' '}
-                            {msg.conversation.isGroup
-                              ? groupTitle(msg.conversation)
-                              : `DM with ${msg.conversation.other ? displayName(msg.conversation.other) : '…'}`}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-sm truncate mt-0.5" style={{ color: 'var(--text)' }}>
-                        {msg.content}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <ProjectsSection
+            items={showProjects}
+            activeProductId={activeProduct?.id}
+            highlightIdx={highlightIdx}
+            nextIdx={nextIdx}
+            onSelect={(product) => {
+              setActiveProduct(product);
+              onClose();
+            }}
+          />
 
-          {/* Projects — always last in 'all', only content in 'projects' tab */}
-          {showProjects.length > 0 && (
-            <div className="py-1">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                Projects
-              </div>
-              {showProjects.map((product) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                const isActive = product.id === activeProduct?.id;
-                return (
-                  <button
-                    key={product.id}
-                    data-idx={i}
-                    onClick={() => {
-                      setActiveProduct(product);
-                      onClose();
-                    }}
-                    className="w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span className="text-base flex-shrink-0 mt-0.5">{product.emoji ?? '🎯'}</span>
-                    <span className="flex-1 min-w-0">
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-                          {product.name}
-                        </span>
-                        {isActive && (
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                            style={{ background: 'var(--brand-subtle)', color: 'var(--brand)' }}
-                          >
-                            Active
-                          </span>
-                        )}
-                      </span>
-                      {product.description?.trim() ? (
-                        <span
-                          className="text-xs block mt-0.5 overflow-hidden"
-                          style={{
-                            color: 'var(--text-2)',
-                            display: '-webkit-box',
-                            WebkitBoxOrient: 'vertical',
-                            WebkitLineClamp: 2,
-                          }}
-                        >
-                          {product.description
-                            .replace(/#{1,6}\s|[*_`[\]()]/g, '')
-                            .trim()
-                            .slice(0, 200)}
-                        </span>
-                      ) : (
-                        <span className="text-xs block mt-0.5 italic" style={{ color: 'var(--text-3)' }}>
-                          No description set
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-xs flex-shrink-0 mt-0.5" style={{ color: 'var(--text-3)' }}>
-                      →
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Quick nav (empty query) */}
           {!query.trim() && (
-            <div className="py-1.5">
-              <div
-                className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-3)' }}
-              >
-                Navigate
-              </div>
-              {QUICK_NAV.map((item) => {
-                rowIdx++;
-                const i = rowIdx;
-                const isHighlighted = highlightIdx === i;
-                return (
-                  <button
-                    key={item.path}
-                    data-idx={i}
-                    onClick={() => goToView(item.path)}
-                    className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
-                    style={{ background: isHighlighted ? 'var(--brand-subtle)' : 'transparent' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
-                    }
-                  >
-                    <span className="text-sm" style={{ color: 'var(--text)' }}>
-                      {item.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <QuickNavSection items={QUICK_NAV} highlightIdx={highlightIdx} nextIdx={nextIdx} onGoToView={goToView} />
           )}
         </div>
 
