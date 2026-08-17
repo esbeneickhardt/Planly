@@ -2,7 +2,7 @@
  * Kanban view smoke tests.
  *
  * Verifies that the kanban route renders correctly for an authenticated user.
- * Data-seeding (columns, tasks) via API is intentionally omitted — mixing
+ * Data-seeding (columns, tasks) via API is intentionally omitted - mixing
  * browser-navigation cookies with page.request / page.evaluate(fetch) is
  * unreliable in Playwright 1.61, which was the root cause of persistent
  * flakiness in the previous data-driven tests.

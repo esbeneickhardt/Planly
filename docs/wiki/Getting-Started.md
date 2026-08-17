@@ -63,7 +63,7 @@ Open `.env` in your editor. The sections below explain every variable. Work thro
 | `JWT_SECRET` | JWT signing key (min 32 chars) | `openssl rand -hex 32` |
 | `ENCRYPTION_KEY` | AES-256-GCM key for secrets stored in the database | `openssl rand -hex 32` |
 | `ADMIN_EMAIL` | The account that registers with this email becomes the server owner (superadmin). | Your email address |
-| `UPLOADS_DIR` | Directory where file uploads are stored. Use an absolute path in production. Skip this if you are using S3-compatible storage — see [File storage](#file-storage) below. | e.g. `/home/planly/data/uploads` |
+| `UPLOADS_DIR` | Directory where file uploads are stored. Use an absolute path in production. Skip this if you are using S3-compatible storage - see [File storage](#file-storage) below. | e.g. `/home/planly/data/uploads` |
 
 Generate the two secrets in one go:
 
@@ -247,7 +247,7 @@ docker compose -f docker-compose.prod.yml logs traefik
 
 The `.env` file works fine for a single server. For production deployments with a team there are better approaches:
 
-**Option 1 — .env file on the server (simplest)**
+**Option 1 - .env file on the server (simplest)**
 
 Keep `.env` at a fixed path on the server, never in the repository or alongside database backups. Restrict permissions so only root can read it:
 
@@ -255,7 +255,7 @@ Keep `.env` at a fixed path on the server, never in the repository or alongside 
 chmod 600 /srv/planly/.env
 ```
 
-**Option 2 — CI/CD injection**
+**Option 2 - CI/CD injection**
 
 Docker Compose reads variables from the shell environment as well as from `.env`. Inject secrets at deploy time without any file on disk:
 
@@ -268,9 +268,9 @@ ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }} \
 docker compose -f docker-compose.prod.yml up --build --force-recreate -d
 ```
 
-**Option 3 — Secrets manager (recommended for teams)**
+**Option 3 - Secrets manager (recommended for teams)**
 
-Tools like [Doppler](https://doppler.com), HashiCorp Vault, or 1Password Secrets Automation inject secrets as environment variables at runtime — nothing is stored on disk:
+Tools like [Doppler](https://doppler.com), HashiCorp Vault, or 1Password Secrets Automation inject secrets as environment variables at runtime - nothing is stored on disk:
 
 ```bash
 doppler run -- docker compose -f docker-compose.prod.yml up --build --force-recreate -d
@@ -280,7 +280,7 @@ doppler run -- docker compose -f docker-compose.prod.yml up --build --force-recr
 
 - Never commit `.env` to the repository (it is gitignored by default)
 - Never put plaintext secrets in `docker-compose.yml`
-- Never store `ENCRYPTION_KEY` in the same place as the database backup — if both are compromised together, encrypted fields are exposed
+- Never store `ENCRYPTION_KEY` in the same place as the database backup - if both are compromised together, encrypted fields are exposed
 
 ### Reverse proxy
 
@@ -290,7 +290,7 @@ If you run Planly behind your own reverse proxy (Nginx, Caddy, etc.) instead of 
 2. Proxy `/api/*` and `/docs/*` to the backend on port 3000 (internal network only).
 3. Pass `X-Forwarded-For` and `X-Forwarded-Proto` headers.
 4. Set `TRUSTED_PROXY_DEPTH` in `.env` to match the number of proxy hops (default `1`).
-5. If the proxy terminates TLS and forwards plain HTTP to the backend, set `COOKIE_SECURE=false` — otherwise the `Secure` cookie flag causes instant logouts.
+5. If the proxy terminates TLS and forwards plain HTTP to the backend, set `COOKIE_SECURE=false` - otherwise the `Secure` cookie flag causes instant logouts.
 
 ---
 

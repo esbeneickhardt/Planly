@@ -27,7 +27,7 @@ const attachmentSchema = z.object({
 });
 // Role badge values accepted in admin chat (server-level roles only)
 const VALID_ROLES = ['Server Owner', 'Server Admin', 'Project Owner', 'Project Co-Owner'] as const;
-// Message creation payload — content OR at least one attachment required
+// Message creation payload - content OR at least one attachment required
 const createMessageSchema = z
   .object({
     content: z.string().max(10000),
@@ -39,7 +39,7 @@ const createMessageSchema = z
     message: 'Message must have content or at least one attachment',
     path: ['content'],
   });
-// Edit payload — content is required and cannot be blank
+// Edit payload - content is required and cannot be blank
 const editMessageSchema = z.object({ content: z.string().min(1).max(10000) });
 
 // 15-minute window after posting during which an author can edit their message

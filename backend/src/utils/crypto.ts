@@ -98,7 +98,7 @@ export function decryptValue(value: string): string {
 // exposing raw ciphertext.
 export function safeDecryptValue(value: string): string | null {
   const parts = value.split(':');
-  if (parts.length !== 3) return value; // unencrypted legacy value — return as-is
+  if (parts.length !== 3) return value; // unencrypted legacy value - return as-is
   try {
     const key = getKey();
     const [ivHex, tagHex, encHex] = parts as [string, string, string];

@@ -51,7 +51,7 @@ export default function ChatGroupsTab({
   messageListProps,
 }: Props) {
   if (activeGroupId) {
-    // Group thread — same visual identity as DM/project chat
+    // Group thread - same visual identity as DM/project chat
     const conv = groupConversations.find((c) => c.id === activeGroupId);
     return (
       <>
@@ -114,7 +114,7 @@ export default function ChatGroupsTab({
     );
   }
 
-  // Group list — "+ New group" button + existing groups
+  // Group list - "+ New group" button + existing groups
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="px-4 pt-3 pb-2 flex-shrink-0">

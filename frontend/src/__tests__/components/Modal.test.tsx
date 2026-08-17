@@ -99,7 +99,7 @@ describe('Modal', () => {
 
     // Move focus to the last focusable element in the dialog
     lastBtn.focus();
-    // The last focusable element is actually the close button if it's rendered last —
+    // The last focusable element is actually the close button if it's rendered last -
     // use the close button as the "last" element for this assertion
     closeBtn.focus();
     fireEvent.keyDown(window, { key: 'Tab' });

@@ -14,7 +14,7 @@ import { ConfirmProvider } from './context/ConfirmContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import AppLayout from './components/common/AppLayout';
 
-// Auth pages — lazy to avoid bundling them with the authenticated app shell
+// Auth pages - lazy to avoid bundling them with the authenticated app shell
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));

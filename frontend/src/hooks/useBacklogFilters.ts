@@ -94,7 +94,7 @@ export function useBacklogFilters(tasks: Task[], userId: string | undefined): Ba
     });
   }, [tasks, statusFilters, mineOnly, search, userId]);
 
-  // Raw badge counts — not filtered by mineOnly/statusFilters/search
+  // Raw badge counts - not filtered by mineOnly/statusFilters/search
   const unassignedCount = tasks.filter((t) => t.status === 'backlog' && !t.ownerId).length;
   const overdueCount = tasks.filter((t) => t.deadline && t.status !== 'done' && isBeforeToday(t.deadline)).length;
 

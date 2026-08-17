@@ -1,5 +1,5 @@
 /**
- * Admin IP Rules panel — two independent scopes:
+ * Admin IP Rules panel - two independent scopes:
  *   User rules:  apply to all non-admin users.
  *   Admin rules: apply only to admins/server owners.
  *
@@ -186,7 +186,7 @@ function IpRulesPanel({
           />
           <RuleList
             label="Blocked IPs"
-            description="Always denied — even if the IP is on the allowlist."
+            description="Always denied - even if the IP is on the allowlist."
             rules={data.blocklistRules}
             onAdd={(cidr, desc) => onAddRule(cidr, 'blocklist', desc)}
             onRemove={onRemoveRule}
@@ -231,7 +231,7 @@ export default function AdminIpRules({ showToast }: Props) {
           User access
         </h3>
         <IpRulesPanel
-          title="IP rules — all users"
+          title="IP rules - all users"
           description="Applies to all non-admin users. Admins and server owners are unaffected."
           data={userIp}
           onAddRule={async (cidr, listType, desc) => {
@@ -257,11 +257,11 @@ export default function AdminIpRules({ showToast }: Props) {
           <code style={{ background: 'var(--surface)' }} className="px-1 rounded">
             /api/admin/*
           </code>{' '}
-          routes. Use this to limit admin actions to specific IPs — for example, your home network or a company IP
+          routes. Use this to limit admin actions to specific IPs - for example, your home network or a company IP
           range.
         </p>
         <IpRulesPanel
-          title="IP rules — admins only"
+          title="IP rules - admins only"
           description="Regular users are unaffected by these rules."
           data={adminIp}
           onAddRule={async (cidr, listType, desc) => {

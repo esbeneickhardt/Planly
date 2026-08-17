@@ -1,5 +1,5 @@
 /**
- * Mobile navigation overlay — the hamburger menu shown on small screens.
+ * Mobile navigation overlay - the hamburger menu shown on small screens.
  * TopBar passes pre-filtered nav items so canRead/analyticsEnabled logic stays in one place.
  */
 import { useEffect } from 'react';

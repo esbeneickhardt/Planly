@@ -17,7 +17,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     // preceding requireProductMember call would be pure overhead.
     if (!(await requireTabRead(productId, req.user, ['analytics'], reply))) return;
 
-    // Verify analytics access — owners and co-owners can view even when disabled
+    // Verify analytics access - owners and co-owners can view even when disabled
     const product = await prisma.product.findUnique({
       where: { id: productId },
       select: { analyticsEnabled: true },

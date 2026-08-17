@@ -43,7 +43,7 @@ PATs and App Registration tokens are stored as SHA-256 hashes in the database. T
 
 ### Session Invalidation
 
-Each user has a `tokenVersion` integer. When a user changes their password, resets it, or an admin forces a logout, this counter is incremented. Every cookie-based request validates that the JWT's embedded `tokenVersion` matches the current value in the database — a mismatch instantly invalidates all outstanding JWTs without maintaining a blocklist. The value is cached in memory for 10 seconds to reduce database round-trips.
+Each user has a `tokenVersion` integer. When a user changes their password, resets it, or an admin forces a logout, this counter is incremented. Every cookie-based request validates that the JWT's embedded `tokenVersion` matches the current value in the database - a mismatch instantly invalidates all outstanding JWTs without maintaining a blocklist. The value is cached in memory for 10 seconds to reduce database round-trips.
 
 ### Email Verification
 

@@ -154,7 +154,7 @@ export default function PrivacyPage() {
             </p>
             <ul className="mt-2 space-y-1 pl-5 list-disc" style={{ color: 'var(--text-2)' }}>
               <li>
-                <strong>Right of access (Art. 15):</strong> Request a copy of all personal data held about you — see
+                <strong>Right of access (Art. 15):</strong> Request a copy of all personal data held about you - see
                 portability (Art. 20) below for the self-service export option.
               </li>
               <li>

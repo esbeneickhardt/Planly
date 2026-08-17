@@ -1,6 +1,6 @@
 /**
  * Thin context that exposes the chat panel's open/close state and currently focused task.
- * The provider lives in AppLayout, not here — this file only defines the shape and defaults.
+ * The provider lives in AppLayout, not here - this file only defines the shape and defaults.
  * `adminMode` switches the panel between product chat and the admin-wide announcement channel.
  */
 import { createContext, useContext } from 'react';

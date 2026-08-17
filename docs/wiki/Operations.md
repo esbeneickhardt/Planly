@@ -37,31 +37,31 @@ curl -sf http://localhost/api/health/ready && echo OK || echo UNHEALTHY
 
 ## Alert playbooks
 
-### PlanlyDown — backend not responding
+### PlanlyDown - backend not responding
 
 **Symptom:** `/api/health/ready` returns nothing or a connection error.
 
-1. `docker compose ps` — is the `backend` container running?
-2. If not: `docker compose logs backend --tail 100` — look for the exit reason (OOM, fatal error, env validation failure).
+1. `docker compose ps` - is the `backend` container running?
+2. If not: `docker compose logs backend --tail 100` - look for the exit reason (OOM, fatal error, env validation failure).
 3. If OOM-killed (exit code 137): the container exceeded its memory limit. Check `docker stats`; increase memory or reduce concurrent connections.
 4. If env validation error: check that `.env` has all required variables (`JWT_SECRET`, `ENCRYPTION_KEY`, `DB_PASSWORD`).
 5. Restart: `docker compose build --no-cache backend && docker compose up -d --force-recreate backend`.
 
-### PlanlyUnexpectedRestart — uptime under 2 minutes
+### PlanlyUnexpectedRestart - uptime under 2 minutes
 
 **Symptom:** Backend keeps restarting in a loop.
 
-1. `docker compose logs backend --since 10m` — look for "FATAL" lines.
-2. `docker compose logs db` — is PostgreSQL healthy? Check for out-of-disk or auth failures.
+1. `docker compose logs backend --since 10m` - look for "FATAL" lines.
+2. `docker compose logs db` - is PostgreSQL healthy? Check for out-of-disk or auth failures.
 3. If the DB is unreachable: `docker compose restart db`, wait 30 seconds.
 4. If the error repeats after a recent deploy: roll back the image (`git revert` + rebuild).
 
-### HighServerErrorRate — 5xx rate above 5%
+### HighServerErrorRate - 5xx rate above 5%
 
 1. `docker compose logs backend --since 30m | grep '"level":"error"'`
 2. Errors mentioning the database: check `docker compose logs db` for replication lag or connection refusals.
-3. Errors mentioning encryption: the `ENCRYPTION_KEY` may have changed. **Never change `ENCRYPTION_KEY` after first deploy** — it makes all encrypted rows unreadable.
-4. 502s from the frontend: Nginx is up but backend is down — see PlanlyDown above.
+3. Errors mentioning encryption: the `ENCRYPTION_KEY` may have changed. **Never change `ENCRYPTION_KEY` after first deploy** - it makes all encrypted rows unreadable.
+4. 502s from the frontend: Nginx is up but backend is down - see PlanlyDown above.
 
 ### HighWebSocketConnections / WebSocketConnectionsNearLimit
 
@@ -69,25 +69,25 @@ WebSocket rooms are held in memory per backend process. A single process handles
 
 **Short-term:** Restart the backend to clear stale connections (real clients reconnect automatically).
 
-**Sustained load:** Enable Redis and scale horizontally — see [Horizontal scaling](#horizontal-scaling) below.
+**Sustained load:** Enable Redis and scale horizontally - see [Horizontal scaling](#horizontal-scaling) below.
 
 ---
 
 ## Deploying an update
 
 ```bash
-# Always build fresh and recreate — docker restart does NOT apply image changes
+# Always build fresh and recreate - docker restart does NOT apply image changes
 docker compose build --no-cache backend
 docker compose up -d --force-recreate backend
 ```
 
-`prisma migrate deploy` runs automatically at container startup. If migrations fail the container exits with a non-zero code — check logs before declaring the deploy healthy.
+`prisma migrate deploy` runs automatically at container startup. If migrations fail the container exits with a non-zero code - check logs before declaring the deploy healthy.
 
 **To add a new schema change during development:**
 ```bash
 cd backend
 npx prisma migrate dev --name describe_your_change
-# Commits the new file under prisma/migrations/ — include it in the PR
+# Commits the new file under prisma/migrations/ - include it in the PR
 ```
 
 ---
@@ -98,7 +98,7 @@ For deployments exceeding ~3,000 concurrent active users:
 
 ### Prerequisites
 
-- A load balancer that supports sticky sessions (Nginx `ip_hash`, Traefik `sticky`) — WebSocket connections from one browser must always reach the same replica.
+- A load balancer that supports sticky sessions (Nginx `ip_hash`, Traefik `sticky`) - WebSocket connections from one browser must always reach the same replica.
 - Redis 7+ for WebSocket pub/sub across replicas.
 
 ### Steps
@@ -129,7 +129,7 @@ upstream planly_backend {
 
 PgBouncer is only needed when multiple backend replicas would push the total DB connection count above PostgreSQL's `max_connections` (default: 100). For a single instance or two-to-three replicas this is not needed.
 
-To enable PgBouncer: uncomment the `pgbouncer` service in `docker-compose.yml` and follow the instructions in the comments (two connection strings are required — `DATABASE_URL` for the app and `DATABASE_DIRECT_URL` for migrations).
+To enable PgBouncer: uncomment the `pgbouncer` service in `docker-compose.yml` and follow the instructions in the comments (two connection strings are required - `DATABASE_URL` for the app and `DATABASE_DIRECT_URL` for migrations).
 
 ---
 
@@ -235,7 +235,7 @@ Alert rules are in `monitoring/alerts.yml` and loaded automatically. Prometheus 
 If the founding admin account is locked out and cannot log in:
 
 1. Set `RECROWN_EMAIL=existing-user@example.com` in `.env`.
-2. `docker compose up -d --force-recreate backend` — the backend transfers crown privileges to that user on startup.
+2. `docker compose up -d --force-recreate backend` - the backend transfers crown privileges to that user on startup.
 3. Remove `RECROWN_EMAIL` from `.env` and recreate again to clear the log warning.
 
 This is recorded in the audit log as `CROWN_TRANSFERRED` with actor `SYSTEM (RECROWN_EMAIL)`.
@@ -260,7 +260,7 @@ docker compose down -v   # WARNING: deletes all volumes
 
 ## Key rotation
 
-Rotate `ENCRYPTION_KEY` annually or when a key-holder leaves. Run the rotation script from the repo root — it generates a new key, re-encrypts all DB secrets, updates `.env`, and restarts the backend automatically:
+Rotate `ENCRYPTION_KEY` annually or when a key-holder leaves. Run the rotation script from the repo root - it generates a new key, re-encrypts all DB secrets, updates `.env`, and restarts the backend automatically:
 
 ```bash
 bash scripts/rotate-encryption-key.sh

@@ -42,7 +42,7 @@ describe.skipIf(!HAS_DB)('Auth integration', () => {
     expect(body.email).toBe(email);
   });
 
-  // Wrong password must not leak whether the account exists — always 401
+  // Wrong password must not leak whether the account exists - always 401
   it('POST /api/auth/login rejects wrong password with 401', async () => {
     const suffix = randomSuffix();
     const email = `wrongpw_${suffix}@example.com`;

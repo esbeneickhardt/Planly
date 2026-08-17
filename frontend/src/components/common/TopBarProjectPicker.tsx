@@ -1,5 +1,5 @@
 /**
- * Project picker dropdown panel — rendered when the project button is clicked in the top bar.
+ * Project picker dropdown panel - rendered when the project button is clicked in the top bar.
  * The parent (TopBar) owns the isOpen state and the wrapping ref div.
  */
 import { useState } from 'react';

@@ -105,7 +105,7 @@ export async function columnRoutes(app: FastifyInstance) {
     }
   });
 
-  // Delete a column; tasks in it are moved to "todo" atomically — the "Done" column cannot be deleted
+  // Delete a column; tasks in it are moved to "todo" atomically - the "Done" column cannot be deleted
   app.delete('/api/products/:productId/columns/:columnId', { preHandler: requireAuth }, async (req, reply) => {
     const { productId, columnId } = req.params as { productId: string; columnId: string };
     if (!(await requireTabWrite(productId, req.user, ['kanban'], reply))) return;

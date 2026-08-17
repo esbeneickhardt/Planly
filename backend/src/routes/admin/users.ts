@@ -57,7 +57,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ id: updated.id, isAdmin: updated.isAdmin });
   });
 
-  // Grant admin status to a user — fires a security alert and writes an audit log entry
+  // Grant admin status to a user - fires a security alert and writes an audit log entry
   app.put('/api/admin/users/:id/promote', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const actor = await prisma.user.findUnique({
@@ -86,7 +86,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Remove admin status — blocked if the target is the founding admin or the last admin
+  // Remove admin status - blocked if the target is the founding admin or the last admin
   app.put('/api/admin/users/:id/demote', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const actor = await prisma.user.findUnique({
@@ -119,7 +119,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Transfer the founding admin crown — atomically swaps isFoundingAdmin so there is always exactly one
+  // Transfer the founding admin crown - atomically swaps isFoundingAdmin so there is always exactly one
   app.put('/api/admin/transfer-crown', { preHandler: requireAdmin }, async (req, reply) => {
     const crownBody = validate(transferCrownSchema, req.body, reply);
     if (!crownBody) return;
@@ -205,7 +205,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     const target = await prisma.user.findUnique({ where: { id }, select: { username: true, isFoundingAdmin: true } });
     if (!target) return reply.status(404).send({ error: 'User not found' });
     if (target.isFoundingAdmin) return reply.status(403).send({ error: "Cannot reset the founding admin's password." });
-    // 12-char random password (letters + digits) — readable enough to relay verbally or via DM
+    // 12-char random password (letters + digits) - readable enough to relay verbally or via DM
     const tempPassword = randomBytes(9).toString('base64url').slice(0, 12);
     const passwordHash = await bcrypt.hash(tempPassword, 12);
     await prisma.user.update({
@@ -226,7 +226,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
     reply.send({ ok: true, tempPassword });
   });
 
-  // Permanently delete a user — founding admin only; blocks self-deletion and founding admin removal
+  // Permanently delete a user - founding admin only; blocks self-deletion and founding admin removal
   app.delete('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
     // Self-deletion is blocked to prevent accidental lockout

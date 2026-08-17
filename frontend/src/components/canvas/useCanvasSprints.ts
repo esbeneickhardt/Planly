@@ -1,5 +1,5 @@
 /**
- * useCanvasSprints — manages all sprint / sub-plan state for the Canvas view.
+ * useCanvasSprints - manages all sprint / sub-plan state for the Canvas view.
  * Extracted from CanvasView.tsx to keep that file manageable.
  *
  * Owns: sprint list, local membership set, all sprint-related UI state, and

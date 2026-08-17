@@ -28,7 +28,7 @@ const sendSchema = z.object({ content: z.string().min(1).max(10000), replyToId: 
 // context (unscoped from any project - server admins can contact anyone directly). Non-admin
 // conversations must instead carry the project they belong to, checked in the handler below.
 const createSchema = z.object({ participantId: z.string(), isAdminChat: z.boolean().optional(), productId: z.string().optional() });
-// Validates group creation — at least 2 other participants (3+ total incl. creator); a smaller
+// Validates group creation - at least 2 other participants (3+ total incl. creator); a smaller
 // group is just a DM, handled by the route above instead.
 const createGroupSchema = z.object({
   participantIds: z.array(z.string()).min(2),
@@ -414,7 +414,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     });
     if (!participant) return reply.status(403).send({ error: 'Not a participant' });
 
-    // Check if conversation is closed — non-admins cannot send to a closed conversation
+    // Check if conversation is closed - non-admins cannot send to a closed conversation
     const conv = await prisma.conversation.findUnique({
       where: { id },
       select: { closed: true, isGroup: true, name: true, productId: true },
@@ -489,7 +489,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Toggle closed state (admin only) — closes or reopens a conversation
+  // Toggle closed state (admin only) - closes or reopens a conversation
   app.patch('/api/conversations/:id/close', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user.userId;
     const { id } = req.params as { id: string };

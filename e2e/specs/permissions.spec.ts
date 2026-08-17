@@ -3,7 +3,7 @@
  *
  * Covers route guards and API-level permission enforcement.
  * Tests that required project creation (non-member access, settings access,
- * DELETE task) were removed — they depended on mixing browser navigation
+ * DELETE task) were removed - they depended on mixing browser navigation
  * with page.request/page.evaluate API calls, which is unreliable in
  * Playwright 1.61 due to cookie-store isolation differences.
  *
@@ -20,7 +20,7 @@ import { uniqueUser, registerViaUI, loginViaUI, getAdminCredentials } from '../f
 // any practical test timeout. Backend auth enforcement is verified below instead.
 
 test.describe('API permission enforcement', () => {
-  test('POST /api/products requires auth — 401 when no session cookie', async ({ request }) => {
+  test('POST /api/products requires auth - 401 when no session cookie', async ({ request }) => {
     const res = await request.post('/api/products', {
       data: { name: 'Hacked Project', teamId: 'fake', deadline: '2025-01-01' },
     });

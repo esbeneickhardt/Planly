@@ -86,7 +86,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: 'WebSocket connections above 4000 — approaching per-process limits'
+          summary: 'WebSocket connections above 4000 - approaching per-process limits'
           description: >
             ws_connections_active = {{ $value }}. Enable Redis + horizontal scaling
             immediately to avoid connection refusals. See docs/wiki/Operations.md § Horizontal scaling.

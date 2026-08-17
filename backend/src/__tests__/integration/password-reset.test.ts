@@ -106,7 +106,7 @@ describe.skipIf(!HAS_DB)('Password-reset token lifecycle', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  // End-to-end: reset flow actually changes the stored hash — login works with the new password
+  // End-to-end: reset flow actually changes the stored hash - login works with the new password
   it('can log in with new password after reset', async () => {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(raw).digest('hex');

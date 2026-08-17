@@ -12,7 +12,7 @@
  * scoped to this product, the app is treated as a standalone member whose tab
  * access is governed by the permissions stored on the AppRegistration itself.
  * An absent entry in app.permissions defaults to 'write'.
- * App tokens never satisfy requireProductCoOwner — that gate is for humans only.
+ * App tokens never satisfy requireProductCoOwner - that gate is for humans only.
  */
 import { FastifyReply } from 'fastify';
 import type { AuthPayload } from '../middleware/auth';
@@ -20,7 +20,7 @@ import prisma from '../db/client';
 
 /**
  * Verifies that the caller is a member of the team that owns `productId`.
- * For app tokens scoped to this product the membership DB check is skipped —
+ * For app tokens scoped to this product the membership DB check is skipped -
  * the token scope itself is the proof of authorisation.
  * Sends 404 or 403 and returns false when access is denied.
  */
@@ -29,7 +29,7 @@ export async function requireProductMember(
   user: AuthPayload,
   reply: FastifyReply,
 ): Promise<boolean> {
-  // App token scoped to this product — skip creator membership check
+  // App token scoped to this product - skip creator membership check
   if (user.appName && user.scopedProductId === productId) {
     const exists = await prisma.product.findFirst({ where: { id: productId, deletedAt: null }, select: { id: true } });
     if (!exists) {
@@ -73,7 +73,7 @@ export async function requireTabWrite(
   tabs: string[],
   reply: FastifyReply,
 ): Promise<boolean> {
-  // App token — use the app's own per-tab permissions; absent entry defaults to write
+  // App token - use the app's own per-tab permissions; absent entry defaults to write
   if (user.appName && user.scopedProductId === productId) {
     const perms = user.appPermissions ?? {};
     const hasWrite = tabs.some((tab) => (perms[tab] ?? 'write') === 'write');
@@ -201,7 +201,7 @@ export async function requireTabRead(
   tabs: string[],
   reply: FastifyReply,
 ): Promise<boolean> {
-  // App token — use the app's own per-tab permissions; absent entry defaults to write
+  // App token - use the app's own per-tab permissions; absent entry defaults to write
   if (user.appName && user.scopedProductId === productId) {
     const perms = user.appPermissions ?? {};
     const canRead = tabs.some((tab) => (perms[tab] ?? 'write') !== 'none');
@@ -253,7 +253,7 @@ export async function requireTabRead(
 
 /**
  * Verifies that the caller is the owner or a co-owner of `productId`.
- * App tokens never satisfy this guard — project management operations require a human.
+ * App tokens never satisfy this guard - project management operations require a human.
  * Sends 404/403 and returns false on deny.
  */
 export async function requireProductCoOwner(productId: string, userId: string, reply: FastifyReply): Promise<boolean> {

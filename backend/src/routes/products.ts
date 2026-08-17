@@ -92,7 +92,7 @@ export async function productRoutes(app: FastifyInstance) {
     reply.status(201).send(product);
   });
 
-  // Public project overview — available to any authenticated user, no membership required.
+  // Public project overview - available to any authenticated user, no membership required.
   // Because there's no membership check, the member list here must stay at the same PII level as
   // the other no-membership-required project listing (GET /api/products/discover, in
   // access-requests.ts): username/emoji only, never decrypted realName. Contrast with

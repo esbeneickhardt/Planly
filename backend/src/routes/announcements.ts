@@ -27,7 +27,7 @@ const createAnnouncementSchema = z.object({
   commentsEnabled: z.boolean().optional(),
   postedAsRole: z.enum(VALID_ROLES).nullable().optional(),
 });
-// Partial update payload — all fields optional so callers can patch just what changed
+// Partial update payload - all fields optional so callers can patch just what changed
 const updateAnnouncementSchema = z.object({
   title: z.string().max(200).optional(),
   content: z.string().max(10000).optional(),

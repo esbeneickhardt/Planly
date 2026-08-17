@@ -196,7 +196,7 @@ export default function MembershipsModal({ onClose }: Props) {
       )}
 
       <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
-        Projects you belong to. Click "Leave" to exit a project — owners can transfer ownership or delete.
+        Projects you belong to. Click "Leave" to exit a project - owners can transfer ownership or delete.
       </p>
 
       {errorMsg && (
