@@ -4,21 +4,31 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
+    # Minor and patch updates arrive grouped; each major upgrade gets its own PR,
+    # since a major (React 19, Prisma 7, TypeScript 7 ...) is a migration that a
+    # grouped PR can't pass on its own.
     groups:
       production-dependencies:
         dependency-type: "production"
+        update-types: ["minor", "patch"]
       dev-dependencies:
         dependency-type: "development"
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
+    # Minor and patch updates arrive grouped; each major upgrade gets its own PR,
+    # since a major (React 19, Prisma 7, TypeScript 7 ...) is a migration that a
+    # grouped PR can't pass on its own.
     groups:
       production-dependencies:
         dependency-type: "production"
+        update-types: ["minor", "patch"]
       dev-dependencies:
         dependency-type: "development"
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "docker"
     directory: "/backend"
