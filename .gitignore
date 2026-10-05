@@ -7,3 +7,4 @@ logs/
 e2e/test-results/
 e2e/playwright-report/
 .claude/
+docker-compose.override.yml
