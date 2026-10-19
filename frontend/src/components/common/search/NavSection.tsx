@@ -48,7 +48,7 @@ export default function NavSection({
               (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
             }
           >
-            <span className="text-base flex-shrink-0 w-5 text-center">{item.icon}</span>
+            <span className="text-base shrink-0 w-5 text-center">{item.icon}</span>
             <span className="flex-1 min-w-0">
               <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>
                 {item.label}
@@ -57,7 +57,7 @@ export default function NavSection({
                 {item.subtitle}
               </span>
             </span>
-            <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+            <span className="text-xs shrink-0" style={{ color: 'var(--text-3)' }}>
               →
             </span>
           </button>
@@ -80,7 +80,7 @@ export default function NavSection({
               (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
             }
           >
-            <span className="w-3 h-3 rounded-full flex-shrink-0 ml-1" style={{ background: cycle.color }} />
+            <span className="w-3 h-3 rounded-full shrink-0 ml-1" style={{ background: cycle.color }} />
             <span className="flex-1 min-w-0">
               <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>
                 {cycle.name}
@@ -99,7 +99,7 @@ export default function NavSection({
                 · Progress
               </span>
             </span>
-            <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+            <span className="text-xs shrink-0" style={{ color: 'var(--text-3)' }}>
               →
             </span>
           </button>

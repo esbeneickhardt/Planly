@@ -223,7 +223,7 @@ export default function BacklogPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Filters */}
-      <div className="px-6 pt-5 pb-3 flex-shrink-0">
+      <div className="px-6 pt-5 pb-3 shrink-0">
         {/* Warning banners */}
         {(unassignedCount > 0 || overdueCount > 0) && (
           <div className="flex flex-wrap gap-2 mb-3">
@@ -260,7 +260,7 @@ export default function BacklogPage() {
             "fixed full-bleed on mobile, absolute-anchored on desktop" positioning. */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Filters menu: status (multi-select) + mine */}
-          <div className="relative flex-shrink-0" ref={filtersMenuRef}>
+          <div className="relative shrink-0" ref={filtersMenuRef}>
             <button
               onClick={() => setShowFiltersMenu((v) => !v)}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
@@ -327,7 +327,7 @@ export default function BacklogPage() {
                             border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
                           }}
                         >
-                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: tab.color }} />
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tab.color }} />
                           {tab.label}
                           <span style={{ opacity: 0.7 }}>{count}</span>
                         </button>
@@ -352,7 +352,7 @@ export default function BacklogPage() {
           </div>
 
           {/* View menu: group by milestone - the only "how it looks" setting Backlog has */}
-          <div className="relative flex-shrink-0" ref={viewMenuRef}>
+          <div className="relative shrink-0" ref={viewMenuRef}>
             <button
               onClick={() => setShowViewMenu((v) => !v)}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"

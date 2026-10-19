@@ -145,7 +145,7 @@ function CardContent({
               onPointerDown={(e) => e.stopPropagation()}
               title="Quick actions: change status or open chat"
               aria-label="Quick actions"
-              className={`hidden md:flex items-center justify-center w-6 h-6 rounded-md text-sm transition-opacity flex-shrink-0 ${
+              className={`hidden md:flex items-center justify-center w-6 h-6 rounded-md text-sm transition-opacity shrink-0 ${
                 showStatusMenu ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               }`}
               style={{
@@ -181,7 +181,7 @@ function CardContent({
                       borderBottom: onQuickStatusChange ? '1px solid var(--border)' : 'none',
                     }}
                   >
-                    <span className="flex-shrink-0">💬</span>
+                    <span className="shrink-0">💬</span>
                     <span className="flex-1">Open chat</span>
                   </button>
                   {onQuickStatusChange &&
@@ -199,7 +199,7 @@ function CardContent({
                           fontWeight: c.statusKey === task.status ? 600 : 400,
                         }}
                       >
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color }} />
                         <span className="flex-1">{c.label}</span>
                         {c.statusKey === task.status && <span>✓</span>}
                       </button>
@@ -231,14 +231,14 @@ function CardContent({
 
             {isMilestone && (
               <span
-                className="text-xs px-1.5 py-0.5 rounded font-medium flex items-center gap-1"
+                className="text-xs px-1.5 py-0.5 rounded-sm font-medium flex items-center gap-1"
                 style={{
                   background: `${milestoneColor ?? '#f59e0b'}26`,
                   color: milestoneColor ?? '#f59e0b',
                 }}
               >
                 <span
-                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
                   style={{ background: milestoneColor ?? '#f59e0b' }}
                 />
                 Milestone
@@ -266,7 +266,7 @@ function CardContent({
               title={primaryMilestone.name}
             >
               <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
+                className="w-2 h-2 rounded-full shrink-0"
                 style={{ background: milestoneColor ?? 'var(--text-3)' }}
               />
               {primaryMilestone.name}
@@ -283,7 +283,7 @@ function CardContent({
                 type="checkbox"
                 checked={s.completed}
                 onChange={() => toggleSubtask(s)}
-                className="rounded flex-shrink-0"
+                className="rounded-sm shrink-0"
                 style={{ accentColor: 'var(--brand)' }}
               />
               <span

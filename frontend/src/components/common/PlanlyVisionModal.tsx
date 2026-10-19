@@ -150,7 +150,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse-only backdrop dismiss (guarded to only fire on the backdrop itself); Escape (handled above) is the keyboard-accessible equivalent
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+      className="fixed inset-0 z-120 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -165,9 +165,9 @@ export default function PlanlyVisionModal({ onClose }: Props) {
         }}
       >
         {/* Header - fixed */}
-        <div className="px-9 pt-7 pb-5 flex-shrink-0 flex items-start justify-between">
+        <div className="px-9 pt-7 pb-5 shrink-0 flex items-start justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
+            <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0">
               <img src="/icons/p.png" alt="Planly" className="w-full h-full object-contain" />
             </div>
             <div>
@@ -181,7 +181,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-colors flex-shrink-0 ml-3"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-colors shrink-0 ml-3"
             style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -191,7 +191,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
         </div>
 
         {/* Divider */}
-        <div className="flex-shrink-0 mx-9" style={{ height: 1, background: 'var(--border)' }} />
+        <div className="shrink-0 mx-9" style={{ height: 1, background: 'var(--border)' }} />
 
         {/* Content - scrollable on small screens */}
         <div className="flex-1 overflow-y-auto px-9 py-6 min-h-0">
@@ -202,7 +202,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
                 <div key={phase.label} className="flex gap-5 py-4">
                   {/* Step badge */}
                   <div
-                    className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 z-10 gap-0.5"
+                    className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 z-10 gap-0.5"
                     style={{
                       background: phase.color + '22',
                       border: `2px solid ${phase.color}`,
@@ -248,10 +248,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
                     border: '1px solid var(--border)',
                   }}
                 >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0"
-                    style={{ background: 'var(--brand)' }}
-                  />
+                  <span className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0" style={{ background: 'var(--brand)' }} />
                   <div>
                     <p className="text-base font-semibold" style={{ color: 'var(--text)' }}>
                       {term}
@@ -277,7 +274,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
                     border: '1px solid var(--border)',
                   }}
                 >
-                  <span className="text-xl flex-shrink-0 leading-none mt-0.5">{icon}</span>
+                  <span className="text-xl shrink-0 leading-none mt-0.5">{icon}</span>
                   <div>
                     <p className="text-sm font-semibold leading-snug" style={{ color: 'var(--text)' }}>
                       {heading}
@@ -294,7 +291,7 @@ export default function PlanlyVisionModal({ onClose }: Props) {
 
         {/* Footer - fixed: dots + nav */}
         <div
-          className="flex-shrink-0 px-9 py-5 flex items-center justify-between"
+          className="shrink-0 px-9 py-5 flex items-center justify-between"
           style={{ borderTop: '1px solid var(--border)' }}
         >
           <div className="flex items-center gap-2">

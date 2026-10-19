@@ -383,7 +383,7 @@ export default function CanvasModals({
                         </div>
                         <button
                           onClick={() => onApplySnapshot(snap)}
-                          className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                          className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                           style={{ background: 'var(--brand)', color: 'white' }}
                           onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
                           onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
@@ -394,7 +394,7 @@ export default function CanvasModals({
                           <>
                             <button
                               onClick={() => onUpdateSnapshot(snap)}
-                              className="flex-shrink-0 text-xs transition-colors"
+                              className="shrink-0 text-xs transition-colors"
                               style={{ color: 'var(--text-3)' }}
                               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--brand)')}
                               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -404,7 +404,7 @@ export default function CanvasModals({
                             </button>
                             <button
                               onClick={() => onDeleteSnapshot(snap)}
-                              className="flex-shrink-0 text-xs transition-colors"
+                              className="shrink-0 text-xs transition-colors"
                               style={{ color: 'var(--text-3)' }}
                               onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
                               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}

@@ -312,7 +312,7 @@ export default function TaskDetailFields({
             >
               {legend[c] && (
                 <span
-                  className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded-sm text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10"
                   style={{ background: 'var(--text)', color: 'var(--bg)' }}
                 >
                   {legend[c]}
@@ -334,7 +334,7 @@ export default function TaskDetailFields({
             >
               {legend[color] && (
                 <span
-                  className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded-sm text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10"
                   style={{ background: 'var(--text)', color: 'var(--bg)' }}
                 >
                   {legend[color]}
@@ -345,7 +345,7 @@ export default function TaskDetailFields({
           {!readOnly && (
             <button
               onClick={() => setColor('')}
-              className="text-xs px-2 py-1 rounded"
+              className="text-xs px-2 py-1 rounded-sm"
               style={{ color: 'var(--text-3)', background: 'var(--surface-2)' }}
             >
               Clear
@@ -378,7 +378,7 @@ export default function TaskDetailFields({
                     checked={s.completed}
                     disabled={readOnly || subtaskLoading === s.id}
                     onChange={() => onToggleSubtask(s)}
-                    className="rounded flex-shrink-0"
+                    className="rounded-sm shrink-0"
                     style={{ accentColor: 'var(--brand)' }}
                   />
                   <span
@@ -393,7 +393,7 @@ export default function TaskDetailFields({
                   {!readOnly && (
                     <button
                       onClick={() => onDeleteSubtask(s)}
-                      className="opacity-0 group-hover:opacity-100 text-xs transition-all text-[var(--text-3)] hover:text-[#ef4444]"
+                      className="opacity-0 group-hover:opacity-100 text-xs transition-all text-(--text-3) hover:text-[#ef4444]"
                     >
                       ✕
                     </button>
@@ -443,7 +443,7 @@ export default function TaskDetailFields({
             ) : (
               <button
                 onClick={() => setAddingSubtask(true)}
-                className="w-full text-left px-3 py-2 text-xs transition-colors text-[var(--text-3)] hover:text-[var(--brand)]"
+                className="w-full text-left px-3 py-2 text-xs transition-colors text-(--text-3) hover:text-(--brand)"
                 style={{
                   borderTop: subtasks.length > 0 ? '1px solid var(--border)' : 'none',
                 }}
@@ -526,7 +526,7 @@ export default function TaskDetailFields({
         {/* Right: metadata - stacks below the name/description on narrow screens instead of
             sitting in a fixed 320px column next to it, which left almost no room for the
             left side on a phone even once fullscreen mode kicked in. */}
-        <div className="md:w-80 flex-shrink-0 md:overflow-y-auto px-4 py-4 md:px-6 md:py-6 border-t md:border-t-0 md:border-l border-[var(--border)]">
+        <div className="md:w-80 shrink-0 md:overflow-y-auto px-4 py-4 md:px-6 md:py-6 border-t md:border-t-0 md:border-l border-(--border)">
           {metaFields}
         </div>
       </div>

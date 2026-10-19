@@ -123,7 +123,7 @@ export default function TopBarAccountDropdown({
               onShowProfile();
               onClose();
             }}
-            className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-2xl flex-shrink-0 relative group transition-opacity hover:opacity-80"
+            className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-2xl shrink-0 relative group transition-opacity hover:opacity-80"
             style={{
               background: 'var(--surface-2)',
               border: '1px solid var(--border)',
@@ -168,7 +168,7 @@ export default function TopBarAccountDropdown({
           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
-          <span className="w-5 text-center flex-shrink-0">{icon}</span>
+          <span className="w-5 text-center shrink-0">{icon}</span>
           {label}
         </button>
       ))}
@@ -184,7 +184,7 @@ export default function TopBarAccountDropdown({
         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         onClick={onClose}
       >
-        <span className="w-5 text-center flex-shrink-0">⬇</span>
+        <span className="w-5 text-center shrink-0">⬇</span>
         Download my data
       </a>
       <button
@@ -197,7 +197,7 @@ export default function TopBarAccountDropdown({
         onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')}
         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
       >
-        <span className="w-5 text-center flex-shrink-0">🗑</span>
+        <span className="w-5 text-center shrink-0">🗑</span>
         Delete my account
       </button>
 
@@ -210,7 +210,7 @@ export default function TopBarAccountDropdown({
         onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')}
         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
       >
-        <span className="w-5 text-center flex-shrink-0">⏻</span>
+        <span className="w-5 text-center shrink-0">⏻</span>
         Sign out
       </button>
     </div>

@@ -130,7 +130,7 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                   }}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl flex-shrink-0 mt-0.5">{p.emoji ?? '📦'}</span>
+                    <span className="text-2xl shrink-0 mt-0.5">{p.emoji ?? '📦'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
                         {p.name}
@@ -173,7 +173,7 @@ export default function DiscoverProjectsModal({ onClose }: { onClose: () => void
                         );
                       })()}
                     </div>
-                    <div className="flex-shrink-0 ml-2">
+                    <div className="shrink-0 ml-2">
                       {status ? (
                         statusBadge(status)
                       ) : (

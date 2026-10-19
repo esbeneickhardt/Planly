@@ -34,7 +34,7 @@ interface Props {
 }
 
 const SIZE_CLASSES: Record<NonNullable<Props['size']>, string> = {
-  sm: 'inline-flex items-center text-xs px-1.5 py-0.5 rounded font-medium',
+  sm: 'inline-flex items-center text-xs px-1.5 py-0.5 rounded-sm font-medium',
   md: 'inline-flex items-center text-xs px-2 py-1 rounded-lg font-medium',
   pill: 'inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium',
 };

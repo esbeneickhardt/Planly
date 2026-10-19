@@ -182,7 +182,7 @@ export default function BacklogTable({
                       >
                         ▾
                       </span>
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
                       <span>{milestone!.name}</span>
                       <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>
                         {doneCount}/{children.length} done
@@ -311,7 +311,7 @@ function QuickTaskMenu({
             borderBottom: onSelect ? '1px solid var(--border)' : 'none',
           }}
         >
-          <span className="flex-shrink-0">💬</span>
+          <span className="shrink-0">💬</span>
           <span className="flex-1">Open chat</span>
         </button>
         {onSelect &&
@@ -326,7 +326,7 @@ function QuickTaskMenu({
                 fontWeight: t.key === current ? 600 : 400,
               }}
             >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.color }} />
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color }} />
               <span className="flex-1">{t.label}</span>
               {t.key === current && <span>✓</span>}
             </button>
@@ -439,7 +439,7 @@ export function BacklogRow({
           {isMilestone ? (
             <span title="Milestone">⭐</span>
           ) : (
-            task.color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
+            task.color && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: task.color }} />
           )}
           <button
             onClick={onOpen}
@@ -481,7 +481,7 @@ export function BacklogRow({
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
               <span>{STATUS_LABELS[task.status] ?? task.status}</span>
               <span className="text-[9px]" style={{ color: 'var(--text-3)' }}>
                 ▾
@@ -518,7 +518,7 @@ export function BacklogRow({
                       if (t.key !== task.status) e.currentTarget.style.background = 'transparent';
                     }}
                   >
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.color }} />
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color }} />
                     <span className="flex-1">{t.label}</span>
                     {t.key === task.status && <span>✓</span>}
                   </button>
@@ -528,7 +528,7 @@ export function BacklogRow({
           </>
         ) : (
           <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
             <span style={{ color: 'var(--text-2)' }}>{STATUS_LABELS[task.status] ?? task.status}</span>
           </span>
         )}
@@ -541,7 +541,7 @@ export function BacklogRow({
           </span>
         ) : (
           <span
-            className="text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap"
+            className="text-xs px-2 py-0.5 rounded-sm font-medium whitespace-nowrap"
             style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}
           >
             Unassigned
@@ -555,10 +555,7 @@ export function BacklogRow({
       >
         {milestoneName ? (
           <span className="flex items-center gap-1.5">
-            <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: milestoneColor ?? 'var(--text-3)' }}
-            />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: milestoneColor ?? 'var(--text-3)' }} />
             {milestoneName}
           </span>
         ) : (

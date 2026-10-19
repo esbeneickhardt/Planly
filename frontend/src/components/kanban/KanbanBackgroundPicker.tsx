@@ -23,7 +23,7 @@ export default function KanbanBackgroundPicker({ bgImage, onSelectBg }: Props) {
         <button
           onClick={() => onSelectBg(null)}
           title="None"
-          className="h-8 rounded flex-shrink-0"
+          className="h-8 rounded-sm shrink-0"
           style={{
             background: 'var(--surface-2)',
             border: `1px solid ${bgImage === null ? 'var(--brand)' : 'var(--border)'}`,
@@ -38,7 +38,7 @@ export default function KanbanBackgroundPicker({ bgImage, onSelectBg }: Props) {
               key={b.id}
               onClick={() => onSelectBg(b.id)}
               title={b.label}
-              className="h-8 rounded flex-shrink-0"
+              className="h-8 rounded-sm shrink-0"
               style={{
                 background: b.gradient,
                 outline: active ? '2px solid var(--brand)' : 'none',

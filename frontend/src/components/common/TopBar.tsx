@@ -288,7 +288,7 @@ export default function TopBar({
   return (
     <>
       <header
-        className={`flex-shrink-0 flex items-center h-14 px-3 gap-2 border-[var(--border)] ${
+        className={`shrink-0 flex items-center h-14 px-3 gap-2 border-(--border) ${
           mobileNavPosition === 'bottom'
             ? 'fixed bottom-0 inset-x-0 border-t lg:static lg:inset-auto lg:border-t-0 lg:border-b'
             : 'border-b'
@@ -296,10 +296,10 @@ export default function TopBar({
         style={{ background: 'var(--surface)', zIndex: 40 }}
       >
         {/* ── LEFT: logo + search ── */}
-        <div className="flex items-center gap-2.5 flex-shrink-0 lg:w-60">
+        <div className="flex items-center gap-2.5 shrink-0 lg:w-60">
           <button
             onClick={() => navigate('/kanban')}
-            className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 transition-opacity hover:opacity-80"
+            className="w-8 h-8 rounded-xl overflow-hidden shrink-0 transition-opacity hover:opacity-80"
             title="Go to Kanban"
             aria-label="Planly - go to Kanban"
           >
@@ -319,7 +319,7 @@ export default function TopBar({
             <SearchIcon />
             <span className="flex-1 text-left text-xs">Search in Planly</span>
             <kbd
-              className="text-[10px] px-1.5 py-0.5 rounded"
+              className="text-[10px] px-1.5 py-0.5 rounded-sm"
               style={{
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
@@ -344,8 +344,8 @@ export default function TopBar({
                 }}
                 className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[60px] max-w-24 text-[11px] font-medium tracking-wide transition-colors ${
                   adminTab === key && isAdminPage
-                    ? 'text-[var(--brand)]'
-                    : 'text-[var(--text-3)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'
+                    ? 'text-(--brand)'
+                    : 'text-(--text-3) hover:text-(--text) hover:bg-(--surface-2)'
                 }`}
               >
                 <Icon />
@@ -373,9 +373,7 @@ export default function TopBar({
                     to={to}
                     className={({ isActive }) =>
                       `relative flex flex-col items-center justify-center gap-0 flex-1 min-w-[60px] max-w-24 text-[11px] font-medium tracking-wide transition-colors rounded-none ${
-                        isActive
-                          ? 'text-[var(--brand)]'
-                          : 'text-[var(--text-3)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'
+                        isActive ? 'text-(--brand)' : 'text-(--text-3) hover:text-(--text) hover:bg-(--surface-2)'
                       }`
                     }
                   >
@@ -415,7 +413,7 @@ export default function TopBar({
                 <NavLink
                   to="/settings"
                   className={({ isActive }) =>
-                    `relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[60px] max-w-24 text-[11px] font-medium tracking-wide transition-colors ${isActive ? 'text-[var(--text)]' : 'text-[var(--text-3)]'}`
+                    `relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[60px] max-w-24 text-[11px] font-medium tracking-wide transition-colors ${isActive ? 'text-(--text)' : 'text-(--text-3)'}`
                   }
                   style={({ isActive }) => ({
                     color: isActive ? 'var(--text)' : undefined,
@@ -451,12 +449,12 @@ export default function TopBar({
         <div className="flex-1 lg:hidden" />
 
         {/* ── RIGHT: icons + project picker + account ── */}
-        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ justifyContent: 'flex-end' }}>
+        <div className="flex items-center gap-1.5 shrink-0" style={{ justifyContent: 'flex-end' }}>
           {/* How Planly works (desktop only) */}
           <Tooltip content="How Planly works" side="bottom" className="hidden lg:inline-flex relative">
             <button
               onClick={onOpenVision}
-              className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-sm font-semibold"
+              className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-colors shrink-0 text-sm font-semibold"
               style={{
                 color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
                 background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -487,7 +485,7 @@ export default function TopBar({
             >
               <NavLink
                 to="/announcements"
-                className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+                className="hidden lg:flex w-9 h-9 rounded-full items-center justify-center transition-all shrink-0"
                 style={({ isActive }) => ({
                   color: chatIsAdmin || isActive ? 'var(--brand)' : 'var(--text-3)',
                   background: chatIsAdmin || isActive ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -524,7 +522,7 @@ export default function TopBar({
                 data-testid="admin-btn"
                 aria-label={chatIsAdmin ? 'Exit admin mode' : 'Admin panel'}
                 onClick={onToggleAdmin ?? (() => (chatIsAdmin ? navigate('/kanban') : navigate('/admin')))}
-                className="flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+                className="flex w-9 h-9 rounded-full items-center justify-center transition-all shrink-0"
                 style={{
                   color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
                   background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -554,7 +552,7 @@ export default function TopBar({
               onClick={onOpenChat}
               title={chatIsAdmin ? 'Admin chat' : 'Project chat'}
               aria-label={chatIsAdmin ? 'Admin chat' : 'Project chat'}
-              className="relative flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+              className="relative flex w-9 h-9 rounded-full items-center justify-center transition-all shrink-0"
               style={{
                 color: chatIsAdmin || chatOpen ? 'var(--brand)' : 'var(--text-3)',
                 background: chatIsAdmin || chatOpen ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -593,7 +591,7 @@ export default function TopBar({
                 setShowProjectDd((v) => !v);
                 setShowAccountDd(false);
               }}
-              className="flex items-center gap-1.5 h-9 px-2.5 rounded-full transition-all text-sm flex-shrink-0"
+              className="flex items-center gap-1.5 h-9 px-2.5 rounded-full transition-all text-sm shrink-0"
               style={{
                 background: 'var(--surface-2)',
                 color: chatIsAdmin ? 'var(--brand)' : 'var(--text)',
@@ -642,7 +640,7 @@ export default function TopBar({
                 setShowProjectDd((v) => !v);
                 setShowAccountDd(false);
               }}
-              className="flex w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0 text-lg font-semibold relative"
+              className="flex w-9 h-9 rounded-full items-center justify-center transition-all shrink-0 text-lg font-semibold relative"
               style={{
                 color: chatIsAdmin ? 'var(--brand)' : 'var(--text)',
                 background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -694,7 +692,7 @@ export default function TopBar({
           {/* Mobile: search icon */}
           <button
             onClick={onOpenSearch}
-            className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-all flex-shrink-0"
+            className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-all shrink-0"
             style={{
               color: chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
               background: chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -710,7 +708,7 @@ export default function TopBar({
               admin mode, so the collapsed menu still hints there's admin-only stuff inside. */}
           <button
             onClick={() => setShowMobileMenu((v) => !v)}
-            className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-colors flex-shrink-0 text-lg"
+            className="flex lg:hidden w-9 h-9 rounded-full items-center justify-center transition-colors shrink-0 text-lg"
             style={{
               background: showMobileMenu || chatIsAdmin ? 'var(--brand-subtle)' : 'var(--surface-2)',
               color: showMobileMenu || chatIsAdmin ? 'var(--brand)' : 'var(--text-3)',
@@ -730,7 +728,7 @@ export default function TopBar({
                 setShowAccountDd((v) => !v);
                 setShowProjectDd(false);
               }}
-              className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-base transition-all flex-shrink-0"
+              className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-base transition-all shrink-0"
               style={{
                 background: 'var(--surface-2)',
                 border: `2px solid ${chatIsAdmin ? 'var(--brand)' : 'var(--border)'}`,
@@ -805,7 +803,7 @@ export default function TopBar({
         >
           <form onSubmit={handleCreateProduct} className="space-y-4">
             <div className="flex gap-3">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <label className="label" htmlFor="topbar-new-product-icon">
                   Icon
                 </label>

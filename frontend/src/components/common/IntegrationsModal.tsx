@@ -111,7 +111,7 @@ export default function IntegrationsModal({ onClose }: Props) {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap flex-shrink-0"
+              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap shrink-0"
               style={{
                 background: tab === t.id ? 'var(--brand)' : 'var(--surface-2)',
                 color: tab === t.id ? 'white' : 'var(--text-3)',
@@ -126,7 +126,7 @@ export default function IntegrationsModal({ onClose }: Props) {
           href="/api/docs"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg font-medium flex-shrink-0 whitespace-nowrap transition-colors"
+          className="text-xs flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg font-medium shrink-0 whitespace-nowrap transition-colors"
           style={{
             background: 'var(--surface-2)',
             color: 'var(--text-2)',
@@ -249,7 +249,7 @@ export default function IntegrationsModal({ onClose }: Props) {
                 </code>
                 <button
                   onClick={copyToken}
-                  className="text-xs px-3 py-1.5 rounded-lg font-medium flex-shrink-0 transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-lg font-medium shrink-0 transition-colors"
                   style={{
                     background: copied ? 'rgba(16,185,129,0.15)' : 'var(--brand)',
                     color: copied ? '#10b981' : 'white',
@@ -288,7 +288,7 @@ export default function IntegrationsModal({ onClose }: Props) {
               <button
                 type="submit"
                 disabled={creating || !newName.trim()}
-                className="btn-primary text-sm px-4 flex-shrink-0 flex items-center gap-1"
+                className="btn-primary text-sm px-4 shrink-0 flex items-center gap-1"
               >
                 {creating ? (
                   <span className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -301,7 +301,7 @@ export default function IntegrationsModal({ onClose }: Props) {
                 type="checkbox"
                 checked={newReadOnly}
                 onChange={(e) => setNewReadOnly(e.target.checked)}
-                className="rounded"
+                className="rounded-sm"
               />
               <span className="text-xs" style={{ color: 'var(--text-2)' }}>
                 Read-only (GET requests only - cannot create, update, or delete)
@@ -352,7 +352,7 @@ export default function IntegrationsModal({ onClose }: Props) {
                         </p>
                         {t.readOnly && (
                           <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                            className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
                             style={{
                               background: 'rgba(99,102,241,0.1)',
                               color: '#818cf8',
@@ -364,7 +364,7 @@ export default function IntegrationsModal({ onClose }: Props) {
                         )}
                         {expired && (
                           <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                            className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
                             style={{
                               background: 'rgba(239,68,68,0.1)',
                               color: '#ef4444',
@@ -391,7 +391,7 @@ export default function IntegrationsModal({ onClose }: Props) {
                     <button
                       onClick={() => handleRevoke(t.id)}
                       disabled={revoking === t.id}
-                      className="text-xs px-3 py-1.5 rounded-lg font-medium flex-shrink-0 transition-colors"
+                      className="text-xs px-3 py-1.5 rounded-lg font-medium shrink-0 transition-colors"
                       style={{
                         background: 'var(--surface)',
                         color: 'var(--text-3)',

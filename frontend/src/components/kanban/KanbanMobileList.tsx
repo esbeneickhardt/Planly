@@ -13,7 +13,7 @@
  * a column's sort choice is shared between mobile and desktop.
  *
  * Trello-style three-layer look per swiped page: the page's own background (photo wallpaper if
- * one's set, plain otherwise), a rounded "status board" panel on top of it tinted with the page's
+ * one's set, plain otherwise), a rounded-sm "status board" panel on top of it tinted with the page's
  * own status/milestone color (`boardTint`), and finally the task cards inset within that board's
  * own padding so they read visibly smaller than the board itself.
  */
@@ -194,7 +194,7 @@ function QuickStatusMenu({
             borderBottom: onSelect ? '1px solid var(--border)' : 'none',
           }}
         >
-          <span className="flex-shrink-0">💬</span>
+          <span className="shrink-0">💬</span>
           <span className="flex-1">Open chat</span>
         </button>
         {onSelect &&
@@ -209,7 +209,7 @@ function QuickStatusMenu({
                 fontWeight: c.statusKey === current ? 600 : 400,
               }}
             >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color }} />
               <span className="flex-1">{c.label}</span>
               {c.statusKey === current && <span>✓</span>}
             </button>
@@ -262,7 +262,7 @@ function CardBody({
           all-around border - a solid colored box on all four sides reads as chunky/heavy at this
           size, where the accent-stripe treatment is what actually looks sharp. */}
       <div
-        className="relative w-full rounded-2xl shadow-sm transition-shadow active:shadow-none flex items-stretch gap-1"
+        className="relative w-full rounded-2xl shadow-xs transition-shadow active:shadow-none flex items-stretch gap-1"
         style={{
           background: 'var(--surface)',
           border: '1px solid var(--border)',
@@ -276,7 +276,7 @@ function CardBody({
           <span
             {...dragHandle.attributes}
             {...dragHandle.listeners}
-            className="flex items-center px-2 flex-shrink-0 touch-none"
+            className="flex items-center px-2 shrink-0 touch-none"
             style={{ color: 'var(--text-3)', cursor: 'grab' }}
             aria-label="Drag to reorder"
           >
@@ -437,11 +437,11 @@ function MobileStatusColumn({
       {/* A genuine header row - not `position: sticky` layered over the scrolling list (that
           needed an opaque background faked in to mask cards scrolling underneath, and still only
           ever covered the list's own padding box, not the panel's full width). Instead, same
-          structure as desktop's KanbanColumn.tsx: a separate flex-shrink-0 row above a separately-
+          structure as desktop's KanbanColumn.tsx: a separate shrink-0 row above a separately-
           scrollable body below, so it's trivially full-bleed edge-to-edge within the panel and
           never has to fight a scroll container's own clipping to stay covered or aligned. */}
       <div
-        className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0"
+        className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <h2 id={`col-heading-${col.id}`} className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
@@ -450,10 +450,10 @@ function MobileStatusColumn({
         <span className="text-xs" style={{ color: 'var(--text-3)' }}>
           {colTasks.length}
         </span>
-        <div className="relative ml-auto flex-shrink-0">
+        <div className="relative ml-auto shrink-0">
           <button
             onClick={() => setShowSortMenu((v) => !v)}
-            className="text-xs px-1.5 py-0.5 rounded transition-colors"
+            className="text-xs px-1.5 py-0.5 rounded-sm transition-colors"
             style={{
               color: sortMode !== 'default' ? col.color : 'var(--text-3)',
               background: sortMode !== 'default' ? `${col.color}18` : 'transparent',
@@ -642,7 +642,7 @@ export default function KanbanMobileList({
       {/* Pager: one dot per page, current one highlighted, tap to jump - pages are status columns
           or milestones depending on viewMode */}
       {pageIds.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5 py-0.5 flex-shrink-0">
+        <div className="flex items-center justify-center gap-1.5 py-0.5 shrink-0">
           {pageIds.map((id, i) => {
             const label =
               viewMode === 'milestone'
@@ -695,7 +695,7 @@ export default function KanbanMobileList({
                 <section
                   key={milestoneId}
                   aria-labelledby={`mcol-heading-${milestoneId}`}
-                  className="w-full flex-shrink-0 p-3 flex flex-col"
+                  className="w-full shrink-0 p-3 flex flex-col"
                   style={{ scrollSnapAlign: 'start' }}
                 >
                   {/* The "status board" panel - the Trello list layer, sitting on top of the page
@@ -707,7 +707,7 @@ export default function KanbanMobileList({
                       outline on every edge) keeps this reading as a compact list card rather than
                       a big solid-colored box. */}
                   <div
-                    className="rounded-xl flex-1 flex flex-col shadow-sm overflow-hidden"
+                    className="rounded-xl flex-1 flex flex-col shadow-xs overflow-hidden"
                     style={{
                       background: bgImage ? 'color-mix(in srgb, var(--surface) 88%, transparent)' : boardTint(color),
                       border: '1px solid var(--border)',
@@ -718,11 +718,11 @@ export default function KanbanMobileList({
                         list (that needed an opaque background faked in to mask cards scrolling
                         underneath, and still only ever covered the list's own padding box, not
                         the panel's full width). Instead, same structure as desktop's
-                        KanbanColumn.tsx: a separate flex-shrink-0 row above a separately-
+                        KanbanColumn.tsx: a separate shrink-0 row above a separately-
                         scrollable body below, so it's trivially full-bleed edge-to-edge and never
                         has to fight a scroll container's own clipping to stay covered or aligned. */}
                     <div
-                      className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0"
+                      className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0"
                       style={{ borderBottom: '1px solid var(--border)' }}
                     >
                       {/* No color dot here - the panel's own top accent bar (borderTop, set from
@@ -762,14 +762,14 @@ export default function KanbanMobileList({
                           <div key={statusKey} className="mb-2">
                             <button
                               onClick={() => onToggleStatusCollapse?.(statusKey)}
-                              className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
+                              className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded-sm text-xs font-semibold"
                               style={{
                                 color: 'var(--text-2)',
                                 background: `${statusColor}14`,
                               }}
                             >
                               <span
-                                className="inline-block flex-shrink-0"
+                                className="inline-block shrink-0"
                                 style={{
                                   transform: collapsed ? 'rotate(-90deg)' : 'none',
                                   transition: 'transform 0.1s',
@@ -777,10 +777,7 @@ export default function KanbanMobileList({
                               >
                                 ▾
                               </span>
-                              <span
-                                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                style={{ background: statusColor }}
-                              />
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusColor }} />
                               <span className="truncate flex-1 text-left">{statusLabel}</span>
                               <span
                                 style={{
@@ -815,7 +812,7 @@ export default function KanbanMobileList({
                 <section
                   key={col.id}
                   aria-labelledby={`col-heading-${col.id}`}
-                  className="w-full flex-shrink-0 p-3 flex flex-col"
+                  className="w-full shrink-0 p-3 flex flex-col"
                   style={{ scrollSnapAlign: 'start' }}
                 >
                   {/* The "status board" panel - see the milestone-mode branch above for the full
@@ -823,7 +820,7 @@ export default function KanbanMobileList({
                   neutral border plus a colored top accent bar (not a full-strength colored
                   outline) keeps this reading as a compact list card, not a big solid-colored box. */}
                   <div
-                    className="rounded-xl flex-1 flex flex-col shadow-sm overflow-hidden"
+                    className="rounded-xl flex-1 flex flex-col shadow-xs overflow-hidden"
                     style={{
                       background: boardBg,
                       border: '1px solid var(--border)',
@@ -836,11 +833,11 @@ export default function KanbanMobileList({
                         list (that needed an opaque background faked in to mask cards scrolling
                         underneath, and still only ever covered the list's own padding box, not
                         the panel's full width). Instead, same structure as desktop's
-                        KanbanColumn.tsx: a separate flex-shrink-0 row above a separately-
+                        KanbanColumn.tsx: a separate shrink-0 row above a separately-
                         scrollable body below, so it's trivially full-bleed edge-to-edge and never
                         has to fight a scroll container's own clipping to stay covered or aligned. */}
                         <div
-                          className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0"
+                          className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0"
                           style={{ borderBottom: '1px solid var(--border)' }}
                         >
                           <h2
@@ -873,7 +870,7 @@ export default function KanbanMobileList({
                               <div key={id} className="mb-2">
                                 <button
                                   onClick={() => onToggleMilestoneCollapse?.(id)}
-                                  className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded text-xs font-semibold"
+                                  className="w-full flex items-center gap-1.5 px-1.5 py-1.5 mb-1.5 rounded-sm text-xs font-semibold"
                                   style={{
                                     color: 'var(--text-2)',
                                     background: `${color}14`,
@@ -881,7 +878,7 @@ export default function KanbanMobileList({
                                   }}
                                 >
                                   <span
-                                    className="inline-block flex-shrink-0"
+                                    className="inline-block shrink-0"
                                     style={{
                                       transform: collapsed ? 'rotate(-90deg)' : 'none',
                                       transition: 'transform 0.1s',
@@ -890,10 +887,7 @@ export default function KanbanMobileList({
                                     ▾
                                   </span>
                                   {!isUnassigned && (
-                                    <span
-                                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                      style={{ background: color }}
-                                    />
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
                                   )}
                                   <span className="truncate flex-1 text-left">{label}</span>
                                   <span

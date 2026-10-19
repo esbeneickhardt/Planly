@@ -65,7 +65,7 @@ export default function Tooltip({ content, children, side = 'top', delay = 350, 
       {children}
       {visible && (
         <div
-          className="absolute z-[9999] pointer-events-none whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium leading-tight"
+          className="absolute z-9999 pointer-events-none whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium leading-tight"
           style={{
             ...posStyle,
             background: 'var(--text)',

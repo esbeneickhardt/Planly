@@ -43,7 +43,7 @@ export default function CanvasFiltersDropdown({
         {statusFilter ? (
           <>
             <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
+              className="w-2 h-2 rounded-full shrink-0"
               style={{
                 background: STATUS_OPTIONS.find((s) => s.key === statusFilter)?.color,
               }}
@@ -102,7 +102,7 @@ export default function CanvasFiltersDropdown({
                 e.currentTarget.style.background = 'transparent';
               }}
             >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
               {s.label} {statusFilter === s.key && <span className="ml-auto">✓</span>}
             </button>
           ))}
@@ -125,7 +125,7 @@ export default function CanvasFiltersDropdown({
                     onChange={(e) => onMilestoneSearchChange(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
                     placeholder="Search milestones…"
-                    className="w-full text-xs px-2 py-1 rounded outline-none"
+                    className="w-full text-xs px-2 py-1 rounded-sm outline-hidden"
                     style={{
                       background: 'var(--surface-2)',
                       border: '1px solid var(--border)',

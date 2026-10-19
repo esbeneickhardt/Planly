@@ -31,7 +31,7 @@ export default function ThemePickerModal({ onClose }: { onClose: () => void }) {
               }}
             >
               {/* Color swatch */}
-              <div className="w-full h-10 rounded-lg overflow-hidden flex-shrink-0 flex">
+              <div className="w-full h-10 rounded-lg overflow-hidden shrink-0 flex">
                 <div className="flex-1" style={{ background: t.swatch.bg }} />
                 <div className="flex-1" style={{ background: t.swatch.surface }} />
                 <div className="w-3" style={{ background: t.swatch.brand }} />
@@ -45,7 +45,7 @@ export default function ThemePickerModal({ onClose }: { onClose: () => void }) {
                 </span>
                 {active && (
                   <span
-                    className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                    className="w-4 h-4 rounded-full flex items-center justify-center shrink-0"
                     style={{ background: 'var(--brand)' }}
                   >
                     <svg width="8" height="8" viewBox="0 0 12 12" fill="none">

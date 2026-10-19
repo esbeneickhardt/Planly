@@ -35,7 +35,7 @@ export default function ProjectHeader({ emoji, name, deadline, status, owner }: 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-center gap-4">
-        {emoji && <span className="text-5xl leading-none flex-shrink-0">{emoji}</span>}
+        {emoji && <span className="text-5xl leading-none shrink-0">{emoji}</span>}
         <div className="min-w-0">
           <h1 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
             {name}

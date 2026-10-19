@@ -47,7 +47,7 @@ export default function ProfileModal({ user, onClose }: Props) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex flex-col items-center gap-1 pb-1">
           <div
-            className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-4xl flex-shrink-0"
+            className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-4xl shrink-0"
             style={{
               background: 'var(--surface-2)',
               border: '2px solid var(--border)',

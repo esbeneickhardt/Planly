@@ -86,11 +86,11 @@ export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, 
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+          className="flex items-center justify-between px-5 py-4 shrink-0"
           style={{ borderBottom: '1px solid var(--border)' }}
         >
           <div className="flex items-center gap-2.5">
-            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: sprint.color }} />
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: sprint.color }} />
             <div>
               <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
                 {sprint.name}
@@ -124,14 +124,14 @@ export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, 
           {/* LEFT - tasks in sprint */}
           <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid var(--border)' }}>
             <div
-              className="px-4 py-2.5 flex-shrink-0 flex items-center justify-between"
+              className="px-4 py-2.5 shrink-0 flex items-center justify-between"
               style={{ borderBottom: '1px solid var(--border)' }}
             >
               <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
                 In sub-plan
               </span>
               <span
-                className="text-xs px-1.5 py-0.5 rounded"
+                className="text-xs px-1.5 py-0.5 rounded-sm"
                 style={{
                   background: 'var(--brand-subtle)',
                   color: 'var(--brand)',
@@ -162,14 +162,14 @@ export default function SprintBacklogPanel({ sprint, productId, tasks, onClose, 
           {/* RIGHT - backlog (not in sprint, not done) */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div
-              className="px-4 py-2.5 flex-shrink-0 flex items-center justify-between"
+              className="px-4 py-2.5 shrink-0 flex items-center justify-between"
               style={{ borderBottom: '1px solid var(--border)' }}
             >
               <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>
                 Other tasks
               </span>
               <span
-                className="text-xs px-1.5 py-0.5 rounded"
+                className="text-xs px-1.5 py-0.5 rounded-sm"
                 style={{
                   background: 'var(--surface-2)',
                   color: 'var(--text-3)',
@@ -221,10 +221,7 @@ function TaskRow({
       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
     >
-      <span
-        className="w-2 h-2 rounded-full flex-shrink-0"
-        style={{ background: STATUS_COLOR[task.status] ?? '#64748b' }}
-      />
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_COLOR[task.status] ?? '#64748b' }} />
       <span className="flex-1 min-w-0">
         <span className="text-sm truncate block" style={{ color: 'var(--text)' }}>
           {task.name}
@@ -235,12 +232,12 @@ function TaskRow({
       </span>
       {loading ? (
         <span
-          className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin flex-shrink-0"
+          className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin shrink-0"
           style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }}
         />
       ) : (
         <span
-          className="text-xs opacity-0 group-hover:opacity-100 flex-shrink-0 px-2 py-0.5 rounded transition-all"
+          className="text-xs opacity-0 group-hover:opacity-100 shrink-0 px-2 py-0.5 rounded-sm transition-all"
           style={{
             background: action === 'add' ? 'var(--brand-subtle)' : 'rgba(239,68,68,0.1)',
             color: action === 'add' ? 'var(--brand)' : '#ef4444',

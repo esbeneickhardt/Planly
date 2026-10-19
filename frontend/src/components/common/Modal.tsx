@@ -128,7 +128,7 @@ export default function Modal({
       }
     >
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-modal-backdrop-in"
+        className="absolute inset-0 bg-black/50 backdrop-blur-xs animate-modal-backdrop-in"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -158,7 +158,7 @@ export default function Modal({
           onTouchMove={mobileFullscreen ? handleHeaderTouchMove : undefined}
           onTouchEnd={mobileFullscreen ? handleHeaderTouchEnd : undefined}
           onTouchCancel={mobileFullscreen ? handleHeaderTouchEnd : undefined}
-          className="flex-shrink-0"
+          className="shrink-0"
           style={mobileFullscreen ? { touchAction: 'none' } : undefined}
         >
           {mobileFullscreen && (

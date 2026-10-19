@@ -94,7 +94,7 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
+            <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden shrink-0">
               <img src="/icons/p.png" alt="Planly" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
@@ -162,7 +162,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
+          <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden shrink-0">
             <img src="/icons/p.png" alt="Planly" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>

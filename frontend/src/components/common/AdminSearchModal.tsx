@@ -302,10 +302,7 @@ export default function AdminSearchModal({ onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
-        <div
-          className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
+        <div className="flex items-center gap-3 px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <svg
             width="16"
             height="16"
@@ -326,12 +323,12 @@ export default function AdminSearchModal({ onClose }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search admin settings, projects, chat…"
-            className="flex-1 bg-transparent outline-none text-sm"
+            className="flex-1 bg-transparent outline-hidden text-sm"
             style={{ color: 'var(--text)' }}
           />
           {searchingChat && (
             <div
-              className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin flex-shrink-0"
+              className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin shrink-0"
               style={{
                 borderColor: 'var(--brand)',
                 borderTopColor: 'transparent',
@@ -339,7 +336,7 @@ export default function AdminSearchModal({ onClose }: Props) {
             />
           )}
           <kbd
-            className="text-xs px-1.5 py-0.5 rounded flex-shrink-0"
+            className="text-xs px-1.5 py-0.5 rounded-sm shrink-0"
             style={{
               background: 'var(--surface-2)',
               color: 'var(--text-3)',
@@ -353,7 +350,7 @@ export default function AdminSearchModal({ onClose }: Props) {
         {/* Type filter tabs - shown as soon as any results exist, same pattern as SearchModal */}
         {showTabs && (
           <div
-            className="flex items-center gap-1 px-4 pt-2 pb-0 flex-shrink-0"
+            className="flex items-center gap-1 px-4 pt-2 pb-0 shrink-0"
             style={{ borderBottom: '1px solid var(--border)' }}
           >
             {TAB_ORDER.map((t) => {
@@ -410,7 +407,7 @@ export default function AdminSearchModal({ onClose }: Props) {
                       (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
                     }
                   >
-                    <span className="text-base flex-shrink-0 w-5 text-center">
+                    <span className="text-base shrink-0 w-5 text-center">
                       <t.Icon size={16} />
                     </span>
                     <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
@@ -453,7 +450,7 @@ export default function AdminSearchModal({ onClose }: Props) {
                           (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
                         }
                       >
-                        <span className="text-base flex-shrink-0 w-5 text-center">{item.icon}</span>
+                        <span className="text-base shrink-0 w-5 text-center">{item.icon}</span>
                         <span className="flex-1 min-w-0">
                           <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>
                             {item.label}
@@ -500,7 +497,7 @@ export default function AdminSearchModal({ onClose }: Props) {
                           (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
                         }
                       >
-                        <span className="flex-shrink-0">{p.emoji ?? '🎯'}</span>
+                        <span className="shrink-0">{p.emoji ?? '🎯'}</span>
                         <span className="flex-1 min-w-0 truncate">{p.name}</span>
                       </button>
                     );
@@ -540,7 +537,7 @@ export default function AdminSearchModal({ onClose }: Props) {
                           (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
                         }
                       >
-                        <span className="flex-shrink-0">{m.author.avatarEmoji ?? '👤'}</span>
+                        <span className="shrink-0">{m.author.avatarEmoji ?? '👤'}</span>
                         <span className="flex-1 min-w-0">
                           <span className="block truncate">{m.content}</span>
                           <span className="block text-xs" style={{ color: 'var(--text-3)' }}>
@@ -558,7 +555,7 @@ export default function AdminSearchModal({ onClose }: Props) {
 
         {/* Footer hint */}
         <div
-          className="px-4 py-2 flex items-center gap-4 text-xs flex-shrink-0"
+          className="px-4 py-2 flex items-center gap-4 text-xs shrink-0"
           style={{
             borderTop: '1px solid var(--border)',
             color: 'var(--text-3)',

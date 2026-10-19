@@ -56,7 +56,7 @@ export default function TasksSection({ milestones, regular, highlightIdx, nextId
                   (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
                 }
               >
-                <span className="text-xs flex-shrink-0">🏁</span>
+                <span className="text-xs shrink-0">🏁</span>
                 <span className="flex-1 min-w-0">
                   <span className="text-sm font-medium truncate block" style={{ color: 'var(--text)' }}>
                     {task.name}
@@ -96,7 +96,7 @@ export default function TasksSection({ milestones, regular, highlightIdx, nextId
                 }
               >
                 <span
-                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  className="w-2 h-2 rounded-full shrink-0"
                   style={{ background: STATUS_COLOR[task.status] ?? '#64748b' }}
                 />
                 <span className="flex-1 min-w-0">

@@ -279,7 +279,7 @@ export default function CanvasControlPanel({
                     {canWriteCanvas && (
                       <>
                         <button
-                          className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded-sm flex items-center justify-center text-xs shrink-0 transition-opacity"
                           style={{ color: 'var(--text-3)' }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = 'var(--text)';
@@ -299,7 +299,7 @@ export default function CanvasControlPanel({
                           ✎
                         </button>
                         <button
-                          className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded-sm flex items-center justify-center text-xs shrink-0 transition-opacity"
                           style={{ color: 'var(--text-3)' }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = '#ef4444';

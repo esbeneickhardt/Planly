@@ -69,7 +69,7 @@ function RuleList({
       </div>
       <div className="flex flex-col sm:flex-row gap-2">
         <input
-          className="input text-sm w-full sm:w-[180px] sm:flex-shrink-0"
+          className="input text-sm w-full sm:w-[180px] sm:shrink-0"
           placeholder="1.2.3.4 or 10.0.0.0/8"
           value={cidr}
           onChange={(e) => setCidr(e.target.value)}
@@ -83,7 +83,7 @@ function RuleList({
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
         />
-        <button disabled={!cidr.trim() || adding} className="btn-primary text-sm px-4 sm:flex-shrink-0" onClick={add}>
+        <button disabled={!cidr.trim() || adding} className="btn-primary text-sm px-4 sm:shrink-0" onClick={add}>
           {adding ? '…' : 'Add'}
         </button>
       </div>
@@ -112,12 +112,12 @@ function RuleList({
               ) : (
                 <span className="flex-1" />
               )}
-              <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+              <span className="text-xs shrink-0" style={{ color: 'var(--text-3)' }}>
                 {new Date(r.createdAt).toLocaleDateString()}
               </span>
               <button
                 onClick={() => onRemove(r.id).catch((e) => showToast((e as Error).message, 'error'))}
-                className="text-xs opacity-50 hover:opacity-100 flex-shrink-0"
+                className="text-xs opacity-50 hover:opacity-100 shrink-0"
                 style={{ color: '#ef4444' }}
               >
                 Remove
@@ -259,7 +259,7 @@ export default function AdminIpRules({ showToast }: Props) {
         </h3>
         <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
           Restricts admin and server owner access to{' '}
-          <code style={{ background: 'var(--surface)' }} className="px-1 rounded">
+          <code style={{ background: 'var(--surface)' }} className="px-1 rounded-sm">
             /api/admin/*
           </code>{' '}
           routes. Use this to limit admin actions to specific IPs - for example, your home network or a company IP

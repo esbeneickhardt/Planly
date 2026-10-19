@@ -75,11 +75,11 @@ function StatusSection({
     >
       <button
         onClick={onToggleCollapse}
-        className="w-full flex items-center gap-1.5 px-1.5 py-1 mb-1 rounded text-[11px] font-semibold transition-colors"
+        className="w-full flex items-center gap-1.5 px-1.5 py-1 mb-1 rounded-sm text-[11px] font-semibold transition-colors"
         style={{ color: 'var(--text-2)', background: `${color}14` }}
       >
         <span
-          className="inline-block flex-shrink-0"
+          className="inline-block shrink-0"
           style={{
             transform: collapsed ? 'rotate(-90deg)' : 'none',
             transition: 'transform 0.1s',
@@ -87,7 +87,7 @@ function StatusSection({
         >
           ▾
         </span>
-        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
         <span className="truncate flex-1 text-left">{label}</span>
         <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{tasks.length}</span>
       </button>
@@ -155,7 +155,7 @@ export default function KanbanMilestoneColumn({
     <div
       ref={setNodeRef}
       style={isOverlay ? {} : colStyle}
-      className="flex flex-col w-72 flex-shrink-0 rounded-xl overflow-visible"
+      className="flex flex-col w-72 shrink-0 rounded-xl overflow-visible"
     >
       <div
         className="rounded-xl flex flex-col h-full"
@@ -166,7 +166,7 @@ export default function KanbanMilestoneColumn({
       >
         {/* Column header - drag handle for milestone reordering (shared with Gantt's own order) */}
         <div
-          className="px-3 pt-3 pb-2 flex-shrink-0 flex items-start gap-2"
+          className="px-3 pt-3 pb-2 shrink-0 flex items-start gap-2"
           style={{
             borderBottom: '1px solid var(--border)',
             cursor: isUnassigned || isOverlay ? 'default' : 'grab',
@@ -187,7 +187,7 @@ export default function KanbanMilestoneColumn({
             )}
           </div>
           <span
-            className="text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0"
+            className="text-xs font-medium px-1.5 py-0.5 rounded-sm shrink-0"
             style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
           >
             {tasks.length}
@@ -199,7 +199,7 @@ export default function KanbanMilestoneColumn({
                 e.stopPropagation();
                 onOpenDetail(milestone);
               }}
-              className="text-xs flex-shrink-0"
+              className="text-xs shrink-0"
               style={{ color: 'var(--text-3)' }}
               title="Open milestone task"
             >

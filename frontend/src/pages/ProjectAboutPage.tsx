@@ -133,7 +133,7 @@ export default function ProjectAboutPage() {
         {/* Tab: Description */}
         {tab === 'description' && (
           <div
-            className="rounded-xl p-6 shadow-sm"
+            className="rounded-xl p-6 shadow-xs"
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
@@ -164,7 +164,7 @@ export default function ProjectAboutPage() {
                   key={m.userId}
                   type="button"
                   onClick={() => setProfileUserId(m.userId)}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors w-full shadow-sm"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-colors w-full shadow-xs"
                   style={{
                     background: 'var(--surface)',
                     border: '1px solid var(--border)',
@@ -172,12 +172,12 @@ export default function ProjectAboutPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                 >
-                  <span className="text-xl flex-shrink-0">{m.user.avatarEmoji ?? '👤'}</span>
+                  <span className="text-xl shrink-0">{m.user.avatarEmoji ?? '👤'}</span>
                   <span className="text-sm font-medium flex-1 min-w-0 truncate" style={{ color: 'var(--text)' }}>
                     {displayName(m.user)}
                   </span>
                   <span
-                    className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-medium"
+                    className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 font-medium"
                     style={{
                       background: style.bg,
                       color: style.color,

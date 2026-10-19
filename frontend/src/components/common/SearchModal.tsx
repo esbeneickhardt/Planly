@@ -613,12 +613,12 @@ export default function SearchModal({ onClose }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={activeProduct ? `Search in ${activeProduct.name}…` : 'Select a project to search…'}
-            className="flex-1 bg-transparent outline-none text-sm"
+            className="flex-1 bg-transparent outline-hidden text-sm"
             style={{ color: 'var(--text)' }}
           />
           {searching && (
             <div
-              className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin flex-shrink-0"
+              className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin shrink-0"
               style={{
                 borderColor: 'var(--brand)',
                 borderTopColor: 'transparent',
@@ -626,7 +626,7 @@ export default function SearchModal({ onClose }: Props) {
             />
           )}
           <kbd
-            className="text-xs px-1.5 py-0.5 rounded flex-shrink-0"
+            className="text-xs px-1.5 py-0.5 rounded-sm shrink-0"
             style={{
               background: 'var(--surface-2)',
               color: 'var(--text-3)',

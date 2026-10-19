@@ -173,7 +173,7 @@ export default function TopBarMobileMenu({
         </p>
         <div className="flex items-center gap-3 px-2 py-2 mb-1">
           <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-xl flex-shrink-0 overflow-hidden"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-xl shrink-0 overflow-hidden"
             style={{
               background: 'var(--surface-2)',
               border: '1px solid var(--border)',

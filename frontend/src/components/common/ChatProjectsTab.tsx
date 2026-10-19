@@ -51,7 +51,7 @@ export default function ChatProjectsTab({
           onTouchMove={isExpanded ? onExpandedTouchMove : undefined}
           onTouchEnd={isExpanded ? onExpandedTouchEnd : undefined}
           onTouchCancel={isExpanded ? onExpandedTouchEnd : undefined}
-          className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
+          className="flex items-center gap-2 px-2 py-2 shrink-0"
           style={{
             borderBottom: '1px solid var(--border)',
             touchAction: isExpanded ? 'none' : undefined,
@@ -60,13 +60,13 @@ export default function ChatProjectsTab({
           <button
             onClick={onBack}
             aria-label="Back"
-            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
             style={{ color: 'var(--text-2)' }}
           >
             ‹
           </button>
           <span
-            className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
             style={{ background: 'var(--surface-2)' }}
             aria-hidden="true"
           >
@@ -104,7 +104,7 @@ export default function ChatProjectsTab({
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span className="text-lg w-8 text-center flex-shrink-0">{p.emoji ?? '📋'}</span>
+              <span className="text-lg w-8 text-center shrink-0">{p.emoji ?? '📋'}</span>
               <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
                 {p.name}
               </p>

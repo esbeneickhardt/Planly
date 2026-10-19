@@ -54,7 +54,7 @@ export default function GanttSidebarList({
 }: Props) {
   return (
     <div
-      className="flex-shrink-0 sticky left-0 z-10"
+      className="shrink-0 sticky left-0 z-10"
       style={{
         width: sidebarWidth,
         borderRight: '1px solid var(--border)',
@@ -78,7 +78,7 @@ export default function GanttSidebarList({
               onMouseLeave={() => setHoveredSprint(null)}
             >
               <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
                 <p
                   className="text-xs font-medium leading-tight min-w-0"
                   title={s.name}
@@ -222,7 +222,7 @@ function SortableMilestoneRow({
       <div className="flex items-center gap-1.5">
         {isDone && (
           <span
-            className="flex-shrink-0 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold"
+            className="shrink-0 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold"
             style={{ background: '#10b981', color: 'white' }}
           >
             ✓
@@ -245,7 +245,7 @@ function SortableMilestoneRow({
       </div>
       {!isDone && (
         <div className="flex items-center gap-1.5 mt-0.5">
-          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
           <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
             {m.doneDependencies}/{m.totalDependencies || 0} done
           </span>

@@ -36,7 +36,7 @@ type ListUser = {
 function PendingBadge() {
   return (
     <span
-      className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+      className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium"
       style={{
         background: 'rgba(234,179,8,0.15)',
         color: '#ca8a04',
@@ -231,7 +231,7 @@ export default function SettingsTeam({
                   className="flex items-center gap-3 px-3 py-2.5"
                   style={{ borderBottom: '1px solid var(--border)' }}
                 >
-                  <span className="text-lg flex-shrink-0" style={{ opacity: u.acceptsInvites ? 1 : 0.4 }}>
+                  <span className="text-lg shrink-0" style={{ opacity: u.acceptsInvites ? 1 : 0.4 }}>
                     {u.avatarEmoji ?? '👤'}
                   </span>
                   <div className="flex-1 min-w-0">
@@ -257,7 +257,7 @@ export default function SettingsTeam({
                   <button
                     onClick={() => u.acceptsInvites && handleInviteUser(u.id, u.username)}
                     disabled={!u.acceptsInvites || addingUserId === u.id}
-                    className="btn-primary text-xs px-3 py-1 flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="btn-primary text-xs px-3 py-1 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {addingUserId === u.id ? '…' : 'Invite'}
                   </button>
@@ -313,7 +313,7 @@ export default function SettingsTeam({
                     className="flex items-center gap-3 flex-1 min-w-0 text-left"
                     style={{ background: 'none', border: 'none', padding: 0 }}
                   >
-                    <span className="text-xl flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
+                    <span className="text-xl shrink-0">{user.avatarEmoji ?? '👤'}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-sm font-medium hover:underline truncate" style={{ color: 'var(--text)' }}>
@@ -323,7 +323,7 @@ export default function SettingsTeam({
                         {!isProductOwner && isCoOwner && <RoleBadge kind="co_owner" />}
                         {userId === currentUser?.id && (
                           <span
-                            className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0"
+                            className="text-[10px] px-1.5 py-0.5 rounded-sm whitespace-nowrap shrink-0"
                             style={{
                               background: 'var(--surface-2)',
                               color: 'var(--text-3)',
@@ -340,7 +340,7 @@ export default function SettingsTeam({
                     <button
                       onClick={() => handleToggleCoOwner(userId, role ?? 'member')}
                       disabled={togglingRole === userId}
-                      className="text-xs px-2.5 py-1 rounded-lg transition-colors flex-shrink-0"
+                      className="text-xs px-2.5 py-1 rounded-lg transition-colors shrink-0"
                       style={{
                         background: isCoOwner ? 'rgba(139,92,246,0.1)' : 'var(--surface-2)',
                         color: isCoOwner ? '#8b5cf6' : 'var(--text-3)',
@@ -353,7 +353,7 @@ export default function SettingsTeam({
                   {canManage && !isProductOwner && userId !== currentUser?.id && (
                     <button
                       onClick={() => handleRemoveMember(userId, user.username)}
-                      className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
+                      className="text-xs px-2.5 py-1 rounded-lg shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
                       style={{
                         color: '#ef4444',
                         border: '1px solid rgba(239,68,68,0.25)',
@@ -380,7 +380,7 @@ export default function SettingsTeam({
                     opacity: 0.85,
                   }}
                 >
-                  <span className="text-xl flex-shrink-0" style={{ opacity: 0.6 }}>
+                  <span className="text-xl shrink-0" style={{ opacity: 0.6 }}>
                     {inv.toUser!.avatarEmoji ?? '👤'}
                   </span>
                   <div className="flex-1 min-w-0">
@@ -398,7 +398,7 @@ export default function SettingsTeam({
                     <button
                       onClick={() => handleUninvite(inv.id, inv.toUser!.username)}
                       disabled={uninvitingId === inv.id}
-                      className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
+                      className="text-xs px-2.5 py-1 rounded-lg shrink-0 transition-colors hover:bg-[rgba(239,68,68,0.08)]"
                       style={{
                         color: '#ef4444',
                         border: '1px solid rgba(239,68,68,0.25)',
@@ -433,7 +433,7 @@ export default function SettingsTeam({
           />
           <button
             disabled={creatingInvite}
-            className="btn-primary text-sm flex-shrink-0"
+            className="btn-primary text-sm shrink-0"
             onClick={async () => {
               setCreatingInvite(true);
               try {
@@ -466,7 +466,7 @@ export default function SettingsTeam({
                     borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
                   }}
                 >
-                  <span className="text-base flex-shrink-0">✉️</span>
+                  <span className="text-base shrink-0">✉️</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs truncate" style={{ color: 'var(--text)' }}>
                       {inv.email ?? 'Open invite'}
@@ -476,7 +476,7 @@ export default function SettingsTeam({
                     </p>
                   </div>
                   <button
-                    className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0"
+                    className="text-xs px-2.5 py-1 rounded-lg shrink-0"
                     style={{
                       color: 'var(--brand)',
                       border: '1px solid var(--brand)',
@@ -490,7 +490,7 @@ export default function SettingsTeam({
                     Copy link
                   </button>
                   <button
-                    className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0 ml-1"
+                    className="text-xs px-2.5 py-1 rounded-lg shrink-0 ml-1"
                     style={{
                       color: '#ef4444',
                       border: '1px solid rgba(239,68,68,0.25)',
@@ -546,7 +546,7 @@ export default function SettingsTeam({
                   border: '1px solid var(--border)',
                 }}
               >
-                <span className="text-xl flex-shrink-0">{req.user.avatarEmoji ?? '👤'}</span>
+                <span className="text-xl shrink-0">{req.user.avatarEmoji ?? '👤'}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                     {displayName(req.user)}
@@ -562,7 +562,7 @@ export default function SettingsTeam({
                     </p>
                   )}
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-2 shrink-0">
                   <button
                     onClick={() => handleDecideRequest(req.id, 'approve')}
                     disabled={decidingId === req.id}

@@ -179,7 +179,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                             await onUsersChanged();
                           });
                         }}
-                        className="text-xs px-2 py-1 rounded"
+                        className="text-xs px-2 py-1 rounded-sm"
                         style={{ background: '#ef444422', color: '#ef4444' }}
                       >
                         Demote
@@ -192,7 +192,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                             await onUsersChanged();
                           })
                         }
-                        className="text-xs px-2 py-1 rounded"
+                        className="text-xs px-2 py-1 rounded-sm"
                         style={{ background: '#6366f122', color: '#6366f1' }}
                       >
                         Make admin
@@ -206,7 +206,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                             showToast(`${u.username} logged out`, 'success');
                           })
                         }
-                        className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100"
+                        className="text-xs px-2 py-1 rounded-sm opacity-60 hover:opacity-100"
                         style={{ background: '#f59e0b15', color: '#f59e0b' }}
                         title="Immediately invalidate all active sessions"
                       >
@@ -229,7 +229,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                             });
                           })
                         }
-                        className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100 whitespace-nowrap"
+                        className="text-xs px-2 py-1 rounded-sm opacity-60 hover:opacity-100 whitespace-nowrap"
                         style={{ background: '#10b98115', color: '#10b981' }}
                         title="Generate a temporary password and copy it to clipboard"
                       >
@@ -238,7 +238,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                     )}
                     {tempPassDisplay?.userId === u.id && (
                       <button
-                        className="text-xs px-2 py-1 rounded font-mono"
+                        className="text-xs px-2 py-1 rounded-sm font-mono"
                         style={{ background: '#10b98122', color: '#10b981' }}
                         title="Click to copy again"
                         onClick={() => {
@@ -259,7 +259,7 @@ export default function AdminUsers({ users, isFoundingAdmin, currentUserId, onUs
                             showToast(`${u.username} deleted`, 'success');
                           });
                         }}
-                        className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100"
+                        className="text-xs px-2 py-1 rounded-sm opacity-60 hover:opacity-100"
                         style={{ background: '#ef444415', color: '#ef4444' }}
                         title="Delete user"
                       >

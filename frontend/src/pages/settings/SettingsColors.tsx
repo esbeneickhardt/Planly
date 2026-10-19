@@ -36,7 +36,7 @@ export default function SettingsColors({ productId }: Props) {
               <button
                 onClick={() => toggleEnabled(color)}
                 title={on ? 'Disable' : 'Enable'}
-                className="w-6 h-6 rounded-full flex-shrink-0 transition-all"
+                className="w-6 h-6 rounded-full shrink-0 transition-all"
                 style={{
                   background: color,
                   boxShadow: on ? `0 0 0 2px var(--surface-2), 0 0 0 3.5px ${color}` : 'none',
@@ -46,11 +46,11 @@ export default function SettingsColors({ productId }: Props) {
                 type="text"
                 value={legend[color] ?? ''}
                 onChange={(e) => updateLegend(color, e.target.value)}
-                className="flex-1 bg-transparent text-sm outline-none"
+                className="flex-1 bg-transparent text-sm outline-hidden"
                 style={{ color: 'var(--text)' }}
                 placeholder="e.g. Bug, Feature, Design…"
               />
-              <span className="text-xs flex-shrink-0" style={{ color: on ? 'var(--brand)' : 'var(--text-3)' }}>
+              <span className="text-xs shrink-0" style={{ color: on ? 'var(--brand)' : 'var(--text-3)' }}>
                 {on ? 'Active' : 'Hidden'}
               </span>
             </div>

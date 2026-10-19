@@ -87,7 +87,7 @@ function SortableMilestoneHeader({
         cursor: isUnassigned ? 'default' : 'grab',
         touchAction: isUnassigned ? undefined : 'none',
       }}
-      className="w-full flex items-center gap-1.5 px-1.5 py-1 mb-1 rounded text-[11px] font-semibold transition-colors select-none"
+      className="w-full flex items-center gap-1.5 px-1.5 py-1 mb-1 rounded-sm text-[11px] font-semibold transition-colors select-none"
     >
       <button
         onPointerDown={(e) => e.stopPropagation()}
@@ -95,7 +95,7 @@ function SortableMilestoneHeader({
         className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
       >
         <span
-          className="inline-block flex-shrink-0"
+          className="inline-block shrink-0"
           style={{
             transform: collapsed ? 'rotate(-90deg)' : 'none',
             transition: 'transform 0.1s',
@@ -103,7 +103,7 @@ function SortableMilestoneHeader({
         >
           ▾
         </span>
-        {!isUnassigned && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />}
+        {!isUnassigned && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />}
         <span className="truncate flex-1">{label}</span>
       </button>
       <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{count}</span>
@@ -229,7 +229,7 @@ export default function KanbanColumn({
     <div
       ref={setSortableRef}
       style={isOverlay ? {} : colStyle}
-      className="flex flex-col w-72 flex-shrink-0 rounded-xl overflow-visible"
+      className="flex flex-col w-72 shrink-0 rounded-xl overflow-visible"
       {...(isOverlay ? {} : {})}
     >
       <div
@@ -244,7 +244,7 @@ export default function KanbanColumn({
       >
         {/* Column header - drag handle for column reordering */}
         <div
-          className="px-3 pt-3 pb-2 flex-shrink-0"
+          className="px-3 pt-3 pb-2 shrink-0"
           style={{
             borderBottom: '1px solid var(--border)',
             cursor: isOverlay ? 'grabbing' : 'grab',
@@ -258,7 +258,7 @@ export default function KanbanColumn({
           }}
         >
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color }} />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: column.color }} />
 
             {editing ? (
               <input
@@ -276,7 +276,7 @@ export default function KanbanColumn({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="flex-1 text-sm font-semibold bg-transparent border-b outline-none"
+                className="flex-1 text-sm font-semibold bg-transparent border-b outline-hidden"
                 style={{
                   color: 'var(--text)',
                   borderColor: column.color,
@@ -294,7 +294,7 @@ export default function KanbanColumn({
             )}
 
             <span
-              className="text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0"
+              className="text-xs font-medium px-1.5 py-0.5 rounded-sm shrink-0"
               style={{ background: 'var(--surface)', color: 'var(--text-3)' }}
             >
               {tasks.length}
@@ -302,11 +302,11 @@ export default function KanbanColumn({
 
             {/* Sort menu */}
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation-only guard against the column header's drag/rename handlers */}
-            <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => setShowSortMenu((s) => !s)}
-                className="text-xs px-1.5 py-0.5 rounded transition-colors"
+                className="text-xs px-1.5 py-0.5 rounded-sm transition-colors"
                 style={{
                   color: sortMode !== 'default' ? column.color : 'var(--text-3)',
                   background: sortMode !== 'default' ? `${column.color}18` : 'transparent',
@@ -356,7 +356,7 @@ export default function KanbanColumn({
                   e.stopPropagation();
                   onDeleteRequest(column);
                 }}
-                className="text-xs transition-all flex-shrink-0"
+                className="text-xs transition-all shrink-0"
                 style={{ color: 'var(--text-3)', opacity: 0.35 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = '#ef4444';
@@ -428,7 +428,7 @@ export default function KanbanColumn({
                     if (!newTaskName.trim()) cancelQuickAdd();
                   }}
                   placeholder="Task name…"
-                  className="w-full px-2.5 py-2 text-xs bg-transparent outline-none"
+                  className="w-full px-2.5 py-2 text-xs bg-transparent outline-hidden"
                   style={{ color: 'var(--text)' }}
                 />
                 <div className="flex gap-1 px-2 pb-2">
@@ -436,7 +436,7 @@ export default function KanbanColumn({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={submitQuickAdd}
                     disabled={submitting || !newTaskName.trim()}
-                    className="text-xs px-2.5 py-1 rounded font-medium transition-colors"
+                    className="text-xs px-2.5 py-1 rounded-sm font-medium transition-colors"
                     style={{
                       background: column.color,
                       color: 'white',
@@ -448,7 +448,7 @@ export default function KanbanColumn({
                   <button
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={cancelQuickAdd}
-                    className="text-xs px-2 py-1 rounded transition-colors"
+                    className="text-xs px-2 py-1 rounded-sm transition-colors"
                     style={{ color: 'var(--text-3)' }}
                   >
                     ✕
@@ -459,7 +459,7 @@ export default function KanbanColumn({
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={openQuickAdd}
-                className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-all mb-1"
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-all mb-2"
                 style={{ color: 'var(--text-3)' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'var(--surface)';

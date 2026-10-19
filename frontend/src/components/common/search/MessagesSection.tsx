@@ -37,7 +37,7 @@ export default function MessagesSection({ items, highlightIdx, nextIdx, loading,
               (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
             }
           >
-            <span className="text-base flex-shrink-0 mt-0.5">{msg.author.avatarEmoji ?? '👤'}</span>
+            <span className="text-base shrink-0 mt-0.5">{msg.author.avatarEmoji ?? '👤'}</span>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
                 {displayName(msg.author)}
