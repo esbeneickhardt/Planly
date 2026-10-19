@@ -33,7 +33,7 @@ export default function PdfPreview({ url, name }: Props) {
       {open && (
         <Modal title={`📄 ${name}`} onClose={() => setOpen(false)} width="max-w-4xl" mobileFullscreen>
           <div className="flex flex-col gap-2" style={{ height: '70vh' }}>
-            <div className="flex justify-end flex-shrink-0">
+            <div className="flex justify-end shrink-0">
               <a
                 href={url}
                 download={name}

@@ -73,16 +73,16 @@ export default function AdminOwnership({ users, isFoundingAdmin, currentUserId, 
             <button
               key={u.id}
               onClick={() => setDetailUser(u)}
-              className="flex items-center gap-2 py-1.5 w-full text-left rounded-lg transition-colors hover:bg-[var(--surface)]"
+              className="flex items-center gap-2 py-1.5 w-full text-left rounded-lg transition-colors hover:bg-(--surface)"
             >
-              <span className="flex-shrink-0" style={{ color: u.isFoundingAdmin ? '#f59e0b' : '#6366f1' }}>
+              <span className="shrink-0" style={{ color: u.isFoundingAdmin ? '#f59e0b' : '#6366f1' }}>
                 {u.isFoundingAdmin ? <CrownIcon size={16} /> : <ShieldIcon size={16} />}
               </span>
               <span className="text-sm flex-1 min-w-0 truncate font-medium" style={{ color: 'var(--text)' }}>
                 {u.username}
               </span>
               <span
-                className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-medium"
+                className="shrink-0 text-xs px-1.5 py-0.5 rounded-sm font-medium"
                 style={{
                   background: u.isFoundingAdmin ? '#f59e0b22' : '#6366f122',
                   color: u.isFoundingAdmin ? '#f59e0b' : '#6366f1',

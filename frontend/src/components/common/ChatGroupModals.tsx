@@ -154,7 +154,7 @@ export default function ChatGroupModals({
                         style={{ accentColor: 'var(--brand)' }}
                       />
                       <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
+                        className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold"
                         style={{
                           background: 'var(--surface-2)',
                           color: 'var(--text-2)',
@@ -237,7 +237,7 @@ export default function ChatGroupModals({
                           setGroupBusy(false);
                         }
                       }}
-                      className="btn-secondary text-xs px-3 flex-shrink-0"
+                      className="btn-secondary text-xs px-3 shrink-0"
                     >
                       Save
                     </button>
@@ -270,7 +270,7 @@ export default function ChatGroupModals({
                               setGroupBusy(false);
                             }
                           }}
-                          className="text-xs opacity-60 hover:opacity-100 flex-shrink-0"
+                          className="text-xs opacity-60 hover:opacity-100 shrink-0"
                           style={{ color: '#ef4444' }}
                         >
                           Remove

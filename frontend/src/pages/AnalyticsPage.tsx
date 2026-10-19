@@ -133,7 +133,7 @@ function BarChart({
           <div className="relative flex-1 flex flex-col justify-end">
             {count > 0 && (
               <div
-                className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-medium px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none"
+                className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-medium px-1 py-0.5 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none"
                 style={{
                   background: 'var(--surface-2)',
                   color: 'var(--text)',
@@ -496,7 +496,7 @@ export default function AnalyticsPage() {
                   {tiles.map(({ label, value, icon, color }) => (
                     <div
                       key={label}
-                      className="rounded-xl p-4 flex flex-col gap-1 shadow-sm"
+                      className="rounded-xl p-4 flex flex-col gap-1 shadow-xs"
                       style={{
                         background: 'var(--surface)',
                         border: '1px solid var(--border)',
@@ -518,7 +518,7 @@ export default function AnalyticsPage() {
             {/* Throughput + Status breakdown */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
               <div
-                className="sm:col-span-2 rounded-xl p-6 shadow-sm"
+                className="sm:col-span-2 rounded-xl p-6 shadow-xs"
                 style={{
                   background: 'var(--surface)',
                   border: '1px solid var(--border)',
@@ -546,7 +546,7 @@ export default function AnalyticsPage() {
                 const statusTotal = data.statusBreakdown.reduce((s, x) => s + x.count, 0);
                 return (
                   <div
-                    className="rounded-xl p-6 shadow-sm"
+                    className="rounded-xl p-6 shadow-xs"
                     style={{
                       background: 'var(--surface)',
                       border: '1px solid var(--border)',
@@ -594,7 +594,7 @@ export default function AnalyticsPage() {
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-1.5">
                                   <span
-                                    className="w-2 h-2 rounded-full flex-shrink-0"
+                                    className="w-2 h-2 rounded-full shrink-0"
                                     style={{
                                       background: STATUS_COLOR[status] ?? '#64748b',
                                     }}
@@ -632,7 +632,7 @@ export default function AnalyticsPage() {
             {/* Cumulative completions */}
             {data.totalCompleted > 0 && (
               <div
-                className="rounded-xl p-6 shadow-sm"
+                className="rounded-xl p-6 shadow-xs"
                 style={{
                   background: 'var(--surface)',
                   border: '1px solid var(--border)',
@@ -656,7 +656,7 @@ export default function AnalyticsPage() {
             {/* Weekday distribution */}
             {data.totalCompleted > 0 && (
               <div
-                className="rounded-xl p-6 shadow-sm"
+                className="rounded-xl p-6 shadow-xs"
                 style={{
                   background: 'var(--surface)',
                   border: '1px solid var(--border)',
@@ -680,7 +680,7 @@ export default function AnalyticsPage() {
             {/* Cycle velocity */}
             {data.sprintVelocity.length > 0 && (
               <div
-                className="rounded-xl p-6 shadow-sm"
+                className="rounded-xl p-6 shadow-xs"
                 style={{
                   background: 'var(--surface)',
                   border: '1px solid var(--border)',
@@ -701,7 +701,7 @@ export default function AnalyticsPage() {
         {/* My workload */}
         {workload && (
           <div
-            className="rounded-xl p-6 shadow-sm"
+            className="rounded-xl p-6 shadow-xs"
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
@@ -737,7 +737,7 @@ export default function AnalyticsPage() {
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1.5">
                               <span
-                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                className="w-2 h-2 rounded-full shrink-0"
                                 style={{
                                   background: STATUS_COLOR[status] ?? '#64748b',
                                 }}
@@ -797,7 +797,7 @@ export default function AnalyticsPage() {
 
         {/* Activity feed */}
         <div
-          className="rounded-xl p-6 shadow-sm"
+          className="rounded-xl p-6 shadow-xs"
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -819,7 +819,7 @@ export default function AnalyticsPage() {
                   style={{ borderBottom: '1px solid var(--border)' }}
                 >
                   <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5"
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] shrink-0 mt-0.5"
                     style={{
                       background: `${actionColor(ev.action)}20`,
                       color: actionColor(ev.action),
@@ -841,7 +841,7 @@ export default function AnalyticsPage() {
                       )}
                     </p>
                   </div>
-                  <span className="text-[10px] flex-shrink-0 mt-0.5" style={{ color: 'var(--text-3)' }}>
+                  <span className="text-[10px] shrink-0 mt-0.5" style={{ color: 'var(--text-3)' }}>
                     {formatRelative(ev.createdAt)}
                   </span>
                 </div>
@@ -903,7 +903,7 @@ function SprintVelocityChart({ sprints }: { sprints: SprintVelocity[] }) {
               }}
             />
           </div>
-          <div className="text-xs font-medium flex-shrink-0 w-7 text-right" style={{ color: 'var(--text-3)' }}>
+          <div className="text-xs font-medium shrink-0 w-7 text-right" style={{ color: 'var(--text-3)' }}>
             {s.completed}
           </div>
         </div>

@@ -928,7 +928,7 @@ export default function KanbanBoard() {
                   {!readOnly && viewMode === 'status' && (
                     <button
                       onClick={() => setShowNewColumn(true)}
-                      className="w-72 flex-shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm border-[var(--border)] text-[var(--text-3)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                      className="w-72 shrink-0 flex items-center gap-2 px-3 rounded-xl border-2 border-dashed transition-all text-sm border-(--border) text-(--text-3) hover:border-(--brand) hover:text-(--brand)"
                       style={{ height: 44 }}
                     >
                       <span className="text-base leading-none">+</span>
@@ -1003,7 +1003,7 @@ export default function KanbanBoard() {
                 </div>
               ) : activeMilestoneHeader ? (
                 <div
-                  className="text-[11px] font-semibold px-2 py-1 rounded flex items-center gap-1.5"
+                  className="text-[11px] font-semibold px-2 py-1 rounded-sm flex items-center gap-1.5"
                   style={{
                     width: 260,
                     background: `${activeMilestoneHeader.color}22`,
@@ -1012,7 +1012,7 @@ export default function KanbanBoard() {
                   }}
                 >
                   <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
                     style={{ background: activeMilestoneHeader.color }}
                   />
                   {activeMilestoneHeader.name}

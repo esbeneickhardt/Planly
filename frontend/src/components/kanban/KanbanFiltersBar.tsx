@@ -172,7 +172,7 @@ function OwnerFilterSection({
           border: `1px solid ${ownerFilters.size > 0 ? 'var(--brand)' : 'var(--border)'}`,
         }}
       >
-        {singleSelected && <span className="flex-shrink-0">{singleSelected.avatarEmoji ?? '👤'}</span>}
+        {singleSelected && <span className="shrink-0">{singleSelected.avatarEmoji ?? '👤'}</span>}
         <span className="flex-1 text-left truncate">{label}</span>
         <span className="text-[10px]">▾</span>
       </button>
@@ -190,7 +190,7 @@ function OwnerFilterSection({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search people…"
-            className="text-xs px-2.5 py-2 bg-transparent outline-none flex-shrink-0"
+            className="text-xs px-2.5 py-2 bg-transparent outline-hidden shrink-0"
             style={{
               color: 'var(--text)',
               borderBottom: '1px solid var(--border)',
@@ -208,10 +208,10 @@ function OwnerFilterSection({
                 <button
                   key={u.id}
                   onClick={() => onToggleOwner(u.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-(--brand-subtle)' : 'hover:bg-(--surface-2)'}`}
                   style={{ color: active ? 'var(--brand)' : 'var(--text)' }}
                 >
-                  <span className="flex-shrink-0">{u.avatarEmoji ?? '👤'}</span>
+                  <span className="shrink-0">{u.avatarEmoji ?? '👤'}</span>
                   <span className="flex-1 text-left truncate">{displayName(u)}</span>
                   {active && <span style={{ color: 'var(--brand)' }}>✓</span>}
                 </button>
@@ -281,14 +281,14 @@ export default function KanbanFiltersBar({
   const viewCustomized = compact || simpleMode || viewMode === 'milestone' || groupByMilestone || bgImage !== null;
 
   return (
-    <div className="px-4 md:px-6 pt-3 md:pt-4 pb-3 flex-shrink-0 flex items-center gap-2 md:gap-3 flex-wrap">
+    <div className="px-4 md:px-6 pt-3 md:pt-4 pb-3 shrink-0 flex items-center gap-2 md:gap-3 flex-wrap">
       {/* Task count */}
-      <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+      <span className="text-xs shrink-0" style={{ color: 'var(--text-3)' }}>
         {taskCount}
         {hasFilters ? ' filtered' : ''} tasks
       </span>
 
-      <div className="hidden md:block w-px h-4 flex-shrink-0" style={{ background: 'var(--border)' }} />
+      <div className="hidden md:block w-px h-4 shrink-0" style={{ background: 'var(--border)' }} />
 
       {/* Mine toggle - icon-only on mobile (label hidden below md:) to keep this whole row from
           wrapping to a second line on a phone-width screen; the emoji plus title/aria-label alone
@@ -296,7 +296,7 @@ export default function KanbanFiltersBar({
       <button
         onClick={onMineToggle}
         aria-label="Show only my tasks"
-        className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+        className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all shrink-0"
         style={{
           color: mineOnly ? 'var(--brand)' : 'var(--text-3)',
           background: mineOnly ? 'var(--brand-subtle)' : 'transparent',
@@ -313,7 +313,7 @@ export default function KanbanFiltersBar({
         <button
           onClick={onReset}
           aria-label="Reset filters"
-          className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all flex-shrink-0"
+          className="text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all shrink-0"
           style={{
             color: 'var(--brand)',
             background: 'var(--brand-subtle)',
@@ -328,7 +328,7 @@ export default function KanbanFiltersBar({
           array that both the desktop board and KanbanMobileList render from - shown identically
           on both, unlike View below which has a couple of desktop-only rows. */}
       {hasFilterOptions && (
-        <div className="relative flex-shrink-0" ref={filtersMenuRef}>
+        <div className="relative shrink-0" ref={filtersMenuRef}>
           <button
             onClick={onToggleFiltersMenu}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
@@ -380,7 +380,7 @@ export default function KanbanFiltersBar({
                             border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
                           }}
                         >
-                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: s.color }} />
                           {s.label}
                         </button>
                       );
@@ -404,7 +404,7 @@ export default function KanbanFiltersBar({
                         <button
                           key={c}
                           onClick={() => onToggleColor(c)}
-                          className="w-5 h-5 rounded-full flex-shrink-0 transition-all"
+                          className="w-5 h-5 rounded-full shrink-0 transition-all"
                           style={{
                             background: c,
                             outline: active ? `2px solid ${c}` : 'none',
@@ -488,7 +488,7 @@ export default function KanbanFiltersBar({
         </div>
       )}
 
-      <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+      <div className="ml-auto flex items-center gap-2 shrink-0">
         {/* View menu: board layout, density, and background - "how the board looks" rather than
             "which tasks show". Compact list view is a desktop-only layout swap (KanbanCompactList),
             so that row stays desktop-only; Simple cards and Background both now render on the

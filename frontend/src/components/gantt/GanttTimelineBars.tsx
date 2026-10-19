@@ -191,14 +191,14 @@ export default function GanttTimelineBars({
                       return (
                         <button
                           key={t.id}
-                          className="flex items-center gap-2 text-xs w-full text-left rounded px-0.5 hover:opacity-80 transition-opacity cursor-pointer"
+                          className="flex items-center gap-2 text-xs w-full text-left rounded-sm px-0.5 hover:opacity-80 transition-opacity cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedTask(t);
                           }}
                         >
                           <span
-                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
                             style={{
                               background: STATUS_COLOR[t.status] ?? '#64748b',
                             }}
@@ -396,7 +396,7 @@ export default function GanttTimelineBars({
                             </div>
                           )}
                           <button
-                            className="flex items-center gap-2 text-xs w-full text-left rounded px-0.5 hover:opacity-80 transition-opacity cursor-pointer"
+                            className="flex items-center gap-2 text-xs w-full text-left rounded-sm px-0.5 hover:opacity-80 transition-opacity cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               const t = tasks.find((t) => t.id === d.id);
@@ -404,7 +404,7 @@ export default function GanttTimelineBars({
                             }}
                           >
                             <span
-                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
                               style={{
                                 background: STATUS_COLOR[d.status] ?? '#64748b',
                               }}
@@ -421,7 +421,7 @@ export default function GanttTimelineBars({
                             </span>
                             {!d.ownerId && !isDone && (
                               <span
-                                className="text-[10px] px-1 rounded flex-shrink-0"
+                                className="text-[10px] px-1 rounded-sm shrink-0"
                                 style={{
                                   background: 'rgba(239,68,68,0.12)',
                                   color: '#ef4444',
@@ -580,7 +580,7 @@ export default function GanttTimelineBars({
                         </div>
                       )}
                       <button
-                        className="flex items-center gap-2 text-xs w-full text-left rounded px-0.5 hover:opacity-80 transition-opacity"
+                        className="flex items-center gap-2 text-xs w-full text-left rounded-sm px-0.5 hover:opacity-80 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation();
                           const t = tasks.find((t) => t.id === m.id);
@@ -589,14 +589,14 @@ export default function GanttTimelineBars({
                       >
                         {isDone ? (
                           <span
-                            className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                            className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
                             style={{ background: '#10b981', color: 'white' }}
                           >
                             ✓
                           </span>
                         ) : (
                           <span
-                            className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0"
+                            className="w-3.5 h-3.5 rounded-full border-2 shrink-0"
                             style={{ borderColor: progressColor(m) }}
                           />
                         )}
@@ -610,7 +610,7 @@ export default function GanttTimelineBars({
                         >
                           {m.name}
                         </span>
-                        <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
+                        <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
                           {new Date(m.deadline).toLocaleDateString('en', {
                             month: 'short',
                             day: 'numeric',

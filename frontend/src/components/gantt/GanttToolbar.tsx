@@ -43,7 +43,7 @@ export default function GanttToolbar({
 }: Props) {
   return (
     <div
-      className="flex flex-shrink-0"
+      className="flex shrink-0"
       style={{
         borderBottom: '1px solid var(--border)',
         background: 'var(--surface)',
@@ -51,7 +51,7 @@ export default function GanttToolbar({
     >
       {/* Left: view toggle + hide-done */}
       <div
-        className="flex-shrink-0 px-3 flex flex-col justify-center gap-1"
+        className="shrink-0 px-3 flex flex-col justify-center gap-1"
         style={{
           width: sidebarWidth,
           borderRight: '1px solid var(--border)',
@@ -107,7 +107,7 @@ export default function GanttToolbar({
           <Tooltip content="Zoom in" side="bottom">
             <button
               onClick={() => applyZoom(0.5)}
-              className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity"
+              className="w-6 h-6 rounded-sm flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity"
               style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
             >
               +
@@ -117,7 +117,7 @@ export default function GanttToolbar({
             <button
               onClick={() => applyZoom(2)}
               disabled={isFullView}
-              className="w-6 h-6 rounded flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30"
+              className="w-6 h-6 rounded-sm flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-30"
               style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
             >
               −
@@ -127,7 +127,7 @@ export default function GanttToolbar({
             <button
               onClick={onFit}
               disabled={isFullView}
-              className="h-6 px-1.5 rounded text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30"
+              className="h-6 px-1.5 rounded-sm text-xs font-medium hover:opacity-80 transition-opacity disabled:opacity-30"
               style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
             >
               Fit
@@ -159,7 +159,7 @@ export default function GanttToolbar({
             }}
           >
             <span
-              className="text-[10px] font-semibold px-1 rounded"
+              className="text-[10px] font-semibold px-1 rounded-sm"
               style={{ background: 'var(--brand)', color: 'white' }}
             >
               Today

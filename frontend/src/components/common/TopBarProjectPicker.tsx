@@ -84,7 +84,7 @@ export default function TopBarProjectPicker({
         <span className="flex-1 truncate font-medium">{p.name}</span>
         {p.status !== 'active' && (
           <span
-            className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+            className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
             style={{
               background: p.status === 'completed' ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.12)',
               color: p.status === 'completed' ? '#10b981' : 'var(--text-3)',
@@ -95,7 +95,7 @@ export default function TopBarProjectPicker({
         )}
         {!!unreadByProduct?.[p.id] && (
           <span
-            className="flex items-center justify-center rounded-full text-white text-[10px] font-bold flex-shrink-0"
+            className="flex items-center justify-center rounded-full text-white text-[10px] font-bold shrink-0"
             style={{
               background: '#ef4444',
               minWidth: 16,
@@ -173,7 +173,7 @@ export default function TopBarProjectPicker({
         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
       >
         <span
-          className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+          className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
           style={{ background: 'var(--brand)', color: 'white' }}
         >
           +

@@ -1040,7 +1040,7 @@ export default function ChatPanel({
                   onTouchMove={isExpanded ? handleExpandedTouchMove : undefined}
                   onTouchEnd={isExpanded ? handleExpandedTouchEnd : undefined}
                   onTouchCancel={isExpanded ? handleExpandedTouchEnd : undefined}
-                  className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
+                  className="flex items-center gap-2 px-2 py-2 shrink-0"
                   style={{
                     borderBottom: '1px solid var(--border)',
                     touchAction: isExpanded ? 'none' : undefined,
@@ -1053,13 +1053,13 @@ export default function ChatPanel({
                       setAttachments([]);
                     }}
                     aria-label="Back"
-                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
                     style={{ color: 'var(--text-2)' }}
                   >
                     ‹
                   </button>
                   <span
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
                     style={{ background: 'var(--surface-2)' }}
                     aria-hidden="true"
                   >
@@ -1070,7 +1070,7 @@ export default function ChatPanel({
                   </p>
                   <button
                     onClick={() => togglePin(selectedTask.id)}
-                    className="text-sm px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                    className="text-sm px-2 py-1 rounded-lg transition-colors shrink-0"
                     title={pinnedTaskIds.includes(selectedTask.id) ? 'Unpin' : 'Pin'}
                     style={{
                       background: pinnedTaskIds.includes(selectedTask.id) ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -1093,7 +1093,7 @@ export default function ChatPanel({
                       }
                     }}
                     disabled={openingTask}
-                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                    className="text-xs px-2 py-1 rounded-lg transition-colors shrink-0"
                     style={{
                       background: 'var(--brand-subtle)',
                       color: 'var(--brand)',
@@ -1108,7 +1108,7 @@ export default function ChatPanel({
             ) : (
               <div className="flex flex-col flex-1 min-h-0">
                 {/* Search / filter tasks */}
-                <div className="px-4 pt-3 pb-2 flex-shrink-0 space-y-2">
+                <div className="px-4 pt-3 pb-2 shrink-0 space-y-2">
                   <input
                     type="text"
                     value={taskSearch}
@@ -1183,7 +1183,7 @@ export default function ChatPanel({
                               className="flex gap-3 flex-1 min-w-0 text-left"
                             >
                               <div
-                                className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-base"
+                                className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-base"
                                 style={{
                                   background: 'var(--surface)',
                                   border: '1px solid var(--border)',
@@ -1203,7 +1203,7 @@ export default function ChatPanel({
                                     {task.name}
                                   </p>
                                   {msgInfo && (
-                                    <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+                                    <span className="text-[10px] shrink-0" style={{ color: 'var(--text-3)' }}>
                                       {formatTime(msgInfo.last.createdAt)}
                                     </span>
                                   )}
@@ -1221,7 +1221,7 @@ export default function ChatPanel({
                               </div>
                               {unread > 0 && (
                                 <span
-                                  className="flex-shrink-0 self-center flex items-center justify-center rounded-full text-white text-[9px] font-bold"
+                                  className="shrink-0 self-center flex items-center justify-center rounded-full text-white text-[9px] font-bold"
                                   style={{
                                     background: '#ef4444',
                                     minWidth: 14,
@@ -1234,7 +1234,7 @@ export default function ChatPanel({
                               )}
                               {msgInfo && (
                                 <span
-                                  className="flex-shrink-0 self-center text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                                  className="shrink-0 self-center text-[10px] font-medium px-1.5 py-0.5 rounded-full"
                                   style={{
                                     background: 'var(--brand-subtle)',
                                     color: 'var(--brand)',
@@ -1245,10 +1245,10 @@ export default function ChatPanel({
                               )}
                             </button>
                             {/* Action buttons */}
-                            <div className="flex flex-col gap-1 self-center opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0">
+                            <div className="flex flex-col gap-1 self-center opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0">
                               <button
                                 onClick={() => togglePin(task.id)}
-                                className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                                className="w-6 h-6 rounded-sm flex items-center justify-center text-xs"
                                 title={isPinned ? 'Unpin' : 'Pin to top'}
                                 style={{
                                   background: isPinned ? 'var(--brand-subtle)' : 'var(--surface)',
@@ -1261,7 +1261,7 @@ export default function ChatPanel({
                               {!isPinned && (
                                 <button
                                   onClick={() => dismissTask(task.id)}
-                                  className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                                  className="w-6 h-6 rounded-sm flex items-center justify-center text-xs"
                                   title="Remove from feed"
                                   style={{
                                     background: 'var(--surface)',
@@ -1287,7 +1287,7 @@ export default function ChatPanel({
           {/* ── Search tab ── */}
           {tab === 'search' && (
             <div className="flex flex-col flex-1 min-h-0">
-              <div className="px-4 pt-3 pb-2 flex-shrink-0">
+              <div className="px-4 pt-3 pb-2 shrink-0">
                 <input
                   // eslint-disable-next-line jsx-a11y/no-autofocus -- search field for a just-opened dedicated search tab
                   autoFocus
@@ -1353,7 +1353,7 @@ export default function ChatPanel({
                             📋 {msg.task.name}
                           </span>
                         )}
-                        <span className="text-[10px] ml-auto flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+                        <span className="text-[10px] ml-auto shrink-0" style={{ color: 'var(--text-3)' }}>
                           {formatTime(msg.createdAt)}
                         </span>
                       </div>

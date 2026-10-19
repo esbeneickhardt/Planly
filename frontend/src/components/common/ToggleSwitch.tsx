@@ -11,11 +11,11 @@ interface Props {
 export default function ToggleSwitch({ checked }: Props) {
   return (
     <div
-      className="w-9 h-5 rounded-full flex-shrink-0 relative transition-colors"
+      className="w-9 h-5 rounded-full shrink-0 relative transition-colors"
       style={{ background: checked ? 'var(--brand)' : 'var(--border)' }}
     >
       <div
-        className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all"
+        className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-xs transition-all"
         style={{ left: checked ? 'calc(100% - 18px)' : '2px' }}
       />
     </div>

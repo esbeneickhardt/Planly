@@ -122,7 +122,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
             href="/api/docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium flex-shrink-0 transition-colors text-[var(--text-2)] border-[var(--border)] hover:text-[var(--brand)] hover:border-[var(--brand)]"
+            className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium shrink-0 transition-colors text-(--text-2) border-(--border) hover:text-(--brand) hover:border-(--brand)"
             style={{
               background: 'var(--surface-2)',
               border: '1px solid var(--border)',
@@ -147,7 +147,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
           />
           <button
             disabled={!newAppName.trim() || creatingApp}
-            className="btn-primary text-sm flex-shrink-0"
+            className="btn-primary text-sm shrink-0"
             onClick={async () => {
               setCreatingApp(true);
               try {
@@ -189,7 +189,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 {revealedToken}
               </code>
               <button
-                className="btn-secondary text-xs flex-shrink-0"
+                className="btn-secondary text-xs shrink-0"
                 onClick={() => {
                   navigator.clipboard.writeText(revealedToken);
                   showToast('Copied!', 'success');
@@ -198,7 +198,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 Copy
               </button>
               <button
-                className="text-xs flex-shrink-0"
+                className="text-xs shrink-0"
                 style={{ color: 'var(--text-3)' }}
                 onClick={() => setRevealedToken(null)}
               >
@@ -232,7 +232,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                     }
                   }}
                 >
-                  <span className="text-lg flex-shrink-0">🤖</span>
+                  <span className="text-lg shrink-0">🤖</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                       {app.name}
@@ -245,7 +245,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                     {selectedAppId === app.id ? '▲' : '▼'}
                   </span>
                   <button
-                    className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0"
+                    className="text-xs px-2.5 py-1 rounded-lg shrink-0"
                     style={{
                       color: '#ef4444',
                       border: '1px solid rgba(239,68,68,0.25)',
@@ -289,7 +289,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                       />
                       <button
                         disabled={!newAppTokenName.trim()}
-                        className="btn-primary text-sm flex-shrink-0"
+                        className="btn-primary text-sm shrink-0"
                         onClick={async () => {
                           try {
                             const t = await api.appRegistrations.createToken(app.id, { name: newAppTokenName.trim() });
@@ -316,7 +316,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                             className="flex items-center gap-3 px-3 py-2 rounded-lg"
                             style={{ background: 'var(--surface-2)' }}
                           >
-                            <span className="text-sm flex-shrink-0">🔑</span>
+                            <span className="text-sm shrink-0">🔑</span>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
                                 {t.name}
@@ -329,7 +329,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                               </p>
                             </div>
                             <button
-                              className="text-[10px] px-2 py-0.5 rounded flex-shrink-0"
+                              className="text-[10px] px-2 py-0.5 rounded-sm shrink-0"
                               style={{
                                 color: '#ef4444',
                                 border: '1px solid rgba(239,68,68,0.25)',
@@ -418,7 +418,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 {calendarUrl}
               </code>
               <button
-                className="btn-secondary text-xs flex-shrink-0"
+                className="btn-secondary text-xs shrink-0"
                 onClick={() => {
                   navigator.clipboard.writeText(calendarUrl);
                   showToast('Copied!', 'success');
@@ -434,7 +434,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
             <div className="flex gap-2 pt-1">
               <button
                 disabled={generatingCalendar}
-                className="text-xs px-3 py-1.5 rounded-lg transition-colors text-[var(--text-3)] border-[var(--border)] hover:text-[var(--brand)] hover:border-[var(--brand)]"
+                className="text-xs px-3 py-1.5 rounded-lg transition-colors text-(--text-3) border-(--border) hover:text-(--brand) hover:border-(--brand)"
                 style={{ border: '1px solid var(--border)' }}
                 onClick={async () => {
                   if (!(await confirm('Regenerating will invalidate the current URL. Continue?'))) return;
@@ -539,7 +539,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                 {githubConfig.webhookUrl || `${window.location.origin}/api/github/webhook`}
               </code>
               <button
-                className="btn-secondary text-xs flex-shrink-0"
+                className="btn-secondary text-xs shrink-0"
                 onClick={() => {
                   navigator.clipboard.writeText(
                     githubConfig.webhookUrl || `${window.location.origin}/api/github/webhook`,
@@ -581,7 +581,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                   {revealedWebhookSecret}
                 </code>
                 <button
-                  className="btn-secondary text-xs flex-shrink-0"
+                  className="btn-secondary text-xs shrink-0"
                   onClick={() => {
                     navigator.clipboard.writeText(revealedWebhookSecret);
                     showToast('Copied!', 'success');
@@ -590,7 +590,7 @@ export default function SettingsApps({ activeProduct, showToast, confirm }: Prop
                   Copy
                 </button>
                 <button
-                  className="text-xs flex-shrink-0"
+                  className="text-xs shrink-0"
                   style={{ color: 'var(--text-3)' }}
                   onClick={() => setRevealedWebhookSecret(null)}
                 >
@@ -744,7 +744,7 @@ function AppPermissionsEditor({
                 <button
                   key={lvl}
                   onClick={() => setLevel(key, lvl)}
-                  className="text-[10px] px-2 py-0.5 rounded capitalize"
+                  className="text-[10px] px-2 py-0.5 rounded-sm capitalize"
                   style={{
                     background: levelFor(key) === lvl ? 'var(--brand)' : 'var(--surface)',
                     color: levelFor(key) === lvl ? '#fff' : 'var(--text-3)',

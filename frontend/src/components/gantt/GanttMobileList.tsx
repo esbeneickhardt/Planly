@@ -55,7 +55,7 @@ function TaskRow({ task, onOpen }: { task: { id: string; name: string; status: s
       style={{ background: 'transparent' }}
     >
       <span
-        className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+        className="w-4 h-4 rounded-full flex items-center justify-center shrink-0"
         style={{
           background: isDone ? '#10b981' : 'transparent',
           border: isDone ? 'none' : '1.5px solid var(--border)',
@@ -132,7 +132,7 @@ function SortableMilestoneCard({
           {isDone && <span className="mr-1">✓</span>}
           {m.name}
         </p>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <span
             className="text-xs font-semibold px-2 py-0.5 rounded-full"
             style={{
@@ -285,19 +285,19 @@ export default function GanttMobileList({
                   return (
                     <button
                       key={m.id}
-                      className="flex items-center gap-2 text-xs w-full text-left rounded px-0.5 py-0.5"
+                      className="flex items-center gap-2 text-xs w-full text-left rounded-sm px-0.5 py-0.5"
                       onClick={() => openTask(m.id)}
                     >
                       {isDone ? (
                         <span
-                          className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                          className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
                           style={{ background: '#10b981', color: 'white' }}
                         >
                           ✓
                         </span>
                       ) : (
                         <span
-                          className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0"
+                          className="w-3.5 h-3.5 rounded-full border-2 shrink-0"
                           style={{ borderColor: progressColor(m) }}
                         />
                       )}
@@ -311,7 +311,7 @@ export default function GanttMobileList({
                       >
                         {m.name}
                       </span>
-                      <span className="flex-shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
+                      <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-3)' }}>
                         {new Date(m.deadline).toLocaleDateString('en', {
                           month: 'short',
                           day: 'numeric',
@@ -420,7 +420,7 @@ export default function GanttMobileList({
                         {s.name}
                       </p>
                       <span
-                        className="text-[10px] flex-shrink-0"
+                        className="text-[10px] shrink-0"
                         style={{
                           color: 'var(--text-3)',
                           transform: expanded ? 'rotate(90deg)' : 'none',

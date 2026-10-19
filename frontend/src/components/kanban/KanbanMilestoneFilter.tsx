@@ -49,17 +49,17 @@ export default function KanbanMilestoneFilter({ milestones, selectedId, onChange
     : milestones;
 
   return (
-    <div ref={ref} className="relative flex items-center gap-1.5 flex-shrink-0">
+    <div ref={ref} className="relative flex items-center gap-1.5 shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-2 py-0.5 rounded text-xs transition-all"
+        className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs transition-all"
         style={{
           background: selected ? 'var(--brand-subtle)' : 'var(--surface-2)',
           color: selected ? 'var(--brand)' : 'var(--text-2)',
           border: `1px solid ${selected ? 'var(--brand)' : 'var(--border)'}`,
         }}
       >
-        {selected && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: selected.color }} />}
+        {selected && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: selected.color }} />}
         <span className="max-w-[140px] truncate">{selected ? selected.name : 'All milestones'}</span>
         <span className="text-[10px]">▾</span>
       </button>
@@ -78,7 +78,7 @@ export default function KanbanMilestoneFilter({ milestones, selectedId, onChange
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search milestones…"
-            className="text-xs px-2.5 py-2 bg-transparent outline-none flex-shrink-0"
+            className="text-xs px-2.5 py-2 bg-transparent outline-hidden shrink-0"
             style={{
               color: 'var(--text)',
               borderBottom: '1px solid var(--border)',
@@ -91,7 +91,7 @@ export default function KanbanMilestoneFilter({ milestones, selectedId, onChange
                 setOpen(false);
                 setSearch('');
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${!selectedId ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${!selectedId ? 'bg-(--brand-subtle)' : 'hover:bg-(--surface-2)'}`}
               style={{ color: !selectedId ? 'var(--brand)' : 'var(--text)' }}
             >
               <span className="flex-1 text-left">All milestones</span>
@@ -112,13 +112,13 @@ export default function KanbanMilestoneFilter({ milestones, selectedId, onChange
                     setOpen(false);
                     setSearch('');
                   }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-[var(--brand-subtle)]' : 'hover:bg-[var(--surface-2)]'}`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${active ? 'bg-(--brand-subtle)' : 'hover:bg-(--surface-2)'}`}
                   style={{
                     color: active ? 'var(--brand)' : 'var(--text)',
                     opacity: m.done && !active ? 0.55 : 1,
                   }}
                 >
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: m.color }} />
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: m.color }} />
                   <span className="flex-1 text-left truncate">{m.name}</span>
                   {m.done && (
                     <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>

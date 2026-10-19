@@ -1094,7 +1094,7 @@ function CanvasInner() {
                   }}
                 >
                   <span
-                    className="font-mono text-[10px] px-1 py-0.5 rounded"
+                    className="font-mono text-[10px] px-1 py-0.5 rounded-sm"
                     style={{
                       background: 'var(--border)',
                       color: 'var(--text-2)',
@@ -1112,7 +1112,7 @@ function CanvasInner() {
                   }}
                 >
                   <span
-                    className="font-mono text-[10px] px-1 py-0.5 rounded"
+                    className="font-mono text-[10px] px-1 py-0.5 rounded-sm"
                     style={{
                       background: 'var(--border)',
                       color: 'var(--text-2)',

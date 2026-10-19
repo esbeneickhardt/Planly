@@ -32,7 +32,7 @@ export default function AdminUserDetailModal({ user, onClose }: Props) {
     <Modal title={user.username} onClose={onClose} width="max-w-sm">
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <span className="text-4xl leading-none flex-shrink-0">
+          <span className="text-4xl leading-none shrink-0">
             {user.isFoundingAdmin ? '👑' : user.isAdmin ? '🛡️' : '👤'}
           </span>
           <div className="min-w-0">

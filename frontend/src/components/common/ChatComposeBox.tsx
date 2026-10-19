@@ -154,7 +154,7 @@ export default function ChatComposeBox({
     // but on mobile the compact row is always the very last thing in flow, so that doubled
     // bottom padding read as a lopsided gap instead of the row sitting centered in its box.
     <div
-      className={`px-4 flex-shrink-0 relative ${isMobile ? 'pt-2 pb-2' : 'pt-2 pb-4'}`}
+      className={`px-4 shrink-0 relative ${isMobile ? 'pt-2 pb-2' : 'pt-2 pb-4'}`}
       style={{ borderTop: '1px solid var(--border)' }}
     >
       {/* Reply-to preview bar */}
@@ -169,10 +169,10 @@ export default function ChatComposeBox({
           {(() => {
             const img = replyingTo.attachments.find((a) => a.type?.startsWith('image/'));
             return img ? (
-              <img src={img.thumbnailUrl ?? img.url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+              <img src={img.thumbnailUrl ?? img.url} alt="" className="w-8 h-8 rounded-sm object-cover shrink-0" />
             ) : null;
           })()}
-          <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--brand)' }}>
+          <span className="text-[10px] shrink-0" style={{ color: 'var(--brand)' }}>
             ↩ {displayName(replyingTo.author)}
           </span>
           <span className="text-[10px] flex-1 truncate" style={{ color: 'var(--text-3)' }}>
@@ -180,7 +180,7 @@ export default function ChatComposeBox({
           </span>
           <button
             onClick={() => setReplyingTo(null)}
-            className="flex-shrink-0 text-[10px] px-1 rounded"
+            className="shrink-0 text-[10px] px-1 rounded-sm"
             style={{ color: 'var(--text-3)' }}
           >
             ✕
@@ -215,7 +215,7 @@ export default function ChatComposeBox({
               onMouseEnter={() => setMentionHighlight(i)}
             >
               <span
-                className="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0"
+                className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0"
                 style={{
                   background: 'var(--surface-2)',
                   border: '1px solid var(--border)',
@@ -426,11 +426,11 @@ export default function ChatComposeBox({
             // spacing for what should have been one, pushing the row up off-center inside the
             // bordered compose box.
             <div className={`flex ${composeMultiline ? 'items-end' : 'items-center'} gap-2`}>
-              <div className="relative flex-shrink-0">
+              <div className="relative shrink-0">
                 <button
                   onClick={() => setShowMoreTools((v) => !v)}
                   aria-label="More options"
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-xl transition-colors flex-shrink-0"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-xl transition-colors shrink-0"
                   style={{
                     background: showMoreTools ? 'var(--brand-subtle)' : 'var(--surface-2)',
                     color: showMoreTools ? 'var(--brand)' : 'var(--text-2)',
@@ -539,7 +539,7 @@ export default function ChatComposeBox({
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={sending || !chatWritable || (!draft.trim() && attachments.length === 0)}
                 aria-label="Send"
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity disabled:opacity-40"
+                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-opacity disabled:opacity-40"
                 style={{ background: 'var(--brand)', color: 'white' }}
               >
                 {sending ? '…' : '➤'}

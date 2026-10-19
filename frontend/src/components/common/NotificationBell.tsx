@@ -301,7 +301,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
     <div ref={ref} className="relative">
       <button
         onClick={handleOpen}
-        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 relative"
+        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0 relative"
         style={{
           color: isActive ? 'var(--brand)' : 'var(--text-3)',
           background: isActive ? 'var(--brand-subtle)' : 'var(--surface-2)',
@@ -447,7 +447,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                           borderBottom: '1px solid var(--border)',
                         }}
                       >
-                        <div className="flex-shrink-0 mt-0.5 text-base">{ADMIN_ACTION_ICON[entry.action] ?? '🔔'}</div>
+                        <div className="shrink-0 mt-0.5 text-base">{ADMIN_ACTION_ICON[entry.action] ?? '🔔'}</div>
                         <div className="flex-1 min-w-0">
                           <p
                             className={`text-sm leading-snug ${isNew ? 'font-medium' : ''}`}
@@ -518,7 +518,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                           }
                         }}
                       >
-                        <div className="flex-shrink-0 mt-0.5">
+                        <div className="shrink-0 mt-0.5">
                           <span className="text-base">{getIcon(n.type)}</span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -591,7 +591,7 @@ export default function NotificationBell({ adminMode, productId }: { adminMode?:
                               e.stopPropagation();
                               dismiss(n.id);
                             }}
-                            className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-xs transition-all"
+                            className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded-sm text-xs transition-all"
                             style={{ color: 'var(--text-3)' }}
                             title="Dismiss"
                           >

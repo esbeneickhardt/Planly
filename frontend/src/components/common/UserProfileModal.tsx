@@ -66,7 +66,7 @@ export default function UserProfileModal({ userId, onClose }: Props) {
         <div className="space-y-5">
           {/* Avatar + name */}
           <div className="flex items-center gap-4">
-            <span className="text-5xl leading-none flex-shrink-0">{profile.avatarEmoji ?? '👤'}</span>
+            <span className="text-5xl leading-none shrink-0">{profile.avatarEmoji ?? '👤'}</span>
             <div className="min-w-0">
               <p className="text-lg font-semibold leading-tight" style={{ color: 'var(--text)' }}>
                 {displayName(profile)}
@@ -99,12 +99,12 @@ export default function UserProfileModal({ userId, onClose }: Props) {
                         border: '1px solid var(--border)',
                       }}
                     >
-                      <span className="text-base flex-shrink-0">{p.emoji ?? '🎯'}</span>
+                      <span className="text-base shrink-0">{p.emoji ?? '🎯'}</span>
                       <span className="text-sm flex-1 min-w-0 truncate font-medium" style={{ color: 'var(--text)' }}>
                         {p.name}
                       </span>
                       <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-medium"
+                        className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 font-medium"
                         style={{
                           background: style.bg,
                           color: style.color,

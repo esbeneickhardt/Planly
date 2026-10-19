@@ -157,7 +157,7 @@ export default function NoProjectsWelcome() {
         >
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="flex gap-3">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <label className="label" htmlFor="welcome-new-project-icon">
                   Icon
                 </label>

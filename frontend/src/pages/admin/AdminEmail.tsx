@@ -83,7 +83,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
     <div className="space-y-6 max-w-xl mx-auto">
       {/* Status banner */}
       <div
-        className="p-4 rounded-xl flex items-center gap-3 flex-wrap shadow-sm"
+        className="p-4 rounded-xl flex items-center gap-3 flex-wrap shadow-xs"
         style={{
           background: emailStatus?.enabled ? 'rgba(16,185,129,0.08)' : 'var(--surface-2)',
           border: `1px solid ${emailStatus?.enabled ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
@@ -111,7 +111,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                 .catch((e) => showToast((e as Error).message, 'error'))
                 .finally(() => setTestingEmail(false));
             }}
-            className="btn-secondary text-sm px-3 flex-shrink-0"
+            className="btn-secondary text-sm px-3 shrink-0"
           >
             {testingEmail ? '…' : 'Send test'}
           </button>
@@ -119,7 +119,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
       </div>
 
       {/* SMTP configuration */}
-      <div className="rounded-xl overflow-hidden shadow-sm" style={{ border: '1px solid var(--border)' }}>
+      <div className="rounded-xl overflow-hidden shadow-xs" style={{ border: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ background: 'var(--surface-2)' }}>
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
@@ -392,7 +392,7 @@ export default function AdminEmail({ currentUser, refreshUser, onUsersChanged, s
                   </div>
                   <button
                     onClick={() => setVerifyEmailPrompt(false)}
-                    className="text-xs flex-shrink-0"
+                    className="text-xs shrink-0"
                     style={{ color: 'var(--text-3)' }}
                   >
                     ✕

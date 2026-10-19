@@ -62,7 +62,7 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                           style={{ background: 'rgba(0,0,0,0.55)' }}
                         >
                           <span
-                            className="text-white text-[10px] px-2 py-1 rounded font-medium"
+                            className="text-white text-[10px] px-2 py-1 rounded-sm font-medium"
                             style={{ background: 'rgba(255,255,255,0.15)' }}
                           >
                             Click to view
@@ -71,7 +71,7 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                             href={att.url}
                             download={att.name}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-white text-[10px] px-2 py-1 rounded font-medium pointer-events-auto"
+                            className="text-white text-[10px] px-2 py-1 rounded-sm font-medium pointer-events-auto"
                             style={{ background: 'rgba(255,255,255,0.15)' }}
                           >
                             Download
@@ -129,7 +129,7 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                           border: '1px solid var(--border)',
                         }}
                       >
-                        <span className="text-lg flex-shrink-0">{att.type === 'application/pdf' ? '📄' : '📁'}</span>
+                        <span className="text-lg shrink-0">{att.type === 'application/pdf' ? '📄' : '📁'}</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
                             {att.name}
@@ -138,7 +138,7 @@ export default function ChatFilesTab({ attachments, deletingFile, onDeleteFile, 
                             {displayName(msg.author)} · {formatTime(msg.createdAt)}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1.5 opacity-0 group-hover/doc:opacity-100 transition-opacity flex-shrink-0">
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover/doc:opacity-100 transition-opacity shrink-0">
                           {att.type === 'application/pdf' && <PdfPreview url={att.url} name={att.name} />}
                           <a
                             href={att.url}

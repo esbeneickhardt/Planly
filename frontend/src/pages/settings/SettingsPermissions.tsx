@@ -111,7 +111,7 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
       <div className="flex items-center gap-4 mb-4 flex-wrap">
         {LEVELS.map(({ value, label, color }) => (
           <div key={value} className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
             <span className="text-xs" style={{ color: 'var(--text-3)' }}>
               {label}
               {value === 'none' ? ' - hidden' : value === 'read' ? ' - view only' : ' - full access'}
@@ -131,7 +131,7 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
               }}
             >
               <div
-                className="w-44 flex-shrink-0 text-xs font-semibold uppercase tracking-wide"
+                className="w-44 shrink-0 text-xs font-semibold uppercase tracking-wide"
                 style={{ color: 'var(--text-3)' }}
               >
                 Member
@@ -169,8 +169,8 @@ export default function SettingsPermissions({ activeProduct, members, refreshPer
                     borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
                   }}
                 >
-                  <div className="w-44 flex-shrink-0 flex items-center gap-2 min-w-0">
-                    <span className="text-base flex-shrink-0">{user.avatarEmoji ?? '👤'}</span>
+                  <div className="w-44 shrink-0 flex items-center gap-2 min-w-0">
+                    <span className="text-base shrink-0">{user.avatarEmoji ?? '👤'}</span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm truncate" style={{ color: 'var(--text)' }}>

@@ -449,7 +449,7 @@ export default function AvatarPicker({ current, onChange }: Props) {
                   step={0.01}
                   value={zoom}
                   onChange={(e) => setZoom(parseFloat(e.target.value))}
-                  className="flex-1 accent-[var(--brand)]"
+                  className="flex-1 accent-(--brand)"
                 />
                 <span className="text-xs w-8 text-right" style={{ color: 'var(--text-3)' }}>
                   {zoom.toFixed(1)}×

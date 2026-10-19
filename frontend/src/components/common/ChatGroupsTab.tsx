@@ -63,7 +63,7 @@ export default function ChatGroupsTab({
           onTouchMove={isExpanded ? onExpandedTouchMove : undefined}
           onTouchEnd={isExpanded ? onExpandedTouchEnd : undefined}
           onTouchCancel={isExpanded ? onExpandedTouchEnd : undefined}
-          className="flex items-center gap-2 px-2 py-2 flex-shrink-0"
+          className="flex items-center gap-2 px-2 py-2 shrink-0"
           style={{
             borderBottom: '1px solid var(--border)',
             touchAction: isExpanded ? 'none' : undefined,
@@ -72,13 +72,13 @@ export default function ChatGroupsTab({
           <button
             onClick={onBack}
             aria-label="Back"
-            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg"
             style={{ color: 'var(--text-2)' }}
           >
             ‹
           </button>
           <span
-            className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
             style={{ background: 'var(--surface-2)' }}
             aria-hidden="true"
           >
@@ -89,7 +89,7 @@ export default function ChatGroupsTab({
           </p>
           <button
             onClick={onOpenManageGroup}
-            className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+            className="text-xs px-2 py-1 rounded-lg transition-colors shrink-0"
             style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
             title="Manage group"
           >
@@ -111,7 +111,7 @@ export default function ChatGroupsTab({
         )}
         {conv?.closed ? (
           <div
-            className="px-4 py-3 text-xs text-center flex-shrink-0"
+            className="px-4 py-3 text-xs text-center shrink-0"
             style={{
               borderTop: '1px solid var(--border)',
               color: 'var(--text-3)',
@@ -129,7 +129,7 @@ export default function ChatGroupsTab({
   // Group list - "+ New group" button + existing groups
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <div className="px-4 pt-3 pb-2 flex-shrink-0">
+      <div className="px-4 pt-3 pb-2 shrink-0">
         <button onClick={onOpenNewGroup} className="btn-primary text-xs w-full justify-center flex">
           + New group
         </button>
@@ -147,7 +147,7 @@ export default function ChatGroupsTab({
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold relative"
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-semibold relative"
                   style={{
                     background: 'var(--brand-subtle)',
                     color: 'var(--brand)',

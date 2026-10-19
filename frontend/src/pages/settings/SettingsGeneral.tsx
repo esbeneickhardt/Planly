@@ -208,7 +208,7 @@ export default function SettingsGeneral({
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker((v) => !v)}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors flex-shrink-0"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors shrink-0"
                 style={{
                   background: showEmojiPicker ? 'var(--brand-subtle)' : 'var(--surface-2)',
                   border: `1px solid ${showEmojiPicker ? 'var(--brand)' : 'var(--border)'}`,

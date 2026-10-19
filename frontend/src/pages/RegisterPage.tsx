@@ -64,7 +64,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden flex-shrink-0">
+          <div className="block mx-auto w-12 h-12 rounded-2xl mb-4 overflow-hidden shrink-0">
             <img src="/icons/p.png" alt="Planly" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
@@ -155,7 +155,7 @@ export default function RegisterPage() {
               type="checkbox"
               checked={tosAccepted}
               onChange={(e) => setTosAccepted(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded"
+              className="mt-0.5 h-4 w-4 rounded-sm"
             />
             <span className="text-sm" style={{ color: 'var(--text-2)' }}>
               I agree to the{' '}

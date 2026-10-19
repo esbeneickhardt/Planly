@@ -137,7 +137,7 @@ export default function KanbanCompactList({
               <tr
                 key={task.id}
                 onClick={() => onOpenDetail(task)}
-                className="group cursor-pointer rounded-xl bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors"
+                className="group cursor-pointer rounded-xl bg-(--surface) hover:bg-(--surface-2) transition-colors"
               >
                 {/* Status */}
                 <td className="px-3 py-2 rounded-l-xl" onClick={(e) => e.stopPropagation()}>
@@ -156,7 +156,7 @@ export default function KanbanCompactList({
                       value={task.status}
                       onChange={(e) => onStatusChange(task.id, e.target.value)}
                       disabled={updatingStatus === task.id}
-                      className="text-xs px-2 py-0.5 rounded-full font-medium border-0 outline-none cursor-pointer"
+                      className="text-xs px-2 py-0.5 rounded-full font-medium border-0 outline-hidden cursor-pointer"
                       style={{
                         background: `${col?.color ?? '#64748b'}20`,
                         color: col?.color ?? '#64748b',
@@ -175,7 +175,7 @@ export default function KanbanCompactList({
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
                     {task.color && (
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: task.color }} />
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: task.color }} />
                     )}
                     <span
                       className="font-medium truncate max-w-xs"
@@ -189,7 +189,7 @@ export default function KanbanCompactList({
                     </span>
                     {(task.subtasks?.length ?? 0) > 0 && (
                       <span
-                        className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
+                        className="text-[10px] px-1.5 py-0.5 rounded-sm shrink-0"
                         style={{
                           background: 'var(--surface-2)',
                           color: 'var(--text-3)',

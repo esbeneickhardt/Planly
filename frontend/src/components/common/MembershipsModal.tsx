@@ -170,7 +170,7 @@ export default function MembershipsModal({ onClose }: Props) {
                   border: '1px solid rgba(234,179,8,0.3)',
                 }}
               >
-                <span className="text-xl flex-shrink-0">{inv.projectEmoji ?? '🎯'}</span>
+                <span className="text-xl shrink-0">{inv.projectEmoji ?? '🎯'}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
                     {inv.projectName}
@@ -179,7 +179,7 @@ export default function MembershipsModal({ onClose }: Props) {
                     Expires {new Date(inv.expiresAt).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-2 shrink-0">
                   <button
                     onClick={() => handleAcceptInvite(inv)}
                     disabled={inviteActionId === inv.id}
@@ -245,7 +245,7 @@ export default function MembershipsModal({ onClose }: Props) {
               >
                 {/* Main row */}
                 <div className="flex items-center gap-3 px-3 py-2.5">
-                  <span className="text-xl flex-shrink-0">{p.emoji ?? '🎯'}</span>
+                  <span className="text-xl shrink-0">{p.emoji ?? '🎯'}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
@@ -253,7 +253,7 @@ export default function MembershipsModal({ onClose }: Props) {
                       </p>
                       {isOwner && (
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0"
+                          className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0"
                           style={{
                             background: 'var(--brand-subtle)',
                             color: 'var(--brand)',
@@ -276,7 +276,7 @@ export default function MembershipsModal({ onClose }: Props) {
                   <button
                     onClick={() => handleLeaveClick(p)}
                     disabled={!!busy || (loadingMembers && !expanded)}
-                    className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors flex-shrink-0"
+                    className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0"
                     style={{
                       background: expanded ? 'var(--brand-subtle)' : 'var(--surface)',
                       color: expanded ? 'var(--brand)' : 'var(--text-2)',

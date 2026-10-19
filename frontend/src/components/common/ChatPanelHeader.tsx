@@ -118,7 +118,7 @@ export default function ChatPanelHeader({
         if (t !== 'tasks') setSelectedTask(null);
         if (t !== 'search') setSearch('');
       }}
-      className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
+      className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors shrink-0 relative"
       style={{
         background: tab === t ? 'var(--brand-subtle)' : 'transparent',
         color: tab === t ? 'var(--brand)' : 'var(--text-3)',
@@ -145,7 +145,7 @@ export default function ChatPanelHeader({
     <button
       title={title}
       onClick={onClick}
-      className="w-7 h-7 flex items-center justify-center rounded-lg text-sm flex-shrink-0"
+      className="w-7 h-7 flex items-center justify-center rounded-lg text-sm shrink-0"
       style={{ color: 'var(--text-3)' }}
       onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
       onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -164,7 +164,7 @@ export default function ChatPanelHeader({
         onTouchMove={isExpanded ? onExpandedTouchMove : undefined}
         onTouchEnd={isExpanded ? onExpandedTouchEnd : undefined}
         onTouchCancel={isExpanded ? onExpandedTouchEnd : undefined}
-        className="hidden md:flex items-center justify-between px-4 py-3 flex-shrink-0 select-none"
+        className="hidden md:flex items-center justify-between px-4 py-3 shrink-0 select-none"
         style={{
           borderBottom: isMinimized ? 'none' : '1px solid var(--border)',
           cursor: isExpanded ? 'default' : 'grab',
@@ -180,12 +180,12 @@ export default function ChatPanelHeader({
                   setTab('messages');
                   setSelectedTask(null);
                 }}
-                className="text-xs font-medium flex-shrink-0 transition-colors"
+                className="text-xs font-medium shrink-0 transition-colors"
                 style={{ color: 'var(--brand)' }}
               >
                 💬 Project chat
               </button>
-              <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+              <span className="text-xs shrink-0" style={{ color: 'var(--text-3)' }}>
                 ›
               </span>
               <span className="text-xs truncate" style={{ color: 'var(--text-2)' }}>
@@ -227,7 +227,7 @@ export default function ChatPanelHeader({
           onTouchMove={isExpanded ? onExpandedTouchMove : undefined}
           onTouchEnd={isExpanded ? onExpandedTouchEnd : undefined}
           onTouchCancel={isExpanded ? onExpandedTouchEnd : undefined}
-          className={`${inSubThread ? 'hidden md:flex' : 'flex'} items-center gap-1 px-3 py-2 flex-shrink-0`}
+          className={`${inSubThread ? 'hidden md:flex' : 'flex'} items-center gap-1 px-3 py-2 shrink-0`}
           style={{
             borderBottom: '1px solid var(--border)',
             touchAction: isExpanded ? 'none' : undefined,
@@ -253,7 +253,7 @@ export default function ChatPanelHeader({
                   setProjectMessages([]);
                   loadAdminProjects();
                 }}
-                className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+                className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors shrink-0"
                 style={{
                   background: tab === 'projects' ? 'var(--brand-subtle)' : 'transparent',
                   color: tab === 'projects' ? 'var(--brand)' : 'var(--text-3)',
@@ -269,7 +269,7 @@ export default function ChatPanelHeader({
                 setSearch('');
                 if (!activeConvId) loadPeople();
               }}
-              className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
+              className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors shrink-0 relative"
               style={{
                 background: tab === 'people' ? 'var(--brand-subtle)' : 'transparent',
                 color: tab === 'people' ? 'var(--brand)' : 'var(--text-3)',
@@ -297,7 +297,7 @@ export default function ChatPanelHeader({
                 setSearch('');
                 if (!activeGroupId) loadGroups();
               }}
-              className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 relative"
+              className="px-2 py-1.5 text-xs font-medium rounded-lg transition-colors shrink-0 relative"
               style={{
                 background: tab === 'groups' ? 'var(--brand-subtle)' : 'transparent',
                 color: tab === 'groups' ? 'var(--brand)' : 'var(--text-3)',
@@ -325,7 +325,7 @@ export default function ChatPanelHeader({
           <button
             onClick={onClose}
             aria-label="Close chat"
-            className="md:hidden flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm ml-1"
+            className="md:hidden shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm ml-1"
             style={{ color: 'var(--text-3)' }}
           >
             ✕

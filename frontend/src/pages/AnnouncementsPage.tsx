@@ -147,11 +147,11 @@ function AnnouncementForm({
                 className="sr-only"
               />
               <div
-                className="w-7 h-4 rounded-full relative transition-colors flex-shrink-0"
+                className="w-7 h-4 rounded-full relative transition-colors shrink-0"
                 style={{ background: pinned ? '#6366f1' : 'var(--border)' }}
               >
                 <div
-                  className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all"
+                  className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-all"
                   style={{ left: pinned ? '14px' : '2px' }}
                 />
               </div>
@@ -169,13 +169,13 @@ function AnnouncementForm({
               className="sr-only"
             />
             <div
-              className="w-7 h-4 rounded-full relative transition-colors flex-shrink-0"
+              className="w-7 h-4 rounded-full relative transition-colors shrink-0"
               style={{
                 background: commentsEnabled ? '#6366f1' : 'var(--border)',
               }}
             >
               <div
-                className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all"
+                className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-all"
                 style={{ left: commentsEnabled ? '14px' : '2px' }}
               />
             </div>
@@ -321,7 +321,7 @@ function CommentSection({
       )}
       {comments?.map((c) => (
         <div key={c.id} className="flex items-start gap-2">
-          <span className="text-base flex-shrink-0 mt-0.5">{c.author?.avatarEmoji ?? '👤'}</span>
+          <span className="text-base shrink-0 mt-0.5">{c.author?.avatarEmoji ?? '👤'}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
@@ -362,7 +362,7 @@ function CommentSection({
         <button
           onClick={submit}
           disabled={sending || !draft.trim()}
-          className="btn-primary text-xs px-3 py-1.5 flex-shrink-0"
+          className="btn-primary text-xs px-3 py-1.5 shrink-0"
         >
           {sending ? '…' : 'Post'}
         </button>
@@ -423,7 +423,7 @@ function AnnouncementCard({
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             {ann.pinned && (
               <span
-                className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
                 style={{ background: '#6366f120', color: '#6366f1' }}
               >
                 Pinned
@@ -434,7 +434,7 @@ function AnnouncementCard({
             </h2>
           </div>
           {canEdit && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => onEdit(ann)}
                 className="text-xs px-2 py-0.5 rounded-lg opacity-60 hover:opacity-100"
@@ -812,7 +812,7 @@ export default function AnnouncementsPage() {
               <select
                 value={isProjectFilter ? filter! : ''}
                 onChange={(e) => setFilter(e.target.value || null)}
-                className="text-xs rounded-full outline-none cursor-pointer transition-colors"
+                className="text-xs rounded-full outline-hidden cursor-pointer transition-colors"
                 style={{
                   background: isProjectFilter ? 'var(--brand)' : 'var(--surface-2)',
                   color: isProjectFilter ? '#fff' : 'var(--text-2)',

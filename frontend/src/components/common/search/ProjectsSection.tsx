@@ -33,7 +33,7 @@ export default function ProjectsSection({ items, activeProductId, highlightIdx, 
               (e.currentTarget.style.background = isHighlighted ? 'var(--brand-subtle)' : 'transparent')
             }
           >
-            <span className="text-base flex-shrink-0 mt-0.5">{product.emoji ?? '🎯'}</span>
+            <span className="text-base shrink-0 mt-0.5">{product.emoji ?? '🎯'}</span>
             <span className="flex-1 min-w-0">
               <span className="flex items-center gap-2">
                 <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
@@ -72,7 +72,7 @@ export default function ProjectsSection({ items, activeProductId, highlightIdx, 
                 </span>
               )}
             </span>
-            <span className="text-xs flex-shrink-0 mt-0.5" style={{ color: 'var(--text-3)' }}>
+            <span className="text-xs shrink-0 mt-0.5" style={{ color: 'var(--text-3)' }}>
               →
             </span>
           </button>

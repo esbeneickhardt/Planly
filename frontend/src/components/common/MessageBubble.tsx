@@ -775,7 +775,7 @@ export default function MessageBubble({
         style={{ touchAction: 'pan-y' }}
       >
         <div className={`flex items-center gap-1.5 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
-          <span className="text-sm leading-none flex-shrink-0">{msg.author.avatarEmoji ?? '👤'}</span>
+          <span className="text-sm leading-none shrink-0">{msg.author.avatarEmoji ?? '👤'}</span>
           <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
             {displayName(msg.author)}
           </span>
@@ -837,7 +837,7 @@ export default function MessageBubble({
                       <img
                         src={img.thumbnailUrl ?? img.url}
                         alt=""
-                        className="w-8 h-8 rounded object-cover flex-shrink-0"
+                        className="w-8 h-8 rounded-sm object-cover shrink-0"
                       />
                     ) : null;
                   })()}
@@ -918,7 +918,7 @@ export default function MessageBubble({
                       onReact(emoji);
                     }}
                     title={userIds.length > 3 ? userIds.join(', ') : undefined}
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs shadow-sm transition-colors"
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs shadow-xs transition-colors"
                     style={{
                       background: mine ? 'var(--brand-subtle)' : 'var(--surface-2)',
                       border: `1px solid ${mine ? 'var(--brand)' : 'var(--border)'}`,
@@ -983,7 +983,7 @@ export default function MessageBubble({
                 onClick={onReply}
                 title="Reply"
                 aria-label="Reply"
-                className="hover-only items-center justify-center w-7 h-7 rounded text-sm"
+                className="hover-only items-center justify-center w-7 h-7 rounded-sm text-sm"
                 style={{ color: 'var(--text-3)' }}
               >
                 ↩
@@ -994,7 +994,7 @@ export default function MessageBubble({
               onClick={onToggleReactionPicker}
               title="React"
               aria-label="React"
-              className="flex items-center justify-center w-7 h-7 rounded text-sm"
+              className="flex items-center justify-center w-7 h-7 rounded-sm text-sm"
               style={{ color: 'var(--text-3)' }}
             >
               😊
@@ -1004,7 +1004,7 @@ export default function MessageBubble({
                 onClick={onEdit}
                 title="Edit"
                 aria-label="Edit"
-                className="flex items-center justify-center w-7 h-7 rounded text-sm"
+                className="flex items-center justify-center w-7 h-7 rounded-sm text-sm"
                 style={{ color: 'var(--text-3)' }}
               >
                 ✎
@@ -1015,7 +1015,7 @@ export default function MessageBubble({
                 onClick={onDelete}
                 title="Delete"
                 aria-label="Delete"
-                className="flex items-center justify-center w-7 h-7 rounded text-sm"
+                className="flex items-center justify-center w-7 h-7 rounded-sm text-sm"
                 style={{ color: '#ef4444' }}
               >
                 🗑
@@ -1088,7 +1088,7 @@ export default function MessageBubble({
                     <button
                       onClick={onToggleReactionPicker}
                       aria-label="More emoji"
-                      className="flex items-center justify-center rounded-full text-lg flex-shrink-0"
+                      className="flex items-center justify-center rounded-full text-lg shrink-0"
                       style={{
                         width: 40,
                         height: 40,

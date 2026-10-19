@@ -1,9 +1,132 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+
+  --color-canvas: var(--bg);
+
+  --color-surface-2: var(--surface-2);
+  --color-surface: var(--surface);
+
+  --color-border-2: var(--border-2);
+  --color-border: var(--border);
+
+  --color-token-2: var(--text-2);
+  --color-token-3: var(--text-3);
+  --color-token: var(--text);
+
+  --color-accent: var(--brand);
+  --color-accent-hover: var(--brand-hover);
+  --color-accent-subtle: var(--brand-subtle);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+
+  /*
+    Fixed line heights, as in Tailwind CSS v3. v4 uses ratios (1.43 for text-sm), which
+    children with a smaller font inherit and shrink by (the ⌘K badge, the ▾ arrows).
+  */
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility surface {
+  background-color: var(--surface);
+  border-color: var(--border);
+}
+
+@utility btn-primary {
+  @apply px-4 py-2 text-sm font-medium text-white rounded-lg transition-all;
+  background-color: var(--brand);
+  &:hover {
+    background-color: var(--brand-hover);
+  }
+  &:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+}
+
+@utility btn-secondary {
+  @apply px-4 py-2 text-sm font-medium rounded-lg transition-all;
+  background-color: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  &:hover {
+    border-color: var(--border-2);
+  }
+}
+
+@utility btn-danger {
+  @apply px-4 py-2 text-sm font-medium text-white rounded-lg transition-all;
+  background-color: #ef4444;
+  &:hover {
+    background-color: #dc2626;
+  }
+  &:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+}
+
+@utility input {
+  @apply w-full text-sm rounded-lg px-3 py-2 outline-hidden transition-all;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  &:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 15%, transparent);
+  }
+  &::placeholder {
+    color: var(--text-3);
+  }
+}
+
+@utility card {
+  @apply rounded-xl shadow-xs;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+}
+
+@utility label {
+  @apply block text-xs font-semibold mb-1.5 uppercase tracking-wide;
+  color: var(--text-3);
+}
 
 @layer base {
-
   /* ── Default (Midnight, matches [data-theme="dark"]) ── */
   :root {
     --bg: #0c0c18;
@@ -20,7 +143,7 @@
   }
 
   /* ── Midnight (default dark) ── */
-  [data-theme="dark"] {
+  [data-theme='dark'] {
     --bg: #0c0c18;
     --surface: #131320;
     --surface-2: #1a1a2e;
@@ -35,7 +158,7 @@
   }
 
   /* ── Night Lair (Dracula-inspired) ── */
-  [data-theme="night-lair"] {
+  [data-theme='night-lair'] {
     --bg: #191920;
     --surface: #21222c;
     --surface-2: #282a36;
@@ -50,7 +173,7 @@
   }
 
   /* ── Ember (Monokai Pro-inspired) ── */
-  [data-theme="ember"] {
+  [data-theme='ember'] {
     --bg: #1e1c1e;
     --surface: #2d2a2e;
     --surface-2: #3a3640;
@@ -65,7 +188,7 @@
   }
 
   /* ── Deep Sea (Night Owl-inspired) ── */
-  [data-theme="deep-sea"] {
+  [data-theme='deep-sea'] {
     --bg: #011627;
     --surface: #0b2942;
     --surface-2: #0e3050;
@@ -80,7 +203,7 @@
   }
 
   /* ── Neon Tokyo (Tokyo Night-inspired) ── */
-  [data-theme="neon-tokyo"] {
+  [data-theme='neon-tokyo'] {
     --bg: #13141f;
     --surface: #1a1b2e;
     --surface-2: #24253a;
@@ -95,7 +218,7 @@
   }
 
   /* ── Carbon (Atom One Dark-inspired) ── */
-  [data-theme="carbon"] {
+  [data-theme='carbon'] {
     --bg: #1b2028;
     --surface: #222932;
     --surface-2: #2a333d;
@@ -110,7 +233,7 @@
   }
 
   /* ── Antique (Gruvbox-inspired) ── */
-  [data-theme="antique"] {
+  [data-theme='antique'] {
     --bg: #1d2021;
     --surface: #282828;
     --surface-2: #32302f;
@@ -125,7 +248,7 @@
   }
 
   /* ── Vice City (80s Miami) ── */
-  [data-theme="vice-city"] {
+  [data-theme='vice-city'] {
     --bg: #0d0821;
     --surface: #16102e;
     --surface-2: #201848;
@@ -140,7 +263,7 @@
   }
 
   /* ── Sakura (Japanese misty forest) ── */
-  [data-theme="sakura"] {
+  [data-theme='sakura'] {
     --bg: #0a0f10;
     --surface: #111a1c;
     --surface-2: #182426;
@@ -155,7 +278,7 @@
   }
 
   /* ── Arctic (The Thing / cold horror) ── */
-  [data-theme="arctic"] {
+  [data-theme='arctic'] {
     --bg: #030508;
     --surface: #070e1a;
     --surface-2: #0e1828;
@@ -170,7 +293,7 @@
   }
 
   /* ── Daylight (light) ── */
-  [data-theme="light"] {
+  [data-theme='light'] {
     --bg: #f4f4f8;
     --surface: #ffffff;
     --surface-2: #f0f0f6;
@@ -187,77 +310,17 @@
   body {
     background-color: var(--bg);
     color: var(--text);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family:
+      'Inter',
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   * {
     box-sizing: border-box;
-  }
-}
-
-@layer components {
-  .surface {
-    background-color: var(--surface);
-    border-color: var(--border);
-  }
-
-  .btn-primary {
-    @apply px-4 py-2 text-sm font-medium text-white rounded-lg transition-all;
-    background-color: var(--brand);
-  }
-  .btn-primary:hover {
-    background-color: var(--brand-hover);
-  }
-  .btn-primary:disabled {
-    @apply opacity-50 cursor-not-allowed;
-  }
-
-  .btn-secondary {
-    @apply px-4 py-2 text-sm font-medium rounded-lg transition-all;
-    background-color: var(--surface-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-secondary:hover {
-    border-color: var(--border-2);
-  }
-
-  .btn-danger {
-    @apply px-4 py-2 text-sm font-medium text-white rounded-lg transition-all;
-    background-color: #ef4444;
-  }
-  .btn-danger:hover {
-    background-color: #dc2626;
-  }
-  .btn-danger:disabled {
-    @apply opacity-50 cursor-not-allowed;
-  }
-
-  .input {
-    @apply w-full text-sm rounded-lg px-3 py-2 outline-none transition-all;
-    background-color: var(--surface-2);
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
-  .input:focus {
-    border-color: var(--brand);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 15%, transparent);
-  }
-  .input::placeholder {
-    color: var(--text-3);
-  }
-
-  .card {
-    @apply rounded-xl shadow-sm;
-    background-color: var(--surface);
-    border: 1px solid var(--border);
-  }
-
-  .label {
-    @apply block text-xs font-semibold mb-1.5 uppercase tracking-wide;
-    color: var(--text-3);
   }
 }
 
@@ -331,10 +394,20 @@
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+}
 
 /* Touch devices already have their own transient scroll indicator and gesture affordance, so the
    thin custom scrollbar above just reads as visual clutter there - hide it everywhere on coarse
@@ -351,12 +424,21 @@
 /* Fully hidden scrollbar - for horizontally-scrollable strips (e.g. mobile tab bars) where the
    scroll affordance is redundant (tap targets/swipe already make it discoverable) and a visible
    scrollbar reads as clutter. */
-.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
 /* Shown only for mouse/trackpad users (real :hover) - touch devices get the equivalent gesture
    instead (e.g. swipe-to-reply on a chat message) rather than a redundant menu entry. */
-.hover-only { display: none; }
+.hover-only {
+  display: none;
+}
 @media (hover: hover) and (pointer: fine) {
-  .hover-only { display: inline-flex; }
+  .hover-only {
+    display: inline-flex;
+  }
 }

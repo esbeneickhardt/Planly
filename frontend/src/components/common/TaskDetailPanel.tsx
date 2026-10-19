@@ -446,22 +446,19 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
           }
         }}
       >
-        <span
-          className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ background: currentStatus?.color ?? '#64748b' }}
-        />
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: currentStatus?.color ?? '#64748b' }} />
         <span className="text-sm font-medium truncate flex-1" style={{ color: 'var(--text)' }}>
           {name}
         </span>
         {isDirty && (
           <span
-            className="text-xs px-1.5 py-0.5 rounded flex-shrink-0"
+            className="text-xs px-1.5 py-0.5 rounded-sm shrink-0"
             style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}
           >
             ●
           </span>
         )}
-        <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-3)' }}>
+        <span className="text-xs shrink-0" style={{ color: 'var(--text-3)' }}>
           ↑ Restore
         </span>
         <button
@@ -469,7 +466,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             e.stopPropagation();
             handleClose();
           }}
-          className="flex-shrink-0 text-xs text-[var(--text-3)] hover:text-[#ef4444] transition-colors"
+          className="shrink-0 text-xs text-(--text-3) hover:text-[#ef4444] transition-colors"
         >
           ✕
         </button>
@@ -489,7 +486,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
       </h2>
       {isDirty && (
         <span
-          className="text-xs px-1.5 py-0.5 rounded"
+          className="text-xs px-1.5 py-0.5 rounded-sm"
           style={{
             background: 'rgba(245,158,11,0.15)',
             color: '#f59e0b',
@@ -506,14 +503,14 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
     <button
       onClick={onClick}
       title={title}
-      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:text-[var(--brand)] ${active ? 'text-[var(--brand)] bg-[var(--brand-subtle)]' : 'text-[var(--text-3)] bg-transparent'}`}
+      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:text-(--brand) ${active ? 'text-(--brand) bg-(--brand-subtle)' : 'text-(--text-3) bg-transparent'}`}
     >
       {children}
     </button>
   );
 
   const footer = (px: string) => (
-    <div className={`${px} py-4 flex gap-3 flex-shrink-0`} style={{ borderTop: '1px solid var(--border)' }}>
+    <div className={`${px} py-4 flex gap-3 shrink-0`} style={{ borderTop: '1px solid var(--border)' }}>
       {readOnly ? (
         <div className="flex-1 flex items-center gap-2 text-xs" style={{ color: 'var(--text-3)' }}>
           🔒 View only
@@ -534,7 +531,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
         <button
           onClick={deleteTask}
           title="Delete task"
-          className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 bg-red-500/[8%] hover:bg-red-500/[16%]"
+          className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors shrink-0 bg-red-500/8 hover:bg-red-500/16"
           style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
         >
           <svg
@@ -620,7 +617,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             onTouchMove={handleFsTouchMove}
             onTouchEnd={handleFsTouchEnd}
             onTouchCancel={handleFsTouchEnd}
-            className="md:hidden flex justify-center pt-2 flex-shrink-0"
+            className="md:hidden flex justify-center pt-2 shrink-0"
             style={{ touchAction: 'none' }}
             aria-hidden="true"
           >
@@ -631,7 +628,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
             onTouchMove={handleFsTouchMove}
             onTouchEnd={handleFsTouchEnd}
             onTouchCancel={handleFsTouchEnd}
-            className="flex items-center justify-between px-4 md:px-8 py-4 flex-shrink-0"
+            className="flex items-center justify-between px-4 md:px-8 py-4 shrink-0"
             style={{
               borderBottom: '1px solid var(--border)',
               touchAction: 'none',
@@ -848,7 +845,7 @@ export default function TaskDetailPanel({ task, columns, onClose, onUpdated, onD
         )}
         {/* Header - drag to detach / move */}
         <div
-          className="flex items-center justify-between px-6 py-4 flex-shrink-0 select-none"
+          className="flex items-center justify-between px-6 py-4 shrink-0 select-none"
           style={{ borderBottom: '1px solid var(--border)', cursor: 'grab' }}
           onPointerDown={onHeaderDrag}
         >

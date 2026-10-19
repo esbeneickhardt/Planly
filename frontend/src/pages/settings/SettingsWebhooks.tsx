@@ -86,7 +86,7 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                       onChange={(e) =>
                         setNewEvents((prev) => (e.target.checked ? [...prev, value] : prev.filter((x) => x !== value)))
                       }
-                      className="rounded"
+                      className="rounded-sm"
                     />
                     <span className="text-xs" style={{ color: 'var(--text-2)' }}>
                       {label}
@@ -146,7 +146,7 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                 {revealedSecret}
               </code>
               <button
-                className="btn-secondary text-xs flex-shrink-0"
+                className="btn-secondary text-xs shrink-0"
                 onClick={() => {
                   navigator.clipboard.writeText(revealedSecret);
                   showToast('Copied!', 'success');
@@ -155,7 +155,7 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                 Copy
               </button>
               <button
-                className="text-xs flex-shrink-0"
+                className="text-xs shrink-0"
                 style={{ color: 'var(--text-3)' }}
                 onClick={() => setRevealedSecret(null)}
               >
@@ -179,7 +179,7 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                   style={{ background: 'var(--surface-2)' }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-base flex-shrink-0">{wh.active ? '✅' : '⏸️'}</span>
+                    <span className="text-base shrink-0">{wh.active ? '✅' : '⏸️'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
                         {wh.url}
@@ -190,7 +190,7 @@ export default function SettingsWebhooks({ activeProduct, showToast, confirm }: 
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0 sm:ml-auto">
+                  <div className="flex gap-2 shrink-0 sm:ml-auto">
                     <button
                       className="text-xs px-2.5 py-1 rounded-lg"
                       style={{

@@ -164,10 +164,7 @@ export default function SettingsPage() {
           scrollable row so it can overflow on narrow screens. The full-width divider is desktop-only
           - on mobile the active tab's own short colored underline is enough, and a full-width line
           under it just doubled up and looked dated. */}
-      <div
-        className="flex-shrink-0 overflow-x-auto no-scrollbar md:border-b pt-4"
-        style={{ borderColor: 'var(--border)' }}
-      >
+      <div className="shrink-0 overflow-x-auto no-scrollbar md:border-b pt-4" style={{ borderColor: 'var(--border)' }}>
         <div className="flex justify-center px-6 min-w-max max-w-4xl mx-auto">
           {PAGE_TABS.map(({ key, label, danger }) => (
             <button
@@ -281,7 +278,7 @@ export default function SettingsPage() {
               {PAGE_TABS.map(({ key }) => (
                 <section
                   key={key}
-                  className="w-full flex-shrink-0 overflow-y-auto px-4 py-4"
+                  className="w-full shrink-0 overflow-y-auto px-4 py-4"
                   style={{ scrollSnapAlign: 'start' }}
                 >
                   {visitedTabs.has(key) ? renderTabContent(key) : null}

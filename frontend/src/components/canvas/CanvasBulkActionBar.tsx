@@ -221,7 +221,7 @@ export default function CanvasBulkActionBar({
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
                 <span>{s.label}</span>
               </button>
             ))}
