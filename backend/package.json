@@ -32,7 +32,7 @@
     "nodemailer": "^10.1.2",
     "openid-client": "^6.8.8",
     "otpauth": "^9.5.2",
-    "prisma": "^5.22.0",
+    "prisma": "^7.10.1",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.3",
     "zod": "^4.6.7"
