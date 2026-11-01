@@ -74,7 +74,7 @@ npm run dev
 
 ### Running tests
 
-**`npm test`** (`cd backend && npm test`) always runs `run-tests.sh`, which requires Docker and a running Postgres - there is no database-free path. The script builds a test image from the Alpine `builder` stage of `backend/Dockerfile` (the Prisma engine binary targets Alpine/musl, so tests must run in that container, not on the host), creates a `planly_test` database on the `db` service if it doesn't already exist, applies migrations, and then runs the full `vitest run` suite inside the container:
+**`npm test`** (`cd backend && npm test`) always runs `run-tests.sh`, which requires Docker and a running Postgres - there is no database-free path. The script builds a test image from the Alpine `builder` stage of `backend/Dockerfile`, creates a `planly_test` database on the `db` service if it doesn't already exist, applies migrations, and then runs the full `vitest run` suite inside the container:
 
 ```bash
 cd backend && npm test
