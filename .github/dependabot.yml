@@ -14,6 +14,11 @@ updates:
       dev-dependencies:
         dependency-type: "development"
         update-types: ["minor", "patch"]
+    # TypeScript 7 (the native compiler) waits until typescript-eslint supports it;
+    # its peer range is still <6.1.0. Drop this once that changes.
+    ignore:
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
 
   - package-ecosystem: "npm"
     directory: "/frontend"
@@ -29,6 +34,11 @@ updates:
       dev-dependencies:
         dependency-type: "development"
         update-types: ["minor", "patch"]
+    # TypeScript 7 (the native compiler) waits until typescript-eslint supports it;
+    # its peer range is still <6.1.0. Drop this once that changes.
+    ignore:
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
 
   - package-ecosystem: "docker"
     directory: "/backend"
