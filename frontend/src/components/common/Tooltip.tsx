@@ -15,7 +15,7 @@ interface Props {
 
 export default function Tooltip({ content, children, side = 'top', delay = 350, className }: Props) {
   const [visible, setVisible] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   function show() {
     timer.current = setTimeout(() => setVisible(true), delay);

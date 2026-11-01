@@ -70,11 +70,11 @@ interface Props {
   onReset: () => void;
 
   showFiltersMenu: boolean;
-  filtersMenuRef: RefObject<HTMLDivElement>;
+  filtersMenuRef: RefObject<HTMLDivElement | null>;
   onToggleFiltersMenu: () => void;
 
   showViewMenu: boolean;
-  viewMenuRef: RefObject<HTMLDivElement>;
+  viewMenuRef: RefObject<HTMLDivElement | null>;
   onToggleViewMenu: () => void;
 }
 
