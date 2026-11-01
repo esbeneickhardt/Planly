@@ -22,22 +22,22 @@ interface Props {
   canvasMembers: Member[];
   bulkAssigning: boolean;
 
-  bulkOwnerRef: RefObject<HTMLDivElement>;
+  bulkOwnerRef: RefObject<HTMLDivElement | null>;
   showBulkOwner: boolean;
   setShowBulkOwner: (updater: boolean | ((v: boolean) => boolean)) => void;
   onAssignOwner: (userId: string) => void;
 
-  bulkReviewerRef: RefObject<HTMLDivElement>;
+  bulkReviewerRef: RefObject<HTMLDivElement | null>;
   showBulkReviewer: boolean;
   setShowBulkReviewer: (updater: boolean | ((v: boolean) => boolean)) => void;
   onAssignReviewer: (userId: string) => void;
 
-  bulkStatusRef: RefObject<HTMLDivElement>;
+  bulkStatusRef: RefObject<HTMLDivElement | null>;
   showBulkStatus: boolean;
   setShowBulkStatus: (updater: boolean | ((v: boolean) => boolean)) => void;
   onSetStatus: (status: string) => void;
 
-  bulkColorRef: RefObject<HTMLDivElement>;
+  bulkColorRef: RefObject<HTMLDivElement | null>;
   showBulkColor: boolean;
   setShowBulkColor: (updater: boolean | ((v: boolean) => boolean)) => void;
   bulkColorLegend: Record<string, string>;

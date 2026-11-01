@@ -28,7 +28,7 @@ interface StatusOption {
 interface Props {
   variant: 'fullscreen' | 'panel';
   readOnly: boolean;
-  descEditorRef: RefObject<MarkdownEditorHandle>;
+  descEditorRef: RefObject<MarkdownEditorHandle | null>;
 
   name: string;
   setName: (v: string) => void;

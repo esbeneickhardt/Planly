@@ -39,7 +39,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const AnnouncementsPage = lazy(() => import('./pages/AnnouncementsPage'));
 
 // Redirects unauthenticated visitors to /login; blocks users who must change their password
-function RequireAuth({ children }: { children: JSX.Element }) {
+function RequireAuth({ children }: { children: React.JSX.Element }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
@@ -69,7 +69,7 @@ function PermSpinner() {
 }
 
 // Blocks access to a specific tab unless the user has at least read permission; canManage bypasses all tab checks
-function RequireTab({ tab, children }: { tab: string; children: JSX.Element }) {
+function RequireTab({ tab, children }: { tab: string; children: React.JSX.Element }) {
   const { canRead, canManage, permissionsLoaded } = usePermission();
   if (!permissionsLoaded) return <PermSpinner />;
   if (!canManage && !canRead(tab)) return <Navigate to="/about" replace />;
@@ -77,7 +77,7 @@ function RequireTab({ tab, children }: { tab: string; children: JSX.Element }) {
 }
 
 // Restricts a route to owners and co-owners only (e.g. Settings)
-function RequireManage({ children }: { children: JSX.Element }) {
+function RequireManage({ children }: { children: React.JSX.Element }) {
   const { canManage, permissionsLoaded } = usePermission();
   if (!permissionsLoaded) return <PermSpinner />;
   if (!canManage) return <Navigate to="/about" replace />;
