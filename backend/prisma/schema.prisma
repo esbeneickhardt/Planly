@@ -1,11 +1,11 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
+// The connection URL lives in prisma.config.ts (Prisma 7); the app connects through
+// the pg driver adapter in src/db/client.ts.
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ── Enums ────────────────────────────────────────────────────────────────────
