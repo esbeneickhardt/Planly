@@ -49,8 +49,8 @@ interface Props {
   onReply: (msg: Message) => void;
   onImageClick: (url: string) => void;
   onScrollToReply: (id: string) => void;
-  messageListRef: React.RefObject<HTMLDivElement>;
-  bottomRef: React.RefObject<HTMLDivElement>;
+  messageListRef: React.RefObject<HTMLDivElement | null>;
+  bottomRef: React.RefObject<HTMLDivElement | null>;
   onScroll: () => void;
 }
 

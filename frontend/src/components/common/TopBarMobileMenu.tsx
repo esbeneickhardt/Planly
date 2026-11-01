@@ -2,7 +2,7 @@
  * Mobile navigation overlay - the hamburger menu shown on small screens.
  * TopBar passes pre-filtered nav items so canRead/analyticsEnabled logic stays in one place.
  */
-import { useEffect } from 'react';
+import { useEffect, type JSX } from 'react';
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { CategoriesIcon } from './TopBarIcons';
 import type { Product } from '../../types';
