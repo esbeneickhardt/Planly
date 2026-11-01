@@ -68,8 +68,8 @@ export interface ChatComposeBoxProps {
   onDraftChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onPaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
-  textRef: React.RefObject<HTMLTextAreaElement>;
-  fileRef: React.RefObject<HTMLInputElement>;
+  textRef: React.RefObject<HTMLTextAreaElement | null>;
+  fileRef: React.RefObject<HTMLInputElement | null>;
   uploading: boolean;
   sending: boolean;
   onSend: () => void;
