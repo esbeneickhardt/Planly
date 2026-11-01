@@ -1,7 +1,7 @@
 FROM node:26-alpine AS builder
 WORKDIR /app
 RUN apk upgrade --no-cache && apk add --no-cache openssl
-COPY package*.json ./
+COPY package*.json prisma.config.ts ./
 COPY prisma ./prisma
 RUN npm ci
 COPY . .
@@ -13,7 +13,7 @@ WORKDIR /app
 RUN apk upgrade --no-cache && apk add --no-cache openssl su-exec
 # Run as non-root for defence-in-depth
 RUN addgroup -S planly && adduser -S planly -G planly
-COPY package*.json ./
+COPY package*.json prisma.config.ts ./
 COPY prisma ./prisma
 # prisma (the CLI, invoked directly below rather than via `npx`) is a real dependency so it
 # survives --omit=dev; npm/npx themselves are only needed to run this install, not at runtime,

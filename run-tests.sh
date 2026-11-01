@@ -1,6 +1,6 @@
 #!/bin/sh
 # Run backend integration tests inside Docker.
-# The Prisma engine binary targets Alpine (musl), so tests must run in the Alpine container.
+# Tests run in the backend's Alpine builder image, on the compose network next to the db service.
 #
 # Creates planly_test database (if missing) and applies migrations before running.
 #

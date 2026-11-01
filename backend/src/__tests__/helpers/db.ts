@@ -1,9 +1,10 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { createHash, randomBytes } from 'crypto';
 
 export const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.DATABASE_URL } },
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
   log: [],
 });
 

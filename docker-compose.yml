@@ -201,8 +201,9 @@ services:
   # When enabling:
   #   1. Uncomment the pgbouncer service below.
   #   2. In the backend environment above, change DATABASE_URL to point at PgBouncer:
-  #        DATABASE_URL: postgresql://planly:${DB_PASSWORD}@pgbouncer:5432/planly?pgbouncer=true
-  #      The ?pgbouncer=true flag disables Prisma features incompatible with transaction mode.
+  #        DATABASE_URL: postgresql://planly:${DB_PASSWORD}@pgbouncer:5432/planly
+  #      (No ?pgbouncer=true needed: the app connects through the pg driver adapter, whose
+  #      unnamed prepared statements work in transaction mode.)
   #   3. Add DATABASE_DIRECT_URL so migrations bypass PgBouncer (required - prisma migrate
   #      deploy cannot run through a transaction-mode pooler):
   #        DATABASE_DIRECT_URL: postgresql://planly:${DB_PASSWORD}@db:5432/planly
