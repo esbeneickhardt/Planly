@@ -1,6 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const vendorChunks: Record<string, string[]> = {
+  'vendor-react':    ['react', 'react-dom', 'react-router-dom'],
+  'vendor-reactflow': ['reactflow', '@reactflow'],
+  'vendor-dnd':      ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+  'vendor-misc':     ['react-markdown', 'remark-gfm', 'remark-breaks', 'rehype-highlight'],
+};
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -13,13 +20,15 @@ export default defineConfig({
   },
   build: {
     cssCodeSplit: true,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          'vendor-react':    ['react', 'react-dom', 'react-router-dom'],
-          'vendor-reactflow': ['reactflow'],
-          'vendor-dnd':      ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
-          'vendor-misc':     ['react-markdown', 'remark-gfm', 'remark-breaks', 'rehype-highlight'],
+        // Rolldown (Vite 8) only takes the function form of manualChunks.
+        manualChunks(id) {
+          const [chunk] =
+            Object.entries(vendorChunks).find(([, pkgs]) =>
+              pkgs.some((pkg) => id.includes(`/node_modules/${pkg}/`)),
+            ) ?? [];
+          return chunk;
         },
       },
     },
