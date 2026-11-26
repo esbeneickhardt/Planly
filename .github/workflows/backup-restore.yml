@@ -48,6 +48,11 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      # Prisma 7 no longer generates its client on install
+      - name: Generate the Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
       - name: Apply schema
         working-directory: backend
         run: npx prisma migrate deploy
@@ -84,6 +89,8 @@ jobs:
         working-directory: backend
         run: npx vitest run --reporter=verbose
         env:
+          # the integration tests are skipped without it: point them at the restored database
+          TEST_DATABASE_URL: postgresql://planly:testpass@localhost:5432/planly
           JWT_SECRET: test-jwt-secret-32chars-minimum
           ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
           FRONTEND_ORIGIN: http://localhost:3000
