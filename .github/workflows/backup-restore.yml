@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 3 * * 0' # every Sunday at 03:00 UTC
   workflow_dispatch:
+  # and when the backup procedure or the database schema changes
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backup-restore.yml'
+      - 'backend/prisma/**'
 
 jobs:
   backup-restore:
@@ -30,9 +36,9 @@ jobs:
       DATABASE_URL: postgresql://planly:testpass@localhost:5432/planly
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: 'npm'
@@ -46,25 +52,27 @@ jobs:
         working-directory: backend
         run: npx prisma migrate deploy
 
+      # pg_dump, psql and pg_restore run inside the PostgreSQL 16 container, so their version
+      # always matches the database (and production). The runner's own client tools are newer:
+      # pg_dump 17+ writes "SET transaction_timeout", which PostgreSQL 16 rejects on restore.
       - name: Create pg_dump backup
         run: |
-          PGPASSWORD=testpass pg_dump \
-            -h localhost -U planly -d planly \
-            -Fc -Z 9 -f /tmp/backup.dump
-          echo "Backup size: $(du -sh /tmp/backup.dump | cut -f1)"
+          docker exec ${{ job.services.postgres.id }} \
+            pg_dump -U planly -d planly -Fc -Z 9 -f /tmp/backup.dump
+          docker exec ${{ job.services.postgres.id }} du -h /tmp/backup.dump
 
       - name: Drop and recreate database
         run: |
-          PGPASSWORD=testpass psql -h localhost -U planly -d postgres \
-            -c "DROP DATABASE planly;" \
-            -c "CREATE DATABASE planly OWNER planly;"
+          docker exec ${{ job.services.postgres.id }} \
+            psql -v ON_ERROR_STOP=1 -U planly -d postgres \
+              -c "DROP DATABASE planly;" \
+              -c "CREATE DATABASE planly OWNER planly;"
 
       - name: Restore from backup
         run: |
-          PGPASSWORD=testpass pg_restore \
-            -h localhost -U planly -d planly \
-            --no-owner --no-privileges \
-            /tmp/backup.dump
+          docker exec ${{ job.services.postgres.id }} \
+            pg_restore -U planly -d planly --no-owner --no-privileges --exit-on-error \
+              /tmp/backup.dump
 
       - name: Re-apply schema after restore
         working-directory: backend
